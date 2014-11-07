@@ -54,9 +54,9 @@ mkdir output
 ./scripts/prepare_data.py --vocab_file ./data/train.10k.de.vocab.1000 ./data/valid.3k.de ./output/valid.3k.id.de 
 ./scripts/prepare_data.py --vocab_file ./data/train.10k.de.vocab.1000 ./data/test.3k.de ./output/test.3k.id.de 
 
-(b) Train an LSTM model
+(b) Train a bilingual LSTM model
 export MATLAB=matlab
-./scripts/run.sh ../output/train.10k.id ../output/valid.3k.id ../output/test.3k.id de en ../data/train.10k.en.vocab.1000 ../data/train.10k.de.vocab.1000 ../output 0 100 0.1 5 0.1 128 10 1
+./scripts/run.sh ../output/train.10k.id ../output/valid.3k.id ../output/test.3k.id de en ../data/train.10k.de.vocab.1000 ../data/train.10k.en.vocab.1000 ../output 0 100 0.1 5 0.1 128 10 1
 
 To run directly in Matlab, cd into code/ directory and run:
 trainLSTM('../output/train.10k.id', '../output/valid.3k.id', '../output/test.3k.id', 'de', 'en', '../data/train.10k.de.vocab.1000', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1)
@@ -74,4 +74,12 @@ The output of (d) on CPU should match the content of the file data/sample.output
 
 (f) Run on full data
 trainLSTM('../data/merged_training.40k.id', '../data/tiny_tune.40k.id', '../data/p1r6_dev.40k.id', 'zh', 'en', '../data/merged_training.zh.vocab.40000', '../data/merged_training.en.vocab.40000', '../output', 0, 'logFreq', 1)
+
+(g) Train a monolingual LSTM model
+export MATLAB=matlab
+./scripts/run.sh ../output/train.10k.id ../output/valid.3k.id ../output/test.3k.id "" en "" ../data/train.10k.en.vocab.1000 ../output 0 100 0.1 5 0.1 128 10 1
+
+To run directly in Matlab, cd into code/ directory and run:
+trainLSTM('../output/train.10k.id', '../output/valid.3k.id', '../output/test.3k.id', '', 'en', '', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1)
+
 

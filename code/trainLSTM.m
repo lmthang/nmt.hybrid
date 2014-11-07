@@ -3,6 +3,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
 %
 % Train Long-Short Term Memory (LSTM).
 % Options:
+%   srcLang, srcVocabFile: leave empty to train monolingual models.
 %   baseIndex: of training data. Required to convert them to 1-indexed.
 %
 % Thang Luong @ 2014, <lmthang@stanford.edu>
@@ -23,6 +24,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addRequired(p,'srcVocabFile',@ischar);
   addRequired(p,'tgtVocabFile',@ischar);
   addRequired(p,'outDir',@ischar);
+  addRequired(p,'baseIndex',@isnumeric);
   % optional
   addOptional(p,'lstmSize', 100, @isnumeric);
   addOptional(p,'learningRate', 1.0, @isnumeric);
@@ -36,7 +38,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'isGradCheck', 0, @isnumeric); % set 1 to check the gradient, no need to specify other input arguments as toy data is automatically generated.
   addOptional(p,'isProfile', 0, @isnumeric);
   p.KeepUnmatched = true;
-  parse(p,trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFile,tgtVocabFile,outDir,varargin{:})
+  parse(p,trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFile,tgtVocabFile,outDir,baseIndex,varargin{:})
   params = p.Results;
   
   % clip
@@ -73,8 +75,12 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   end
 
   % bilingual setting
-  if strcmp(params.tgtLang, '') == 0 % not empty, bilingual setting
+  if strcmp(params.srcLang, '') == 0 % not empty, bilingual setting
+    params.isBi = 1;
+    fprintf(2, '## Bilingual setting\n');
+  else
     params.isBi = 0;
+    fprintf(2, '## Monolingual setting\n');
   end
   
   % grad check
@@ -87,20 +93,23 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     params.batchSize = 10;
   else
     % load vocab
-    [srcVocab] = loadVocab(srcVocabFile);
-    [tgtVocab] = loadVocab(tgtVocabFile);
-
-    % add eos
-    srcVocab{end+1} = '<eos>';
+    if params.isBi
+      [srcVocab] = loadVocab(params.srcVocabFile);
+      srcVocab{end+1} = '<eos>';
+      params.srcVocabSize = length(srcVocab);
+    end
+    
+    [tgtVocab] = loadVocab(params.tgtVocabFile);    
     tgtVocab{end+1} = '<eos>';
-    params.srcVocabSize = length(srcVocab); 
     params.tgtVocabSize = length(tgtVocab);
   end
-  srcEos = params.srcVocabSize;
-  tgtEos = params.tgtVocabSize;
+  if params.isBi
+    params.srcEos = params.srcVocabSize;
+  end
+  params.tgtEos = params.tgtVocabSize;
  
   %%% INIT MODEL PARAMETERS %%%
-  [model, params] = init(params, tgtEos);
+  [model, params] = init(params);
   
   % print params
   printParams(params);
@@ -116,11 +125,11 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
 
       srcLen = randi([1, srcTrainMaxLen-1]);
       srcTrainSents{ii} = randi([1, params.srcVocabSize-1], 1, srcLen);
-      srcTrainSents{ii}(end+1) = srcEos;
+      srcTrainSents{ii}(end+1) = params.srcEos;
 
       tgtLen = randi([1, tgtTrainMaxLen-1]);
       tgtTrainSents{ii} = randi([1, params.tgtVocabSize-1], 1, tgtLen); 
-      tgtTrainSents{ii}(end+1) = tgtEos;
+      tgtTrainSents{ii}(end+1) = params.tgtEos;
     end
     
     % prepare data
@@ -134,45 +143,21 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   end
   
   
-  % load data
-  srcTrainFile = sprintf('%s.%s', params.trainPrefix, params.srcLang);
-  srcValidFile = sprintf('%s.%s', params.validPrefix, params.srcLang);
-  srcTestFile = sprintf('%s.%s', params.testPrefix, params.srcLang);
+  %% load valid & test data
+  [inputValid, inputValidMask, tgtValidOutput, tgtValidMask, srcValidMaxLen, tgtValidMaxLen, numValidWords] = loadPrepareData(params, params.validPrefix, srcVocab, tgtVocab);
+  [inputTest, inputTestMask, tgtTestOutput, tgtTestMask, srcTestMaxLen, tgtTestMaxLen, numTestWords] = loadPrepareData(params, params.testPrefix, srcVocab, tgtVocab);
   
+  %% load train data
   tgtTrainFile = sprintf('%s.%s', params.trainPrefix, params.tgtLang);
-  tgtValidFile = sprintf('%s.%s', params.validPrefix, params.tgtLang);
-  tgtTestFile = sprintf('%s.%s', params.testPrefix, params.tgtLang);
- 
-  %% prepare data once for valid and test %%
-  % valid
-  fprintf(2, '# Load validate data srcFile %s and tgtFile %s ... ', srcValidFile, tgtValidFile);
-  %[srcValidSents, tgtValidSents] = loadParallelData(srcValidFile, tgtValidFile, srcEos, tgtEos, -1, baseIndex);
-  [srcValidSents] = loadMonoData(srcValidFile, srcEos, -1, baseIndex);
-  [tgtValidSents] = loadMonoData(tgtValidFile, tgtEos, -1, baseIndex);
-  
-  [inputValid, inputValidMask, tgtValidOutput, tgtValidMask, srcValidMaxLen, tgtValidMaxLen] = prepare_data(srcValidSents, tgtValidSents, params);
-  numValidWords = sum(sum(tgtValidMask));
-  fprintf(2, 'numWords=%d\n', numValidWords);
-  printSent(srcValidSents{1}, srcVocab, '  src:');
-  printSent(tgtValidSents{1}, tgtVocab, '  tgt:');
-  % test
-  fprintf(2, '# Load test data srcFile %s and tgtFile %s ... ', srcTestFile, tgtTestFile);
-  %[srcTestSents, tgtTestSents] = loadParallelData(srcTestFile, tgtTestFile, srcEos, tgtEos, -1, baseIndex);
-  [srcTestSents] = loadMonoData(srcTestFile, srcEos, -1, baseIndex);
-  [tgtTestSents] = loadMonoData(tgtTestFile, tgtEos, -1, baseIndex);
-  
-  [inputTest, inputTestMask, tgtTestOutput, tgtTestMask, srcTestMaxLen, tgtTestMaxLen] = prepare_data(srcTestSents, tgtTestSents, params);
-  numTestWords = sum(sum(tgtTestMask));
-  fprintf(2, 'numWords=%d\n', numTestWords);
-  printSent(srcTestSents{1}, srcVocab, '  src:');
-  printSent(tgtTestSents{1}, tgtVocab, '  tgt:');
-  
-  fprintf(2, '# Load train using srcFile "%s" and tgtFile "%s"\n', srcTrainFile, tgtTrainFile);
+  if params.isBi
+    srcTrainFile = sprintf('%s.%s', params.trainPrefix, params.srcLang);
+    fprintf(2, '# Load train using srcFile "%s" and tgtFile "%s"\n', srcTrainFile, tgtTrainFile);
+  end
   chunkSize = params.batchSize*100;
   srcID = fopen(srcTrainFile, 'r');
   tgtID = fopen(tgtTrainFile, 'r');
-  [srcTrainSents, numTrainSents] = loadBatchData(srcID, baseIndex, chunkSize, srcEos);
-  [tgtTrainSents] = loadBatchData(tgtID, baseIndex, chunkSize, tgtEos);
+  [srcTrainSents, numTrainSents] = loadBatchData(srcID, params.baseIndex, chunkSize, params.srcEos);
+  [tgtTrainSents] = loadBatchData(tgtID, params.baseIndex, chunkSize, params.tgtEos);
   printSent(srcTrainSents{1}, srcVocab, '  src:');
   printSent(tgtTrainSents{1}, tgtVocab, '  tgt:');
 
@@ -280,8 +265,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     end % end for batchId
 
     % read more data
-    [srcTrainSents, numTrainSents] = loadBatchData(srcID, baseIndex, chunkSize, srcEos);
-    [tgtTrainSents] = loadBatchData(tgtID, baseIndex, chunkSize, tgtEos);
+    [srcTrainSents, numTrainSents] = loadBatchData(srcID, params.baseIndex, chunkSize, params.srcEos);
+    [tgtTrainSents] = loadBatchData(tgtID, params.baseIndex, chunkSize, params.tgtEos);
     if numTrainSents == 0 % eof, end of an epoch
       fclose(tgtID);
       fclose(srcID);
@@ -304,14 +289,42 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         % reopen file
         srcID = fopen(srcTrainFile, 'r');
         tgtID = fopen(tgtTrainFile, 'r');
-        [srcTrainSents, numTrainSents] = loadBatchData(srcID, baseIndex, chunkSize, srcEos);
-        [tgtTrainSents] = loadBatchData(tgtID, baseIndex, chunkSize, tgtEos);
+        [srcTrainSents, numTrainSents] = loadBatchData(srcID, params.baseIndex, chunkSize, params.srcEos);
+        [tgtTrainSents] = loadBatchData(tgtID, params.baseIndex, chunkSize, params.tgtEos);
       else % done training
         fprintf(2, '# Done training, %s\n', datestr(now));
         break; 
       end
     end
   end % end for while(1)
+end
+
+function [inputValid, inputValidMask, tgtValidOutput, tgtValidMask, srcValidMaxLen, tgtValidMaxLen, numValidWords] = loadPrepareData(params, ...
+    prefix, srcVocab, tgtVocab)
+  %% load valid & test data
+  tgtFile = sprintf('%s.%s', prefix, params.tgtLang);
+  if params.isBi
+    srcFile = sprintf('%s.%s', prefix, params.srcLang);
+    fprintf(2, '# Load valid data srcFile %s and tgtFile %s ... ', srcFile, tgtFile);
+    
+    % src
+    [srcSents] = loadMonoData(srcFile, params.srcEos, -1, params.baseIndex);
+    printSent(srcSents{1}, srcVocab, '  src:');
+    
+    % tgt
+    [tgtSents] = loadMonoData(tgtFile, params.tgtEos, -1, params.baseIndex);
+    printSent(tgtSents{1}, tgtVocab, '  tgt:');
+    
+    [inputValid, inputValidMask, tgtValidOutput, tgtValidMask, srcValidMaxLen, tgtValidMaxLen] = prepare_data(srcSents, tgtSents, params);
+  else
+    [tgtSents] = loadMonoData(tgtFile, tgtEos, -1, params.baseIndex);
+    printSent(tgtSents{1}, tgtVocab, '  tgt:');
+  
+    fprintf(2, '# Load valid data tgtFile %s ... ', tgtFile);
+    [inputValid, inputValidMask, tgtValidOutput, tgtValidMask, srcValidMaxLen, tgtValidMaxLen] = prepare_mono_data(tgtSents, params);
+  end
+  numValidWords = sum(sum(tgtValidMask));
+  fprintf(2, 'numWords=%d\n', numValidWords);
 end
 
 function [sents, numSents] = loadMonoData(file, eos, numSents, baseIndex)
@@ -330,23 +343,29 @@ function printSent(sent, vocab, prefix)
 end
 
 %% Init model parameters %%
-function [model, params] = init(params, tgt_eos)
+function [model, params] = init(params)
   % special zero words at the end of each vocab
   % in which the emb is all zero and we will never back prob
   % stack vocab:  tgt-vocab + src-vocab
-  params.tgtZeroId = tgt_eos; 
-  params.srcVocabSize = params.srcVocabSize + 1;
-  params.srcZeroId = params.srcVocabSize + params.tgtVocabSize;
-  params.inVocabSize = params.tgtVocabSize + params.srcVocabSize;
+  params.tgtZeroId = params.tgtEos; 
+  if params.isBi
+    params.srcVocabSize = params.srcVocabSize + 1;
+    params.srcZeroId = params.srcVocabSize + params.tgtVocabSize;
+    params.inVocabSize = params.tgtVocabSize + params.srcVocabSize;
+    model.W_src = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU);
+  else
+    params.inVocabSize = params.tgtVocabSize;
+  end
   params.outVocabSize = params.tgtVocabSize;
   
-  model.W_src = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU);
   model.W_tgt = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU);
   model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize]); % no GPU support for embedding matrix
   model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.lstmSize], params.isGPU); % softmax params
   
   % set parameters correspond to zero words
-  model.W_emb(:, params.srcZeroId) = zeros(params.lstmSize, 1);
+  if params.isBi
+    model.W_emb(:, params.srcZeroId) = zeros(params.lstmSize, 1);
+  end
   model.W_emb(:, params.tgtZeroId) = zeros(params.lstmSize, 1);
 end
 
