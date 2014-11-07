@@ -64,6 +64,7 @@ trainLSTM('../output/train.10k.id', '../output/valid.3k.id', '../output/test.3k.
 (c) Grad check
 trainLSTM('', '', '', '', '', '', '', '', 0, 'isGradCheck', 1)
 The output should match content of the file data/gradCheck.output
+Note: the grad check works on CPU. For GPU, you will need to change this line "dataType = 'single';" into 'double' and remove the single conversion in the functions clipForward() and clipBackward().
 
 (d) Profiling
 trainLSTM('../output/train.10k.id', '../output/valid.3k.id', '../output/test.3k.id', 'de', 'en', '../data/train.10k.de.vocab.1000', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 10, 'isProfile', 1)

@@ -23,7 +23,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addRequired(p,'srcVocabFile',@ischar);
   addRequired(p,'tgtVocabFile',@ischar);
   addRequired(p,'outDir',@ischar);
-  addRequired(p,'baseIndex',@isnumeric);
   % optional
   addOptional(p,'lstmSize', 100, @isnumeric);
   addOptional(p,'learningRate', 1.0, @isnumeric);
@@ -37,7 +36,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'isGradCheck', 0, @isnumeric); % set 1 to check the gradient, no need to specify other input arguments as toy data is automatically generated.
   addOptional(p,'isProfile', 0, @isnumeric);
   p.KeepUnmatched = true;
-  parse(p,trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFile,tgtVocabFile,outDir,baseIndex,varargin{:})
+  parse(p,trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFile,tgtVocabFile,outDir,varargin{:})
   params = p.Results;
   
   % clip
@@ -75,6 +74,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
 
   % grad check
   if params.isGradCheck
+    %params.isGPU = 0;
     params.initRange = 0.1;
     params.lstmSize = 2;
     params.srcVocabSize = 3; 
@@ -106,8 +106,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
  
   %%% INIT MODEL PARAMETERS %%%
   [model, params] = init(params, tgtEos);
-  % preallocate memory
-  [trainVar, trainGrad] = initVarGrad(params, params.batchSize);
   
   % print params
   printParams(params);
@@ -135,7 +133,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     
     % check grad
     tic
-    gradCheck(model, trainVar, trainGrad, inputTrain, inputTrainMask, tgtTrainOutput, tgtTrainMask, srcTrainMaxLen, tgtTrainMaxLen, params);
+    gradCheck(model, inputTrain, inputTrainMask, tgtTrainOutput, tgtTrainMask, srcTrainMaxLen, tgtTrainMaxLen, params);
     toc 
     return;
   end
@@ -143,31 +141,27 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   %% prepare data once for valid and test %%
   % valid
   fprintf(2, '# Load validate data srcFile %s and tgtFile %s ... ', srcValidFile, tgtValidFile);
-  [srcValidSents, tgtValidSents, numValidSents] = loadParallelData(srcValidFile, tgtValidFile, srcEos, tgtEos, -1, params.baseIndex);
+  [srcValidSents, tgtValidSents] = loadParallelData(srcValidFile, tgtValidFile, srcEos, tgtEos, -1, baseIndex);
   [inputValid, inputValidMask, tgtValidOutput, tgtValidMask, srcValidMaxLen, tgtValidMaxLen] = prepare_data(srcValidSents, tgtValidSents, params);
   numValidWords = sum(sum(tgtValidMask));
-  fprintf(2, 'numWords=%d, numSents=%d\n', numValidWords, numValidSents);
+  fprintf(2, 'numWords=%d\n', numValidWords);
   printSent(srcValidSents{1}, srcVocab, '  src:');
   printSent(tgtValidSents{1}, tgtVocab, '  tgt:');
   % test
   fprintf(2, '# Load test data srcFile %s and tgtFile %s ... ', srcTestFile, tgtTestFile);
-  [srcTestSents, tgtTestSents, numTestSents] = loadParallelData(srcTestFile, tgtTestFile, srcEos, tgtEos, -1, params.baseIndex);
+  [srcTestSents, tgtTestSents] = loadParallelData(srcTestFile, tgtTestFile, srcEos, tgtEos, -1, baseIndex);
   [inputTest, inputTestMask, tgtTestOutput, tgtTestMask, srcTestMaxLen, tgtTestMaxLen] = prepare_data(srcTestSents, tgtTestSents, params);
   numTestWords = sum(sum(tgtTestMask));
-  fprintf(2, 'numWords=%d, numSents=%d\n', numTestWords, numTestSents);
+  fprintf(2, 'numWords=%d\n', numTestWords);
   printSent(srcTestSents{1}, srcVocab, '  src:');
   printSent(tgtTestSents{1}, tgtVocab, '  tgt:');
-  % preallocate memory
-  [validVar, validGrad] = initVarGrad(params, numValidSents);
-  [testVar, testGrad] = initVarGrad(params, numTestSents);
   
   fprintf(2, '# Load train using srcFile "%s" and tgtFile "%s"\n', srcTrainFile, tgtTrainFile);
   chunkSize = params.batchSize*100;
   srcID = fopen(srcTrainFile, 'r');
   tgtID = fopen(tgtTrainFile, 'r');
-  [srcTrainSents, numTrainSents] = loadBatchData(srcID, params.baseIndex, chunkSize, srcEos);
-  [tgtTrainSents] = loadBatchData(tgtID, params.baseIndex, chunkSize, tgtEos);
-  %assert(numTrainSents == chunkSize);
+  [srcTrainSents, numTrainSents] = loadBatchData(srcID, baseIndex, chunkSize, srcEos);
+  [tgtTrainSents] = loadBatchData(tgtID, baseIndex, chunkSize, tgtEos);
   printSent(srcTrainSents{1}, srcVocab, '  src:');
   printSent(tgtTrainSents{1}, tgtVocab, '  tgt:');
 
@@ -189,11 +183,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   startTime = clock;
   fprintf(2, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
   params.epochBatchCount = 0;
-  
   while(1)
-    %assert(numTrainSents == chunkSize);
+    assert(numTrainSents>0);
     numBatches = floor((numTrainSents-1)/params.batchSize) + 1;
-    %assert(numTrainSents == numBatches*params.batchSize);
     if params.epoch==1
       params.epochBatchCount = params.epochBatchCount + numBatches;
     end
@@ -215,7 +207,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       end
       
       % core part
-      [cost, grad] = lstmCostGrad(model, trainVar, trainGrad, inputTrain, inputTrainMask, tgtTrainOutput, tgtTrainMask, srcTrainMaxLen, tgtTrainMaxLen, params, 0);
+      [cost, grad] = lstmCostGrad(model, inputTrain, inputTrainMask, tgtTrainOutput, tgtTrainMask, srcTrainMaxLen, tgtTrainMaxLen, params, 0);
       if isnan(cost) || isinf(cost) %~isempty(find(isnan(log_probs), 1))
         fprintf(2, 'epoch=%d, iter=%d, nan/inf cost=%g\n', params.epoch, params.iter, cost);
         continue;
@@ -255,8 +247,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     
         % eval
         if mod(params.iter, evalFreq) == 0
-          costValid = lstmCostGrad(model, validVar, validGrad, inputValid, inputValidMask, tgtValidOutput, tgtValidMask, srcValidMaxLen, tgtValidMaxLen, params, 1);
-          costTest = lstmCostGrad(model, testVar, testGrad, inputTest, inputTestMask, tgtTestOutput, tgtTestMask, srcTestMaxLen, tgtTestMaxLen, params, 1);
+          costValid = lstmCostGrad(model, inputValid, inputValidMask, tgtValidOutput, tgtValidMask, srcValidMaxLen, tgtValidMaxLen, params, 1);
+          costTest = lstmCostGrad(model, inputTest, inputTestMask, tgtTestOutput, tgtTestMask, srcTestMaxLen, tgtTestMaxLen, params, 1);
           costValid = costValid/numValidWords;
           costTest = costTest/numTestWords;
           fprintf(2, '# eval %.2f, %d, %d, %.2fK, costTrain=%g, costValid=%g, costTest=%g, %.2fs, %s\n', exp(costTest), params.epoch, params.iter, totalWords*0.001/timeElapsed, costTrain, costValid, costTest, datestr(now));
@@ -277,9 +269,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     end % end for batchId
 
     % read more data
-    [srcTrainSents, numTrainSents] = loadBatchData(srcID, params.baseIndex, chunkSize, srcEos);
-    [tgtTrainSents] = loadBatchData(tgtID, params.baseIndex, chunkSize, tgtEos);
-    if numTrainSents < chunkSize % eof, end of an epoch
+    [srcTrainSents, numTrainSents] = loadBatchData(srcID, baseIndex, chunkSize, srcEos);
+    [tgtTrainSents] = loadBatchData(tgtID, baseIndex, chunkSize, tgtEos);
+    if numTrainSents == 0 % eof, end of an epoch
       fclose(tgtID);
       fclose(srcID);
       if params.epoch==1
@@ -301,8 +293,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         % reopen file
         srcID = fopen(srcTrainFile, 'r');
         tgtID = fopen(tgtTrainFile, 'r');
-        [srcTrainSents, numTrainSents] = loadBatchData(srcID, params.baseIndex, chunkSize, srcEos);
-        [tgtTrainSents] = loadBatchData(tgtID, params.baseIndex, chunkSize, tgtEos);
+        [srcTrainSents, numTrainSents] = loadBatchData(srcID, baseIndex, chunkSize, srcEos);
+        [tgtTrainSents] = loadBatchData(tgtID, baseIndex, chunkSize, tgtEos);
       else % done training
         fprintf(2, '# Done training, %s\n', datestr(now));
         break; 
@@ -351,50 +343,6 @@ function [model, params] = init(params, tgt_eos)
   model.W_emb(:, params.tgtZeroId) = zeros(params.lstmSize, 1);
 end
 
-function [var, grad] = initVarGrad(params, curBatchSize)
-    if params.isGPU % declare intermediate variables on GPU
-    % forward
-    var.x_t = zeros([params.lstmSize, curBatchSize], dataType, 'gpuArray');
-    var.h_t = zeros([params.lstmSize, curBatchSize], dataType, 'gpuArray');
-    var.c_t = zeros([params.lstmSize, curBatchSize], dataType, 'gpuArray');
-    var.ifoa_linear = zeros([4*params.lstmSize, curBatchSize], dataType, 'gpuArray');
-    var.ifo_gate = zeros([3*params.lstmSize, curBatchSize], dataType, 'gpuArray');
-
-    % backprop
-    var.dh = zeros(params.lstmSize, curBatchSize, dataType, 'gpuArray');
-    var.dc = zeros(params.lstmSize, curBatchSize, dataType, 'gpuArray');
-    var.di = zeros(params.lstmSize, curBatchSize, dataType, 'gpuArray');
-    var.df = zeros(params.lstmSize, curBatchSize, dataType, 'gpuArray');
-    var.do = zeros(params.lstmSize, curBatchSize, dataType, 'gpuArray');
-    var.da = zeros(params.lstmSize, curBatchSize, dataType, 'gpuArray');
-    
-    % grad
-    grad.W_soft = zeros(params.outVocabSize, params.lstmSize, dataType, 'gpuArray');
-    grad.W_src = zeros(4*params.lstmSize, 2*params.lstmSize, dataType, 'gpuArray');
-    grad.W_tgt = zeros(4*params.lstmSize, 2*params.lstmSize, dataType, 'gpuArray');
-  else
-    % forward
-    var.x_t = zeros([params.lstmSize, curBatchSize]);
-    var.h_t = zeros([params.lstmSize, curBatchSize]);
-    var.c_t = zeros([params.lstmSize, curBatchSize]);
-    var.ifoa_linear = zeros([4*params.lstmSize, curBatchSize]);
-    var.ifo_gate = zeros([3*params.lstmSize, curBatchSize]);
-    
-    % backprob intermediate
-    var.dh = zeros(params.lstmSize, curBatchSize);
-    var.dc = zeros(params.lstmSize, curBatchSize);
-    var.di = zeros(params.lstmSize, curBatchSize);
-    var.df = zeros(params.lstmSize, curBatchSize);
-    var.do = zeros(params.lstmSize, curBatchSize);
-    var.da = zeros(params.lstmSize, curBatchSize);
-    
-    % grad 
-    grad.W_soft = zeros(params.outVocabSize, params.lstmSize);
-    grad.W_src = zeros(4*params.lstmSize, 2*params.lstmSize);
-    grad.W_tgt = zeros(4*params.lstmSize, 2*params.lstmSize);
-    end
-end
-
 %% Prepare data %%
 %  organize data into matrix format and produce masks, add tgtVocabSize to srcSents:
 %   input:      numSents * (srcMaxLen+tgtMaxLen-1)
@@ -423,11 +371,11 @@ function [input, inputMask, tgtOutput, tgtMask, srcMaxLen, tgtMaxLen] = prepare_
 end
 
 %% Check gradients %%
-function gradCheck(model, trainVar, trainGrad, input, inputMask, tgtOutput, tgtMask, srcMaxLen, tgtMaxLen, params)
+function gradCheck(model, input, inputMask, tgtOutput, tgtMask, srcMaxLen, tgtMaxLen, params)
   [theta, decodeInfo] = param2stack(model.W_src, model.W_tgt, model.W_soft, model.W_emb);
   num_params = length(theta);
   fprintf(2, '# Num params=%d\n', num_params);
-  [totalCost, grad] = lstmCostGrad(model, trainVar, trainGrad, input, inputMask, tgtOutput, tgtMask, srcMaxLen, tgtMaxLen, params, 0);
+  [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tgtMask, srcMaxLen, tgtMaxLen, params, 0);
   
   theoretical_grad =  param2stack(grad.W_src, grad.W_tgt, grad.W_soft, full(grad.W_emb));
   empirical_grad = zeros(num_params, 1);
@@ -438,7 +386,7 @@ function gradCheck(model, trainVar, trainGrad, input, inputMask, tgtOutput, tgtM
     theta_new = theta;
     theta_new(i) = theta_new(i) + delta;
     [model_new.W_src, model_new.W_tgt, model_new.W_soft, model_new.W_emb] = stack2param(theta_new, decodeInfo);
-    totalCost_new = lstmCostGrad(model_new, trainVar, trainGrad, input, inputMask, tgtOutput, tgtMask, srcMaxLen, tgtMaxLen, params, 0);
+    totalCost_new = lstmCostGrad(model_new, input, inputMask, tgtOutput, tgtMask, srcMaxLen, tgtMaxLen, params, 0);
     empirical_grad(i) = (totalCost_new-totalCost)/delta;
     abs_diff = abs_diff + abs(empirical_grad(i)-theoretical_grad(i));
     local_abs_diff = local_abs_diff + abs(empirical_grad(i)-theoretical_grad(i));
