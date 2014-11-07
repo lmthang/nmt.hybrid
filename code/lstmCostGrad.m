@@ -8,7 +8,8 @@ function [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tg
 %
 %%%
   
-  dataType = 'single'; % Note: use double precision for grad check
+  %dataType = 'double'; % Note: use double precision for grad check
+  dataType = 'single';
 
   %%%%%%%%%%%%%%%%%%%%
   %%% FORWARD PASS %%%
@@ -54,7 +55,6 @@ function [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tg
       W = model.W_tgt;
     else
       W = model.W_src;
-    
     end
     
     %% input, forget, output gates and input signals before applying non-linear functions
@@ -63,30 +63,28 @@ function [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tg
     %% cell
     % GPU note: the below non-linear functions are fast, so no need to use arrayfun
     ifo_gate = params.nonlinear_gate_f(ifoa_linear(1:3*params.lstmSize, :));
-    a_signal = params.nonlinear_f(ifoa_linear(3*params.lstmSize+1:4*params.lstmSize, :)); % note input uses a different activation function
-    c_t = ifo_gate(params.lstmSize+1:2*params.lstmSize, :).*c_t + ifo_gate(1:params.lstmSize, :).*a_signal; % c_t = f_t * c_{t-1} + i_t * a_t
+    lstm{t}.i_gate = ifo_gate(1:params.lstmSize, :);
+    lstm{t}.f_gate = ifo_gate(params.lstmSize+1:2*params.lstmSize, :);
+    lstm{t}.o_gate = ifo_gate(2*params.lstmSize+1:3*params.lstmSize, :);
+    lstm{t}.a_signal = params.nonlinear_f(ifoa_linear(3*params.lstmSize+1:4*params.lstmSize, :)); % note input uses a different activation function
+    c_t = lstm{t}.f_gate.*c_t + lstm{t}.i_gate.*lstm{t}.a_signal; % c_t = f_t * c_{t-1} + i_t * a_t
     
     %% hidden
-    f_c_t = params.nonlinear_f(c_t);
-    h_t = ifo_gate(2*params.lstmSize+1:3*params.lstmSize, :).*f_c_t; % h_t = o_t * g(c_t)
+    lstm{t}.f_c_t = params.nonlinear_f(c_t);
+    h_t = lstm{t}.o_gate.*lstm{t}.f_c_t; % h_t = o_t * g(c_t)
     
     % clip
-    %if params.isGPU
-    %  c_t = arrayfun(@clipForward, c_t);
-    %  h_t = arrayfun(@clipForward, h_t);
-    %else
-    %  c_t(c_t>params.clipForward) = params.clipForward; c_t(c_t<-params.clipForward) = -params.clipForward; % clip: keep memory small
-    %  h_t(h_t>params.clipForward) = params.clipForward; h_t(h_t<-params.clipForward) = -params.clipForward; % clip: keep hidden state small
-    %end
+    if params.isGPU
+     c_t = arrayfun(@clipForward, c_t);
+     h_t = arrayfun(@clipForward, h_t);
+    else
+     c_t(c_t>params.clipForward) = params.clipForward; c_t(c_t<-params.clipForward) = -params.clipForward; % clip: keep memory small
+     h_t(h_t>params.clipForward) = params.clipForward; h_t(h_t<-params.clipForward) = -params.clipForward; % clip: keep hidden state small
+    end
     
     %% save state
     lstm{t}.c_t = c_t;
     lstm{t}.h_t = h_t;
-    lstm{t}.i_gate = ifo_gate(1:params.lstmSize, :);
-    lstm{t}.f_gate = ifo_gate(params.lstmSize+1:2*params.lstmSize, :);
-    lstm{t}.o_gate = ifo_gate(2*params.lstmSize+1:3*params.lstmSize, :);
-    lstm{t}.a_signal = a_signal;
-    lstm{t}.f_c_t = f_c_t;
     
     if (t>=srcMaxLen) % predict tgtOutput[t-srcMaxLen+1]
       t_pos = t-srcMaxLen+1;
@@ -162,7 +160,11 @@ function [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tg
     x_t = input_embs(:, ((t-1)*curBatchSize+1):t*curBatchSize);
     if (t>=srcMaxLen) % grad tgt
       W = model.W_tgt;
-      grad.W_tgt = grad.W_tgt + [di; df; do; da]*[x_t; lstm{t-1}.h_t]';
+      if t==1
+        grad.W_tgt = grad.W_tgt + [di; df; do; da]*[x_t; zeros(params.lstmSize, curBatchSize)]';
+      else
+        grad.W_tgt = grad.W_tgt + [di; df; do; da]*[x_t; lstm{t-1}.h_t]';
+      end
     else % grad src
       W = model.W_src;
       if t==1
@@ -177,13 +179,13 @@ function [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tg
     dc = lstm{t}.f_gate.*dc;
     
     % clip hidden/cell derivatives
-    %if params.isGPU
-    %  dh = arrayfun(@clipBackward, dh);
-    %  dc = arrayfun(@clipBackward, dc);
-    %else
-    %  dh(dh>params.clipBackward) = params.clipBackward; dh(dh<-params.clipBackward) = -params.clipBackward;
-    %  dc(dc>params.clipBackward) = params.clipBackward; dc(dc<-params.clipBackward) = -params.clipBackward;
-    %end
+    if params.isGPU
+     dh = arrayfun(@clipBackward, dh);
+     dc = arrayfun(@clipBackward, dc);
+    else
+     dh(dh>params.clipBackward) = params.clipBackward; dh(dh<-params.clipBackward) = -params.clipBackward;
+     dc(dc>params.clipBackward) = params.clipBackward; dc(dc<-params.clipBackward) = -params.clipBackward;
+    end
     
     % update embeddings
     embMask = inputMask(:, t);
