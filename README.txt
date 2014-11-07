@@ -63,12 +63,15 @@ trainLSTM('../output/train.10k.id', '../output/valid.3k.id', '../output/test.3k.
 
 (c) Grad check
 trainLSTM('', '', '', '', '', '', '', '', 0, 'isGradCheck', 1)
-The output should match content of the file data/gradCheck.output
 Note: the grad check works on CPU. For GPU, you will need to change this line "dataType = 'single';" into 'double' and remove the single conversion in the functions clipForward() and clipBackward().
 
 (d) Profiling
-trainLSTM('../output/train.10k.id', '../output/valid.3k.id', '../output/test.3k.id', 'de', 'en', '../data/train.10k.de.vocab.1000', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 10, 'isProfile', 1)
+trainLSTM('../output/train.10k.id', '../output/valid.3k.id', '../output/test.3k.id', 'de', 'en', '../data/train.10k.de.vocab.1000', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1, 'isProfile', 1)
 
-(e) Run on full data
+(e) Compare results
+The output of (c) on CPU should match content of the file data/gradCheck.output.
+The output of (d) on CPU should match the content of the file data/sample.output.
+
+(f) Run on full data
 trainLSTM('../data/merged_training.40k.id', '../data/tiny_tune.40k.id', '../data/p1r6_dev.40k.id', 'zh', 'en', '../data/merged_training.zh.vocab.40000', '../data/merged_training.en.vocab.40000', '../output', 0, 'logFreq', 1)
 

@@ -72,6 +72,11 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     RandStream.setGlobalStream(s);
   end
 
+  % bilingual setting
+  if strcmp(params.tgtLang, '') == 0 % not empty, bilingual setting
+    params.isBi = 0;
+  end
+  
   % grad check
   if params.isGradCheck
     %params.isGPU = 0;
@@ -82,9 +87,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     params.batchSize = 10;
   else
     % load vocab
-    %srcVocabFile = sprintf('%s.%s.words', params.trainPrefix, params.srcLang);
     [srcVocab] = loadVocab(srcVocabFile);
-    %tgtVocabFile = sprintf('%s.%s.words', params.trainPrefix, params.tgtLang);
     [tgtVocab] = loadVocab(tgtVocabFile);
 
     % add eos
@@ -95,14 +98,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   end
   srcEos = params.srcVocabSize;
   tgtEos = params.tgtVocabSize;
- 
-  % load data
-  srcTrainFile = sprintf('%s.%s', params.trainPrefix, params.srcLang);
-  tgtTrainFile = sprintf('%s.%s', params.trainPrefix, params.tgtLang);
-  srcValidFile = sprintf('%s.%s', params.validPrefix, params.srcLang);
-  tgtValidFile = sprintf('%s.%s', params.validPrefix, params.tgtLang);
-  srcTestFile = sprintf('%s.%s', params.testPrefix, params.srcLang);
-  tgtTestFile = sprintf('%s.%s', params.testPrefix, params.tgtLang);
  
   %%% INIT MODEL PARAMETERS %%%
   [model, params] = init(params, tgtEos);
@@ -138,10 +133,23 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     return;
   end
   
+  
+  % load data
+  srcTrainFile = sprintf('%s.%s', params.trainPrefix, params.srcLang);
+  srcValidFile = sprintf('%s.%s', params.validPrefix, params.srcLang);
+  srcTestFile = sprintf('%s.%s', params.testPrefix, params.srcLang);
+  
+  tgtTrainFile = sprintf('%s.%s', params.trainPrefix, params.tgtLang);
+  tgtValidFile = sprintf('%s.%s', params.validPrefix, params.tgtLang);
+  tgtTestFile = sprintf('%s.%s', params.testPrefix, params.tgtLang);
+ 
   %% prepare data once for valid and test %%
   % valid
   fprintf(2, '# Load validate data srcFile %s and tgtFile %s ... ', srcValidFile, tgtValidFile);
-  [srcValidSents, tgtValidSents] = loadParallelData(srcValidFile, tgtValidFile, srcEos, tgtEos, -1, baseIndex);
+  %[srcValidSents, tgtValidSents] = loadParallelData(srcValidFile, tgtValidFile, srcEos, tgtEos, -1, baseIndex);
+  [srcValidSents] = loadMonoData(srcValidFile, srcEos, -1, baseIndex);
+  [tgtValidSents] = loadMonoData(tgtValidFile, tgtEos, -1, baseIndex);
+  
   [inputValid, inputValidMask, tgtValidOutput, tgtValidMask, srcValidMaxLen, tgtValidMaxLen] = prepare_data(srcValidSents, tgtValidSents, params);
   numValidWords = sum(sum(tgtValidMask));
   fprintf(2, 'numWords=%d\n', numValidWords);
@@ -149,7 +157,10 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   printSent(tgtValidSents{1}, tgtVocab, '  tgt:');
   % test
   fprintf(2, '# Load test data srcFile %s and tgtFile %s ... ', srcTestFile, tgtTestFile);
-  [srcTestSents, tgtTestSents] = loadParallelData(srcTestFile, tgtTestFile, srcEos, tgtEos, -1, baseIndex);
+  %[srcTestSents, tgtTestSents] = loadParallelData(srcTestFile, tgtTestFile, srcEos, tgtEos, -1, baseIndex);
+  [srcTestSents] = loadMonoData(srcTestFile, srcEos, -1, baseIndex);
+  [tgtTestSents] = loadMonoData(tgtTestFile, tgtEos, -1, baseIndex);
+  
   [inputTest, inputTestMask, tgtTestOutput, tgtTestMask, srcTestMaxLen, tgtTestMaxLen] = prepare_data(srcTestSents, tgtTestSents, params);
   numTestWords = sum(sum(tgtTestMask));
   fprintf(2, 'numWords=%d\n', numTestWords);
@@ -235,18 +246,18 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         timeElapsed = etime(endTime, startTime);
         costTrain = totalCost/totalWords;
         fprintf(2, 'epoch=%d, iter=%d, wps=%.2fK, cost=%g, gradNorm=%.2f, srcMaxLen=%d, tgtMaxLen=%d, %.2fs, %s\n', params.epoch, params.iter, totalWords*0.001/timeElapsed, costTrain, gradNorm, srcTrainMaxLen, tgtTrainMaxLen, timeElapsed, datestr(now));
-            
-        if params.isProfile
-          if ismac
-            profile viewer    
-          else
-            profsave(profile('info'), 'profile_results');
-          end
-          return;
-        end
     
         % eval
-        if mod(params.iter, evalFreq) == 0
+        if mod(params.iter, evalFreq) == 0    
+          if params.isProfile
+            if ismac
+              profile viewer    
+            else
+              profsave(profile('info'), 'profile_results');
+            end
+            return;
+          end
+          
           costValid = lstmCostGrad(model, inputValid, inputValidMask, tgtValidOutput, tgtValidMask, srcValidMaxLen, tgtValidMaxLen, params, 1);
           costTest = lstmCostGrad(model, inputTest, inputTestMask, tgtTestOutput, tgtTestMask, srcTestMaxLen, tgtTestMaxLen, params, 1);
           costValid = costValid/numValidWords;
@@ -303,16 +314,12 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   end % end for while(1)
 end
 
-%% Load parallel sentences %%
-function [srcSents, tgtSents, srcNumSents] = loadParallelData(srcFile, tgtFile, srcEos, tgtEos, numSents, baseIndex)
-  srcID = fopen(srcFile, 'r');
-  tgtID = fopen(tgtFile, 'r');
-  [srcSents, srcNumSents] = loadBatchData(srcID, baseIndex, numSents, srcEos);
-  [tgtSents, tgtNumSents] = loadBatchData(tgtID, baseIndex, numSents, tgtEos);
-  assert(srcNumSents==tgtNumSents);
-  fclose(tgtID);
-  fclose(srcID);
+function [sents, numSents] = loadMonoData(file, eos, numSents, baseIndex)
+  fid = fopen(file, 'r');
+  [sents, numSents] = loadBatchData(fid, baseIndex, numSents, eos);
+  fclose(fid);
 end
+
 
 function printSent(sent, vocab, prefix)
   fprintf(2, '%s', prefix);
@@ -413,3 +420,10 @@ function gradCheck(model, input, inputMask, tgtOutput, tgtMask, srcMaxLen, tgtMa
   fprintf(2, '  local_diff=%g\n', local_abs_diff);
   fprintf(2, '# Num params=%d, abs_diff=%g\n', num_params, abs_diff);
 end
+
+%% Load parallel sentences %%
+% function [srcSents, tgtSents, srcNumSents] = loadParallelData(srcFile, tgtFile, srcEos, tgtEos, numSents, baseIndex)
+%   [srcSents, srcNumSents] = loadMonoData(srcFile, srcEos, numSents, baseIndex);
+%   [tgtSents, tgtNumSents] = loadMonoData(tgtFile, tgtEos, numSents, baseIndex);
+%   assert(srcNumSents==tgtNumSents);
+% end
