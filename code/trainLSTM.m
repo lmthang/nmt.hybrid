@@ -40,8 +40,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'isBi', 1, @isnumeric); % isBi=1: mono model
   p.KeepUnmatched = true;
   parse(p,trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFile,tgtVocabFile,outDir,baseIndex,varargin{:})
-  params = p.Results;
   
+  params = p.Results;
   params.chunkSize = params.batchSize*100;
   
   % clip
@@ -113,42 +113,41 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.tgtEos = length(tgtVocab);
   params.tgtVocabSize = length(tgtVocab);
   
-  %% INIT MODEL PARAMETERS %%
-  [model, params] = init(params);
+  %% INIT/LOAD MODEL PARAMETERS %%
+  modelFile = [outDir '/model.mat'];
+  if params.isGradCheck==0 && exist(modelFile, 'file') % model exists
+    fprintf(2, '# Model file %s exists. Try loading ...\n', modelFile);
+    savedData = load(modelFile);
+    
+    % params
+    oldParams = savedData.params;
+    params.inVocabSize = oldParams.inVocabSize;
+    params.outVocabSize = oldParams.outVocabSize;
+    params.lr = oldParams.lr;
+    params.epoch = oldParams.epoch;
+    params.bestCostValid = oldParams.bestCostValid;
+    params.testPerplexity = oldParams.testPerplexity;
+    startIter = oldParams.iter;
+    
+    % model
+    model = savedData.model;
+    clear savedData;
+    
+    fprintf(2, '  loaded! lr=%g, epoch=%d, iter=%d, bestCostValid=%g, testPerplexity=%g\n', params.lr, params.epoch, startIter, params.bestCostValid, params.testPerplexity);
+  else % start from scratch
+    [model, params] = init(params);
+    params.lr = params.learningRate;
+    params.epoch = 1;
+    params.bestCostValid = 1e5;
+    startIter = 0;
+  end
+  params.iter = 0;  % number of batches we have processed
+  
   printParams(params);
 
   %% CHECK GRAD %%
   if params.isGradCheck
-    % generate pseudo data
-    if params.isBi
-      srcTrainMaxLen = 5;
-      srcTrainSents = cell(1, params.batchSize);
-    else
-      srcTrainSents = {};
-    end
-    
-    tgtTrainSents = cell(1, params.batchSize);
-    tgtTrainMaxLen = 5;
-
-    for ii=1:params.batchSize
-      if params.isBi
-        srcLen = randi([1, srcTrainMaxLen-1]);
-        srcTrainSents{ii} = randi([1, params.srcVocabSize-1], 1, srcLen);
-        srcTrainSents{ii}(end+1) = params.srcEos;
-      end
-
-      tgtLen = randi([1, tgtTrainMaxLen-1]);
-      tgtTrainSents{ii} = randi([1, params.tgtVocabSize-1], 1, tgtLen); 
-      tgtTrainSents{ii}(end+1) = params.tgtEos;
-    end
-    
-    % prepare data
-    [inputTrain, inputTrainMask, tgtTrainOutput, tgtTrainMask, srcTrainMaxLen, tgtTrainMaxLen] = prepareData(srcTrainSents, tgtTrainSents, params);
-    
-    % check grad
-    tic
-    gradCheck(model, inputTrain, inputTrainMask, tgtTrainOutput, tgtTrainMask, srcTrainMaxLen, tgtTrainMaxLen, params);
-    toc 
+    gradCheck(model, params);
     return;
   end
   
@@ -172,15 +171,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   printSent(tgtTrainSents{1}, tgtVocab, '  tgt:');
 
   %%% TRAINING %%%
-  params.lr = params.learningRate;
-  params.iter = 0;  % number of batches we have processed
-  params.epoch = 1;
-  params.bestCostValid = 1e5;
-  
   totalCost = 0; totalWords = 0;
   evalFreq = params.logFreq*10;
-  modelFile = [outDir '/model'];
-
+  
   % profile
   if params.isProfile
     profile on
@@ -197,6 +190,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     end
     for batchId = 1 : numBatches
       params.iter = params.iter + 1;
+      if params.iter <= startIter
+        continue;
+      end
       startId = (batchId-1)*params.batchSize+1;
       endId = batchId*params.batchSize;
       if endId > numTrainSents
@@ -206,9 +202,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       % prepare data
       if params.isBi
         srcBatchSents = srcTrainSents(startId:endId);
-%         if params.isGPU && (srcTrainMaxLen>params.srcLenLimit || tgtTrainMaxLen>params.tgtLenLimit) % sentences are too long, skip if using GPUs
-%           continue;
-%         end
       else
         srcBatchSents = {};
       end
@@ -217,7 +210,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       
       % core part
       [cost, grad] = lstmCostGrad(model, inputTrain, inputTrainMask, tgtTrainOutput, tgtTrainMask, srcTrainMaxLen, tgtTrainMaxLen, params, 0);
-      if isnan(cost) || isinf(cost) %~isempty(find(isnan(log_probs), 1))
+      if isnan(cost) || isinf(cost)
         fprintf(2, 'epoch=%d, iter=%d, nan/inf cost=%g\n', params.epoch, params.iter, cost);
         continue;
       end
@@ -426,70 +419,6 @@ function [input, inputMask, tgtOutput, tgtMask, srcMaxLen, tgtMaxLen] = prepareD
 end
 
 %% Check gradients %%
-function gradCheck(model, input, inputMask, tgtOutput, tgtMask, srcMaxLen, tgtMaxLen, params)
-  if params.isBi
-    [theta, decodeInfo] = param2stack(model.W_src, model.W_tgt, model.W_soft, model.W_emb);
-  else
-    [theta, decodeInfo] = param2stack(model.W_tgt, model.W_soft, model.W_emb);
-  end
-  
-  numParams = length(theta);
-  fprintf(2, '# Num params=%d\n', numParams);
-  [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tgtMask, srcMaxLen, tgtMaxLen, params, 0);
-  
-  if params.isBi
-    anaGrad =  param2stack(grad.W_src, grad.W_tgt, grad.W_soft, full(grad.W_emb));
-  else
-    anaGrad =  param2stack(grad.W_tgt, grad.W_soft, full(grad.W_emb));
-  end
-  empGrad = zeros(numParams, 1);
-  delta = 0.0001;
-  abs_diff = 0;
-  local_abs_diff = 0;
-  for i=1:numParams
-    thetaNew = theta;
-    thetaNew(i) = thetaNew(i) + delta;
-    if params.isBi
-      [modelNew.W_src, modelNew.W_tgt, modelNew.W_soft, modelNew.W_emb] = stack2param(thetaNew, decodeInfo);
-      
-    else
-      model.W_src = [];
-      [modelNew.W_tgt, modelNew.W_soft, modelNew.W_emb] = stack2param(thetaNew, decodeInfo);
-    end
-    totalCost_new = lstmCostGrad(modelNew, input, inputMask, tgtOutput, tgtMask, srcMaxLen, tgtMaxLen, params, 0);
-    empGrad(i) = (totalCost_new-totalCost)/delta;
-    abs_diff = abs_diff + abs(empGrad(i)-anaGrad(i));
-    local_abs_diff = local_abs_diff + abs(empGrad(i)-anaGrad(i));
-    
-    if params.isBi
-      if i==1
-        fprintf(2, '# W_src [%d, %d]\n', size(model.W_src, 1), size(model.W_src, 2));
-      end
-      if i==numel(model.W_src) + 1
-        fprintf(2, '  local_diff=%g\n', local_abs_diff);
-        local_abs_diff = 0;
-        fprintf(2, '# W_tgt [%d, %d]\n', size(model.W_tgt, 1), size(model.W_tgt, 2));
-      end
-    else
-      if i==1
-        fprintf(2, '# W_tgt [%d, %d]\n', size(model.W_tgt, 1), size(model.W_tgt, 2));
-      end
-    end
-    if i==numel(model.W_src) + numel(model.W_tgt) + 1
-      fprintf(2, '  local_diff=%g\n', local_abs_diff);
-      local_abs_diff = 0;
-      fprintf(2, '# W_soft [%d, %d]\n', size(model.W_soft, 1), size(model.W_soft, 2));
-    end
-    if i==numel(model.W_src) + numel(model.W_tgt) + numel(model.W_soft) + 1
-      fprintf(2, '  local_diff=%g\n', local_abs_diff);
-      local_abs_diff = 0;
-      fprintf(2, '# W_emb [%d, %d]\n', size(model.W_emb, 1), size(model.W_emb, 2));
-    end
-    fprintf(2, '%10.6f\t%10.6f\tdiff=%g\n', empGrad(i), anaGrad(i), abs(empGrad(i)-anaGrad(i))); % \tcost_new=%g\tcost=%g, totalCost_new, totalCost
-  end
-  fprintf(2, '  local_diff=%g\n', local_abs_diff);
-  fprintf(2, '# Num params=%d, abs_diff=%g\n', numParams, abs_diff);
-end
 
 %% Load parallel sentences %%
 % function [srcSents, tgtSents, srcNumSents] = loadParallelData(srcFile, tgtFile, srcEos, tgtEos, numSents, baseIndex)
