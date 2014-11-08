@@ -207,30 +207,31 @@ function [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tg
   end
 end
 
+function [clippedValue] = clipForward(x)
+  if x>50
+    clippedValue = single(50);
+  elseif x<-50
+    clippedValue = single(-50);
+  else
+    clippedValue = x;
+  end
+end
+
+function [clippedValue] = clipBackward(x)
+  if x>1000
+    clippedValue = single(1000);
+  elseif x<-1000
+    clippedValue = single(-1000);
+  else
+    clippedValue = x;
+  end
+end
+
 %function [norms] = simpleLogSumExp(scores)
 %  mx = max(scores);
 %  norms = bsxfun(@plus, log(sum(exp(bsxfun(@minus, scores, mx)))), mx);
 %end
 %
-%function [clippedValue] = clipForward(x)
-%  if x>50
-%    clippedValue = single(50);
-%  elseif x<-50
-%    clippedValue = single(-50);
-%  else
-%    clippedValue = x;
-%  end
-%end
-%
-%function [clippedValue] = clipBackward(x)
-%  if x>1000
-%    clippedValue = single(1000);
-%  elseif x<-1000
-%    clippedValue = single(-1000);
-%  else
-%    clippedValue = x;
-%  end
-%end
 %
 %function [clippedValue] = clip(x, thres)
 %  if x>thres
