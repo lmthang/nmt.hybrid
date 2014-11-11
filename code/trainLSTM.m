@@ -38,6 +38,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'isGradCheck', 0, @isnumeric); % set 1 to check the gradient, no need to specify other input arguments as toy data is automatically generated.
   addOptional(p,'isProfile', 0, @isnumeric);
   addOptional(p,'isBi', 1, @isnumeric); % isBi=0: mono model, isBi=1: bi (encoder-decoder) model
+  addOptional(p,'isClip', 0, @isnumeric); % isClip=1: clip forward 50, clip backward 1000
   addOptional(p,'globalOpt', 0, @isnumeric); % globalOpt=0: no global model, 1: avg global model, 2: feedforward global model.
   
   p.KeepUnmatched = true;

@@ -74,12 +74,14 @@ function [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tg
     h_t = lstm{t}.o_gate.*lstm{t}.f_c_t; % h_t = o_t * g(c_t)
     
     % clip
-    if params.isGPU
-     c_t = arrayfun(@clipForward, c_t);
-     h_t = arrayfun(@clipForward, h_t);
-    else
-     c_t(c_t>params.clipForward) = params.clipForward; c_t(c_t<-params.clipForward) = -params.clipForward; % clip: keep memory small
-     h_t(h_t>params.clipForward) = params.clipForward; h_t(h_t<-params.clipForward) = -params.clipForward; % clip: keep hidden state small
+    if params.isClip
+      if params.isGPU
+       c_t = arrayfun(@clipForward, c_t);
+       h_t = arrayfun(@clipForward, h_t);
+      else
+       c_t(c_t>params.clipForward) = params.clipForward; c_t(c_t<-params.clipForward) = -params.clipForward; % clip: keep memory small
+       h_t(h_t>params.clipForward) = params.clipForward; h_t(h_t<-params.clipForward) = -params.clipForward; % clip: keep hidden state small
+      end
     end
     
     %% save state
@@ -179,12 +181,14 @@ function [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tg
     dc = lstm{t}.f_gate.*dc;
     
     % clip hidden/cell derivatives
-    if params.isGPU
-     dh = arrayfun(@clipBackward, dh);
-     dc = arrayfun(@clipBackward, dc);
-    else
-     dh(dh>params.clipBackward) = params.clipBackward; dh(dh<-params.clipBackward) = -params.clipBackward;
-     dc(dc>params.clipBackward) = params.clipBackward; dc(dc<-params.clipBackward) = -params.clipBackward;
+    if params.isClip
+      if params.isGPU
+       dh = arrayfun(@clipBackward, dh);
+       dc = arrayfun(@clipBackward, dc);
+      else
+       dh(dh>params.clipBackward) = params.clipBackward; dh(dh<-params.clipBackward) = -params.clipBackward;
+       dc(dc>params.clipBackward) = params.clipBackward; dc(dc<-params.clipBackward) = -params.clipBackward;
+      end
     end
     
     % update embeddings

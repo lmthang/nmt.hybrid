@@ -73,7 +73,7 @@ The output of (c) on CPU should match content of the file data/gradCheck.output.
 The output of (d) on CPU should match the content of the file data/sample.output.
 
 (f) Run on full data
-trainLSTM('../data/merged_training.40k.id', '../data/tiny_tune.40k.id', '../data/p1r6_dev.40k.id', 'zh', 'en', '../data/merged_training.zh.vocab.40000', '../data/merged_training.en.vocab.40000', '../output', 0, 'logFreq', 1)
+trainLSTM('../data/merged_training.40k.id.sorted', '../data/tiny_tune.40k.id', '../data/p1r6_dev.40k.id', 'zh', 'en', '../data/merged_training.zh.vocab.40000', '../data/merged_training.en.vocab.40000', '../output', 0, 'logFreq', 1)
 
 (g) Train a monolingual LSTM model
 export MATLAB=matlab
