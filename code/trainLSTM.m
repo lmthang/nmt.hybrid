@@ -1,19 +1,18 @@
-function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFile,tgtVocabFile,outDir,baseIndex,varargin)
-%%%
-%
-% Train Long-Short Term Memory (LSTM).
-% Options:
-%   srcLang, srcVocabFile: leave empty to train monolingual models.
-%   baseIndex: of training data. Required to convert them to 1-indexed.
-%
+%% Train Long-Short Term Memory (LSTM).
 % Thang Luong @ 2014, <lmthang@stanford.edu>
 %
+% Options:
+%
+%   srcLang, srcVocabFile: leave empty to train monolingual models.
+%
+%   baseIndex: of training data. Required to convert them to 1-indexed.
+%
 %%%
-  
+function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFile,tgtVocabFile,outDir,baseIndex,varargin)  
   addpath(genpath(sprintf('%s/../../matlab', pwd)));
   addpath(genpath(sprintf('%s/..', pwd)));
   
-  %% Argument Parser %%
+  %% Argument Parser
   p = inputParser;
   % required
   addRequired(p,'trainPrefix',@ischar);
@@ -37,14 +36,15 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'logFreq', 10, @isnumeric); % how frequent (number of batches) we want to log stuffs
   addOptional(p,'isGradCheck', 0, @isnumeric); % set 1 to check the gradient, no need to specify other input arguments as toy data is automatically generated.
   addOptional(p,'isProfile', 0, @isnumeric);
-  addOptional(p,'isBi', 1, @isnumeric); % isBi=0: mono model, isBi=1: bi (encoder-decoder) model
-  addOptional(p,'isClip', 0, @isnumeric); % isClip=1: clip forward 50, clip backward 1000
+  addOptional(p,'isBi', 1, @isnumeric); % isBi=0: mono model, isBi=1: bi (encoder-decoder) model.
+  addOptional(p,'isClip', 0, @isnumeric); % isClip=1: clip forward 50, clip backward 1000.
+  addOptional(p,'isResume', 0, @isnumeric); % isResume=1: check if a model file exists, continue training from there.
   addOptional(p,'globalOpt', 0, @isnumeric); % globalOpt=0: no global model, 1: avg global model, 2: feedforward global model.
-  
   p.KeepUnmatched = true;
   parse(p,trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFile,tgtVocabFile,outDir,baseIndex,varargin{:})
-  
   params = p.Results;
+  
+  %% Setup params
   params.chunkSize = params.batchSize*100;
   
   % clip
@@ -85,7 +85,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     params.batchSize = 10;
   end
   
-  % load vocab
+  %% Load vocabs
   srcVocab = {};
   if params.isGradCheck
     tgtVocab = {'a', 'b'};
@@ -99,7 +99,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     end
   end
   
-  %% add special symbols to vocabs
+  % add special symbols to vocabs
   if params.isBi
     fprintf(2, '## Bilingual setting\n');
     srcVocab{end+1} = '<eos>';
@@ -116,9 +116,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.tgtEos = length(tgtVocab);
   params.tgtVocabSize = length(tgtVocab);
   
-  %% INIT/LOAD MODEL PARAMETERS %%
+  %% Init / Load Model Parameters
   modelFile = [outDir '/model.mat'];
-  if params.isGradCheck==0 && exist(modelFile, 'file') % model exists
+  if params.isGradCheck==0 && params.isResume && exist(modelFile, 'file') % a model exists, resume training
     fprintf(2, '# Model file %s exists. Try loading ...\n', modelFile);
     savedData = load(modelFile);
     
@@ -151,20 +151,21 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     params.iter = 0;  % number of batches we have processed
   end
   
-  
   printParams(params);
 
-  %% CHECK GRAD %%
+  %% Check Grad
   if params.isGradCheck
     gradCheck(model, params);
     return;
   end
   
-  %% load valid & test data
+  %% Load data
+  
+  % valid & test
   [inputValid, inputValidMask, tgtValidOutput, tgtValidMask, srcValidMaxLen, tgtValidMaxLen, numValidWords] = loadPrepareData(params, params.validPrefix, srcVocab, tgtVocab);
   [inputTest, inputTestMask, tgtTestOutput, tgtTestMask, srcTestMaxLen, tgtTestMaxLen, numTestWords] = loadPrepareData(params, params.testPrefix, srcVocab, tgtVocab);
   
-  %% load train data
+  % train
   tgtTrainFile = sprintf('%s.%s', params.trainPrefix, params.tgtLang);
   if params.isBi
     srcTrainFile = sprintf('%s.%s', params.trainPrefix, params.srcLang);
@@ -179,7 +180,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   [tgtTrainSents, numTrainSents] = loadBatchData(tgtID, params.baseIndex, params.chunkSize, params.tgtEos);
   printSent(tgtTrainSents{1}, tgtVocab, '  tgt:');
 
-  %%% TRAINING %%%
+  %% Training
   totalCost = 0; totalWords = 0;
   evalFreq = params.logFreq*10;
   
@@ -258,8 +259,12 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
             return;
           end
           
-          costValid = lstmCostGrad(model, inputValid, inputValidMask, tgtValidOutput, tgtValidMask, srcValidMaxLen, tgtValidMaxLen, params, 1);
-          costTest = lstmCostGrad(model, inputTest, inputTestMask, tgtTestOutput, tgtTestMask, srcTestMaxLen, tgtTestMaxLen, params, 1);
+          
+          %costValid = lstmCostGrad(model, inputValid, inputValidMask, tgtValidOutput, tgtValidMask, srcValidMaxLen, tgtValidMaxLen, params, 1);
+          %costTest = lstmCostGrad(model, inputTest, inputTestMask, tgtTestOutput, tgtTestMask, srcTestMaxLen, tgtTestMaxLen, params, 1);
+          [costValid] = evalCost(model, inputValid, inputValidMask, tgtValidOutput, tgtValidMask, srcValidMaxLen, tgtValidMaxLen, params);
+          [costTest] = evalCost(model, inputTest, inputTestMask, tgtTestOutput, tgtTestMask, srcTestMaxLen, tgtTestMaxLen, params);
+          
           costValid = costValid/numValidWords;
           costTest = costTest/numTestWords;
           fprintf(2, '# eval %.2f, %d, %d, %.2fK, %g, costTrain=%g, costValid=%g, costTest=%g, %.2fs, %s\n', exp(costTest), params.epoch, params.iter, totalWords*0.001/timeElapsed, params.lr, costTrain, costValid, costTest, datestr(now));
@@ -318,8 +323,25 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   end % end for while(1)
 end
 
+%% Eval
+function [cost] = evalCost(model, input, inputMask, tgtOutput, tgtMask, srcMaxLen, tgtMaxLen, params)
+  numSents = size(input, 1);
+  numBatches = floor((numSents-1)/params.batchSize) + 1;
 
-%% Init model parameters %%
+  cost = 0;
+  for batchId = 1 : numBatches
+    startId = (batchId-1)*params.batchSize+1;
+    endId = batchId*params.batchSize;
+    if endId > numSents
+      endId = numSents;
+    end
+    
+    cost = cost + lstmCostGrad(model, input(startId:endId, :), inputMask(startId:endId, :), tgtOutput(startId:endId, :), ...
+      tgtMask(startId:endId, :), srcMaxLen, tgtMaxLen, params, 1);
+  end
+end
+
+%% Init model parameters
 function [model, params] = initLSTM(params)
   % special zero words at the end of each vocab
   % in which the emb is all zero and we will never back prob
@@ -385,7 +407,7 @@ function printSent(sent, vocab, prefix)
 end
 
 
-%% Prepare data %%
+%% Prepare data
 %  organize data into matrix format and produce masks, add tgtVocabSize to srcSents:
 %   input:      numSents * (srcMaxLen+tgtMaxLen-1)
 %   tgtOutput: numSents * tgtMaxLen
