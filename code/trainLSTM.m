@@ -223,9 +223,10 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       
       % check grad norm
       gradNorm = sqrt(sum(sum(grad.W_emb.^2)) + double(sum(sum(grad.W_soft.^2))) + double(sum(sum(grad.W_src.^2))) + double(sum(sum(grad.W_tgt.^2))));
-      scale = 1.0;
-      if gradNorm>params.maxGradNorm
-        scale = params.maxGradNorm/gradNorm;
+      gradNorm = gradNorm / params.batchSize;
+      scale = 1.0/params.batchSize; % grad is divided by batchSize
+      if gradNorm > params.maxGradNorm
+        scale = scale*params.maxGradNorm/gradNorm;
       end
       
       % update parameters
@@ -244,7 +245,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         endTime = clock;
         timeElapsed = etime(endTime, startTime);
         costTrain = totalCost/totalWords;
-        fprintf(2, 'epoch=%d, iter=%d, wps=%.2fK, cost=%g, gradNorm=%.2f, srcMaxLen=%d, tgtMaxLen=%d, %.2fs, %s\n', params.epoch, params.iter, totalWords*0.001/timeElapsed, costTrain, gradNorm, srcTrainMaxLen, tgtTrainMaxLen, timeElapsed, datestr(now));
+        fprintf(2, 'epoch=%d, iter=%d, wps=%.2fK, lr=%g, cost=%g, gradNorm=%.2f, srcMaxLen=%d, tgtMaxLen=%d, %.2fs, %s\n', params.epoch, params.iter, totalWords*0.001/timeElapsed, params.lr, costTrain, gradNorm, srcTrainMaxLen, tgtTrainMaxLen, timeElapsed, datestr(now));
     
         % eval
         if mod(params.iter, evalFreq) == 0    
@@ -261,7 +262,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
           costTest = lstmCostGrad(model, inputTest, inputTestMask, tgtTestOutput, tgtTestMask, srcTestMaxLen, tgtTestMaxLen, params, 1);
           costValid = costValid/numValidWords;
           costTest = costTest/numTestWords;
-          fprintf(2, '# eval %.2f, %d, %d, %.2fK, costTrain=%g, costValid=%g, costTest=%g, %.2fs, %s\n', exp(costTest), params.epoch, params.iter, totalWords*0.001/timeElapsed, costTrain, costValid, costTest, datestr(now));
+          fprintf(2, '# eval %.2f, %d, %d, %.2fK, %g, costTrain=%g, costValid=%g, costTest=%g, %.2fs, %s\n', exp(costTest), params.epoch, params.iter, totalWords*0.001/timeElapsed, params.lr, costTrain, costValid, costTest, datestr(now));
           
           if costValid < params.bestCostValid
             params.bestCostValid = costValid;
