@@ -22,8 +22,9 @@ function [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tg
   input_embs = model.W_emb(:, input);
   grad.W_emb = sparse(params.lstmSize, params.inVocabSize); % live on CPU
   if params.isGPU % declare intermediate variables on GPU
-    h_t = zeros([params.lstmSize, curBatchSize], dataType, 'gpuArray');
-    c_t = zeros([params.lstmSize, curBatchSize], dataType, 'gpuArray');
+    zero_state = zeros([params.lstmSize, curBatchSize], dataType, 'gpuArray');
+%     h_t = zeros([params.lstmSize, curBatchSize], dataType, 'gpuArray');
+%     c_t = zeros([params.lstmSize, curBatchSize], dataType, 'gpuArray');
     input_embs = gpuArray(input_embs); % load input embeddings onto GPUs
     
     totalCost = zeros(1, 1, dataType, 'gpuArray');
@@ -33,8 +34,9 @@ function [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tg
     grad.W_src = zeros(4*params.lstmSize, 2*params.lstmSize, dataType, 'gpuArray');
     grad.W_tgt = zeros(4*params.lstmSize, 2*params.lstmSize, dataType, 'gpuArray');
   else
-    h_t = zeros([params.lstmSize, curBatchSize]);
-    c_t = zeros([params.lstmSize, curBatchSize]);
+    zero_state = zeros([params.lstmSize, curBatchSize]);
+%     h_t = zeros([params.lstmSize, curBatchSize]);
+%     c_t = zeros([params.lstmSize, curBatchSize]);
     totalCost = 0.0;
     
     % grad 
@@ -57,36 +59,11 @@ function [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tg
       W = model.W_src;
     end
     
-    %% input, forget, output gates and input signals before applying non-linear functions
-    ifoa_linear = W*[x_t; h_t];    
-    
-    %% cell
-    % GPU note: the below non-linear functions are fast, so no need to use arrayfun
-    ifo_gate = params.nonlinear_gate_f(ifoa_linear(1:3*params.lstmSize, :));
-    lstm{t}.i_gate = ifo_gate(1:params.lstmSize, :);
-    lstm{t}.f_gate = ifo_gate(params.lstmSize+1:2*params.lstmSize, :);
-    lstm{t}.o_gate = ifo_gate(2*params.lstmSize+1:3*params.lstmSize, :);
-    lstm{t}.a_signal = params.nonlinear_f(ifoa_linear(3*params.lstmSize+1:4*params.lstmSize, :)); % note input uses a different activation function
-    c_t = lstm{t}.f_gate.*c_t + lstm{t}.i_gate.*lstm{t}.a_signal; % c_t = f_t * c_{t-1} + i_t * a_t
-    
-    %% hidden
-    lstm{t}.f_c_t = params.nonlinear_f(c_t);
-    h_t = lstm{t}.o_gate.*lstm{t}.f_c_t; % h_t = o_t * g(c_t)
-    
-    % clip
-    if params.isClip
-      if params.isGPU
-       c_t = arrayfun(@clipForward, c_t);
-       h_t = arrayfun(@clipForward, h_t);
-      else
-       c_t(c_t>params.clipForward) = params.clipForward; c_t(c_t<-params.clipForward) = -params.clipForward; % clip: keep memory small
-       h_t(h_t>params.clipForward) = params.clipForward; h_t(h_t<-params.clipForward) = -params.clipForward; % clip: keep hidden state small
-      end
+    if t==1
+      lstm{t} = lstmUnit(W, x_t, zero_state, zero_state, params);
+    else
+      lstm{t} = lstmUnit(W, x_t, lstm{t-1}.h_t, lstm{t-1}.c_t, params);
     end
-    
-    %% save state
-    lstm{t}.c_t = c_t;
-    lstm{t}.h_t = h_t;
     
     if (t>=srcMaxLen) % predict tgtOutput[t-srcMaxLen+1]
       t_pos = t-srcMaxLen+1;
@@ -94,7 +71,7 @@ function [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tg
       tgt_predicted_words = tgtOutput(softmaxMask, t_pos)';
       num_words = length(tgt_predicted_words);
       
-      scores = model.W_soft * h_t(:, softmaxMask);  % params.outVocabSize * num_words
+      scores = model.W_soft * lstm{t}.h_t(:, softmaxMask);  % params.outVocabSize * num_words
       mx = max(scores);
       log_probs = bsxfun(@minus, scores, log(sum(exp(bsxfun(@minus, scores, mx)))) + mx); 
       %log_probs = bsxfun(@minus, scores, simpleLogSumExp(scores));
@@ -111,7 +88,7 @@ function [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tg
         % grad.W_soft
         probs = exp(log_probs); % out_size * curBatchSize
         probs(score_indices) = probs(score_indices) - ones(1, num_words); % minus one at predicted words
-        grad.W_soft = grad.W_soft + probs*h_t(:, softmaxMask)';
+        grad.W_soft = grad.W_soft + probs*lstm{t}.h_t(:, softmaxMask)';
 
         % grad_ht
         lstm{t}.grad_ht = model.W_soft'* probs;
@@ -250,6 +227,43 @@ end
 %function [next_c] = cellFun(f_t, c_t, i_t, a_t)
 % next_c = f_t*c_t + i_t*a_t;
 %end
+
+    
+%     %% input, forget, output gates and input signals before applying non-linear functions
+%     if t==1
+%       ifoa_linear = W*[x_t; zero_state];    
+%     else
+%       ifoa_linear = W*[x_t; lstm{t-1}.h_t];    
+%     end
+%     
+%     %% cell
+%     % GPU note: the below non-linear functions are fast, so no need to use arrayfun
+%     ifo_gate = params.nonlinear_gate_f(ifoa_linear(1:3*params.lstmSize, :));
+%     lstm{t}.i_gate = ifo_gate(1:params.lstmSize, :);
+%     lstm{t}.f_gate = ifo_gate(params.lstmSize+1:2*params.lstmSize, :);
+%     lstm{t}.o_gate = ifo_gate(2*params.lstmSize+1:3*params.lstmSize, :);
+%     lstm{t}.a_signal = params.nonlinear_f(ifoa_linear(3*params.lstmSize+1:4*params.lstmSize, :)); % note input uses a different activation function
+%     if t==1
+%       lstm{t}.c_t = lstm{t}.f_gate.*zero_state + lstm{t}.i_gate.*lstm{t}.a_signal; % c_t = f_t * c_{t-1} + i_t * a_t
+%     else
+%       lstm{t}.c_t = lstm{t}.f_gate.*lstm{t-1}.c_t + lstm{t}.i_gate.*lstm{t}.a_signal; % c_t = f_t * c_{t-1} + i_t * a_t
+%     end
+%     
+%     %% hidden
+%     lstm{t}.f_c_t = params.nonlinear_f(lstm{t}.c_t);
+%     lstm{t}.h_t = lstm{t}.o_gate.*lstm{t}.f_c_t; % h_t = o_t * g(c_t)
+%     
+%     % clip
+%     if params.isClip
+%       if params.isGPU
+%        c_t = arrayfun(@clipForward, c_t);
+%        h_t = arrayfun(@clipForward, h_t);
+%       else
+%        c_t(c_t>params.clipForward) = params.clipForward; c_t(c_t<-params.clipForward) = -params.clipForward; % clip: keep memory small
+%        h_t(h_t>params.clipForward) = params.clipForward; h_t(h_t<-params.clipForward) = -params.clipForward; % clip: keep hidden state small
+%       end
+%     end
+
 
     %% tried arrayfun for GPUs, no speedup
     %if params.isGPU
