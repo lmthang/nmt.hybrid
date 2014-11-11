@@ -37,7 +37,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'logFreq', 10, @isnumeric); % how frequent (number of batches) we want to log stuffs
   addOptional(p,'isGradCheck', 0, @isnumeric); % set 1 to check the gradient, no need to specify other input arguments as toy data is automatically generated.
   addOptional(p,'isProfile', 0, @isnumeric);
-  addOptional(p,'isBi', 1, @isnumeric); % isBi=1: mono model
+  addOptional(p,'isBi', 1, @isnumeric); % isBi=0: mono model, isBi=1: bi (encoder-decoder) model
+  addOptional(p,'globalOpt', 0, @isnumeric); % globalOpt=0: no global model, 1: avg global model, 2: feedforward global model.
+  
   p.KeepUnmatched = true;
   parse(p,trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFile,tgtVocabFile,outDir,baseIndex,varargin{:})
   
@@ -128,6 +130,11 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     params.bestCostValid = oldParams.bestCostValid;
     params.testPerplexity = oldParams.testPerplexity;
     startIter = oldParams.iter;
+    if params.epoch > 1
+      params.iter = (params.epoch-1)*params.epochBatchCount;
+    else
+      params.iter = 0;  % number of batches we have processed
+    end
     
     % model
     model = savedData.model;
@@ -135,13 +142,14 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     
     fprintf(2, '  loaded! lr=%g, epoch=%d, iter=%d, bestCostValid=%g, testPerplexity=%g\n', params.lr, params.epoch, startIter, params.bestCostValid, params.testPerplexity);
   else % start from scratch
-    [model, params] = init(params);
+    [model, params] = initLSTM(params);
     params.lr = params.learningRate;
     params.epoch = 1;
     params.bestCostValid = 1e5;
     startIter = 0;
+    params.iter = 0;  % number of batches we have processed
   end
-  params.iter = 0;  % number of batches we have processed
+  
   
   printParams(params);
 
@@ -185,9 +193,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   while(1)
     assert(numTrainSents>0);
     numBatches = floor((numTrainSents-1)/params.batchSize) + 1;
-    if params.epoch==1
-      params.epochBatchCount = params.epochBatchCount + numBatches;
-    end
     for batchId = 1 : numBatches
       params.iter = params.iter + 1;
       if params.iter <= startIter
@@ -272,6 +277,10 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       end
     end % end for batchId
 
+    if params.epoch==1
+      params.epochBatchCount = params.epochBatchCount + numBatches;
+    end
+    
     % read more data
     [srcTrainSents, numTrainSents] = loadBatchData(srcID, params.baseIndex, params.chunkSize, params.srcEos);
     [tgtTrainSents] = loadBatchData(tgtID, params.baseIndex, params.chunkSize, params.tgtEos);
@@ -309,7 +318,7 @@ end
 
 
 %% Init model parameters %%
-function [model, params] = init(params)
+function [model, params] = initLSTM(params)
   % special zero words at the end of each vocab
   % in which the emb is all zero and we will never back prob
   % stack vocab:  tgt-vocab + src-vocab
