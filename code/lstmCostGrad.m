@@ -23,8 +23,6 @@ function [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tg
   grad.W_emb = sparse(params.lstmSize, params.inVocabSize); % live on CPU
   if params.isGPU % declare intermediate variables on GPU
     zero_state = zeros([params.lstmSize, curBatchSize], dataType, 'gpuArray');
-%     h_t = zeros([params.lstmSize, curBatchSize], dataType, 'gpuArray');
-%     c_t = zeros([params.lstmSize, curBatchSize], dataType, 'gpuArray');
     input_embs = gpuArray(input_embs); % load input embeddings onto GPUs
     
     totalCost = zeros(1, 1, dataType, 'gpuArray');
@@ -35,8 +33,6 @@ function [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tg
     grad.W_tgt = zeros(4*params.lstmSize, 2*params.lstmSize, dataType, 'gpuArray');
   else
     zero_state = zeros([params.lstmSize, curBatchSize]);
-%     h_t = zeros([params.lstmSize, curBatchSize]);
-%     c_t = zeros([params.lstmSize, curBatchSize]);
     totalCost = 0.0;
     
     % grad 
@@ -68,17 +64,15 @@ function [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tg
     if (t>=srcMaxLen) % predict tgtOutput[t-srcMaxLen+1]
       t_pos = t-srcMaxLen+1;
       softmaxMask = tgtMask(:, t_pos); % curBatchSize * 1
-      tgt_predicted_words = tgtOutput(softmaxMask, t_pos)';
-      num_words = length(tgt_predicted_words);
-      
       scores = model.W_soft * lstm{t}.h_t(:, softmaxMask);  % params.outVocabSize * num_words
+      
+      % normalize, compute in log domain
       mx = max(scores);
       log_probs = bsxfun(@minus, scores, log(sum(exp(bsxfun(@minus, scores, mx)))) + mx); 
-      %log_probs = bsxfun(@minus, scores, simpleLogSumExp(scores));
-      %log_probs = bsxfun(@minus, scores, logsumexp(scores));
       
       % select from scores matrix, one number per column
-      % TODO: optimize this code
+      tgt_predicted_words = tgtOutput(softmaxMask, t_pos)';
+      num_words = length(tgt_predicted_words);
       score_indices = sub2ind([params.outVocabSize, num_words], tgt_predicted_words, 1:num_words); % 1 * num_words
       
       % cost
@@ -104,13 +98,8 @@ function [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tg
   %%% BACKWARD PASS %%%
   %%%%%%%%%%%%%%%%%%%%%
   % intermediate variables
-  if params.isGPU
-    dh = zeros(params.lstmSize, curBatchSize, dataType, 'gpuArray');
-    dc = zeros(params.lstmSize, curBatchSize, dataType, 'gpuArray');
-  else
-    dh = zeros(params.lstmSize, curBatchSize);
-    dc = zeros(params.lstmSize, curBatchSize);
-  end
+  dh = zero_state;
+  dc = zero_state;
   for t=T:-1:1
     if (t>=srcMaxLen) % predict tgtOutput[t-srcMaxLen+1]
       t_pos = t-srcMaxLen+1;
@@ -118,63 +107,24 @@ function [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tg
       dh(:, softmaxMask) = dh(:, softmaxMask) + lstm{t}.grad_ht; % accumulate grads wrt the hidden layer
     end
     
-    dc = dc + params.nonlinear_f_prime(lstm{t}.f_c_t).*lstm{t}.o_gate.*dh;
     
-    di = params.nonlinear_gate_f_prime(lstm{t}.i_gate).*lstm{t}.a_signal.*dc;
-    if t>1
-      df = params.nonlinear_gate_f_prime(lstm{t}.f_gate).*lstm{t-1}.c_t.*dc;
-    else
-      if params.isGPU
-        df = zeros(params.lstmSize, curBatchSize, dataType, 'gpuArray');
-      else
-        df = zeros(params.lstmSize, curBatchSize);
-      end
-    end
-
-    % arrayfun doesn't work here for GPU
-    do = params.nonlinear_gate_f_prime(lstm{t}.o_gate).*lstm{t}.f_c_t .* dh;
-    da = params.nonlinear_f_prime(lstm{t}.a_signal).*lstm{t}.i_gate.*dc;   
-
-    %x_t = model.W_emb(:, input(:, t));
     x_t = input_embs(:, ((t-1)*curBatchSize+1):t*curBatchSize);
-    if (t>=srcMaxLen) % grad tgt
-      W = model.W_tgt;
-      if t==1
-        grad.W_tgt = grad.W_tgt + [di; df; do; da]*[x_t; zeros(params.lstmSize, curBatchSize)]';
-      else
-        grad.W_tgt = grad.W_tgt + [di; df; do; da]*[x_t; lstm{t-1}.h_t]';
-      end
-    else % grad src
-      W = model.W_src;
-      if t==1
-        grad.W_src = grad.W_src + [di; df; do; da]*[x_t; zeros(params.lstmSize, curBatchSize)]';
-      else
-        grad.W_src = grad.W_src + [di; df; do; da]*[x_t; lstm{t-1}.h_t]';
-      end
+    [dc, dh, lstm_grad] = lstmUnitGrad(model, lstm, x_t, dc, dh, t, srcMaxLen, zero_state, params);
+    
+    % grad.W_src / grad.W_tgt
+    if (t>=srcMaxLen)
+      grad.W_tgt = grad.W_tgt + lstm_grad.W_tgt;
+    else
+      grad.W_src = grad.W_src + lstm_grad.W_src;
     end
     
-    dx = W(:, 1:params.lstmSize)'*[di; df; do; da];
-    dh = W(:, params.lstmSize+1:end)'*[di; df; do; da];
-    dc = lstm{t}.f_gate.*dc;
-    
-    % clip hidden/cell derivatives
-    if params.isClip
-      if params.isGPU
-       dh = arrayfun(@clipBackward, dh);
-       dc = arrayfun(@clipBackward, dc);
-      else
-       dh(dh>params.clipBackward) = params.clipBackward; dh(dh<-params.clipBackward) = -params.clipBackward;
-       dc(dc>params.clipBackward) = params.clipBackward; dc(dc<-params.clipBackward) = -params.clipBackward;
-      end
-    end
-    
-    % update embeddings
+    % update embedding grad
     embMask = inputMask(:, t);
     indices = input(embMask, t);
     if params.isGPU
-      emb_grad = double(gather(dx(:, embMask))); % copy embedding grads to CPU
+      emb_grad = double(gather(lstm_grad.dx(:, embMask))); % copy embedding grads to CPU
     else
-      emb_grad = dx(:, embMask);
+      emb_grad = lstm_grad.dx(:, embMask);
     end
     
     grad.W_emb = grad.W_emb + aggregateMatrix(emb_grad, indices, params.inVocabSize);
@@ -188,26 +138,9 @@ function [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tg
   end
 end
 
-function [clippedValue] = clipForward(x)
-  if x>50
-    clippedValue = single(50);
-  elseif x<-50
-    clippedValue = single(-50);
-  else
-    clippedValue = x;
-  end
-end
-
-function [clippedValue] = clipBackward(x)
-  if x>1000
-    clippedValue = single(1000);
-  elseif x<-1000
-    clippedValue = single(-1000);
-  else
-    clippedValue = x;
-  end
-end
-
+%log_probs = bsxfun(@minus, scores, simpleLogSumExp(scores));
+%log_probs = bsxfun(@minus, scores, logsumexp(scores));
+      
 %function [norms] = simpleLogSumExp(scores)
 %  mx = max(scores);
 %  norms = bsxfun(@plus, log(sum(exp(bsxfun(@minus, scores, mx)))), mx);
@@ -228,7 +161,12 @@ end
 % next_c = f_t*c_t + i_t*a_t;
 %end
 
+%     h_t = zeros([params.lstmSize, curBatchSize], dataType, 'gpuArray');
+%     c_t = zeros([params.lstmSize, curBatchSize], dataType, 'gpuArray');
     
+%     h_t = zeros([params.lstmSize, curBatchSize]);
+%     c_t = zeros([params.lstmSize, curBatchSize]);
+
 %     %% input, forget, output gates and input signals before applying non-linear functions
 %     if t==1
 %       ifoa_linear = W*[x_t; zero_state];    
@@ -264,6 +202,65 @@ end
 %       end
 %     end
 
+
+%   if params.isGPU
+%     dh = zeros(params.lstmSize, curBatchSize, dataType, 'gpuArray');
+%     dc = zeros(params.lstmSize, curBatchSize, dataType, 'gpuArray');
+%   else
+%     dh = zeros(params.lstmSize, curBatchSize);
+%     dc = zeros(params.lstmSize, curBatchSize);
+%   end
+
+%     dc = dc + params.nonlinear_f_prime(lstm{t}.f_c_t).*lstm{t}.o_gate.*dh;
+%     
+%     di = params.nonlinear_gate_f_prime(lstm{t}.i_gate).*lstm{t}.a_signal.*dc;
+%     if t>1
+%       df = params.nonlinear_gate_f_prime(lstm{t}.f_gate).*lstm{t-1}.c_t.*dc;
+%     else
+%       if params.isGPU
+%         df = zeros(params.lstmSize, curBatchSize, dataType, 'gpuArray');
+%       else
+%         df = zeros(params.lstmSize, curBatchSize);
+%       end
+%     end
+% 
+%     % arrayfun doesn't work here for GPU
+%     do = params.nonlinear_gate_f_prime(lstm{t}.o_gate).*lstm{t}.f_c_t .* dh;
+%     da = params.nonlinear_f_prime(lstm{t}.a_signal).*lstm{t}.i_gate.*dc;   
+% 
+%     %x_t = model.W_emb(:, input(:, t));
+%     x_t = input_embs(:, ((t-1)*curBatchSize+1):t*curBatchSize);
+%     if (t>=srcMaxLen) % grad tgt
+%       W = model.W_tgt;
+%       if t==1
+%         grad.W_tgt = grad.W_tgt + [di; df; do; da]*[x_t; zeros(params.lstmSize, curBatchSize)]';
+%       else
+%         grad.W_tgt = grad.W_tgt + [di; df; do; da]*[x_t; lstm{t-1}.h_t]';
+%       end
+%     else % grad src
+%       W = model.W_src;
+%       if t==1
+%         grad.W_src = grad.W_src + [di; df; do; da]*[x_t; zeros(params.lstmSize, curBatchSize)]';
+%       else
+%         grad.W_src = grad.W_src + [di; df; do; da]*[x_t; lstm{t-1}.h_t]';
+%       end
+%     end
+%     
+%     dx = W(:, 1:params.lstmSize)'*[di; df; do; da];
+%     dc = lstm{t}.f_gate.*dc;
+%     dh = W(:, params.lstmSize+1:end)'*[di; df; do; da];
+%     
+%     
+%     % clip hidden/cell derivatives
+%     if params.isClip
+%       if params.isGPU
+%        dh = arrayfun(@clipBackward, dh);
+%        dc = arrayfun(@clipBackward, dc);
+%       else
+%        dh(dh>params.clipBackward) = params.clipBackward; dh(dh<-params.clipBackward) = -params.clipBackward;
+%        dc(dc>params.clipBackward) = params.clipBackward; dc(dc<-params.clipBackward) = -params.clipBackward;
+%       end
+%     end
 
     %% tried arrayfun for GPUs, no speedup
     %if params.isGPU

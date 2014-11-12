@@ -37,3 +37,14 @@ function [lstmCell] = lstmUnit(W, x_t, h_t, c_t, params)
     end
   end
 end
+
+
+function [clippedValue] = clipForward(x)
+  if x>50
+    clippedValue = single(50);
+  elseif x<-50
+    clippedValue = single(-50);
+  else
+    clippedValue = x;
+  end
+end
