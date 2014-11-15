@@ -316,10 +316,10 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         
         % reopen file
         tgtID = fopen(tgtTrainFile, 'r');
-        [tgtTrainSents] = loadBatchData(tgtID, params.baseIndex, params.chunkSize, params.tgtEos);
+        [tgtTrainSents, numTrainSents] = loadBatchData(tgtID, params.baseIndex, params.chunkSize, params.tgtEos);
         if params.isBi
           srcID = fopen(srcTrainFile, 'r');
-          [srcTrainSents, numTrainSents] = loadBatchData(srcID, params.baseIndex, params.chunkSize, params.srcEos);
+          [srcTrainSents] = loadBatchData(srcID, params.baseIndex, params.chunkSize, params.srcEos);
         end
       else % done training
         fprintf(2, '# Done training, %s\n', datestr(now));
