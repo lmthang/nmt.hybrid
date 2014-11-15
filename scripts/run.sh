@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [[ $# -lt 16 || $# -gt 16 ]]; then
+if [[ $# -lt 16 || $# -gt 17 ]]; then
   echo -e "`basename $0`\tTrain RNN models"
   echo -e "\ttrainPrefix\t\texpect train files trainPrefix.(srcLang|tgtLang)"
   echo -e "\tvalidPrefix\t\texpect valid files validPrefix.(srcLang|tgtLang)"
@@ -18,6 +18,7 @@ if [[ $# -lt 16 || $# -gt 16 ]]; then
   echo -e "\tbatchSize\t\tNumber of sentences per minibatch, larger gives faster training time but worse results"
   echo -e "\tnumEpoches\t\tNumber of training epochs"
   echo -e "\tlogFreq\t\t\tCompute validation perplexities after [logFreq] dots printed"
+  echo -e "\totherOptions\t\tOther options to trainLSTM"
   exit
 fi
 
@@ -38,7 +39,13 @@ initRange=${13}
 batchSize=${14}
 numEpoches=${15}
 logFreq=${16}
-matlabCommand="trainLSTM('$trainPrefix','$validPrefix','$testPrefix','$srcLang','$tgtLang','$srcVocabFile','$tgtVocabFile','$outDir',$baseIndex,'lstmSize',$lstmSize,'maxGradNorm',$maxGradNorm,'learningRate',$learningRate,'initRange',$initRange,'batchSize',$batchSize,'numEpoches',$numEpoches,'logFreq',$logFreq)"
+basicOpt="'$trainPrefix','$validPrefix','$testPrefix','$srcLang','$tgtLang','$srcVocabFile','$tgtVocabFile','$outDir',$baseIndex,'lstmSize',$lstmSize,'maxGradNorm',$maxGradNorm,'learningRate',$learningRate,'initRange',$initRange,'batchSize',$batchSize,'numEpoches',$numEpoches,'logFreq',$logFreq"
+if [ $# -eq 17 ]; then
+  matlabCommand="trainLSTM($basicOpt,${17})"
+else
+  matlabCommand="trainLSTM($basicOpt)"
+fi
+echo "$matlabCommand"
 
 echo "mkdir -p $outDir"
 mkdir -p $outDir
@@ -48,6 +55,5 @@ echo "# Script dir = $DIR"
 echo "cd $DIR/../code"
 cd $DIR/../code
 
-echo "$matlabCommand"
 $MATLAB -nodesktop -nodisplay -nosplash -r "$matlabCommand ; exit()"
 
