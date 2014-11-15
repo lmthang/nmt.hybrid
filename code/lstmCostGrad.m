@@ -158,8 +158,8 @@ function [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tg
       else % pass down hidden state grad to the below layer
         dh{l-1}(:, embMask) = dh{l-1}(:, embMask) + lstm_grad.dx(:, embMask);
       end
-    end
-  end
+    end % end for layer
+  end % end for time
   
   if params.isGPU % copy to CPU
     grad.W_soft = gather(grad.W_soft);
