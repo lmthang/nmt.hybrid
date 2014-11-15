@@ -1,3 +1,4 @@
+*.pyc
 code/html*
 code/profile_results*
 data/*
