@@ -168,8 +168,14 @@ def update_vocab(words, vocab_map, freq_map, freq, max_vocab_size, sos='<s>', eo
  
   new_words = [unk, sos, eos]
   new_vocab_map = {unk:0, sos:1, eos:2}
-  new_freq_map = {unk:0, sos:0, eos:0}
   vocab_size = 3
+  if unk in words: # already have unk token
+    new_freq_map = {unk: freq_map[unk], sos:0, eos:0}
+    del freq_map[unk]
+    words.remove(unk)
+  else:
+    new_words = [unk, sos, eos]
+    new_freq_map = {unk:0, sos:0, eos:0}
   if freq>0:
     for word in words:
       if freq_map[word] < freq: # rare

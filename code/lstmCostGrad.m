@@ -18,7 +18,7 @@ function [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tg
   curBatchSize = size(input, 1);
   
   % grad that can be computed as we do the forward pass
-  lstm = cell(1, T); % each cell contains intermediate results for that timestep needed for backprop
+  lstm = cell(params.numLayers, T); % each cell contains intermediate results for that timestep needed for backprop
   input_embs = model.W_emb(:, input);
   grad.W_emb = sparse(params.lstmSize, params.inVocabSize); % live on CPU
   if params.isGPU % declare intermediate variables on GPU
@@ -41,51 +41,60 @@ function [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tg
     grad.W_tgt = zeros(4*params.lstmSize, 2*params.lstmSize);
   end
   
-  for t=1:T
-    % get input embeddings
-    %x_t = model.W_emb(:, input(:, t));
-    x_t = input_embs(:, ((t-1)*curBatchSize+1):t*curBatchSize);
-    if params.isGradCheck 
-      x_t(:, ~inputMask(:, t)) = 0; % for gradient check code, zero out those unused so that gradients of those zero-id embeddings can pass.
-    end
+  for l=1:params.numLayers % layer
+    for t=1:T % time
+      %% decide encoder/decoder
+      if (t>=srcMaxLen) % decoder
+        W = model.W_tgt;
+      else % encoder
+        W = model.W_src;
+      end
+      
+      %% input
+      if l==1 % first layer, get input embeddings
+        x_t = input_embs(:, ((t-1)*curBatchSize+1):t*curBatchSize);
+        if params.isGradCheck 
+          x_t(:, ~inputMask(:, t)) = 0; % for gradient check code, zero out those unused so that gradients of those zero-id embeddings can pass.
+        end
+      else % subsequent layer, use the hidden state from the previous layer
+        x_t = lstm{l-1, t}.h_t;
+      end
 
-    if (t>=srcMaxLen) % start decoding
-      W = model.W_tgt;
-    else
-      W = model.W_src;
-    end
-    
-    if t==1
-      lstm{t} = lstmUnit(W, x_t, zero_state, zero_state, params);
-    else
-      lstm{t} = lstmUnit(W, x_t, lstm{t-1}.h_t, lstm{t-1}.c_t, params);
-    end
-    
-    if (t>=srcMaxLen) % predict tgtOutput[t-srcMaxLen+1]
-      t_pos = t-srcMaxLen+1;
-      softmaxMask = tgtMask(:, t_pos); % curBatchSize * 1
-      scores = model.W_soft * lstm{t}.h_t(:, softmaxMask);  % params.outVocabSize * num_words
-      
-      % normalize, compute in log domain
-      mx = max(scores);
-      log_probs = bsxfun(@minus, scores, log(sum(exp(bsxfun(@minus, scores, mx)))) + mx); 
-      
-      % select from scores matrix, one number per column
-      tgt_predicted_words = tgtOutput(softmaxMask, t_pos)';
-      num_words = length(tgt_predicted_words);
-      score_indices = sub2ind([params.outVocabSize, num_words], tgt_predicted_words, 1:num_words); % 1 * num_words
-      
-      % cost
-      totalCost = totalCost - sum(log_probs(score_indices));
-      
-      if isCostOnly==0 % compute grad
-        % grad.W_soft
-        probs = exp(log_probs); % out_size * curBatchSize
-        probs(score_indices) = probs(score_indices) - ones(1, num_words); % minus one at predicted words
-        grad.W_soft = grad.W_soft + probs*lstm{t}.h_t(:, softmaxMask)';
+      %% lstm cell
+      if t==1
+        lstm{l, t} = lstmUnit(W, x_t, zero_state, zero_state, params);
+      else
+        lstm{l, t} = lstmUnit(W, x_t, lstm{l, t-1}.h_t, lstm{l, t-1}.c_t, params);
+      end
 
-        % grad_ht
-        lstm{t}.grad_ht = model.W_soft'* probs;
+      %% prediction at the top layer
+      if l==params.numLayers && (t>=srcMaxLen) 
+        % predict tgtOutput[t-srcMaxLen+1]
+        t_pos = t-srcMaxLen+1;
+        softmaxMask = tgtMask(:, t_pos); % curBatchSize * 1
+        scores = model.W_soft * lstm{l, t}.h_t(:, softmaxMask);  % params.outVocabSize * num_words
+
+        % normalize, compute in log domain
+        mx = max(scores);
+        log_probs = bsxfun(@minus, scores, log(sum(exp(bsxfun(@minus, scores, mx)))) + mx); 
+
+        % select from scores matrix, one number per column
+        tgt_predicted_words = tgtOutput(softmaxMask, t_pos)';
+        num_words = length(tgt_predicted_words);
+        score_indices = sub2ind([params.outVocabSize, num_words], tgt_predicted_words, 1:num_words); % 1 * num_words
+
+        % cost
+        totalCost = totalCost - sum(log_probs(score_indices));
+
+        if isCostOnly==0 % compute grad
+          % grad.W_soft
+          probs = exp(log_probs); % out_size * curBatchSize
+          probs(score_indices) = probs(score_indices) - ones(1, num_words); % minus one at predicted words
+          grad.W_soft = grad.W_soft + probs*lstm{l, t}.h_t(:, softmaxMask)';
+
+          % grad_ht
+          lstm{l, t}.grad_ht = model.W_soft'* probs;
+        end
       end
     end
   end
@@ -98,38 +107,60 @@ function [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tg
   %%% BACKWARD PASS %%%
   %%%%%%%%%%%%%%%%%%%%%
   % intermediate variables
-  dh = zero_state;
-  dc = zero_state;
-  for t=T:-1:1
+  
+  % h_t and c_t gradients accumulate over time per layer
+  dh = cell(params.numLayers, 1);
+  dc = cell(params.numLayers, 1); 
+  for l=params.numLayers:-1:1 % layer
+    dh{l} = zero_state;
+    dc{l} = zero_state;
+  end
+  
+  for t=T:-1:1 % time
     if (t>=srcMaxLen) % predict tgtOutput[t-srcMaxLen+1]
       t_pos = t-srcMaxLen+1;
       softmaxMask = tgtMask(:, t_pos); % curBatchSize * 1
-      dh(:, softmaxMask) = dh(:, softmaxMask) + lstm{t}.grad_ht; % accumulate grads wrt the hidden layer
     end
     
-    
-    x_t = input_embs(:, ((t-1)*curBatchSize+1):t*curBatchSize);
-    [dc, dh, lstm_grad] = lstmUnitGrad(model, lstm, x_t, dc, dh, t, srcMaxLen, zero_state, params);
-    
-    % grad.W_src / grad.W_tgt
-    if (t>=srcMaxLen)
-      grad.W_tgt = grad.W_tgt + lstm_grad.W_tgt;
-    else
-      grad.W_src = grad.W_src + lstm_grad.W_src;
-    end
-    
-    % update embedding grad
-    embMask = inputMask(:, t);
-    indices = input(embMask, t);
-    if params.isGPU
-      emb_grad = double(gather(lstm_grad.dx(:, embMask))); % copy embedding grads to CPU
-    else
-      emb_grad = lstm_grad.dx(:, embMask);
-    end
-    
-    grad.W_emb = grad.W_emb + aggregateMatrix(emb_grad, indices, params.inVocabSize);
-  end
+    for l=params.numLayers:-1:1 % layer
+      %% hidden state grad
+      if l==params.numLayers && (t>=srcMaxLen) % get signals from the softmax layer
+        dh{l}(:, softmaxMask) = dh{l}(:, softmaxMask) + lstm{l, t}.grad_ht; % accumulate grads wrt the hidden layer
+      end
 
+      
+      %% cell back prob
+      if l==1 % first layer, get input embeddings
+        x_t = input_embs(:, ((t-1)*curBatchSize+1):t*curBatchSize);
+      else % subsequent layer, use the hidden state from the previous layer
+        x_t = lstm{l-1, t}.h_t;
+      end
+      [dc{l}, dh{l}, lstm_grad] = lstmUnitGrad(model, lstm, x_t, dc{l}, dh{l}, l, t, srcMaxLen, zero_state, params);
+
+      %% grad.W_src / grad.W_tgt
+      if (t>=srcMaxLen)
+        grad.W_tgt = grad.W_tgt + lstm_grad.W_tgt;
+      else
+        grad.W_src = grad.W_src + lstm_grad.W_src;
+      end
+
+      %% input grad
+      embMask = inputMask(:, t);
+      if l==1 % collect embedding grad
+        indices = input(embMask, t);
+        if params.isGPU
+          emb_grad = double(gather(lstm_grad.dx(:, embMask))); % copy embedding grads to CPU
+        else
+          emb_grad = lstm_grad.dx(:, embMask);
+        end
+
+        grad.W_emb = grad.W_emb + aggregateMatrix(emb_grad, indices, params.inVocabSize);
+      else % pass down hidden state grad to the below layer
+        dh{l-1}(:, embMask) = dh{l-1}(:, embMask) + lstm_grad.dx(:, embMask);
+      end
+    end
+  end
+  
   if params.isGPU % copy to CPU
     grad.W_soft = gather(grad.W_soft);
     grad.W_src = gather(grad.W_src);

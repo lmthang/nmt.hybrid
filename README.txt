@@ -20,6 +20,9 @@ The script will first create a vocabulary of the specified size and convert word
 We can reuse saved vocab file as follows:
 ./scripts/prepare_data.py --vocab_file <vocab_file> <input_text_file> <output_integer_file>
 
+There's a script to run for train/valid/test files:
+run_prepare_data.sh trainFile validFile testFile vocabSize outDir [verbose]
+
 (b) Train an LSTM
 run.sh  Train RNN models
   trainPrefix   expect train files trainPrefix.(srcLang|tgtLang)
@@ -49,6 +52,7 @@ mkdir output
 ./scripts/prepare_data.py --size 1000 ./data/train.10k.en ./output/train.10k.id.en 
 ./scripts/prepare_data.py --vocab_file ./data/train.10k.en.vocab.1000 ./data/valid.3k.en ./output/valid.3k.id.en 
 ./scripts/prepare_data.py --vocab_file ./data/train.10k.en.vocab.1000 ./data/test.3k.en ./output/test.3k.id.en 
+(or use run_prepare_data.sh trainFile validFile testFile vocabSize outDir [verbose])
 
 ./scripts/prepare_data.py --size 1000 ./data/train.10k.de ./output/train.10k.id.de 
 ./scripts/prepare_data.py --vocab_file ./data/train.10k.de.vocab.1000 ./data/valid.3k.de ./output/valid.3k.id.de 

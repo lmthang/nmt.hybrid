@@ -25,6 +25,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addRequired(p,'outDir',@ischar);
   addRequired(p,'baseIndex',@isnumeric);
   % optional
+  addOptional(p,'numLayers', 1, @isnumeric); % number of layers
   addOptional(p,'lstmSize', 100, @isnumeric);
   addOptional(p,'learningRate', 1.0, @isnumeric);
   addOptional(p,'maxGradNorm', 5.0, @isnumeric);
