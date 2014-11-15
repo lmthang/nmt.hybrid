@@ -290,11 +290,15 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     end
     
     % read more data
-    [srcTrainSents, numTrainSents] = loadBatchData(srcID, params.baseIndex, params.chunkSize, params.srcEos);
-    [tgtTrainSents] = loadBatchData(tgtID, params.baseIndex, params.chunkSize, params.tgtEos);
+    [tgtTrainSents, numTrainSents] = loadBatchData(tgtID, params.baseIndex, params.chunkSize, params.tgtEos);
+    if params.isBi
+      [srcTrainSents] = loadBatchData(srcID, params.baseIndex, params.chunkSize, params.srcEos);
+    end
     if numTrainSents == 0 % eof, end of an epoch
       fclose(tgtID);
-      fclose(srcID);
+      if params.isBi
+        fclose(srcID);
+      end
       if params.epoch==1
         params.finetuneCount = floor(params.epochFraction*params.epochBatchCount);
         fprintf(2, '# Num batches per epoch = %d, finetune count=%d\n', params.epochBatchCount, params.finetuneCount);
@@ -310,12 +314,13 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         end
         fprintf(2, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
         
-        
         % reopen file
-        srcID = fopen(srcTrainFile, 'r');
         tgtID = fopen(tgtTrainFile, 'r');
-        [srcTrainSents, numTrainSents] = loadBatchData(srcID, params.baseIndex, params.chunkSize, params.srcEos);
         [tgtTrainSents] = loadBatchData(tgtID, params.baseIndex, params.chunkSize, params.tgtEos);
+        if params.isBi
+          srcID = fopen(srcTrainFile, 'r');
+          [srcTrainSents, numTrainSents] = loadBatchData(srcID, params.baseIndex, params.chunkSize, params.srcEos);
+        end
       else % done training
         fprintf(2, '# Done training, %s\n', datestr(now));
         break; 

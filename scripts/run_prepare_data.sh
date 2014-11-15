@@ -47,9 +47,9 @@ execute_check "$outFile" "$SCRIPT_DIR/prepare_data.py --size $vocabSize $trainFi
 # valid
 validName=`basename $validFile`
 outFile="$outDir/$validName"
-execute_check "$outFile" "$SCRIPT_DIR/prepare_data.py --vocab_file $trainFile.vocab.$vocabSize --size $vocabSize $trainFile $outFile"
+execute_check "$outFile" "$SCRIPT_DIR/prepare_data.py --vocab_file $trainFile.vocab.$vocabSize --size $vocabSize $validFile $outFile"
 
 # test
 testName=`basename $testFile`
 outFile="$outDir/$testName"
-execute_check "$outFile" "$SCRIPT_DIR/prepare_data.py --vocab_file $trainFile.vocab.$vocabSize --size $vocabSize $trainFile $outFile"
+execute_check "$outFile" "$SCRIPT_DIR/prepare_data.py --vocab_file $trainFile.vocab.$vocabSize --size $vocabSize $testFile $outFile"
