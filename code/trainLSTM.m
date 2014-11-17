@@ -360,23 +360,37 @@ function [model, params] = initLSTM(params)
   % special zero words at the end of each vocab
   % in which the emb is all zero and we will never back prob
   % stack vocab:  tgt-vocab + src-vocab
+  modelSize = 0;
   if params.isBi
     params.inVocabSize = params.tgtVocabSize + params.srcVocabSize;
-    model.W_src = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU);
+    model.W_src = cell(params.numLayers, 1);
+    for l=1:params.numLayers
+      model.W_src{l} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU);
+      modelSize = modelSize + numel(model.W_src{l});
+    end
   else
     params.inVocabSize = params.tgtVocabSize;
   end
   params.outVocabSize = params.tgtVocabSize;
   
-  model.W_tgt = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU);
+  model.W_tgt = cell(params.numLayers, 1);
+  for l=1:params.numLayers
+    model.W_tgt{l} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU);
+    modelSize = modelSize + numel(model.W_tgt{l});
+  end
   model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize]); % no GPU support for embedding matrix
   model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.lstmSize], params.isGPU); % softmax params
+  modelSize = modelSize + numel(model.W_emb);
+  modelSize = modelSize + numel(model.W_soft);
   
   % set parameters correspond to zero words
   if params.isBi
     model.W_emb(:, params.tgtVocabSize + params.srcSos) = zeros(params.lstmSize, 1);
   end
   model.W_emb(:, params.tgtEos) = zeros(params.lstmSize, 1);
+  
+  fprintf(2, '# Model size = %d\n', modelSize);
+  params.modelSize = modelSize;
 end
 
 

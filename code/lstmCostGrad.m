@@ -29,25 +29,49 @@ function [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tg
 
     % grad
     grad.W_soft = zeros(params.outVocabSize, params.lstmSize, dataType, 'gpuArray');
-    grad.W_src = zeros(4*params.lstmSize, 2*params.lstmSize, dataType, 'gpuArray');
-    grad.W_tgt = zeros(4*params.lstmSize, 2*params.lstmSize, dataType, 'gpuArray');
+    
+    % W_src
+    if params.isBi
+      grad.W_src = cell(params.numLayers, 1);
+      for l=1:params.numLayers
+        grad.W_src{l} = zeros(4*params.lstmSize, 2*params.lstmSize, dataType, 'gpuArray');
+      end
+    end
+    
+    % W_tgt
+    grad.W_tgt = cell(params.numLayers, 1);
+    for l=1:params.numLayers
+      grad.W_tgt{l} = zeros(4*params.lstmSize, 2*params.lstmSize, dataType, 'gpuArray');
+    end
   else
     zero_state = zeros([params.lstmSize, curBatchSize]);
     totalCost = 0.0;
     
     % grad 
     grad.W_soft = zeros(params.outVocabSize, params.lstmSize);
-    grad.W_src = zeros(4*params.lstmSize, 2*params.lstmSize);
-    grad.W_tgt = zeros(4*params.lstmSize, 2*params.lstmSize);
+    
+    % W_src
+    if params.isBi
+      grad.W_src = cell(params.numLayers, 1);
+      for l=1:params.numLayers
+        grad.W_src{l} = zeros(4*params.lstmSize, 2*params.lstmSize);
+      end
+    end
+    
+    % W_tgt
+    grad.W_tgt = cell(params.numLayers, 1);
+    for l=1:params.numLayers
+      grad.W_tgt{l} = zeros(4*params.lstmSize, 2*params.lstmSize);
+    end
   end
   
   for l=1:params.numLayers % layer
     for t=1:T % time
       %% decide encoder/decoder
       if (t>=srcMaxLen) % decoder
-        W = model.W_tgt;
+        W = model.W_tgt{l};
       else % encoder
-        W = model.W_src;
+        W = model.W_src{l};
       end
       
       %% input
@@ -139,9 +163,9 @@ function [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tg
 
       %% grad.W_src / grad.W_tgt
       if (t>=srcMaxLen)
-        grad.W_tgt = grad.W_tgt + lstm_grad.W_tgt;
+        grad.W_tgt{l} = grad.W_tgt{l} + lstm_grad.W_tgt;
       else
-        grad.W_src = grad.W_src + lstm_grad.W_src;
+        grad.W_src{l} = grad.W_src{l} + lstm_grad.W_src;
       end
 
       %% input grad
@@ -163,8 +187,15 @@ function [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tg
   
   if params.isGPU % copy to CPU
     grad.W_soft = gather(grad.W_soft);
-    grad.W_src = gather(grad.W_src);
-    grad.W_tgt = gather(grad.W_tgt);
+    if params.isBi
+      for l=1:params.numLayers
+        grad.W_src{l} = gather(grad.W_src{l});
+      end
+    end
+    
+    for l=1:params.numLayers
+      grad.W_tgt{l} = gather(grad.W_tgt{l});
+    end
     totalCost = gather(totalCost);
   end
 end

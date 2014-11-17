@@ -18,14 +18,14 @@ function [dc, dh, lstm_grad] = lstmUnitGrad(model, lstm, x_t, dc, dh, l, t, srcM
   da = params.nonlinear_f_prime(lstm{l, t}.a_signal).*lstm{l, t}.i_gate.*dc;   
 
   if (t>=srcMaxLen) % grad tgt
-    W = model.W_tgt;
+    W = model.W_tgt{l};
     if t==1
       lstm_grad.W_tgt = [di; df; do; da]*[x_t; zero_state]';
     else
       lstm_grad.W_tgt = [di; df; do; da]*[x_t; lstm{l, t-1}.h_t]';
     end
   else % grad src
-    W = model.W_src;
+    W = model.W_src{l};
     if t==1
       lstm_grad.W_src = [di; df; do; da]*[x_t; zero_state]';
     else
