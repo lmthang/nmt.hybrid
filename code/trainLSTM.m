@@ -224,8 +224,16 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       end
       
       % check grad norm
-      gradNorm = sqrt(sum(sum(grad.W_emb.^2)) + double(sum(sum(grad.W_soft.^2))) + double(sum(sum(grad.W_src.^2))) + double(sum(sum(grad.W_tgt.^2))));
-      gradNorm = gradNorm / params.batchSize;
+      gradNorm = sum(sum(grad.W_emb.^2)) + double(sum(sum(grad.W_soft.^2)));
+      if params.isBi
+        for l=1:params.numLayers
+          gradNorm = gradNorm + double(sum(sum(grad.W_src{l}.^2)));
+        end
+      end
+      for l=1:params.numLayers
+        gradNorm = gradNorm + double(sum(sum(grad.W_tgt{l}.^2)));
+      end
+      gradNorm = sqrt(gradNorm) / params.batchSize;
       scale = 1.0/params.batchSize; % grad is divided by batchSize
       if gradNorm > params.maxGradNorm
         scale = scale*params.maxGradNorm/gradNorm;
@@ -234,9 +242,14 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       % update parameters
       model.W_soft = model.W_soft - params.lr*scale*grad.W_soft;
       if params.isBi
-        model.W_src = model.W_src - params.lr*scale*grad.W_src;
+        for l=1:params.numLayers
+          model.W_src{l} = model.W_src{l} - params.lr*scale*grad.W_src{l};
+        end
       end
-      model.W_tgt = model.W_tgt - params.lr*scale*grad.W_tgt;
+      
+      for l=1:params.numLayers
+        model.W_tgt{l} = model.W_tgt{l} - params.lr*scale*grad.W_tgt{l};
+      end
       indices = find(any(grad.W_emb)); % find out non empty columns
       model.W_emb(:, indices) = model.W_emb(:, indices) - params.lr*scale*grad.W_emb(:, indices);
 
