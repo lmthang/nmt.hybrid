@@ -47,6 +47,7 @@ run.sh  Train RNN models
   logFreq     Compute validation perplexities after [logFreq] dots printed
 
 The script run.sh will call the main LSTM training code at code/trainLSTM.m
+See the trainLSTM.m code for more options, e.g., training multiple layers.
 
 /*********************/
 /** Sample commands **/
