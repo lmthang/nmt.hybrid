@@ -223,8 +223,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         continue;
       end
       
-      % check grad norm
-      gradNorm = sum(sum(grad.W_emb.^2)) + double(sum(sum(grad.W_soft.^2)));
+      %% grad clipping
+      gradNorm = double(sum(sum(grad.W_soft.^2))); % sum(sum(grad.W_emb.^2)) + 
       if params.isBi
         for l=1:params.numLayers
           gradNorm = gradNorm + double(sum(sum(grad.W_src{l}.^2)));
@@ -239,21 +239,20 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         scale = scale*params.maxGradNorm/gradNorm;
       end
       
-      % update parameters
+      %% update parameters
       model.W_soft = model.W_soft - params.lr*scale*grad.W_soft;
       if params.isBi
         for l=1:params.numLayers
           model.W_src{l} = model.W_src{l} - params.lr*scale*grad.W_src{l};
         end
       end
-      
       for l=1:params.numLayers
         model.W_tgt{l} = model.W_tgt{l} - params.lr*scale*grad.W_tgt{l};
       end
       indices = find(any(grad.W_emb)); % find out non empty columns
       model.W_emb(:, indices) = model.W_emb(:, indices) - params.lr*scale*grad.W_emb(:, indices);
 
-      % log info
+      %% log info
       totalWords = totalWords + sum(sum(trainData.tgtMask));
       totalCost = totalCost + cost;
       if mod(params.iter, params.logFreq) == 0
@@ -269,7 +268,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         startTime = clock;
       end
 
-      % eval
+      %% eval
       if mod(params.iter, params.evalFreq) == 0    
         if params.isProfile
           if ismac
