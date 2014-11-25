@@ -28,7 +28,7 @@ To speed up training time, you can also group sentences of similar lengths toget
 For parallel corpus: ./scripts/sort_sents.py --src_lang <src_lang> --tgt_lang <tgt_lang> <in_file> <out_file>
 
 (b) Train an LSTM
-run.sh  Train RNN models
+run.sh  Train LSTM models
   trainPrefix   expect train files trainPrefix.(srcLang|tgtLang)
   validPrefix   expect valid files validPrefix.(srcLang|tgtLang)
   testPrefix    expect test files testPrefix.(srcLang|tgtLang)

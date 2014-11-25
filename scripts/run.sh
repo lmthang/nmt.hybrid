@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [[ $# -lt 16 || $# -gt 17 ]]; then
-  echo -e "`basename $0`\tTrain RNN models"
+  echo -e "`basename $0`\tTrain LSTM models"
   echo -e "\ttrainPrefix\t\texpect train files trainPrefix.(srcLang|tgtLang)"
   echo -e "\tvalidPrefix\t\texpect valid files validPrefix.(srcLang|tgtLang)"
   echo -e "\ttestPrefix\t\texpect test files testPrefix.(srcLang|tgtLang)"

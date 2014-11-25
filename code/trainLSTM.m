@@ -217,7 +217,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       tgtBatchSents = tgtTrainSents(startId:endId);
       [trainData.input, trainData.inputMask, trainData.tgtOutput, trainData.tgtMask, trainData.srcMaxLen, trainData.tgtMaxLen] = prepareData(srcBatchSents, tgtBatchSents, params);
       % core part
-      [cost, grad] = lstmCostGrad(model, trainData.input, trainData.inputMask, trainData.tgtOutput, trainData.tgtMask, trainData.srcMaxLen, trainData.tgtMaxLen, params, 0);
+      [cost, grad] = lstmCostGrad(model, trainData, params, 0);
       if isnan(cost) || isinf(cost)
         fprintf(2, 'epoch=%d, iter=%d, nan/inf cost=%g\n', params.epoch, params.iter, cost);
         continue;
@@ -362,15 +362,18 @@ function [cost] = evalCost(model, data, params) %input, inputMask, tgtOutput, tg
       endId = numSents;
     end
     
-    cost = cost + lstmCostGrad(model, data.input(startId:endId, :), data.inputMask(startId:endId, :), data.tgtOutput(startId:endId, :), ...
-      data.tgtMask(startId:endId, :), data.srcMaxLen, data.tgtMaxLen, params, 1);
+    trainData.input = data.input(startId:endId, :);
+    trainData.inputMask = data.inputMask(startId:endId, :);
+    trainData.tgtOutput = data.tgtOutput(startId:endId, :);
+    trainData.tgtMask = data.tgtMask(startId:endId, :);
+    trainData.srcMaxLen = data.srcMaxLen;
+    trainData.tgtMaxLen = data.tgtMaxLen;
+    cost = cost + lstmCostGrad(model, trainData, params, 1);
   end
 end
 
 %% Init model parameters
 function [model, params] = initLSTM(params)
-  % special zero words at the end of each vocab
-  % in which the emb is all zero and we will never back prob
   % stack vocab:  tgt-vocab + src-vocab
   modelSize = 0;
   if params.isBi
@@ -410,18 +413,14 @@ function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab) % [input, 
   if params.isBi % bi
     % src
     srcFile = sprintf('%s.%s', prefix, params.srcLang);
-    fprintf(2, '# Loaded data srcFile %s\n', srcFile);
-    [srcSents] = loadMonoData(srcFile, params.srcEos, -1, params.baseIndex);
-    printSent(srcSents{1}, srcVocab, '  src:');
+    [srcSents] = loadMonoData(srcFile, params.srcEos, -1, params.baseIndex, srcVocab, 'src');
   else
     srcSents = {};
   end
   
   % tgt
   tgtFile = sprintf('%s.%s', prefix, params.tgtLang);
-  fprintf(2, '# Loaded data tgtFile %s\n', tgtFile);
-  [tgtSents] = loadMonoData(tgtFile, params.tgtEos, -1, params.baseIndex);
-  printSent(tgtSents{1}, tgtVocab, '  tgt:');
+  [tgtSents] = loadMonoData(tgtFile, params.tgtEos, -1, params.baseIndex, tgtVocab, 'tgt');
 
   % prepare
   [data.input, data.inputMask, data.tgtOutput, data.tgtMask, data.srcMaxLen, data.tgtMaxLen] = prepareData(srcSents, tgtSents, params);
@@ -430,10 +429,12 @@ function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab) % [input, 
   fprintf(2, '  numWords=%d\n', data.numWords);
 end
 
-function [sents, numSents] = loadMonoData(file, eos, numSents, baseIndex)
+function [sents, numSents] = loadMonoData(file, eos, numSents, baseIndex, vocab, label)
+  fprintf(2, '# Loading data %s %s\n', label, file);
   fid = fopen(file, 'r');
   [sents, numSents] = loadBatchData(fid, baseIndex, numSents, eos);
   fclose(fid);
+  printSent(sents{1}, vocab, ['  ', label, ':']);
 end
 
 

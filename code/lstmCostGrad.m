@@ -1,4 +1,4 @@
-function [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tgtMask, srcMaxLen, tgtMaxLen, params, isCostOnly)
+function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
 %%%
 %
 % Compute cost/grad for LSTM.
@@ -11,6 +11,13 @@ function [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tg
   %dataType = 'double'; % Note: use double precision for grad check
   dataType = 'single';
 
+  input = trainData.input;
+  inputMask = trainData.inputMask;
+  tgtOutput = trainData.tgtOutput;
+  tgtMask = trainData.tgtMask;
+  srcMaxLen = trainData.srcMaxLen;
+  tgtMaxLen = trainData.tgtMaxLen;
+  
   %%%%%%%%%%%%%%%%%%%%
   %%% FORWARD PASS %%%
   %%%%%%%%%%%%%%%%%%%%

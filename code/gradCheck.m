@@ -30,7 +30,7 @@ function gradCheck(model, params)
   end
 
   % prepare data
-  [input, inputMask, tgtOutput, tgtMask, srcMaxLen, tgtMaxLen] = prepareData(srcTrainSents, tgtTrainSents, params);
+  [trainData.input, trainData.inputMask, trainData.tgtOutput, trainData.tgtMask, trainData.srcMaxLen, trainData.tgtMaxLen] = prepareData(srcTrainSents, tgtTrainSents, params);
 
   % theta
   if params.isBi
@@ -42,7 +42,7 @@ function gradCheck(model, params)
   fprintf(2, '# Num params=%d\n', numParams);
   
   % analytic grad
-  [totalCost, grad] = lstmCostGrad(model, input, inputMask, tgtOutput, tgtMask, srcMaxLen, tgtMaxLen, params, 0);
+  [totalCost, grad] = lstmCostGrad(model, trainData, params, 0);
   if params.isBi
     anaGrad =  param2stack(grad.W_src, grad.W_tgt, grad.W_soft, full(grad.W_emb));
   else
@@ -54,6 +54,15 @@ function gradCheck(model, params)
   delta = 0.0001;
   abs_diff = 0;
   local_abs_diff = 0;
+  
+  numSrcParams = 0;
+  for ii=1:length(model.W_src)
+    numSrcParams = numSrcParams + numel(model.W_src{ii});
+  end
+  numTgtParams = 0;
+  for ii=1:length(model.W_tgt)
+    numTgtParams = numTgtParams + numel(model.W_tgt{ii});
+  end
   for i=1:numParams
     thetaNew = theta;
     thetaNew(i) = thetaNew(i) + delta;
@@ -64,31 +73,31 @@ function gradCheck(model, params)
       model.W_src = [];
       [modelNew.W_tgt, modelNew.W_soft, modelNew.W_emb] = stack2param(thetaNew, decodeInfo);
     end
-    totalCost_new = lstmCostGrad(modelNew, input, inputMask, tgtOutput, tgtMask, srcMaxLen, tgtMaxLen, params, 0);
+    totalCost_new = lstmCostGrad(modelNew, trainData, params, 0);
     empGrad(i) = (totalCost_new-totalCost)/delta;
     abs_diff = abs_diff + abs(empGrad(i)-anaGrad(i));
     local_abs_diff = local_abs_diff + abs(empGrad(i)-anaGrad(i));
     
     if params.isBi
       if i==1
-        fprintf(2, '# W_src [%d, %d]\n', size(model.W_src, 1), size(model.W_src, 2));
+        fprintf(2, '# W_src\n');
       end
-      if i==numel(model.W_src) + 1
+      if i==numSrcParams + 1
         fprintf(2, '  local_diff=%g\n', local_abs_diff);
         local_abs_diff = 0;
-        fprintf(2, '# W_tgt [%d, %d]\n', size(model.W_tgt, 1), size(model.W_tgt, 2));
+        fprintf(2, '# W_tgt\n');
       end
     else
       if i==1
-        fprintf(2, '# W_tgt [%d, %d]\n', size(model.W_tgt, 1), size(model.W_tgt, 2));
+        fprintf(2, '# W_tgt\n');
       end
     end
-    if i==numel(model.W_src) + numel(model.W_tgt) + 1
+    if i==numSrcParams + numTgtParams + 1
       fprintf(2, '  local_diff=%g\n', local_abs_diff);
       local_abs_diff = 0;
       fprintf(2, '# W_soft [%d, %d]\n', size(model.W_soft, 1), size(model.W_soft, 2));
     end
-    if i==numel(model.W_src) + numel(model.W_tgt) + numel(model.W_soft) + 1
+    if i==numSrcParams + numTgtParams + numel(model.W_soft) + 1
       fprintf(2, '  local_diff=%g\n', local_abs_diff);
       local_abs_diff = 0;
       fprintf(2, '# W_emb [%d, %d]\n', size(model.W_emb, 1), size(model.W_emb, 2));
