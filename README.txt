@@ -23,8 +23,12 @@ We can reuse saved vocab file as follows:
 There's a script to run for train/valid/test files:
 run_prepare_data.sh trainFile validFile testFile vocabSize outDir [verbose]
 
+To speed up training time, you can also group sentences of similar lengths together:
+./scripts/sort_sents.py <in_file> <out_file>
+For parallel corpus: ./scripts/sort_sents.py --src_lang <src_lang> --tgt_lang <tgt_lang> <in_file> <out_file>
+
 (b) Train an LSTM
-run.sh  Train RNN models
+run.sh  Train LSTM models
   trainPrefix   expect train files trainPrefix.(srcLang|tgtLang)
   validPrefix   expect valid files validPrefix.(srcLang|tgtLang)
   testPrefix    expect test files testPrefix.(srcLang|tgtLang)
@@ -43,6 +47,7 @@ run.sh  Train RNN models
   logFreq     Compute validation perplexities after [logFreq] dots printed
 
 The script run.sh will call the main LSTM training code at code/trainLSTM.m
+See the trainLSTM.m code for more options, e.g., training multiple layers.
 
 /*********************/
 /** Sample commands **/

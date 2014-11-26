@@ -1,4 +1,4 @@
-scripts/text.pyc
+*.pyc
 code/html*
 code/profile_results*
 data/*

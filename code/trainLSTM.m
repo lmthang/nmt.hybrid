@@ -25,6 +25,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addRequired(p,'outDir',@ischar);
   addRequired(p,'baseIndex',@isnumeric);
   % optional
+  addOptional(p,'numLayers', 1, @isnumeric); % number of layers
   addOptional(p,'lstmSize', 100, @isnumeric);
   addOptional(p,'learningRate', 1.0, @isnumeric);
   addOptional(p,'maxGradNorm', 5.0, @isnumeric);
@@ -33,6 +34,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'numEpoches', 5, @isnumeric); % num epoches
   addOptional(p,'epochFraction', 0.5, @isnumeric);
   addOptional(p,'finetuneEpoch', 3, @isnumeric); % epoch > finetuneEpoch, start halving learning rate every epochFraction of an epoch, e.g., every 0.5 epoch
+  addOptional(p,'finetuneRate', 0.5, @isnumeric); % multiply learning rate by this factor each time we finetune
   addOptional(p,'logFreq', 10, @isnumeric); % how frequent (number of batches) we want to log stuffs
   addOptional(p,'isGradCheck', 0, @isnumeric); % set 1 to check the gradient, no need to specify other input arguments as toy data is automatically generated.
   addOptional(p,'isProfile', 0, @isnumeric);
@@ -117,10 +119,10 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.tgtVocabSize = length(tgtVocab);
   
   %% Init / Load Model Parameters
-  modelFile = [outDir '/model.mat'];
-  if params.isGradCheck==0 && params.isResume && exist(modelFile, 'file') % a model exists, resume training
-    fprintf(2, '# Model file %s exists. Try loading ...\n', modelFile);
-    savedData = load(modelFile);
+  params.modelFile = [outDir '/model.mat'];
+  if params.isGradCheck==0 && params.isResume && exist(params.modelFile, 'file') % a model exists, resume training
+    fprintf(2, '# Model file %s exists. Try loading ...\n', params.modelFile);
+    savedData = load(params.modelFile);
     
     % params
     oldParams = savedData.params;
@@ -162,8 +164,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   %% Load data
   
   % valid & test
-  [inputValid, inputValidMask, tgtValidOutput, tgtValidMask, srcValidMaxLen, tgtValidMaxLen, numValidWords] = loadPrepareData(params, params.validPrefix, srcVocab, tgtVocab);
-  [inputTest, inputTestMask, tgtTestOutput, tgtTestMask, srcTestMaxLen, tgtTestMaxLen, numTestWords] = loadPrepareData(params, params.testPrefix, srcVocab, tgtVocab);
+  [validData] = loadPrepareData(params, params.validPrefix, srcVocab, tgtVocab);
+  [testData] = loadPrepareData(params, params.testPrefix, srcVocab, tgtVocab);
   
   % train
   tgtTrainFile = sprintf('%s.%s', params.trainPrefix, params.tgtLang);
@@ -182,7 +184,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
 
   %% Training
   totalCost = 0; totalWords = 0;
-  evalFreq = params.logFreq*10;
+  params.evalFreq = params.logFreq*10;
   
   % profile
   if params.isProfile
@@ -213,90 +215,96 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         srcBatchSents = {};
       end
       tgtBatchSents = tgtTrainSents(startId:endId);
-      [inputTrain, inputTrainMask, tgtTrainOutput, tgtTrainMask, srcTrainMaxLen, tgtTrainMaxLen] = prepareData(srcBatchSents, tgtBatchSents, params);
-      
+      [trainData.input, trainData.inputMask, trainData.tgtOutput, trainData.tgtMask, trainData.srcMaxLen, trainData.tgtMaxLen] = prepareData(srcBatchSents, tgtBatchSents, params);
       % core part
-      [cost, grad] = lstmCostGrad(model, inputTrain, inputTrainMask, tgtTrainOutput, tgtTrainMask, srcTrainMaxLen, tgtTrainMaxLen, params, 0);
+      [cost, grad] = lstmCostGrad(model, trainData, params, 0);
       if isnan(cost) || isinf(cost)
         fprintf(2, 'epoch=%d, iter=%d, nan/inf cost=%g\n', params.epoch, params.iter, cost);
         continue;
       end
       
-      % check grad norm
-      gradNorm = sqrt(sum(sum(grad.W_emb.^2)) + double(sum(sum(grad.W_soft.^2))) + double(sum(sum(grad.W_src.^2))) + double(sum(sum(grad.W_tgt.^2))));
-      gradNorm = gradNorm / params.batchSize;
+      %% grad clipping
+      gradNorm = double(sum(sum(grad.W_soft.^2))); % sum(sum(grad.W_emb.^2)) + 
+      if params.isBi
+        for l=1:params.numLayers
+          gradNorm = gradNorm + double(sum(sum(grad.W_src{l}.^2)));
+        end
+      end
+      for l=1:params.numLayers
+        gradNorm = gradNorm + double(sum(sum(grad.W_tgt{l}.^2)));
+      end
+      gradNorm = sqrt(gradNorm) / params.batchSize;
       scale = 1.0/params.batchSize; % grad is divided by batchSize
       if gradNorm > params.maxGradNorm
         scale = scale*params.maxGradNorm/gradNorm;
       end
       
-      % update parameters
+      %% update parameters
       model.W_soft = model.W_soft - params.lr*scale*grad.W_soft;
       if params.isBi
-        model.W_src = model.W_src - params.lr*scale*grad.W_src;
+        for l=1:params.numLayers
+          model.W_src{l} = model.W_src{l} - params.lr*scale*grad.W_src{l};
+        end
       end
-      model.W_tgt = model.W_tgt - params.lr*scale*grad.W_tgt;
+      for l=1:params.numLayers
+        model.W_tgt{l} = model.W_tgt{l} - params.lr*scale*grad.W_tgt{l};
+      end
       indices = find(any(grad.W_emb)); % find out non empty columns
       model.W_emb(:, indices) = model.W_emb(:, indices) - params.lr*scale*grad.W_emb(:, indices);
 
-      % log info
-      totalWords = totalWords + sum(sum(tgtTrainMask));
+      %% log info
+      totalWords = totalWords + sum(sum(trainData.tgtMask));
       totalCost = totalCost + cost;
       if mod(params.iter, params.logFreq) == 0
         endTime = clock;
         timeElapsed = etime(endTime, startTime);
-        costTrain = totalCost/totalWords;
-        fprintf(2, 'epoch=%d, iter=%d, wps=%.2fK, lr=%g, cost=%g, gradNorm=%.2f, srcMaxLen=%d, tgtMaxLen=%d, %.2fs, %s\n', params.epoch, params.iter, totalWords*0.001/timeElapsed, params.lr, costTrain, gradNorm, srcTrainMaxLen, tgtTrainMaxLen, timeElapsed, datestr(now));
-    
-        % eval
-        if mod(params.iter, evalFreq) == 0    
-          if params.isProfile
-            if ismac
-              profile viewer    
-            else
-              profsave(profile('info'), 'profile_results');
-            end
-            return;
-          end
-          
-          
-          %costValid = lstmCostGrad(model, inputValid, inputValidMask, tgtValidOutput, tgtValidMask, srcValidMaxLen, tgtValidMaxLen, params, 1);
-          %costTest = lstmCostGrad(model, inputTest, inputTestMask, tgtTestOutput, tgtTestMask, srcTestMaxLen, tgtTestMaxLen, params, 1);
-          [costValid] = evalCost(model, inputValid, inputValidMask, tgtValidOutput, tgtValidMask, srcValidMaxLen, tgtValidMaxLen, params);
-          [costTest] = evalCost(model, inputTest, inputTestMask, tgtTestOutput, tgtTestMask, srcTestMaxLen, tgtTestMaxLen, params);
-          
-          costValid = costValid/numValidWords;
-          costTest = costTest/numTestWords;
-          fprintf(2, '# eval %.2f, %d, %d, %.2fK, %g, costTrain=%g, costValid=%g, costTest=%g, %.2fs, %s\n', exp(costTest), params.epoch, params.iter, totalWords*0.001/timeElapsed, params.lr, costTrain, costValid, costTest, datestr(now));
-          
-          if costValid < params.bestCostValid
-            params.bestCostValid = costValid;
-            params.testPerplexity = exp(costTest);
-            fprintf(2, '  save model test perplexity %.2f to %s\n', params.testPerplexity, modelFile);
-            save(modelFile, 'model', 'params');
-          end
-        end
-        
+        params.costTrain = totalCost/totalWords;
+        params.speed = totalWords*0.001/timeElapsed;
+        fprintf(2, 'epoch=%d, iter=%d, wps=%.2fK, lr=%g, cost=%g, gradNorm=%.2f, srcMaxLen=%d, tgtMaxLen=%d, %.2fs, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, trainData.srcMaxLen, trainData.tgtMaxLen, timeElapsed, datestr(now));
+       
         % reset
         totalWords = 0;
         totalCost = 0;
         startTime = clock;
       end
-    end % end for batchId
+
+      %% eval
+      if mod(params.iter, params.evalFreq) == 0    
+        if params.isProfile
+          if ismac
+            profile viewer    
+          else
+            profsave(profile('info'), 'profile_results');
+          end
+          return;
+        end
+       
+        [params] = evalValidTest(model, validData, testData, params);
+      end
+     end % end for batchId
 
     if params.epoch==1
       params.epochBatchCount = params.epochBatchCount + numBatches;
     end
     
     % read more data
-    [srcTrainSents, numTrainSents] = loadBatchData(srcID, params.baseIndex, params.chunkSize, params.srcEos);
-    [tgtTrainSents] = loadBatchData(tgtID, params.baseIndex, params.chunkSize, params.tgtEos);
+    [tgtTrainSents, numTrainSents] = loadBatchData(tgtID, params.baseIndex, params.chunkSize, params.tgtEos);
+    if params.isBi
+      [srcTrainSents] = loadBatchData(srcID, params.baseIndex, params.chunkSize, params.srcEos);
+    end
     if numTrainSents == 0 % eof, end of an epoch
       fclose(tgtID);
-      fclose(srcID);
+      if params.isBi
+        fclose(srcID);
+      end
       if params.epoch==1
         params.finetuneCount = floor(params.epochFraction*params.epochBatchCount);
         fprintf(2, '# Num batches per epoch = %d, finetune count=%d\n', params.epochBatchCount, params.finetuneCount);
+        if params.evalFreq > params.epochBatchCount
+          fprintf(2, '! change evalFreq from %d -> %d\n', params.evalFreq, params.epochBatchCount);
+          params.evalFreq = params.epochBatchCount;
+          [params] = evalValidTest(model, validData, testData, params);
+        end
       end
       
       % new epoch
@@ -304,17 +312,18 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       if params.epoch <= params.numEpoches % continue training
         % finetuning
         if params.epoch > params.finetuneEpoch && mod(params.iter, params.finetuneCount)==0
-          fprintf(2, '# Finetuning %f -> %f\n', params.lr, params.lr/2);
-          params.lr = params.lr/2;
+          fprintf(2, '# Finetuning %f -> %f\n', params.lr, params.lr*params.finetuneRate);
+          params.lr = params.lr*params.finetuneRate;
         end
         fprintf(2, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
         
-        
         % reopen file
-        srcID = fopen(srcTrainFile, 'r');
         tgtID = fopen(tgtTrainFile, 'r');
-        [srcTrainSents, numTrainSents] = loadBatchData(srcID, params.baseIndex, params.chunkSize, params.srcEos);
-        [tgtTrainSents] = loadBatchData(tgtID, params.baseIndex, params.chunkSize, params.tgtEos);
+        [tgtTrainSents, numTrainSents] = loadBatchData(tgtID, params.baseIndex, params.chunkSize, params.tgtEos);
+        if params.isBi
+          srcID = fopen(srcTrainFile, 'r');
+          [srcTrainSents] = loadBatchData(srcID, params.baseIndex, params.chunkSize, params.srcEos);
+        end
       else % done training
         fprintf(2, '# Done training, %s\n', datestr(now));
         break; 
@@ -323,9 +332,26 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   end % end for while(1)
 end
 
+function [params] = evalValidTest(model, validData, testData, params)
+  [costValid] = evalCost(model, validData, params); % inputValid, inputValidMask, tgtValidOutput, tgtValidMask, srcValidMaxLen, tgtValidMaxLen, params);
+  [costTest] = evalCost(model, testData, params); %inputTest, inputTestMask, tgtTestOutput, tgtTestMask, srcTestMaxLen, tgtTestMaxLen, params);
+  
+  costValid = costValid/validData.numWords;
+  costTest = costTest/testData.numWords;
+  fprintf(2, '# eval %.2f, %d, %d, %.2fK, %g, costTrain=%g, costValid=%g, costTest=%g, %.2fs, %s\n', exp(costTest), params.epoch, params.iter, params.speed, params.lr, params.costTrain, costValid, costTest, datestr(now));
+  
+  if costValid < params.bestCostValid
+    params.bestCostValid = costValid;
+    params.costTest = costTest;
+    params.testPerplexity = exp(costTest);
+    fprintf(2, '  save model test perplexity %.2f to %s\n', params.testPerplexity, params.modelFile);
+    save(params.modelFile, 'model', 'params');
+  end
+end
+
 %% Eval
-function [cost] = evalCost(model, input, inputMask, tgtOutput, tgtMask, srcMaxLen, tgtMaxLen, params)
-  numSents = size(input, 1);
+function [cost] = evalCost(model, data, params) %input, inputMask, tgtOutput, tgtMask, srcMaxLen, tgtMaxLen, params)
+  numSents = size(data.input, 1);
   numBatches = floor((numSents-1)/params.batchSize) + 1;
 
   cost = 0;
@@ -336,65 +362,79 @@ function [cost] = evalCost(model, input, inputMask, tgtOutput, tgtMask, srcMaxLe
       endId = numSents;
     end
     
-    cost = cost + lstmCostGrad(model, input(startId:endId, :), inputMask(startId:endId, :), tgtOutput(startId:endId, :), ...
-      tgtMask(startId:endId, :), srcMaxLen, tgtMaxLen, params, 1);
+    trainData.input = data.input(startId:endId, :);
+    trainData.inputMask = data.inputMask(startId:endId, :);
+    trainData.tgtOutput = data.tgtOutput(startId:endId, :);
+    trainData.tgtMask = data.tgtMask(startId:endId, :);
+    trainData.srcMaxLen = data.srcMaxLen;
+    trainData.tgtMaxLen = data.tgtMaxLen;
+    cost = cost + lstmCostGrad(model, trainData, params, 1);
   end
 end
 
 %% Init model parameters
 function [model, params] = initLSTM(params)
-  % special zero words at the end of each vocab
-  % in which the emb is all zero and we will never back prob
   % stack vocab:  tgt-vocab + src-vocab
+  modelSize = 0;
   if params.isBi
     params.inVocabSize = params.tgtVocabSize + params.srcVocabSize;
-    model.W_src = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU);
+    model.W_src = cell(params.numLayers, 1);
+    for l=1:params.numLayers
+      model.W_src{l} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU);
+      modelSize = modelSize + numel(model.W_src{l});
+    end
   else
     params.inVocabSize = params.tgtVocabSize;
   end
   params.outVocabSize = params.tgtVocabSize;
   
-  model.W_tgt = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU);
+  model.W_tgt = cell(params.numLayers, 1);
+  for l=1:params.numLayers
+    model.W_tgt{l} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU);
+    modelSize = modelSize + numel(model.W_tgt{l});
+  end
   model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize]); % no GPU support for embedding matrix
   model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.lstmSize], params.isGPU); % softmax params
+  modelSize = modelSize + numel(model.W_emb);
+  modelSize = modelSize + numel(model.W_soft);
   
   % set parameters correspond to zero words
   if params.isBi
     model.W_emb(:, params.tgtVocabSize + params.srcSos) = zeros(params.lstmSize, 1);
   end
   model.W_emb(:, params.tgtEos) = zeros(params.lstmSize, 1);
+  
+  fprintf(2, '# Model size = %d\n', modelSize);
+  params.modelSize = modelSize;
 end
 
 
-function [input, inputMask, tgtOutput, tgtMask, srcMaxLen, tgtMaxLen, numWords] = loadPrepareData(params, ...
-    prefix, srcVocab, tgtVocab)  
+function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab) % [input, inputMask, tgtOutput, tgtMask, srcMaxLen, tgtMaxLen, numWords ] 
   if params.isBi % bi
     % src
     srcFile = sprintf('%s.%s', prefix, params.srcLang);
-    fprintf(2, '# Loaded data srcFile %s\n', srcFile);
-    [srcSents] = loadMonoData(srcFile, params.srcEos, -1, params.baseIndex);
-    printSent(srcSents{1}, srcVocab, '  src:');
+    [srcSents] = loadMonoData(srcFile, params.srcEos, -1, params.baseIndex, srcVocab, 'src');
   else
     srcSents = {};
   end
   
   % tgt
   tgtFile = sprintf('%s.%s', prefix, params.tgtLang);
-  fprintf(2, '# Loaded data tgtFile %s\n', tgtFile);
-  [tgtSents] = loadMonoData(tgtFile, params.tgtEos, -1, params.baseIndex);
-  printSent(tgtSents{1}, tgtVocab, '  tgt:');
+  [tgtSents] = loadMonoData(tgtFile, params.tgtEos, -1, params.baseIndex, tgtVocab, 'tgt');
 
   % prepare
-  [input, inputMask, tgtOutput, tgtMask, srcMaxLen, tgtMaxLen] = prepareData(srcSents, tgtSents, params);
+  [data.input, data.inputMask, data.tgtOutput, data.tgtMask, data.srcMaxLen, data.tgtMaxLen] = prepareData(srcSents, tgtSents, params);
   
-  numWords = sum(sum(tgtMask));
-  fprintf(2, '  numWords=%d\n', numWords);
+  data.numWords = sum(sum(data.tgtMask));
+  fprintf(2, '  numWords=%d\n', data.numWords);
 end
 
-function [sents, numSents] = loadMonoData(file, eos, numSents, baseIndex)
+function [sents, numSents] = loadMonoData(file, eos, numSents, baseIndex, vocab, label)
+  fprintf(2, '# Loading data %s %s\n', label, file);
   fid = fopen(file, 'r');
   [sents, numSents] = loadBatchData(fid, baseIndex, numSents, eos);
   fclose(fid);
+  printSent(sents{1}, vocab, ['  ', label, ':']);
 end
 
 
