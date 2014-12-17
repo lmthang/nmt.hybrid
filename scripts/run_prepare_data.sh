@@ -15,8 +15,10 @@ vocabSize=$4
 outDir=$5
 VERBOSE=1
 sizeStr="--vocab_size $vocabSize"
+vocabFile="$trainFile.vocab.$vocabSize"
 if [ $# -eq 6 ]; then
   sizeStr="--freq $6"
+  vocabFile="$trainFile.vocab.f$6"
 fi
 SCRIPT_DIR=$(dirname $0)
 
@@ -49,9 +51,9 @@ execute_check "$outFile" "$SCRIPT_DIR/prepare_data.py $sizeStr $trainFile $outFi
 # valid
 validName=`basename $validFile`
 outFile="$outDir/$validName"
-execute_check "$outFile" "$SCRIPT_DIR/prepare_data.py --vocab_file $trainFile.vocab.$vocabSize --size $vocabSize $validFile $outFile"
+execute_check "$outFile" "$SCRIPT_DIR/prepare_data.py --vocab_file $vocabFile $sizeStr $validFile $outFile"
 
 # test
 testName=`basename $testFile`
 outFile="$outDir/$testName"
-execute_check "$outFile" "$SCRIPT_DIR/prepare_data.py --vocab_file $trainFile.vocab.$vocabSize --size $vocabSize $testFile $outFile"
+execute_check "$outFile" "$SCRIPT_DIR/prepare_data.py --vocab_file $vocabFile $sizeStr $testFile $outFile"

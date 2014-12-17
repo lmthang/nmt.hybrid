@@ -62,9 +62,10 @@ def process_files(in_file, out_file, vocab_file, freq, size):
 
   sys.stderr.write('# in_file = %s, out_file = %s, freq=%d, size=%d\n' % (in_file, out_file, freq, size))
   if vocab_file=='':
-    vocab_file = in_file + '.vocab'
     if size!=-1:
       vocab_file = in_file + '.vocab.' + str(size)
+    else:
+      vocab_file = in_file + '.vocab.f' + str(freq)
 
   # load vocab
   unk = '<unk>'
