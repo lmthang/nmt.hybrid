@@ -3,7 +3,8 @@
 
 if [[ ! $# -eq 6 && ! $# -eq 5 ]]
 then
-    echo "`basename $0` trainFile validFile testFile vocabSize outDir [verbose]" 
+    echo "`basename $0` trainFile validFile testFile vocabSize outDir [freq]" 
+    echo "If freq is specified, use freq instead of vocabSize"
     exit
 fi
 
@@ -13,8 +14,9 @@ testFile=$3
 vocabSize=$4
 outDir=$5
 VERBOSE=1
+sizeStr="--vocab_size $vocabSize"
 if [ $# -eq 6 ]; then
-  VERBOSE=$6
+  sizeStr="--freq $6"
 fi
 SCRIPT_DIR=$(dirname $0)
 
@@ -42,7 +44,7 @@ execute_check $outDir "mkdir -p $outDir"
 # train
 trainName=`basename $trainFile`
 outFile="$outDir/$trainName"
-execute_check "$outFile" "$SCRIPT_DIR/prepare_data.py --size $vocabSize $trainFile $outFile"
+execute_check "$outFile" "$SCRIPT_DIR/prepare_data.py $sizeStr $trainFile $outFile"
 
 # valid
 validName=`basename $validFile`
