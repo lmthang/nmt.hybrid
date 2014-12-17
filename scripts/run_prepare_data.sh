@@ -14,7 +14,7 @@ testFile=$3
 vocabSize=$4
 outDir=$5
 VERBOSE=1
-sizeStr="--vocab_size $vocabSize"
+sizeStr="--size $vocabSize"
 vocabFile="$trainFile.vocab.$vocabSize"
 if [ $# -eq 6 ]; then
   sizeStr="--freq $6"
