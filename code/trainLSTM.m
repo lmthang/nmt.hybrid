@@ -157,7 +157,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
 
   %% Check Grad
   if params.isGradCheck
+    tic
     gradCheck(model, params);
+    toc
     return;
   end
   
