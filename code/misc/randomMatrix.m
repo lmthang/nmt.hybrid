@@ -1,4 +1,4 @@
-function [result] = randomMatrix(rangeSize, size, isGPU)
+function [result] = randomMatrix(rangeSize, size, isGPU, type)
 %%%
 %
 % Initialize random matrix.
@@ -8,7 +8,7 @@ function [result] = randomMatrix(rangeSize, size, isGPU)
 %
 %%%
   if exist('isGPU', 'var') && isGPU==1
-    result = 2*rangeSize * (rand(size, 'double', 'gpuArray') - 0.5);  
+    result = 2*rangeSize * (rand(size, type, 'gpuArray') - 0.5);  
   else
-    result = 2*rangeSize * (rand(size) - 0.5);
+    result = 2*rangeSize * (rand(size, type) - 0.5);
   end
