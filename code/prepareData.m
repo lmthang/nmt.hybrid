@@ -9,7 +9,7 @@
 %   tgtMask  : numSents * tgtMaxLen, indicate where to ignore in the tgtOutput
 %  For the monolingual case, each src sent contains a single simple tgtSos,
 %   hence srcMaxLen = 1
-function [input, inputMask, tgtOutput, srcMaxLen, tgtMaxLen, srcLens] = prepareData(srcSents, tgtSents, params)
+function [input, inputMask, tgtOutput, srcMaxLen, tgtMaxLen, numWords, srcLens] = prepareData(srcSents, tgtSents, params)
   if params.isBi
     srcZeroId = params.tgtVocabSize + params.srcSos;
     srcMaxLen = max(cellfun(@(x) length(x), srcSents));
@@ -47,4 +47,6 @@ function [input, inputMask, tgtOutput, srcMaxLen, tgtMaxLen, srcLens] = prepareD
     srcEos = srcSents{1}(end) + params.tgtVocabSize;
     assert(input(1, srcMaxLen)==srcEos);
   end
+  
+  numWords = sum(sum(inputMask(:, srcMaxLen:end))); %sum(sum(data.tgtMask));
 end

@@ -220,7 +220,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         srcBatchSents = {};
       end
       tgtBatchSents = tgtTrainSents(startId:endId);
-      [trainData.input, trainData.inputMask, trainData.tgtOutput, trainData.srcMaxLen, trainData.tgtMaxLen, trainData.srcLens] = prepareData(srcBatchSents, tgtBatchSents, params);
+      [trainData.input, trainData.inputMask, trainData.tgtOutput, trainData.srcMaxLen, trainData.tgtMaxLen, trainData.numWords, trainData.srcLens] = prepareData(srcBatchSents, tgtBatchSents, params);
       % core part
       [cost, grad] = lstmCostGrad(model, trainData, params, 0);
       if isnan(cost) || isinf(cost)
@@ -258,7 +258,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       model.W_emb(:, indices) = model.W_emb(:, indices) - params.lr*scale*grad.W_emb(:, indices);
 
       %% log info
-      totalWords = totalWords + sum(sum(trainData.tgtMask));
+      totalWords = totalWords + trainData.numWords; %sum(sum(trainData.tgtMask));
       totalCost = totalCost + cost;
       if mod(params.iter, params.logFreq) == 0
         endTime = clock;
@@ -370,7 +370,7 @@ function [cost] = evalCost(model, data, params) %input, inputMask, tgtOutput, tg
     trainData.input = data.input(startId:endId, :);
     trainData.inputMask = data.inputMask(startId:endId, :);
     trainData.tgtOutput = data.tgtOutput(startId:endId, :);
-    trainData.tgtMask = data.tgtMask(startId:endId, :);
+    %trainData.tgtMask = data.tgtMask(startId:endId, :);
     trainData.srcMaxLen = data.srcMaxLen;
     trainData.tgtMaxLen = data.tgtMaxLen;
     cost = cost + lstmCostGrad(model, trainData, params, 1);
@@ -428,9 +428,8 @@ function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab) % [input, 
   [tgtSents] = loadMonoData(tgtFile, params.tgtEos, -1, params.baseIndex, tgtVocab, 'tgt');
 
   % prepare
-  [data.input, data.inputMask, data.tgtOutput, data.srcMaxLen, data.tgtMaxLen] = prepareData(srcSents, tgtSents, params);
+  [data.input, data.inputMask, data.tgtOutput, data.srcMaxLen, data.tgtMaxLen, data.numWords] = prepareData(srcSents, tgtSents, params);
   
-  data.numWords = sum(sum(data.tgtMask));
   fprintf(2, '  numWords=%d\n', data.numWords);
 end
 
