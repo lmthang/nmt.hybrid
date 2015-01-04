@@ -1,2 +1,2 @@
-function [result] = sigmoid_prime(z)
+function [result] = sigmoidPrime(z)
   result = z.*(1-z);

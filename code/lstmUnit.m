@@ -23,8 +23,12 @@ function [lstmCell] = lstmUnit(W, x_t, h_t, c_t, params)
   lstmCell.c_t = lstmCell.f_gate.*c_t + lstmCell.i_gate.*lstmCell.a_signal; % c_t = f_t * c_{t-1} + i_t * a_t
 
   %% hidden
-  lstmCell.f_c_t = params.nonlinear_f(lstmCell.c_t);
-  lstmCell.h_t = lstmCell.o_gate.*lstmCell.f_c_t; % h_t = o_t * g(c_t)
+  if params.lstmOpt==0 % h_t = o_t * f(c_t)
+    lstmCell.f_c_t = params.nonlinear_f(lstmCell.c_t);
+    lstmCell.h_t = lstmCell.o_gate.*lstmCell.f_c_t; 
+  elseif params.lstmOpt==1 % h_t = o_t * c_t
+    lstmCell.h_t = lstmCell.o_gate.*lstmCell.c_t; 
+  end
 
   %% clip
   if params.isClip

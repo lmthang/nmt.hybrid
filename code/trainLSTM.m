@@ -42,10 +42,12 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'isClip', 0, @isnumeric); % isClip=1: clip forward 50, clip backward 1000.
   addOptional(p,'isResume', 0, @isnumeric); % isResume=1: check if a model file exists, continue training from there.
   addOptional(p,'globalOpt', 0, @isnumeric); % globalOpt=0: no global model, 1: avg global model, 2: feedforward global model.
+  addOptional(p,'dataType', 'double', @ischar); % Note: use double precision for grad check
+  addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
   p.KeepUnmatched = true;
   parse(p,trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFile,tgtVocabFile,outDir,baseIndex,varargin{:})
   params = p.Results;
-  
+
   %% Setup params
   params.chunkSize = params.batchSize*100;
   
@@ -72,11 +74,12 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   if ismac==0
     n = gpuDeviceCount;  
     if n>0 % GPU exists
-      fprintf('# %d GPUs exist. So, we will use GPUs.\n', n);
+      fprintf('# %d GPUs exist. So, we will use GPUs. Data type = single.\n', n);
       params.isGPU = 1;
       for ii=1:n
         gpuDevice(ii)
       end
+      params.dataType = 'single';
     end
   end
   
@@ -217,7 +220,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         srcBatchSents = {};
       end
       tgtBatchSents = tgtTrainSents(startId:endId);
-      [trainData.input, trainData.inputMask, trainData.tgtOutput, trainData.tgtMask, trainData.srcMaxLen, trainData.tgtMaxLen] = prepareData(srcBatchSents, tgtBatchSents, params);
+      [trainData.input, trainData.inputMask, trainData.tgtOutput, trainData.tgtMask, trainData.srcMaxLen, trainData.tgtMaxLen, trainData.srcLens] = prepareData(srcBatchSents, tgtBatchSents, params);
       % core part
       [cost, grad] = lstmCostGrad(model, trainData, params, 0);
       if isnan(cost) || isinf(cost)
@@ -382,7 +385,7 @@ function [model, params] = initLSTM(params)
     params.inVocabSize = params.tgtVocabSize + params.srcVocabSize;
     model.W_src = cell(params.numLayers, 1);
     for l=1:params.numLayers
-      model.W_src{l} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU);
+      model.W_src{l} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
       modelSize = modelSize + numel(model.W_src{l});
     end
   else
@@ -392,11 +395,11 @@ function [model, params] = initLSTM(params)
   
   model.W_tgt = cell(params.numLayers, 1);
   for l=1:params.numLayers
-    model.W_tgt{l} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU);
+    model.W_tgt{l} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
     modelSize = modelSize + numel(model.W_tgt{l});
   end
-  model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize]); % no GPU support for embedding matrix
-  model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.lstmSize], params.isGPU); % softmax params
+  model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize], 0, params.dataType); % no GPU support for embedding matrix
+  model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.lstmSize], params.isGPU, params.dataType); % softmax params
   modelSize = modelSize + numel(model.W_emb);
   modelSize = modelSize + numel(model.W_soft);
   
