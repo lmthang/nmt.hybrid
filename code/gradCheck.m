@@ -30,7 +30,7 @@ function gradCheck(model, params)
   end
 
   % prepare data
-  [trainData.input, trainData.inputMask, trainData.tgtOutput, trainData.tgtMask, trainData.srcMaxLen, trainData.tgtMaxLen, trainData.srcLens] = prepareData(srcTrainSents, tgtTrainSents, params);
+  [trainData.input, trainData.inputMask, trainData.tgtOutput, trainData.srcMaxLen, trainData.tgtMaxLen, trainData.srcLens] = prepareData(srcTrainSents, tgtTrainSents, params);
 
   % theta
   if params.isBi

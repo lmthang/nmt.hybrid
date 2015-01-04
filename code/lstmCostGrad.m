@@ -11,7 +11,7 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
   input = trainData.input;
   inputMask = trainData.inputMask;
   tgtOutput = trainData.tgtOutput;
-  tgtMask = trainData.tgtMask;
+  %tgtMask = trainData.tgtMask;
   srcMaxLen = trainData.srcMaxLen;
   tgtMaxLen = trainData.tgtMaxLen;
   
@@ -102,17 +102,16 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
 
       %% prediction at the top layer
       if ll==params.numLayers && (t>=srcMaxLen) 
-        % predict tgtOutput[t-srcMaxLen+1]
-        t_pos = t-srcMaxLen+1;
-        softmaxMask = tgtMask(:, t_pos); % curBatchSize * 1
+        softmaxMask = inputMask(:, t); % curBatchSize * 1
         scores = model.W_soft * lstm{ll, t}.h_t(:, softmaxMask);  % params.outVocabSize * num_words
 
         % normalize, compute in log domain
         mx = max(scores);
         log_probs = bsxfun(@minus, scores, log(sum(exp(bsxfun(@minus, scores, mx)))) + mx); 
 
+        % predict tgtOutput[t-srcMaxLen+1]
         % select from scores matrix, one number per column
-        tgt_predicted_words = tgtOutput(softmaxMask, t_pos)';
+        tgt_predicted_words = tgtOutput(softmaxMask, t-srcMaxLen+1)';
         num_words = length(tgt_predicted_words);
         score_indices = sub2ind([params.outVocabSize, num_words], tgt_predicted_words, 1:num_words); % 1 * num_words
 
@@ -150,9 +149,8 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
   end
   
   for t=T:-1:1 % time
-    if (t>=srcMaxLen) % predict tgtOutput[t-srcMaxLen+1]
-      t_pos = t-srcMaxLen+1;
-      softmaxMask = tgtMask(:, t_pos); % curBatchSize * 1
+    if (t>=srcMaxLen)
+      softmaxMask = inputMask(:, t);
     end
     
     for ll=params.numLayers:-1:1 % layer

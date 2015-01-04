@@ -9,7 +9,7 @@
 %   tgtMask  : numSents * tgtMaxLen, indicate where to ignore in the tgtOutput
 %  For the monolingual case, each src sent contains a single simple tgtSos,
 %   hence srcMaxLen = 1
-function [input, inputMask, tgtOutput, tgtMask, srcMaxLen, tgtMaxLen, srcLens] = prepareData(srcSents, tgtSents, params)
+function [input, inputMask, tgtOutput, srcMaxLen, tgtMaxLen, srcLens] = prepareData(srcSents, tgtSents, params)
   if params.isBi
     srcZeroId = params.tgtVocabSize + params.srcSos;
     srcMaxLen = max(cellfun(@(x) length(x), srcSents));
@@ -33,7 +33,8 @@ function [input, inputMask, tgtOutput, tgtMask, srcMaxLen, tgtMaxLen, srcLens] =
     input(ii, srcMaxLen+1:srcMaxLen+tgtLen-1) = tgtSents{ii}(1:end-1); % tgt part
     tgtOutput(ii, 1:tgtLen) = tgtSents{ii};
   end
-  tgtMask = (tgtOutput~=params.tgtEos);
+  
+  %tgtMask = (tgtOutput~=params.tgtEos);
   if params.isBi
     inputMask = (input~=srcZeroId & input~=params.tgtEos);
   else % for mono case, we still learn parameters for the srcZeroId which is tgtSos.

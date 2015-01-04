@@ -220,7 +220,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         srcBatchSents = {};
       end
       tgtBatchSents = tgtTrainSents(startId:endId);
-      [trainData.input, trainData.inputMask, trainData.tgtOutput, trainData.tgtMask, trainData.srcMaxLen, trainData.tgtMaxLen, trainData.srcLens] = prepareData(srcBatchSents, tgtBatchSents, params);
+      [trainData.input, trainData.inputMask, trainData.tgtOutput, trainData.srcMaxLen, trainData.tgtMaxLen, trainData.srcLens] = prepareData(srcBatchSents, tgtBatchSents, params);
       % core part
       [cost, grad] = lstmCostGrad(model, trainData, params, 0);
       if isnan(cost) || isinf(cost)
@@ -428,7 +428,7 @@ function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab) % [input, 
   [tgtSents] = loadMonoData(tgtFile, params.tgtEos, -1, params.baseIndex, tgtVocab, 'tgt');
 
   % prepare
-  [data.input, data.inputMask, data.tgtOutput, data.tgtMask, data.srcMaxLen, data.tgtMaxLen] = prepareData(srcSents, tgtSents, params);
+  [data.input, data.inputMask, data.tgtOutput, data.srcMaxLen, data.tgtMaxLen] = prepareData(srcSents, tgtSents, params);
   
   data.numWords = sum(sum(data.tgtMask));
   fprintf(2, '  numWords=%d\n', data.numWords);
