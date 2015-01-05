@@ -398,7 +398,7 @@ function [model, params] = initLSTM(params)
     model.W_tgt{l} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
     modelSize = modelSize + numel(model.W_tgt{l});
   end
-  model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize], 0, params.dataType); % no GPU support for embedding matrix
+  model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize], 0, 'double'); % no GPU support for embedding matrix. use double since later we will subtract sparse grad matrix and Matlab only supports sparse matrix.
   model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.lstmSize], params.isGPU, params.dataType); % softmax params
   modelSize = modelSize + numel(model.W_emb);
   modelSize = modelSize + numel(model.W_soft);
