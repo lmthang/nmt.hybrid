@@ -149,14 +149,12 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
   end
   
   for t=T:-1:1 % time
-    if (t>=srcMaxLen)
-      softmaxMask = inputMask(:, t);
-    end
+    mask = inputMask(:, t);
     
     for ll=params.numLayers:-1:1 % layer
       %% hidden state grad
       if ll==params.numLayers && (t>=srcMaxLen) % get signals from the softmax layer
-        dh{ll}(:, softmaxMask) = dh{ll}(:, softmaxMask) + lstm{ll, t}.grad_ht; % accumulate grads wrt the hidden layer
+        dh{ll}(:, mask) = dh{ll}(:, mask) + lstm{ll, t}.grad_ht; % accumulate grads wrt the hidden layer
       end
 
       
@@ -166,7 +164,7 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
       else % subsequent layer, use the hidden state from the previous layer
         x_t = lstm{ll-1, t}.h_t;
       end
-      [dc{ll}, dh{ll}, lstm_grad] = lstmUnitGrad(model, lstm, x_t, dc{ll}, dh{ll}, ll, t, srcMaxLen, zero_state, params);
+      [dc{ll}, dh{ll}, lstm_grad] = lstmUnitGrad(model, lstm, x_t, dc{ll}, dh{ll}, ll, t, mask, srcMaxLen, zero_state, params);
 
       %% grad.W_src / grad.W_tgt
       if (t>=srcMaxLen)
@@ -176,18 +174,17 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
       end
 
       %% input grad
-      embMask = inputMask(:, t);
       if ll==1 % collect embedding grad
-        indices = input(embMask, t);
+        indices = input(mask, t);
         if params.isGPU
-          emb_grad = double(gather(lstm_grad.dx(:, embMask))); % copy embedding grads to CPU
+          emb_grad = double(gather(lstm_grad.dx(:, mask))); % copy embedding grads to CPU
         else
-          emb_grad = lstm_grad.dx(:, embMask);
+          emb_grad = lstm_grad.dx(:, mask);
         end
 
         grad.W_emb = grad.W_emb + aggregateMatrix(emb_grad, indices, params.inVocabSize);
       else % pass down hidden state grad to the below layer
-        dh{ll-1}(:, embMask) = dh{ll-1}(:, embMask) + lstm_grad.dx(:, embMask);
+        dh{ll-1}(:, mask) = dh{ll-1}(:, mask) + lstm_grad.dx(:, mask);
       end
     end % end for layer
   end % end for time
