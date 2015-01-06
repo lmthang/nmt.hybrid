@@ -199,6 +199,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   startTime = clock;
   fprintf(2, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
   params.epochBatchCount = 0;
+  params.logId = fopen([outDir '/log'], 'w');
   while(1)
     assert(numTrainSents>0);
     numBatches = floor((numTrainSents-1)/params.batchSize) + 1;
@@ -266,6 +267,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         params.costTrain = totalCost/totalWords;
         params.speed = totalWords*0.001/timeElapsed;
         fprintf(2, 'epoch=%d, iter=%d, wps=%.2fK, lr=%g, cost=%g, gradNorm=%.2f, srcMaxLen=%d, tgtMaxLen=%d, %.2fs, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, trainData.srcMaxLen, trainData.tgtMaxLen, timeElapsed, datestr(now));
+        fprintf(params.logId, 'epoch=%d, iter=%d, wps=%.2fK, lr=%g, cost=%g, gradNorm=%.2f, srcMaxLen=%d, tgtMaxLen=%d, %.2fs, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, trainData.srcMaxLen, trainData.tgtMaxLen, timeElapsed, datestr(now));
        
         % reset
         totalWords = 0;
@@ -344,12 +346,14 @@ function [params] = evalValidTest(model, validData, testData, params)
   costValid = costValid/validData.numWords;
   costTest = costTest/testData.numWords;
   fprintf(2, '# eval %.2f, %d, %d, %.2fK, %g, costTrain=%g, costValid=%g, costTest=%g, %.2fs, %s\n', exp(costTest), params.epoch, params.iter, params.speed, params.lr, params.costTrain, costValid, costTest, datestr(now));
+  fprintf(params.logId, '# eval %.2f, %d, %d, %.2fK, %g, costTrain=%g, costValid=%g, costTest=%g, %.2fs, %s\n', exp(costTest), params.epoch, params.iter, params.speed, params.lr, params.costTrain, costValid, costTest, datestr(now));
   
   if costValid < params.bestCostValid
     params.bestCostValid = costValid;
     params.costTest = costTest;
     params.testPerplexity = exp(costTest);
     fprintf(2, '  save model test perplexity %.2f to %s\n', params.testPerplexity, params.modelFile);
+    fprintf(params.logId, '  save model test perplexity %.2f to %s\n', params.testPerplexity, params.modelFile);
     save(params.modelFile, 'model', 'params');
   end
 end
