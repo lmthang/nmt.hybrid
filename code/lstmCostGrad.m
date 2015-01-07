@@ -158,7 +158,7 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
       end
 
       %% cell backprop
-      [dc{ll}, dh{ll}, lstm_grad] = lstmUnitGrad(model, lstm, dc{ll}, dh{ll}, ll, t, mask, srcMaxLen, zero_state, params);
+      [dc{ll}, dh{ll}, lstm_grad] = lstmUnitGrad(model, lstm, dc{ll}, dh{ll}, ll, t, srcMaxLen, zero_state, params);
 
       %% grad.W_src / grad.W_tgt
       if (t>=srcMaxLen)

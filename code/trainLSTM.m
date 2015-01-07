@@ -44,6 +44,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'globalOpt', 0, @isnumeric); % globalOpt=0: no global model, 1: avg global model, 2: feedforward global model.
   addOptional(p,'dataType', 'double', @ischar); % Note: use double precision for grad check
   addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
+  addOptional(p,'seed', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
   p.KeepUnmatched = true;
   parse(p,trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFile,tgtVocabFile,outDir,baseIndex,varargin{:})
   params = p.Results;
@@ -64,10 +65,12 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.nonlinear_f_prime = @tanhPrime;
  
   % rand seed
-  if params.isGradCheck || params.isProfile
+  if params.isGradCheck || params.isProfile || params.seed
     s = RandStream('mt19937ar','Seed',1);
-    RandStream.setGlobalStream(s);
+  else
+    s = RandStream('mt19937ar','Seed','shuffle');
   end
+  RandStream.setGlobalStream(s);
   
   % check GPUs
   params.isGPU = 0;
@@ -85,7 +88,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   
   % grad check
   if params.isGradCheck
-    params.initRange = 0.1;
     params.lstmSize = 2;
     params.batchSize = 10;
   end
