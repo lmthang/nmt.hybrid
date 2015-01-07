@@ -11,7 +11,8 @@
 %%
 function [lstmCell] = lstmUnit(W, x_t, h_t, c_t, params)
   %% input, forget, output gates and input signals before applying non-linear functions
-  ifoa_linear = W*[x_t; h_t];    
+  lstmCell.input_xh = [x_t; h_t];
+  ifoa_linear = W*lstmCell.input_xh;    
 
   %% cell
   % GPU note: the below non-linear functions are fast, so no need to use arrayfun

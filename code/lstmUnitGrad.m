@@ -1,11 +1,11 @@
-function [dc, dh, lstm_grad] = lstmUnitGrad(model, lstm, x_t, dc, dh, ll, t, mask, srcMaxLen, zero_state, params)
+function [dc, dh, lstm_grad] = lstmUnitGrad(model, lstm, dc, dh, ll, t, mask, srcMaxLen, zero_state, params)
   
   %% dh, dc
-  if params.lstmOpt==0 % h_t = o_t * f(c_t)
-    % dc = dc + f'(c_t)*o_t*dh
+  if params.lstmOpt==0 % h_t = o_g * f(c_t)
+    % dc = dc + f'(c_t)*o_g*dh
     dc = dc + params.nonlinear_f_prime(lstm{ll, t}.f_c_t).*lstm{ll, t}.o_gate.*dh;
-  elseif params.lstmOpt==1 % h_t = o_t * c_t
-    % dc = dc + o_t* dh
+  elseif params.lstmOpt==1 % h_t = o_g * c_t
+    % dc = dc + o_g* dh
     dc = dc + lstm{ll, t}.o_gate.*dh;
   end
   % mask dh, dc
@@ -15,42 +15,37 @@ function [dc, dh, lstm_grad] = lstmUnitGrad(model, lstm, x_t, dc, dh, ll, t, mas
   %% Note: di, df, do, da: w.r.t to i, f, o, a before apply non-linear functions. 
   % do
   if params.lstmOpt==0
-    % do = f'(o_t)*f(c_t)*dh
+    % do = f'(o_g)*f(c_t)*dh
     do = params.nonlinear_gate_f_prime(lstm{ll, t}.o_gate).*lstm{ll, t}.f_c_t .* dh;
-  elseif params.lstmOpt==1 % h_t = o_t * c_t
-    % do = f'(o_t)*c_t*dh
+  elseif params.lstmOpt==1 % h_t = o_g * c_t
+    % do = f'(o_g)*c_t*dh
     do = params.nonlinear_gate_f_prime(lstm{ll, t}.o_gate).*lstm{ll, t}.c_t .* dh;
   end
-  % di
+  % di = f'(i_g) * a_signal * dc
   di = params.nonlinear_gate_f_prime(lstm{ll, t}.i_gate).*lstm{ll, t}.a_signal.*dc;
+  % df = f'(f_g)*c_{t-1}*dc
   if t>1
     df = params.nonlinear_gate_f_prime(lstm{ll, t}.f_gate).*lstm{ll, t-1}.c_t.*dc;
   else
     df = zero_state;
   end
-  % da
-  % arrayfun doesn't work here for GPU
+  % da = f'(a_signal)*i_g*dc
   da = params.nonlinear_f_prime(lstm{ll, t}.a_signal).*lstm{ll, t}.i_gate.*dc;   
 
-  if (t>=srcMaxLen) % grad tgt
+  % grad W
+  if (t>=srcMaxLen) % tgt
     W = model.W_tgt{ll};
-    if t==1
-      lstm_grad.W_tgt = [di; df; do; da]*[x_t; zero_state]';
-    else
-      lstm_grad.W_tgt = [di; df; do; da]*[x_t; lstm{ll, t-1}.h_t]';
-    end
-  else % grad src
+  else % src
     W = model.W_src{ll};
-    if t==1
-      lstm_grad.W_src = [di; df; do; da]*[x_t; zero_state]';
-    else
-      lstm_grad.W_src = [di; df; do; da]*[x_t; lstm{ll, t-1}.h_t]';
-    end
   end
-
-  lstm_grad.dx = W(:, 1:params.lstmSize)'*[di; df; do; da];
+  d_ifoa = [di; df; do; da];
+  lstm_grad.W = d_ifoa*lstm{ll, t}.input_xh';
+  d_xh = W'*d_ifoa;
+  lstm_grad.dx = d_xh(1:params.lstmSize, :); 
+  
+  % update dc, dh
   dc = lstm{ll, t}.f_gate.*dc;
-  dh = W(:, params.lstmSize+1:end)'*[di; df; do; da];
+  dh =  d_xh(params.lstmSize+1:end, :);
   
   % clip hidden/cell derivatives
   if params.isClip

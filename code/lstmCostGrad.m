@@ -157,20 +157,14 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
         dh{ll}(:, mask) = dh{ll}(:, mask) + lstm{ll, t}.grad_ht; % accumulate grads wrt the hidden layer
       end
 
-      
-      %% cell back prob
-      if ll==1 % first layer, get input embeddings
-        x_t = input_embs(:, ((t-1)*curBatchSize+1):t*curBatchSize);
-      else % subsequent layer, use the hidden state from the previous layer
-        x_t = lstm{ll-1, t}.h_t;
-      end
-      [dc{ll}, dh{ll}, lstm_grad] = lstmUnitGrad(model, lstm, x_t, dc{ll}, dh{ll}, ll, t, mask, srcMaxLen, zero_state, params);
+      %% cell backprop
+      [dc{ll}, dh{ll}, lstm_grad] = lstmUnitGrad(model, lstm, dc{ll}, dh{ll}, ll, t, mask, srcMaxLen, zero_state, params);
 
       %% grad.W_src / grad.W_tgt
       if (t>=srcMaxLen)
-        grad.W_tgt{ll} = grad.W_tgt{ll} + lstm_grad.W_tgt;
+        grad.W_tgt{ll} = grad.W_tgt{ll} + lstm_grad.W;
       else
-        grad.W_src{ll} = grad.W_src{ll} + lstm_grad.W_src;
+        grad.W_src{ll} = grad.W_src{ll} + lstm_grad.W;
       end
 
       %% input grad
