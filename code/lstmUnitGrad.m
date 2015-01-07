@@ -1,11 +1,9 @@
 function [dc, dh, lstm_grad] = lstmUnitGrad(model, lstm, dc, dh, ll, t, srcMaxLen, zero_state, params)
-  
-  is_arrayfun = 1;
-  if is_arrayfun
+  if params.isGPU
     %% dh, dc
     if params.lstmOpt==0 % h_t = o_g * f(c_t)
       % dc = dc + f'(c_t)*o_g*dh
-      dc = dc + arrayfun(@tanhPrimeTriple, lstm{ll, t}.f_c_t, lstm{ll, t}.o_gate, dh);
+      dc = arrayfun(@plusTanhPrimeTriple, dc, lstm{ll, t}.f_c_t, lstm{ll, t}.o_gate, dh);
     elseif params.lstmOpt==1 % h_t = o_g * c_t
       % dc = dc + o_g* dh
       dc = dc + lstm{ll, t}.o_gate.*dh;
@@ -31,7 +29,6 @@ function [dc, dh, lstm_grad] = lstmUnitGrad(model, lstm, dc, dh, ll, t, srcMaxLe
     end
     % da = f'(a_signal)*i_g*dc
     da = arrayfun(@tanhPrimeTriple, lstm{ll, t}.a_signal, lstm{ll, t}.i_gate, dc);
-    %da = params.nonlinear_f_prime(lstm{ll, t}.a_signal).*lstm{ll, t}.i_gate.*dc;   
   else
     %% dh, dc
     if params.lstmOpt==0 % h_t = o_g * f(c_t)
@@ -62,6 +59,9 @@ function [dc, dh, lstm_grad] = lstmUnitGrad(model, lstm, dc, dh, ll, t, srcMaxLe
     % da = f'(a_signal)*i_g*dc
     da = params.nonlinear_f_prime(lstm{ll, t}.a_signal).*lstm{ll, t}.i_gate.*dc;   
   end
+  
+  % dc
+  dc = lstm{ll, t}.f_gate.*dc;
   % grad W
   if (t>=srcMaxLen) % tgt
     W = model.W_tgt{ll};
@@ -70,11 +70,9 @@ function [dc, dh, lstm_grad] = lstmUnitGrad(model, lstm, dc, dh, ll, t, srcMaxLe
   end
   d_ifoa = [di; df; do; da];
   lstm_grad.W = d_ifoa*lstm{ll, t}.input_xh';
+  % dx, dh
   d_xh = W'*d_ifoa;
   lstm_grad.dx = d_xh(1:params.lstmSize, :); 
-  
-  % update dc, dh
-  dc = lstm{ll, t}.f_gate.*dc;
   dh =  d_xh(params.lstmSize+1:end, :);
   
   % clip hidden/cell derivatives
@@ -107,6 +105,11 @@ end
 % compute tanh'(x) * y * z = (1-x*x) * y * z
 function [value] = tanhPrimeTriple(x, y, z)
   value = (1-x*x)*y*z;
+end
+
+% compute t + tanh'(x) * y * z = t + (1-x*x) * y * z
+function [value] = plusTanhPrimeTriple(t, x, y, z)
+  value = t + (1-x*x)*y*z;
 end
 
 %   % mask dh, dc

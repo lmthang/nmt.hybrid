@@ -58,7 +58,7 @@ def clean_line(line):
   line = re.sub('(^\s+|\s$)', '', line);
   return line
 
-def process_buffer(sents, sent_lens, sent_ids, tgt_sents, align_sents, bin_size, batch_size, is_parallel):
+def process_buffer(sents, sent_lens, sent_ids, tgt_sents, align_sents, bin_size, batch_size, is_parallel, is_align):
   '''
   Process currently loaded sents
   '''
@@ -94,8 +94,9 @@ def process_buffer(sents, sent_lens, sent_ids, tgt_sents, align_sents, bin_size,
       if is_parallel:
         tgt_group_sents.append(tgt_sents[ii])
         del tgt_sents[ii]
-        align_group_sents.append(align_sents[ii])
-        del align_sents[ii]
+        if is_align:
+          align_group_sents.append(align_sents[ii])
+          del align_sents[ii]
 
       if group_count == batch_size: # select enough
         break
@@ -113,16 +114,20 @@ def process_files(in_file, src_lang, tgt_lang, out_file, batch_size, bin_size):
    
   # IO
   is_parallel = False
+  is_align = False
   check_dir(out_file)
   if src_lang != '':
     assert tgt_lang != ''
     is_parallel = True
     inf = codecs.open(in_file + '.' + src_lang, 'r', 'utf-8')
     tgt_inf = codecs.open(in_file + '.' + tgt_lang, 'r', 'utf-8')
-    align_inf = codecs.open(in_file + '.align', 'r', 'utf-8')
     ouf = codecs.open(out_file + '.' + src_lang, 'w', 'utf-8')
     tgt_ouf = codecs.open(out_file + '.' + tgt_lang, 'w', 'utf-8')
-    align_ouf = codecs.open(out_file + '.align', 'w', 'utf-8')
+    align_file = in_file + '.align'
+    if os.path.isfile(align_file): 
+      align_inf = codecs.open(align_file, 'r', 'utf-8')
+      align_ouf = codecs.open(out_file + '.align', 'w', 'utf-8')
+      is_align = True
   else:
     inf = codecs.open(in_file, 'r', 'utf-8')
     ouf = codecs.open(out_file, 'w', 'utf-8')
@@ -153,7 +158,8 @@ def process_files(in_file, src_lang, tgt_lang, out_file, batch_size, bin_size):
   line_id = 1
   if is_parallel:
     tgt_sents.append(clean_line(tgt_inf.readline()))
-    align_sents.append(clean_line(align_inf.readline()))
+    if is_align:
+      align_sents.append(clean_line(align_inf.readline()))
 
   for sent in inf:
     while group_count == 0 or group_count == batch_size: # process buffer
@@ -166,10 +172,11 @@ def process_files(in_file, src_lang, tgt_lang, out_file, batch_size, bin_size):
         if is_parallel:
           for tgt_group_sent in tgt_group_sents:
             tgt_ouf.write('%s\n' % tgt_group_sent)
-          for align_group_sent in align_group_sents:
-            align_ouf.write('%s\n' % align_group_sent)
+          if is_align:
+            for align_group_sent in align_group_sents:
+              align_ouf.write('%s\n' % align_group_sent)
 
-      (sents, sent_lens, sent_ids, group_sents, group_sent_lens, group_sent_ids, tgt_group_sents, align_group_sents, group_count, start_len, end_len) = process_buffer(sents, sent_lens, sent_ids, tgt_sents, align_sents, bin_size, batch_size, is_parallel)
+      (sents, sent_lens, sent_ids, group_sents, group_sent_lens, group_sent_ids, tgt_group_sents, align_group_sents, group_count, start_len, end_len) = process_buffer(sents, sent_lens, sent_ids, tgt_sents, align_sents, bin_size, batch_size, is_parallel, is_align)
       assert group_count>0
     assert group_count<batch_size
     assert group_count>0
@@ -181,7 +188,8 @@ def process_files(in_file, src_lang, tgt_lang, out_file, batch_size, bin_size):
 
     if is_parallel:
       tgt_sent = clean_line(tgt_inf.readline())
-      align_sent = clean_line(align_inf.readline())
+      if is_align:
+        align_sent = clean_line(align_inf.readline())
 
     if sent_len>=start_len and sent_len<=end_len: # in the same bin
       group_count += 1
@@ -190,7 +198,8 @@ def process_files(in_file, src_lang, tgt_lang, out_file, batch_size, bin_size):
       group_sent_ids.append(line_id)
       if is_parallel:
         tgt_group_sents.append(tgt_sent)
-        align_group_sents.append(align_sent)
+        if is_align:
+          align_group_sents.append(align_sent)
 
     else: # not in the same bin, put into the buffer
       sents.append(sent)
@@ -198,7 +207,8 @@ def process_files(in_file, src_lang, tgt_lang, out_file, batch_size, bin_size):
       sent_ids.append(line_id) 
       if is_parallel:
         tgt_sents.append(tgt_sent)
-        align_sents.append(align_sent)
+        if is_align:
+          align_sents.append(align_sent)
 
 
       if len(sents)>=10000: # buffer is large (due to the fact that long sentences are hard to find), move the current group of sents to the end, reset
@@ -207,7 +217,8 @@ def process_files(in_file, src_lang, tgt_lang, out_file, batch_size, bin_size):
         sent_ids.extend(group_sent_ids)
         if is_parallel:
           tgt_sents.extend(tgt_group_sents)
-          align_sents.extend(align_group_sents)
+          if is_align:
+            align_sents.extend(align_group_sents)
 
         sys.stderr.write('  line_id=%d, move %d sents in [%d, %d] to the end\n' % (line_id, group_count, start_len, end_len))
         group_count = 0
@@ -223,14 +234,15 @@ def process_files(in_file, src_lang, tgt_lang, out_file, batch_size, bin_size):
     sent_ids.extend(group_sent_ids)
     if is_parallel:
       tgt_sents.extend(tgt_group_sents)
-      align_sents.extend(align_group_sents)
+      if is_align:
+        align_sents.extend(align_group_sents)
 
 
   # handle the remaining
   num_remain_sents = len(sents)
   count = 0 
   while len(sents)>0:
-    (sents, sent_lens, sent_ids, group_sents, group_sent_lens, group_sent_ids, tgt_group_sents, align_group_sents, group_count, start_len, end_len) = process_buffer(sents, sent_lens, sent_ids, tgt_sents, align_sents, bin_size, batch_size, is_parallel)
+    (sents, sent_lens, sent_ids, group_sents, group_sent_lens, group_sent_ids, tgt_group_sents, align_group_sents, group_count, start_len, end_len) = process_buffer(sents, sent_lens, sent_ids, tgt_sents, align_sents, bin_size, batch_size, is_parallel, is_align)
     if len(group_sents) == batch_size or len(sents) < batch_size: 
       sys.stderr.write('# line_id=%d, [%d, %d], group count %d\n' % (line_id, start_len, end_len, group_count))
       for group_sent in group_sents:
@@ -240,19 +252,25 @@ def process_files(in_file, src_lang, tgt_lang, out_file, batch_size, bin_size):
       if is_parallel:
         for tgt_group_sent in tgt_group_sents:
           tgt_ouf.write('%s\n' % tgt_group_sent)
-        for align_group_sent in align_group_sents:
-          align_ouf.write('%s\n' % align_group_sent)
+        if is_align:
+          for align_group_sent in align_group_sents:
+            align_ouf.write('%s\n' % align_group_sent)
     else: # push to the end
       sents.extend(group_sents)
       sent_lens.extend(group_sent_lens)
       sent_ids.extend(group_sent_ids)
+      if is_parallel:
+        tgt_sents.extend(tgt_group_sents)
+        if is_align:
+          align_sents.extend(align_group_sents)
+
 
     count += len(group_sents)
     if count>= num_remain_sents: # gone through all remaining sents, relax bin_size
       bin_size *= 2
-      sys.stderr.write('# Update bin_size to %d\n' % bin_size)
       count = 0
-      num_remain_setns = len(sents)
+      num_remain_sents = len(sents)
+      sys.stderr.write('# Update bin_size to %d, num remained sents=%d\n' % (bin_size, num_remain_sents))
       
 
   sys.stderr.write('Done! Num lines = %d\n' % line_id)
@@ -262,9 +280,10 @@ def process_files(in_file, src_lang, tgt_lang, out_file, batch_size, bin_size):
   id_ouf.close()
   if is_parallel:
     tgt_inf.close()
-    align_inf.close()
+    if is_align:
+      align_inf.close()
+      align_ouf.close()
     tgt_ouf.close()
-    align_ouf.close()
 
 if __name__ == '__main__':
   args = process_command_line()

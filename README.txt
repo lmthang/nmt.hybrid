@@ -63,12 +63,17 @@ mkdir output
 ./scripts/prepare_data.py --vocab_file ./data/train.10k.de.vocab.1000 ./data/valid.3k.de ./output/valid.3k.id.de 
 ./scripts/prepare_data.py --vocab_file ./data/train.10k.de.vocab.1000 ./data/test.3k.de ./output/test.3k.id.de 
 
+* Sort sentences to train more efficiently
+./scripts/sort_sents.py --src_lang de --tgt_lang en --batch_size 128 output/train.10k.id output/train.10k.id.sorted
+
 (b) Train a bilingual LSTM model
 export MATLAB=matlab
 ./scripts/run.sh ../output/train.10k.id ../output/valid.3k.id ../output/test.3k.id de en ../data/train.10k.de.vocab.1000 ../data/train.10k.en.vocab.1000 ../output 0 100 0.1 5 0.1 128 10 1
 
 To run directly in Matlab, cd into code/ directory and run:
 trainLSTM('../output/train.10k.id', '../output/valid.3k.id', '../output/test.3k.id', 'de', 'en', '../data/train.10k.de.vocab.1000', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1)
+
+trainLSTM('../output/train.10k.id.sorted', '../output/valid.3k.id', '../output/test.3k.id', 'de', 'en', '../data/train.10k.de.vocab.1000', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1, 'numLayers', 2,'seed', 1)
 
 (c) Grad check
 trainLSTM('', '', '', '', '', '', '', '', 0, 'isGradCheck', 1)

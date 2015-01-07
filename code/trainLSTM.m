@@ -79,9 +79,10 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     if n>0 % GPU exists
       fprintf('# %d GPUs exist. So, we will use GPUs. Data type = single.\n', n);
       params.isGPU = 1;
-      for ii=1:n
-        gpuDevice(ii)
-      end
+      gpuDevice(1)
+      %for ii=1:n
+      %  gpuDevice(ii)
+      %end
       params.dataType = 'single';
     end
   end
