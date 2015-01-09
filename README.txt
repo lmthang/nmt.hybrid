@@ -77,6 +77,7 @@ trainLSTM('../output/train.10k.id.sorted', '../output/valid.3k.id', '../output/t
 
 (c) Grad check
 trainLSTM('', '', '', '', '', '', '', '', 0, 'isGradCheck', 1)
+trainLSTM('', '', '', '', '', '', '', '', 0, 'isGradCheck', 1, 'numLayers', 2, 'globalOpt', 0, 'lstmOpt', 0, 'initRange', 1.0)
 Note: the grad check works on CPU. For GPU, you will need to change this line "dataType = 'single';" into 'double' and remove the single conversion in the functions clipForward() and clipBackward().
 
 (d) Profiling

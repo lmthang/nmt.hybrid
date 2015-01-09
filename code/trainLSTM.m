@@ -83,7 +83,12 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       %for ii=1:n
       %  gpuDevice(ii)
       %end
-      params.dataType = 'single';
+      if params.isGradCheck
+        params.dataType = 'double';
+      else
+        %params.dataType = 'double';
+        params.dataType = 'single';
+      end
     end
   end
   
