@@ -42,9 +42,10 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'isClip', 0, @isnumeric); % isClip=1: clip forward 50, clip backward 1000.
   addOptional(p,'isResume', 0, @isnumeric); % isResume=1: check if a model file exists, continue training from there.
   addOptional(p,'globalOpt', 0, @isnumeric); % globalOpt=0: no global model, 1: avg global model, 2: feedforward global model.
-  addOptional(p,'dataType', 'double', @ischar); % Note: use double precision for grad check
+  addOptional(p,'dataType', 'single', @ischar); % Note: use double precision for grad check
   addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
-  addOptional(p,'seed', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
+  addOptional(p,'seed', 0, @isnumeric); % 0: seed based on current clock time, else use the specified seed
+  addOptional(p,'gpuDevice', 1, @isnumeric); % choose the gpuDevice to use. 
   p.KeepUnmatched = true;
   parse(p,trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFile,tgtVocabFile,outDir,baseIndex,varargin{:})
   params = p.Results;
@@ -66,7 +67,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
  
   % rand seed
   if params.isGradCheck || params.isProfile || params.seed
-    s = RandStream('mt19937ar','Seed',1);
+    s = RandStream('mt19937ar','Seed',params.seed);
   else
     s = RandStream('mt19937ar','Seed','shuffle');
   end
@@ -79,21 +80,13 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     if n>0 % GPU exists
       fprintf('# %d GPUs exist. So, we will use GPUs. Data type = single.\n', n);
       params.isGPU = 1;
-      gpuDevice(1)
-      %for ii=1:n
-      %  gpuDevice(ii)
-      %end
-      if params.isGradCheck
-        params.dataType = 'double';
-      else
-        %params.dataType = 'double';
-        params.dataType = 'single';
-      end
+      gpuDevice(gpuDevice)
     end
   end
   
   % grad check
   if params.isGradCheck
+    params.dataType = 'double';
     params.lstmSize = 2;
     params.batchSize = 10;
   end
