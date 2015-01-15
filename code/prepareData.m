@@ -12,24 +12,25 @@
 function [input, inputMask, tgtOutput, srcMaxLen, tgtMaxLen, numWords, srcLens] = prepareData(srcSents, tgtSents, params)
   if params.isBi
     srcZeroId = params.tgtVocabSize + params.srcSos;
-    srcMaxLen = max(cellfun(@(x) length(x), srcSents));
+    srcLens = cellfun(@(x) length(x), srcSents);
+    srcMaxLen = max(srcLens);
   else
     srcZeroId = params.tgtSos;
     srcMaxLen = 1;
   end
   numSents = length(tgtSents);
-  tgtMaxLen = max(cellfun(@(x) length(x), tgtSents));
-  input = [srcZeroId*ones(numSents, srcMaxLen) params.tgtEos*ones(numSents, tgtMaxLen-1)];
+  tgtLens = cellfun(@(x) length(x), tgtSents);
+  tgtMaxLen = max(tgtLens);
+  input = [srcZeroId*ones(numSents, srcMaxLen) params.tgtEos*ones(numSents, tgtMaxLen-1)]; % size numSents * (srcMaxLen + tgtMaxLen - 1)
   tgtOutput = params.tgtEos*ones(numSents, tgtMaxLen);
-  srcLens = zeros(numSents, 1);
+  
   for ii=1:numSents
     if params.isBi
-      srcLen = length(srcSents{ii});
+      srcLen = srcLens(ii);
       input(ii, srcMaxLen-srcLen+1:srcMaxLen) = srcSents{ii} + params.tgtVocabSize; % src part
-      srcLens(ii) = srcLen;
     end
     
-    tgtLen = length(tgtSents{ii});
+    tgtLen = tgtLens(ii);
     input(ii, srcMaxLen+1:srcMaxLen+tgtLen-1) = tgtSents{ii}(1:end-1); % tgt part
     tgtOutput(ii, 1:tgtLen) = tgtSents{ii};
   end

@@ -46,6 +46,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
   addOptional(p,'seed', 0, @isnumeric); % 0: seed based on current clock time, else use the specified seed
   addOptional(p,'gpuDevice', 1, @isnumeric); % choose the gpuDevice to use. 
+  addOptional(p,'debug', 0, @isnumeric); % 0: no debug, 1: debug
   p.KeepUnmatched = true;
   parse(p,trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFile,tgtVocabFile,outDir,baseIndex,varargin{:})
   params = p.Results;
@@ -81,7 +82,11 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       fprintf('# %d GPUs exist. So, we will use GPUs. Data type = single.\n', n);
       params.isGPU = 1;
       gpuDevice(params.gpuDevice)
+    else
+      params.dataType = 'double';
     end
+  else
+    params.dataType = 'double';
   end
   
   % grad check
@@ -225,6 +230,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       [trainData.input, trainData.inputMask, trainData.tgtOutput, trainData.srcMaxLen, trainData.tgtMaxLen, trainData.numWords, trainData.srcLens] = prepareData(srcBatchSents, tgtBatchSents, params);
       % core part
       [cost, grad] = lstmCostGrad(model, trainData, params, 0);
+      
+      %vocab = [tgtVocab srcVocab]
+      %printSent(trainData.input(1, :), vocab, '  input:');
       if isnan(cost) || isinf(cost)
         fprintf(2, 'epoch=%d, iter=%d, nan/inf cost=%g\n', params.epoch, params.iter, cost);
         continue;
