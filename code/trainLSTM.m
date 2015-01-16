@@ -47,6 +47,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'seed', 0, @isnumeric); % 0: seed based on current clock time, else use the specified seed
   addOptional(p,'gpuDevice', 1, @isnumeric); % choose the gpuDevice to use. 
   addOptional(p,'debug', 0, @isnumeric); % 0: no debug, 1: debug
+  addOptional(p,'f_bias', 0, @isnumeric); % bias added to the forget gate
   p.KeepUnmatched = true;
   parse(p,trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFile,tgtVocabFile,outDir,baseIndex,varargin{:})
   params = p.Results;
@@ -94,6 +95,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     params.dataType = 'double';
     params.lstmSize = 2;
     params.batchSize = 10;
+    params.batchId = 1;
   end
   
   %% Load vocabs
@@ -211,6 +213,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     numBatches = floor((numTrainSents-1)/params.batchSize) + 1;
     for batchId = 1 : numBatches
       params.iter = params.iter + 1;
+      params.batchId = batchId;
       if params.iter <= startIter
         continue;
       end
@@ -266,7 +269,11 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       end
       indices = find(any(grad.W_emb)); % find out non empty columns
       model.W_emb(:, indices) = model.W_emb(:, indices) - params.lr*scale*grad.W_emb(:, indices);
-
+      
+      % debug
+      if params.batchId==1 && params.debug==1 
+        fprintf(2, '# iter %d, 1\n model:%s\n', params.iter, wInfo(model));
+      end
       %% log info
       totalWords = totalWords + trainData.numWords; %sum(sum(trainData.tgtMask));
       totalCost = totalCost + cost;
@@ -346,6 +353,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       end
     end
   end % end for while(1)
+  
+  fclose(params.logId);
 end
 
 function [params] = evalValidTest(model, validData, testData, params)
