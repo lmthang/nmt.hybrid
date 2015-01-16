@@ -150,13 +150,7 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
   
   for t=T:-1:1 % time
     mask = inputMask(:, t);
-    
-    if params.debug==1
-      if(t==(srcMaxLen-1))
-        fprintf(2, 'Start t<srcMaxLen\n');
-      end
-    end
-    
+   
     for ll=params.numLayers:-1:1 % layer
       %% hidden state grad
       if ll==params.numLayers && (t>=srcMaxLen) % get signals from the softmax layer
