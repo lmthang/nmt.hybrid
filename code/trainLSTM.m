@@ -270,10 +270,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       indices = find(any(grad.W_emb)); % find out non empty columns
       model.W_emb(:, indices) = model.W_emb(:, indices) - params.lr*scale*grad.W_emb(:, indices);
       
-      % debug
-      if params.batchId==1 && params.debug==1 
-        fprintf(2, '# iter %d, 1\n model:%s\n', params.iter, wInfo(model));
-      end
       %% log info
       totalWords = totalWords + trainData.numWords; %sum(sum(trainData.tgtMask));
       totalCost = totalCost + cost;
@@ -282,9 +278,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         timeElapsed = etime(endTime, startTime);
         params.costTrain = totalCost/totalWords;
         params.speed = totalWords*0.001/timeElapsed;
-        fprintf(2, 'epoch=%d, iter=%d, wps=%.2fK, lr=%g, cost=%g, gradNorm=%.2f, srcMaxLen=%d, tgtMaxLen=%d, %.2fs, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, trainData.srcMaxLen, trainData.tgtMaxLen, timeElapsed, datestr(now));
-        fprintf(params.logId, 'epoch=%d, iter=%d, wps=%.2fK, lr=%g, cost=%g, gradNorm=%.2f, srcMaxLen=%d, tgtMaxLen=%d, %.2fs, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, trainData.srcMaxLen, trainData.tgtMaxLen, timeElapsed, datestr(now));
-       
+        fprintf(2, 'epoch=%d, iter=%d, wps=%.2fK, lr=%g, cost=%5.2f, gradNorm=%5.2f, model=%s, srcMaxLen=%d, tgtMaxLen=%d, %.2fs, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, wInfo(model), trainData.srcMaxLen, trainData.tgtMaxLen, timeElapsed, datestr(now));
+        fprintf(params.logId, 'epoch=%d, iter=%d, wps=%.2fK, lr=%g, cost=%5.2f, gradNorm=%5.2f, model=%s, srcMaxLen=%d, tgtMaxLen=%d, %.2fs, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, wInfo(model), trainData.srcMaxLen, trainData.tgtMaxLen, timeElapsed, datestr(now));
+        
         % reset
         totalWords = 0;
         totalCost = 0;

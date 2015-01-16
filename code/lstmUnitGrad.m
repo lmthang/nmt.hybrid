@@ -52,10 +52,6 @@ function [dc, dh, lstm_grad] = lstmUnitGrad(model, lstm, dc, dh, ll, t, srcMaxLe
     da = params.nonlinear_f_prime(lstm{ll, t}.a_signal).*lstm{ll, t}.i_gate.*dc;   
   end
   
-  if params.batchId==1 && params.debug==1 && (t==srcMaxLen || t==1)
-    fprintf(2, '# t %d, l %d\n before dc:%s\n dh:%s\n f_g:%s\n i_g:%s\n o_g:%s\n', t, ll, wInfo(dc), wInfo(dh), wInfo(lstm{ll, t}.f_gate), wInfo(lstm{ll, t}.i_gate), wInfo(lstm{ll, t}.o_gate));
-  end
-  
   % dc
   dc = (lstm{ll, t}.f_gate + lstm{ll, t}.f_bias).*dc; % contribute to grad of c_{t-1} = f_t * d(c_t)
   % grad W
@@ -71,8 +67,8 @@ function [dc, dh, lstm_grad] = lstmUnitGrad(model, lstm, dc, dh, ll, t, srcMaxLe
   lstm_grad.dx = d_xh(1:params.lstmSize, :); 
   dh =  d_xh(params.lstmSize+1:end, :);
   
-  if params.batchId==1 && params.debug==1 && (t==srcMaxLen || t==1)
-    fprintf(2, ' after dc:%s\n grad:%s\n', wInfo(dc), wInfo(lstm_grad));
+  if params.debug==2 && params.batchId==1 && (t==srcMaxLen || t==1)
+    fprintf(2, '# t %d, l %d\n dc:%s, dh:%s\n f_g:%s, i_g:%s, o_g:%s\n grad:%s\n', t, ll, wInfo(dc), wInfo(dh), wInfo(lstm{ll, t}.f_gate), wInfo(lstm{ll, t}.i_gate), wInfo(lstm{ll, t}.o_gate), wInfo(lstm_grad));
   end
   
   % clip hidden/cell derivatives
