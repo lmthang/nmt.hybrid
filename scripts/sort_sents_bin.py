@@ -38,7 +38,7 @@ def process_command_line():
   parser.add_argument('--tgt_lang', dest='tgt_lang', type=str, default='', help='tgt lang (default=\'\')') 
   parser.add_argument('--batch_size', dest='batch_size', type=int, default=128, help='batch size (default=128)') 
   parser.add_argument('--max_len', dest='max_len', type=int, default=100, help='sentences with lengths outside of this threshold is put into a separate group (default=100)') 
-  parser.add_argument('--num_bins', dest='num_bins', type=int, default=5, help='num_bins: splits sentences of lens [1, maxLen] into (num_bins-1) bins, and the rest of the sentences into the last bin (default=5)')
+  parser.add_argument('--num_bins', dest='num_bins', type=int, default=6, help='num_bins: splits sentences of lens [1, maxLen] into (num_bins-1) bins, and the rest of the sentences into the last bin (default=6)')
   parser.add_argument('-d', '--debug', dest='debug', action='store_true', default=False, help='enable debugging mode (default: false)') 
   
   args = parser.parse_args()
@@ -50,61 +50,6 @@ def check_dir(out_file):
   if dir_name != '' and os.path.exists(dir_name) == False:
     sys.stderr.write('! Directory %s doesn\'t exist, creating ...\n' % dir_name)
     os.makedirs(dir_name)
-
-def clean_line(line):
-  """
-  Strip leading and trailing spaces
-  """
-
-  line = re.sub('(^\s+|\s$)', '', line);
-  return line
-
-def process_buffer(sents, sent_lens, sent_ids, tgt_sents, align_sents, bin_size, batch_size, is_parallel, is_align):
-  '''
-  Process currently loaded sents
-  '''
-
-  group_count = 0
-  group_sents = []
-  group_sent_lens = []
-  group_sent_ids = []
-  tgt_group_sents = []
-  align_group_sents = []
-
-  # pick the first sent & decide bin
-  sent_len = sent_lens[0]
-  bin_id = (sent_len-1)/bin_size
-  start_len = bin_id * bin_size + 1
-  end_len = (bin_id+1)*bin_size 
-  #sys.stderr.write('sent_len %d, bin_id %d, start_len %d, end_len %d\n' % (sent_len, bin_id, start_len, end_len))
-  
-  # go through the currently loaded sents and select those that are in the same bin
-  ii = 0
-  while ii < len(sents):
-    if sent_lens[ii]>=start_len and sent_lens[ii]<=end_len: # in the same bin
-      group_count += 1
-      group_sents.append(sents[ii])
-      group_sent_lens.append(sent_lens[ii])
-      group_sent_ids.append(sent_ids[ii])
-      
-      # remove sent
-      del sents[ii]
-      del sent_lens[ii]
-      del sent_ids[ii]
-
-      if is_parallel:
-        tgt_group_sents.append(tgt_sents[ii])
-        del tgt_sents[ii]
-        if is_align:
-          align_group_sents.append(align_sents[ii])
-          del align_sents[ii]
-
-      if group_count == batch_size: # select enough
-        break
-    else:
-      ii += 1
-
-  return (sents, sent_lens, sent_ids, group_sents, group_sent_lens, group_sent_ids, tgt_group_sents, align_group_sents, group_count, start_len, end_len)
 
 def load_entire_file(in_file, num_bins, max_len):
   inf = codecs.open(in_file, 'r', 'utf-8')
@@ -163,8 +108,9 @@ def process_files(in_file, src_lang, tgt_lang, out_file, batch_size, num_bins, m
     ouf = codecs.open(out_file + '.' + src_lang, 'w', 'utf-8')
 
     # tgt
-    sys.stderr.write('# Loading tgt file ...')
-    tgt_inf = codecs.open(in_file + '.' + tgt_lang, 'r', 'utf-8')
+    tgt_file = in_file + '.' + tgt_lang
+    sys.stderr.write('# Loading tgt file %s ...' % tgt_file)
+    tgt_inf = codecs.open(tgt_file, 'r', 'utf-8')
     tgt_sents = tgt_inf.readlines()
     sys.stderr.write('# Done! Num lines = %d\n' % len(tgt_sents))
     tgt_inf.close()
@@ -173,9 +119,9 @@ def process_files(in_file, src_lang, tgt_lang, out_file, batch_size, num_bins, m
     # align
     align_file = in_file + '.align'
     if os.path.isfile(align_file): 
-      sys.stderr.write('# Loading align file ...')
+      sys.stderr.write('# Loading align file %s ...' % align_file)
       align_inf = codecs.open(align_file, 'r', 'utf-8')
-      align_sents = align_inf.readline()
+      align_sents = align_inf.readlines()
       sys.stderr.write('# Done! Num lines = %d\n' % len(align_sents))
       align_inf.close()
       align_ouf = codecs.open(out_file + '.align', 'w', 'utf-8')
@@ -199,6 +145,7 @@ def process_files(in_file, src_lang, tgt_lang, out_file, batch_size, num_bins, m
 
       num_batchs = num_sents / batch_size
       sys.stderr.write('# [%d, %d]: num sents %d, num_batchs %d\n' % (start_len, end_len, num_sents, num_batchs))
+      #ouf.write('# [%d, %d]: num sents %d, num_batchs %d\n' % (start_len, end_len, num_sents, num_batchs))
       for jj in xrange(num_batchs*batch_size):
         index = bin_lists[ii][jj]
         ouf.write('%s' % sents[index])
@@ -209,11 +156,13 @@ def process_files(in_file, src_lang, tgt_lang, out_file, batch_size, num_bins, m
             align_ouf.write('%s' % align_sents[index])
 
       end_points.append(num_batchs*batch_size)
-      sys.stderr.write('  num remained sents = %d\n' % (len(bin_lists[ii])-end_points[ii])) 
     
     # print remained sents
     for ii in xrange(num_bins):
+      sys.stderr.write('# remained sents = %d\n' % (len(bin_lists[ii])-end_points[ii])) 
+      #ouf.write('# remained sents = %d\n' % (len(bin_lists[ii])-end_points[ii])) 
       for jj in xrange(end_points[ii], len(bin_lists[ii])):
+        index = bin_lists[ii][jj]
         ouf.write('%s' % sents[index])
         id_ouf.write('%d\n' % index)
         if is_parallel:
