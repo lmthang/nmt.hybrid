@@ -1,12 +1,12 @@
-function [accumX] = aggregateMatrix(X, indices, numCols)
+function [accumX] = aggregateMatrix(X, indices, numCols, isGPU)
 %%%
 % Fast way of aggregating column vectors based on indices which contain repetitive values.
 %   X = [101:105; 11:15];
-%   indices = [1 2 2 3 3]
+%   indices = [1 2 2 4 4]
 % max(indices) <= numCols
 %   aggregateMatrix(X, indices) returns:
-%   101   205   209
-%    11    25    29
+%   101   205   0   209
+%    11    25   0    29
 %
 % Thang Luong @ 2012, <lmthang@stanford.edu>
 %%%
@@ -16,6 +16,15 @@ function [accumX] = aggregateMatrix(X, indices, numCols)
   
   % option1
   accumX = sparse(X)*sparse(1:numIndices, double(indices), ones(numIndices,1),numIndices, numCols);
+%  if isGPU
+%    dim = size(X, 1); % num dim
+%    if size(indices, 1)==1 % row vector
+%      indices = indices'
+%    end
+%    subs = [repmat((1:dim)', numel(indices), 1) kron(indices, ones(dim, 1))];
+%    accumX = accumarray(subs, double(X(:)), [dim numCols], [], [], true);
+%  else
+%  end
 end
 
 %% I've tried tons of other ways (see below), but the current version is the fastest one %%

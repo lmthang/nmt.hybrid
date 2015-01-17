@@ -172,11 +172,12 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
         indices = input(mask, t);
         if params.isGPU
           emb_grad = double(gather(lstm_grad.dx(:, mask))); % copy embedding grads to CPU
+          %emb_grad = gather(lstm_grad.dx(:, mask)); % copy embedding grads to CPU
         else
           emb_grad = lstm_grad.dx(:, mask);
         end
 
-        grad.W_emb = grad.W_emb + aggregateMatrix(emb_grad, indices, params.inVocabSize);
+        grad.W_emb = grad.W_emb + aggregateMatrix(emb_grad, indices, params.inVocabSize); %, params.isGPU);
       else % pass down hidden state grad to the below layer
         dh{ll-1}(:, mask) = dh{ll-1}(:, mask) + lstm_grad.dx(:, mask);
       end
