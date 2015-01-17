@@ -46,6 +46,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
   addOptional(p,'seed', 0, @isnumeric); % 0: seed based on current clock time, else use the specified seed
   addOptional(p,'gpuDevice', 1, @isnumeric); % choose the gpuDevice to use. 
+  addOptional(p,'debug', 0, @isnumeric); % 0: no debug, 1: debug
+  addOptional(p,'f_bias', 0, @isnumeric); % bias added to the forget gate
   p.KeepUnmatched = true;
   parse(p,trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFile,tgtVocabFile,outDir,baseIndex,varargin{:})
   params = p.Results;
@@ -82,7 +84,11 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       params.isGPU = 1;
       %reset(gpuDevice(params.gpuDevice));
       gpuDevice(params.gpuDevice)
+    else
+      params.dataType = 'double';
     end
+  else
+    params.dataType = 'double';
   end
   
   % grad check
@@ -90,6 +96,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     params.dataType = 'double';
     params.lstmSize = 2;
     params.batchSize = 10;
+    params.batchId = 1;
   end
   
   %% Load vocabs
@@ -207,6 +214,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     numBatches = floor((numTrainSents-1)/params.batchSize) + 1;
     for batchId = 1 : numBatches
       params.iter = params.iter + 1;
+      params.batchId = batchId;
       if params.iter <= startIter
         continue;
       end
@@ -226,6 +234,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       [trainData.input, trainData.inputMask, trainData.tgtOutput, trainData.srcMaxLen, trainData.tgtMaxLen, trainData.numWords, trainData.srcLens] = prepareData(srcBatchSents, tgtBatchSents, params);
       % core part
       [cost, grad] = lstmCostGrad(model, trainData, params, 0);
+      
+      %vocab = [tgtVocab srcVocab]
+      %printSent(trainData.input(1, :), vocab, '  input:');
       if isnan(cost) || isinf(cost)
         fprintf(2, 'epoch=%d, iter=%d, nan/inf cost=%g\n', params.epoch, params.iter, cost);
         continue;
@@ -259,7 +270,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       end
       indices = find(any(grad.W_emb)); % find out non empty columns
       model.W_emb(:, indices) = model.W_emb(:, indices) - params.lr*scale*grad.W_emb(:, indices);
-
+      
       %% log info
       totalWords = totalWords + trainData.numWords; %sum(sum(trainData.tgtMask));
       totalCost = totalCost + cost;
@@ -268,9 +279,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         timeElapsed = etime(endTime, startTime);
         params.costTrain = totalCost/totalWords;
         params.speed = totalWords*0.001/timeElapsed;
-        fprintf(2, 'epoch=%d, iter=%d, wps=%.2fK, lr=%g, cost=%g, gradNorm=%.2f, srcMaxLen=%d, tgtMaxLen=%d, %.2fs, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, trainData.srcMaxLen, trainData.tgtMaxLen, timeElapsed, datestr(now));
-        fprintf(params.logId, 'epoch=%d, iter=%d, wps=%.2fK, lr=%g, cost=%g, gradNorm=%.2f, srcMaxLen=%d, tgtMaxLen=%d, %.2fs, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, trainData.srcMaxLen, trainData.tgtMaxLen, timeElapsed, datestr(now));
-       
+        fprintf(2, 'epoch=%d, iter=%d, wps=%.2fK, lr=%g, cost=%5.2f, gradNorm=%5.2f, model=%s, srcMaxLen=%d, tgtMaxLen=%d, %.2fs, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, wInfo(model), trainData.srcMaxLen, trainData.tgtMaxLen, timeElapsed, datestr(now));
+        fprintf(params.logId, 'epoch=%d, iter=%d, wps=%.2fK, lr=%g, cost=%5.2f, gradNorm=%5.2f, model=%s, srcMaxLen=%d, tgtMaxLen=%d, %.2fs, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, wInfo(model), trainData.srcMaxLen, trainData.tgtMaxLen, timeElapsed, datestr(now));
+        
         % reset
         totalWords = 0;
         totalCost = 0;
@@ -339,6 +350,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       end
     end
   end % end for while(1)
+  
+  fclose(params.logId);
 end
 
 function [params] = evalValidTest(model, validData, testData, params)

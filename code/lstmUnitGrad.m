@@ -4,20 +4,16 @@ function [dc, dh, lstm_grad] = lstmUnitGrad(model, lstm, dc, dh, ll, t, srcMaxLe
     if params.lstmOpt==0 % h_t = o_g * f(c_t)
       % dc = dc + f'(c_t)*o_g*dh
       dc = arrayfun(@plusTanhPrimeTriple, dc, lstm{ll, t}.f_c_t, lstm{ll, t}.o_gate, dh);
-    elseif params.lstmOpt==1 % h_t = o_g * c_t
-      % dc = dc + o_g* dh
-      dc = dc + lstm{ll, t}.o_gate.*dh;
-    end
-
-    %% Note: di, df, do, da: w.r.t to i, f, o, a before apply non-linear functions. 
-    % do
-    if params.lstmOpt==0
       % do = f'(o_g)*f(c_t)*dh
       do = arrayfun(@sigmoidPrimeTriple, lstm{ll, t}.o_gate, lstm{ll, t}.f_c_t, dh);
     elseif params.lstmOpt==1 % h_t = o_g * c_t
+      % dc = dc + o_g* dh
+      dc = arrayfun(@plusMult, dc, lstm{ll, t}.o_gate, dh);
       % do = f'(o_g)*c_t*dh
       do = arrayfun(@sigmoidPrimeTriple, lstm{ll, t}.o_gate, lstm{ll, t}.c_t, dh);
     end
+
+    %% Note: di, df, do, da: w.r.t to i, f, o, a before apply non-linear functions. 
     % di = f'(i_g) * a_signal * dc
     di = arrayfun(@sigmoidPrimeTriple, lstm{ll, t}.i_gate, lstm{ll, t}.a_signal, dc);
     
@@ -34,20 +30,16 @@ function [dc, dh, lstm_grad] = lstmUnitGrad(model, lstm, dc, dh, ll, t, srcMaxLe
     if params.lstmOpt==0 % h_t = o_g * f(c_t)
       % dc = dc + f'(c_t)*o_g*dh
       dc = dc + params.nonlinear_f_prime(lstm{ll, t}.f_c_t).*lstm{ll, t}.o_gate.*dh;
-    elseif params.lstmOpt==1 % h_t = o_g * c_t
-      % dc = dc + o_g* dh
-      dc = dc + lstm{ll, t}.o_gate.*dh;
-    end
-
-    %% Note: di, df, do, da: w.r.t to i, f, o, a before apply non-linear functions. 
-    % do
-    if params.lstmOpt==0
       % do = f'(o_g)*f(c_t)*dh
       do = params.nonlinear_gate_f_prime(lstm{ll, t}.o_gate).*lstm{ll, t}.f_c_t .* dh;
     elseif params.lstmOpt==1 % h_t = o_g * c_t
+      % dc = dc + o_g* dh
+      dc = dc + lstm{ll, t}.o_gate.*dh;
       % do = f'(o_g)*c_t*dh
       do = params.nonlinear_gate_f_prime(lstm{ll, t}.o_gate).*lstm{ll, t}.c_t .* dh;
     end
+
+    %% Note: di, df, do, da: w.r.t to i, f, o, a before apply non-linear functions. 
     % di = f'(i_g) * a_signal * dc
     di = params.nonlinear_gate_f_prime(lstm{ll, t}.i_gate).*lstm{ll, t}.a_signal.*dc;
     % df = f'(f_g)*c_{t-1}*dc
@@ -61,7 +53,7 @@ function [dc, dh, lstm_grad] = lstmUnitGrad(model, lstm, dc, dh, ll, t, srcMaxLe
   end
   
   % dc
-  dc = lstm{ll, t}.f_gate.*dc;
+  dc = (lstm{ll, t}.f_gate + lstm{ll, t}.f_bias).*dc; % contribute to grad of c_{t-1} = f_t * d(c_t)
   % grad W
   if (t>=srcMaxLen) % tgt
     W = model.W_tgt{ll};
@@ -74,6 +66,10 @@ function [dc, dh, lstm_grad] = lstmUnitGrad(model, lstm, dc, dh, ll, t, srcMaxLe
   d_xh = W'*d_ifoa;
   lstm_grad.dx = d_xh(1:params.lstmSize, :); 
   dh =  d_xh(params.lstmSize+1:end, :);
+  
+  if params.debug==2 && params.batchId==1 && (t==srcMaxLen || t==1)
+    fprintf(2, '# t %d, l %d\n dc:%s, dh:%s\n f_g:%s, i_g:%s, o_g:%s\n grad:%s\n', t, ll, wInfo(dc), wInfo(dh), wInfo(lstm{ll, t}.f_gate), wInfo(lstm{ll, t}.i_gate), wInfo(lstm{ll, t}.o_gate), wInfo(lstm_grad));
+  end
   
   % clip hidden/cell derivatives
   if params.isClip
@@ -111,6 +107,12 @@ end
 function [value] = plusTanhPrimeTriple(t, x, y, z)
   value = t + (1-x*x)*y*z;
 end
+
+% compute x + y * z
+function [value] = plusMult(x, y, z)
+  value = x + y*z;
+end
+
 
 %   % mask dh, dc
 %   dh = bsxfun(@times, dh, mask');

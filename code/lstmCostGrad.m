@@ -81,8 +81,10 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
       %% decide encoder/decoder
       if (t>=srcMaxLen) % decoder
         W = model.W_tgt{ll};
+        f_bias = 0;
       else % encoder
         W = model.W_src{ll};
+        f_bias = params.f_bias;
       end
       
       %% input
@@ -95,10 +97,11 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
 
       %% lstm cell
       if t==1
-        lstm{ll, t} = lstmUnit(W, x_t, zero_state, zero_state, params);
+        lstm{ll, t} = lstmUnit(W, x_t, zero_state, zero_state, params, f_bias);
       else
-        lstm{ll, t} = lstmUnit(W, x_t, lstm{ll, t-1}.h_t, lstm{ll, t-1}.c_t, params);
+        lstm{ll, t} = lstmUnit(W, x_t, lstm{ll, t-1}.h_t, lstm{ll, t-1}.c_t, params, f_bias);
       end
+      lstm{ll, t}.f_bias = f_bias;
 
       %% prediction at the top layer
       if ll==params.numLayers && (t>=srcMaxLen) 
@@ -150,7 +153,6 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
   
   for t=T:-1:1 % time
     mask = inputMask(:, t);
-    
     for ll=params.numLayers:-1:1 % layer
       %% hidden state grad
       if ll==params.numLayers && (t>=srcMaxLen) % get signals from the softmax layer
