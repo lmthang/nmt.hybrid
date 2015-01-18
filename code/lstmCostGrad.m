@@ -26,10 +26,10 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
   input_embs = model.W_emb(:, input);
   
   % global opt
-  if params.globalOpt==1
-    srcSentEmbs = sum(reshape(input_embs(:, 1:curBatchSize*srcMaxLen), params.lstmSize*curBatchSize, srcMaxLen), 2); % sum
-    srcSentEmbs = bsxfun(@rdivide, reshape(srcSentEmbs, params.lstmSize, curBatchSize), trainData.srcLens');
-  end
+  %if params.globalOpt==1
+  %  srcSentEmbs = sum(reshape(input_embs(:, 1:curBatchSize*srcMaxLen), params.lstmSize*curBatchSize, srcMaxLen), 2); % sum
+  %  srcSentEmbs = bsxfun(@rdivide, reshape(srcSentEmbs, params.lstmSize, curBatchSize), trainData.srcLens');
+  %end
   
   grad.W_emb = sparse(params.lstmSize, params.inVocabSize); % live on CPU
   if params.isGPU % declare intermediate variables on GPU
@@ -101,7 +101,7 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
       else
         lstm{ll, t} = lstmUnit(W, x_t, lstm{ll, t-1}.h_t, lstm{ll, t-1}.c_t, params, f_bias);
       end
-      lstm{ll, t}.f_bias = f_bias;
+      %lstm{ll, t}.f_bias = f_bias;
 
       %% prediction at the top layer
       if ll==params.numLayers && (t>=srcMaxLen) 
@@ -173,15 +173,14 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
       if ll==1 % collect embedding grad
         indices = input(mask, t);
         if params.isGPU
-          emb_grad = double(gather(lstm_grad.dx(:, mask))); % copy embedding grads to CPU
-          %emb_grad = gather(lstm_grad.dx(:, mask)); % copy embedding grads to CPU
+          emb_grad = double(gather(lstm_grad.d_xh(1:params.lstmSize, mask))); % copy embedding grads to CPU
         else
           emb_grad = lstm_grad.dx(:, mask);
         end
 
         grad.W_emb = grad.W_emb + aggregateMatrix(emb_grad, indices, params.inVocabSize); %, params.isGPU);
       else % pass down hidden state grad to the below layer
-        dh{ll-1}(:, mask) = dh{ll-1}(:, mask) + lstm_grad.dx(:, mask);
+        dh{ll-1}(:, mask) = dh{ll-1}(:, mask) + lstm_grad.d_xh(1:params.lstmSize, mask);
       end
     end % end for layer
   end % end for time

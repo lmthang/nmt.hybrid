@@ -21,7 +21,7 @@ function [lstmCell] = lstmUnit(W, x_t, h_t, c_t, params, f_bias)
   lstmCell.f_gate = ifo_gate(params.lstmSize+1:2*params.lstmSize, :);
   lstmCell.o_gate = ifo_gate(2*params.lstmSize+1:3*params.lstmSize, :);
   lstmCell.a_signal = params.nonlinear_f(ifoa_linear(3*params.lstmSize+1:4*params.lstmSize, :)); % note input uses a different activation function
-  lstmCell.c_t = (lstmCell.f_gate + f_bias).*c_t + lstmCell.i_gate.*lstmCell.a_signal; % c_t = f_t * c_{t-1} + i_t * a_t
+  lstmCell.c_t = lstmCell.f_gate.*c_t + lstmCell.i_gate.*lstmCell.a_signal; % c_t = f_t * c_{t-1} + i_t * a_t % (lstmCell.f_gate + f_bias)
 
   %% hidden
   if params.lstmOpt==0 % h_t = o_t * f(c_t)

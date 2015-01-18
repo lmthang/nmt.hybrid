@@ -188,13 +188,15 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     fprintf(2, '# Load train data srcFile "%s" and tgtFile "%s"\n', srcTrainFile, tgtTrainFile);
     srcID = fopen(srcTrainFile, 'r');
     [srcTrainSents] = loadBatchData(srcID, params.baseIndex, params.chunkSize, params.srcEos);
-    printSent(srcTrainSents{1}, srcVocab, '  src:');
+    printSent(srcTrainSents{1}, srcVocab, '  src 1:');
+    printSent(srcTrainSents{end}, srcVocab, '  src end:');
   else
     fprintf(2, '# Load train data tgtFile "%s"\n', tgtTrainFile);
   end
   tgtID = fopen(tgtTrainFile, 'r');
   [tgtTrainSents, numTrainSents] = loadBatchData(tgtID, params.baseIndex, params.chunkSize, params.tgtEos);
   printSent(tgtTrainSents{1}, tgtVocab, '  tgt:');
+  printSent(tgtTrainSents{end}, tgtVocab, '  tgt end:');
 
   %% Training
   totalCost = 0; totalWords = 0;
@@ -279,8 +281,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         timeElapsed = etime(endTime, startTime);
         params.costTrain = totalCost/totalWords;
         params.speed = totalWords*0.001/timeElapsed;
-        fprintf(2, 'epoch=%d, iter=%d, wps=%.2fK, lr=%g, cost=%5.2f, gradNorm=%5.2f, model=%s, srcMaxLen=%d, tgtMaxLen=%d, %.2fs, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, wInfo(model), trainData.srcMaxLen, trainData.tgtMaxLen, timeElapsed, datestr(now));
-        fprintf(params.logId, 'epoch=%d, iter=%d, wps=%.2fK, lr=%g, cost=%5.2f, gradNorm=%5.2f, model=%s, srcMaxLen=%d, tgtMaxLen=%d, %.2fs, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, wInfo(model), trainData.srcMaxLen, trainData.tgtMaxLen, timeElapsed, datestr(now));
+        modelStr = wInfo(model);
+        fprintf(2, '%d, %d, %.2fK, %g, %5.2f, gN=%5.2f, %s, s=%d, t=%d, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, modelStr, trainData.srcMaxLen, trainData.tgtMaxLen, datestr(now));
+        fprintf(params.logId, '%d, %d, %.2fK, %g, %5.2f, gN=%5.2f, %s, s=%d, t=%d, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, modelStr, trainData.srcMaxLen, trainData.tgtMaxLen, datestr(now));
         
         % reset
         totalWords = 0;
@@ -294,6 +297,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
           if ismac
             profile viewer    
           else
+            profile off;
             profsave(profile('info'), 'profile_results');
           end
           return;

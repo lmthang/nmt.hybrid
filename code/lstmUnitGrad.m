@@ -1,31 +1,31 @@
 function [dc, dh, lstm_grad] = lstmUnitGrad(model, lstm, dc, dh, ll, t, srcMaxLen, zero_state, params)
-  if params.isGPU
-    %% dh, dc
-    if params.lstmOpt==0 % h_t = o_g * f(c_t)
-      % dc = dc + f'(c_t)*o_g*dh
-      dc = arrayfun(@plusTanhPrimeTriple, dc, lstm{ll, t}.f_c_t, lstm{ll, t}.o_gate, dh);
-      % do = f'(o_g)*f(c_t)*dh
-      do = arrayfun(@sigmoidPrimeTriple, lstm{ll, t}.o_gate, lstm{ll, t}.f_c_t, dh);
-    elseif params.lstmOpt==1 % h_t = o_g * c_t
-      % dc = dc + o_g* dh
-      dc = arrayfun(@plusMult, dc, lstm{ll, t}.o_gate, dh);
-      % do = f'(o_g)*c_t*dh
-      do = arrayfun(@sigmoidPrimeTriple, lstm{ll, t}.o_gate, lstm{ll, t}.c_t, dh);
-    end
+  %if params.isGPU
+  %  %% dh, dc
+  %  if params.lstmOpt==0 % h_t = o_g * f(c_t)
+  %    % dc = dc + f'(c_t)*o_g*dh
+  %    dc = arrayfun(@plusTanhPrimeTriple, dc, lstm{ll, t}.f_c_t, lstm{ll, t}.o_gate, dh);
+  %    % do = f'(o_g)*f(c_t)*dh
+  %    do = arrayfun(@sigmoidPrimeTriple, lstm{ll, t}.o_gate, lstm{ll, t}.f_c_t, dh);
+  %  elseif params.lstmOpt==1 % h_t = o_g * c_t
+  %    % dc = dc + o_g* dh
+  %    dc = arrayfun(@plusMult, dc, lstm{ll, t}.o_gate, dh);
+  %    % do = f'(o_g)*c_t*dh
+  %    do = arrayfun(@sigmoidPrimeTriple, lstm{ll, t}.o_gate, lstm{ll, t}.c_t, dh);
+  %  end
 
-    %% Note: di, df, do, da: w.r.t to i, f, o, a before apply non-linear functions. 
-    % di = f'(i_g) * a_signal * dc
-    di = arrayfun(@sigmoidPrimeTriple, lstm{ll, t}.i_gate, lstm{ll, t}.a_signal, dc);
-    
-    % df = f'(f_g)*c_{t-1}*dc
-    if t>1
-      df = arrayfun(@sigmoidPrimeTriple, lstm{ll, t}.f_gate, lstm{ll, t-1}.c_t, dc);
-    else
-      df = zero_state;
-    end
-    % da = f'(a_signal)*i_g*dc
-    da = arrayfun(@tanhPrimeTriple, lstm{ll, t}.a_signal, lstm{ll, t}.i_gate, dc);
-  else
+  %  %% Note: di, df, do, da: w.r.t to i, f, o, a before apply non-linear functions. 
+  %  % di = f'(i_g) * a_signal * dc
+  %  di = arrayfun(@sigmoidPrimeTriple, lstm{ll, t}.i_gate, lstm{ll, t}.a_signal, dc);
+  %  
+  %  % df = f'(f_g)*c_{t-1}*dc
+  %  if t>1
+  %    df = arrayfun(@sigmoidPrimeTriple, lstm{ll, t}.f_gate, lstm{ll, t-1}.c_t, dc);
+  %  else
+  %    df = zero_state;
+  %  end
+  %  % da = f'(a_signal)*i_g*dc
+  %  da = arrayfun(@tanhPrimeTriple, lstm{ll, t}.a_signal, lstm{ll, t}.i_gate, dc);
+  %else
     %% dh, dc
     if params.lstmOpt==0 % h_t = o_g * f(c_t)
       % dc = dc + f'(c_t)*o_g*dh
@@ -50,10 +50,10 @@ function [dc, dh, lstm_grad] = lstmUnitGrad(model, lstm, dc, dh, ll, t, srcMaxLe
     end
     % da = f'(a_signal)*i_g*dc
     da = params.nonlinear_f_prime(lstm{ll, t}.a_signal).*lstm{ll, t}.i_gate.*dc;   
-  end
+  %end
   
   % dc
-  dc = (lstm{ll, t}.f_gate + lstm{ll, t}.f_bias).*dc; % contribute to grad of c_{t-1} = f_t * d(c_t)
+  dc = lstm{ll, t}.f_gate.*dc; % contribute to grad of c_{t-1} = f_t * d(c_t) %(lstm{ll, t}.f_gate + lstm{ll, t}.f_bias)
   % grad W
   if (t>=srcMaxLen) % tgt
     W = model.W_tgt{ll};
@@ -63,13 +63,13 @@ function [dc, dh, lstm_grad] = lstmUnitGrad(model, lstm, dc, dh, ll, t, srcMaxLe
   d_ifoa = [di; df; do; da];
   lstm_grad.W = d_ifoa*lstm{ll, t}.input_xh';
   % dx, dh
-  d_xh = W'*d_ifoa;
-  lstm_grad.dx = d_xh(1:params.lstmSize, :); 
-  dh =  d_xh(params.lstmSize+1:end, :);
+  lstm_grad.d_xh = W'*d_ifoa;
+  %lstm_grad.dx = d_xh(1:params.lstmSize, :); 
+  dh =  lstm_grad.d_xh(params.lstmSize+1:end, :);
   
-  if params.debug==2 && params.batchId==1 && (t==srcMaxLen || t==1)
-    fprintf(2, '# t %d, l %d\n dc:%s, dh:%s\n f_g:%s, i_g:%s, o_g:%s\n grad:%s\n', t, ll, wInfo(dc), wInfo(dh), wInfo(lstm{ll, t}.f_gate), wInfo(lstm{ll, t}.i_gate), wInfo(lstm{ll, t}.o_gate), wInfo(lstm_grad));
-  end
+  %if params.debug==2 && params.batchId==1 && (t==srcMaxLen || t==1)
+  %  fprintf(2, '# t %d, l %d\n dc:%s, dh:%s\n f_g:%s, i_g:%s, o_g:%s\n grad:%s\n', t, ll, wInfo(dc), wInfo(dh), wInfo(lstm{ll, t}.f_gate), wInfo(lstm{ll, t}.i_gate), wInfo(lstm{ll, t}.o_gate), wInfo(lstm_grad));
+  %end
   
   % clip hidden/cell derivatives
   if params.isClip
