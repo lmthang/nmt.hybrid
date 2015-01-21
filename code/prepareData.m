@@ -1,4 +1,3 @@
-
 %% Prepare data
 %
 %  Thang Luong @ 2014, <lmthang@stanford.edu>
@@ -35,19 +34,24 @@ function [input, inputMask, tgtOutput, srcMaxLen, tgtMaxLen, numWords, srcLens] 
     tgtOutput(ii, 1:tgtLen) = tgtSents{ii};
   end
   
-  %tgtMask = (tgtOutput~=params.tgtEos);
   if params.isBi
     inputMask = (input~=srcZeroId & input~=params.tgtEos);
   else % for mono case, we still learn parameters for the srcZeroId which is tgtSos.
     inputMask = (input~=params.tgtEos);
   end
+  numWords = sum(sum(inputMask(:, srcMaxLen:end))); 
   
-  % the last src symbol needs to be eos for all sentences
-  if params.isBi
-    assert(length(unique(input(:, srcMaxLen)))==1); 
-    srcEos = srcSents{1}(end) + params.tgtVocabSize;
-    assert(input(1, srcMaxLen)==srcEos);
+  % sanity check
+  if params.assert
+    % the last src symbol needs to be eos for all sentences
+    if params.isBi
+      assert(length(unique(input(:, srcMaxLen)))==1); 
+      srcEos = srcSents{1}(end) + params.tgtVocabSize;
+      assert(input(1, srcMaxLen)==srcEos);
+    end
+     assert(numWords == sum(tgtLens));
+    label = 'input';
+    printSent(input(1, :), params.vocab, ['  ', label, ' 1:']);
+    printSent(input(end, :), params.vocab, ['  ', label, ' end:']);
   end
-  
-  numWords = sum(sum(inputMask(:, srcMaxLen:end))); %sum(sum(data.tgtMask));
 end

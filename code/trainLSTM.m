@@ -47,6 +47,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'seed', 0, @isnumeric); % 0: seed based on current clock time, else use the specified seed
   addOptional(p,'gpuDevice', 1, @isnumeric); % choose the gpuDevice to use. 
   addOptional(p,'debug', 0, @isnumeric); % 0: no debug, 1: debug
+  addOptional(p,'assert', 0, @isnumeric); % 0: no sanity check, 1: yes
   addOptional(p,'f_bias', 0, @isnumeric); % bias added to the forget gate
   p.KeepUnmatched = true;
   parse(p,trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFile,tgtVocabFile,outDir,baseIndex,varargin{:})
@@ -116,19 +117,22 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   % add special symbols to vocabs
   if params.isBi
     fprintf(2, '## Bilingual setting\n');
-    srcVocab{end+1} = '<eos>';
+    srcVocab{end+1} = '<s_eos>';
     params.srcEos = length(srcVocab);
-    srcVocab{end+1} = '<sos>';
+    srcVocab{end+1} = '<s_sos>';
     params.srcSos = length(srcVocab);
     params.srcVocabSize = length(srcVocab);
+    % here we have src eos, so we don't need tgt sos.
   else
     fprintf(2, '## Monolingual setting\n');
-    tgtVocab{end+1} = '<sos>';
+    srcVocab = {};
+    tgtVocab{end+1} = '<t_sos>';
     params.tgtSos = length(tgtVocab);
   end
-  tgtVocab{end+1} = '<eos>';
+  tgtVocab{end+1} = '<t_eos>';
   params.tgtEos = length(tgtVocab);
   params.tgtVocabSize = length(tgtVocab);
+  params.vocab = [tgtVocab srcVocab];
   
   %% Init / Load Model Parameters
   params.modelFile = [outDir '/model.mat'];
@@ -176,7 +180,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   end
   
   %% Load data
-  
   % valid & test
   [validData] = loadPrepareData(params, params.validPrefix, srcVocab, tgtVocab);
   [testData] = loadPrepareData(params, params.testPrefix, srcVocab, tgtVocab);
@@ -282,8 +285,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         params.costTrain = totalCost/totalWords;
         params.speed = totalWords*0.001/timeElapsed;
         modelStr = wInfo(model);
-        fprintf(2, '%d, %d, %.2fK, %g, %5.2f, gN=%5.2f, %s, s=%d, t=%d, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, modelStr, trainData.srcMaxLen, trainData.tgtMaxLen, datestr(now));
-        fprintf(params.logId, '%d, %d, %.2fK, %g, %5.2f, gN=%5.2f, %s, s=%d, t=%d, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, modelStr, trainData.srcMaxLen, trainData.tgtMaxLen, datestr(now));
+        fprintf(2, '%d, %d, %.2fK, %.4f, %.2f, gN=%.2f, %s, s=%d, t=%d, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, modelStr, trainData.srcMaxLen, trainData.tgtMaxLen, datestr(now));
+        fprintf(params.logId, '%d, %d, %.4fK, %g, %.2f, gN=%.2f, %s, s=%d, t=%d, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, modelStr, trainData.srcMaxLen, trainData.tgtMaxLen, datestr(now));
         
         % reset
         totalWords = 0;
@@ -295,7 +298,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       if mod(params.iter, params.evalFreq) == 0    
         if params.isProfile
           if ismac
-            profile viewer    
+            profile viewer;
           else
             profile off;
             profsave(profile('info'), 'profile_results');
@@ -364,8 +367,8 @@ function [params] = evalValidTest(model, validData, testData, params)
   
   costValid = costValid/validData.numWords;
   costTest = costTest/testData.numWords;
-  fprintf(2, '# eval %.2f, %d, %d, %.2fK, %g, costTrain=%g, costValid=%g, costTest=%g, %.2fs, %s\n', exp(costTest), params.epoch, params.iter, params.speed, params.lr, params.costTrain, costValid, costTest, datestr(now));
-  fprintf(params.logId, '# eval %.2f, %d, %d, %.2fK, %g, costTrain=%g, costValid=%g, costTest=%g, %.2fs, %s\n', exp(costTest), params.epoch, params.iter, params.speed, params.lr, params.costTrain, costValid, costTest, datestr(now));
+  fprintf(2, '# eval %.2f, %d, %d, %.2fK, %.2f, train=%.4f, valid=%.4f, test=%.4f, %.2fs, %s\n', exp(costTest), params.epoch, params.iter, params.speed, params.lr, params.costTrain, costValid, costTest, datestr(now));
+  fprintf(params.logId, '# eval %.2f, %d, %d, %.2fK, %.2f, train=%.4f, valid=%.4f, test=%.4f, %.2fs, %s\n', exp(costTest), params.epoch, params.iter, params.speed, params.lr, params.costTrain, costValid, costTest, datestr(now));
   
   if costValid < params.bestCostValid
     params.bestCostValid = costValid;
@@ -383,6 +386,8 @@ function [cost] = evalCost(model, data, params) %input, inputMask, tgtOutput, tg
   numBatches = floor((numSents-1)/params.batchSize) + 1;
 
   cost = 0;
+  trainData.srcMaxLen = data.srcMaxLen;
+  trainData.tgtMaxLen = data.tgtMaxLen;
   for batchId = 1 : numBatches
     startId = (batchId-1)*params.batchSize+1;
     endId = batchId*params.batchSize;
@@ -393,9 +398,6 @@ function [cost] = evalCost(model, data, params) %input, inputMask, tgtOutput, tg
     trainData.input = data.input(startId:endId, :);
     trainData.inputMask = data.inputMask(startId:endId, :);
     trainData.tgtOutput = data.tgtOutput(startId:endId, :);
-    %trainData.tgtMask = data.tgtMask(startId:endId, :);
-    trainData.srcMaxLen = data.srcMaxLen;
-    trainData.tgtMaxLen = data.tgtMaxLen;
     cost = cost + lstmCostGrad(model, trainData, params, 1);
   end
 end
@@ -438,8 +440,8 @@ end
 
 
 function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab) % [input, inputMask, tgtOutput, tgtMask, srcMaxLen, tgtMaxLen, numWords ] 
-  if params.isBi % bi
-    % src
+  % src
+  if params.isBi
     srcFile = sprintf('%s.%s', prefix, params.srcLang);
     [srcSents] = loadMonoData(srcFile, params.srcEos, -1, params.baseIndex, srcVocab, 'src');
   else
@@ -461,16 +463,8 @@ function [sents, numSents] = loadMonoData(file, eos, numSents, baseIndex, vocab,
   fid = fopen(file, 'r');
   [sents, numSents] = loadBatchData(fid, baseIndex, numSents, eos);
   fclose(fid);
-  printSent(sents{1}, vocab, ['  ', label, ':']);
-end
-
-
-function printSent(sent, vocab, prefix)
-  fprintf(2, '%s', prefix);
-  for ii=1:length(sent)
-    fprintf(2, ' %s', vocab{sent(ii)}); 
-  end
-  fprintf(2, '\n');
+  printSent(sents{1}, vocab, ['  ', label, ' 1:']);
+  printSent(sents{end}, vocab, ['  ', label, ' end:']);
 end
 
 

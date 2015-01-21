@@ -11,7 +11,6 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
   input = trainData.input;
   inputMask = trainData.inputMask;
   tgtOutput = trainData.tgtOutput;
-  %tgtMask = trainData.tgtMask;
   srcMaxLen = trainData.srcMaxLen;
   tgtMaxLen = trainData.tgtMaxLen;
   
@@ -128,6 +127,7 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
           grad.W_soft = grad.W_soft + probs*lstm{ll, t}.h_t(:, softmaxMask)';
 
           % grad_ht
+          %fprintf(2, '%d, %d, %s\t%s\n', ll, t, wInfo(model.W_soft), wInfo(probs));
           lstm{ll, t}.grad_ht = model.W_soft'* probs;
         end
       end
@@ -173,12 +173,19 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
       if ll==1 % collect embedding grad
         indices = input(mask, t);
         if params.isGPU
+          %grad.emb_uniq_indices, I, J] = unique(indices);
+          %num_uniq_indices = length(grad.emb_uniq_indices);
+          %emb_uniq_grad = zeros([params.lstmSize, num_uniq_indices], params.dataType, 'gpuArray');
           emb_grad = double(gather(lstm_grad.d_xh(1:params.lstmSize, mask))); % copy embedding grads to CPU
+          for jj=1:length(indices)
+            grad.W_emb(:, indices(jj)) = grad.W_emb(:, indices(jj)) + emb_grad(:, jj);
+          end
+          %grad.W_emb = grad.W_emb + aggregateMatrix(emb_grad, indices, params.inVocabSize); %, params.isGPU);
         else
-          emb_grad = lstm_grad.dx(:, mask);
+          emb_grad = lstm_grad.d_xh(1:params.lstmSize, mask);
+          grad.W_emb = grad.W_emb + aggregateMatrix(emb_grad, indices, params.inVocabSize); %, params.isGPU);
         end
 
-        grad.W_emb = grad.W_emb + aggregateMatrix(emb_grad, indices, params.inVocabSize); %, params.isGPU);
       else % pass down hidden state grad to the below layer
         dh{ll-1}(:, mask) = dh{ll-1}(:, mask) + lstm_grad.d_xh(1:params.lstmSize, mask);
       end
