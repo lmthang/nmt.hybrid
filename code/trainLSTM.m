@@ -263,18 +263,25 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         scale = scale*params.maxGradNorm/gradNorm;
       end
       
+      scaleLr = params.lr*scale;
       %% update parameters
-      model.W_soft = model.W_soft - params.lr*scale*grad.W_soft;
+      model.W_soft = model.W_soft - scaleLr*grad.W_soft;
       if params.isBi
         for l=1:params.numLayers
-          model.W_src{l} = model.W_src{l} - params.lr*scale*grad.W_src{l};
+          model.W_src{l} = model.W_src{l} - scaleLr*grad.W_src{l};
         end
       end
       for l=1:params.numLayers
-        model.W_tgt{l} = model.W_tgt{l} - params.lr*scale*grad.W_tgt{l};
+        model.W_tgt{l} = model.W_tgt{l} - scaleLr*grad.W_tgt{l};
       end
-      %indices = find(any(grad.W_emb)); % find out non empty columns
-      model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - params.lr*scale*grad.W_emb(:, grad.indices);
+      %model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - params.lr*scale*grad.W_emb(:, grad.indices);
+      for t=1:length(grad.indices)
+        indices = grad.indices{t};
+        emb_grad = grad.emb{t};
+        for jj=1:length(indices)
+          model.W_emb(:, indices(jj)) = model.W_emb(:, indices(jj)) - scaleLr*emb_grad(:, jj);
+        end
+      end
       
       %% log info
       totalWords = totalWords + trainData.numWords; %sum(sum(trainData.tgtMask));

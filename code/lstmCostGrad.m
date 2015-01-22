@@ -30,13 +30,17 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
   %  srcSentEmbs = bsxfun(@rdivide, reshape(srcSentEmbs, params.lstmSize, curBatchSize), trainData.srcLens');
   %end
   
-  grad.W_emb = sparse(params.lstmSize, params.inVocabSize); % live on CPU
+  
+  if params.isGradCheck
+    grad.W_emb = sparse(params.lstmSize, params.inVocabSize); % live on CPU
+  end
   
   if params.isBi
     grad.W_src = cell(params.numLayers, 1);
   end
   grad.W_tgt = cell(params.numLayers, 1);
-  grad.indices = [];
+  grad.indices = cell(params.numLayers, 1);
+  grad.emb = cell(params.numLayers, 1);
   if params.isGPU % declare intermediate variables on GPU
     zero_state = zeros([params.lstmSize, curBatchSize], params.dataType, 'gpuArray');
     %input_embs = gpuArray(input_embs); % load input embeddings onto GPUs
@@ -80,7 +84,7 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
     end
     
     % W_emb
-    grad.W_emb = zeros(params.lstmSize, params.inVocabSize);
+    %grad.W_emb = zeros(params.lstmSize, params.inVocabSize);
   end
   
   for ll=1:params.numLayers % layer
@@ -179,24 +183,26 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
 
       %% input grad
       if ll==1 % collect embedding grad
-        indices = input(mask, t);
-%         emb_grad = lstm_grad.d_xh(1:params.lstmSize, mask);
-%         for jj=1:length(indices)
-%           grad.W_emb(:, indices(jj)) = grad.W_emb(:, indices(jj)) + emb_grad(:, jj);
-%         end
-        grad.indices = unique([grad.indices; indices]);
-        if params.isGPU
-          %grad.emb_uniq_indices, I, J] = unique(indices);
-          %num_uniq_indices = length(grad.emb_uniq_indices);
-          %emb_uniq_grad = zeros([params.lstmSize, num_uniq_indices], params.dataType, 'gpuArray');
-          emb_grad = double(gather(lstm_grad.d_xh(1:params.lstmSize, mask))); % copy embedding grads to CPU
+        if params.isGradCheck
+          indices = input(mask, t);
+          emb_grad = lstm_grad.d_xh(1:params.lstmSize, mask);
           for jj=1:length(indices)
             grad.W_emb(:, indices(jj)) = grad.W_emb(:, indices(jj)) + emb_grad(:, jj);
           end
-          %grad.W_emb = grad.W_emb + aggregateMatrix(emb_grad, indices, params.inVocabSize); %, params.isGPU);
+
+%           if params.isGPU
+%             emb_grad = double(gather(lstm_grad.d_xh(1:params.lstmSize, mask))); % copy embedding grads to CPU
+%             for jj=1:length(indices)
+%               grad.W_emb(:, indices(jj)) = grad.W_emb(:, indices(jj)) + emb_grad(:, jj);
+%             end
+%             %grad.W_emb = grad.W_emb + aggregateMatrix(emb_grad, indices, params.inVocabSize); %, params.isGPU);
+%           else
+%             emb_grad = lstm_grad.d_xh(1:params.lstmSize, mask);
+%             grad.W_emb = grad.W_emb + aggregateMatrix(emb_grad, indices, params.inVocabSize); %, params.isGPU);
+%           end
         else
-          emb_grad = lstm_grad.d_xh(1:params.lstmSize, mask);
-          grad.W_emb = grad.W_emb + aggregateMatrix(emb_grad, indices, params.inVocabSize); %, params.isGPU);
+          grad.indices{t} = input(mask, t);
+          grad.emb{t} = lstm_grad.d_xh(1:params.lstmSize, mask);
         end
       else % pass down hidden state grad to the below layer
         dh{ll-1}(:, mask) = dh{ll-1}(:, mask) + lstm_grad.d_xh(1:params.lstmSize, mask);
