@@ -274,7 +274,14 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       for l=1:params.numLayers
         model.W_tgt{l} = model.W_tgt{l} - scaleLr*grad.W_tgt{l};
       end
-      model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - params.lr*scale*grad.W_emb(:, grad.indices);
+      model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - scaleLr*grad.W_emb(:, grad.indices);
+
+      %if params.isGPU
+      %  emb_gpu = gpuArray(full(grad.W_emb(:, grad.indices)));
+      %  model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - scaleLr*emb_gpu;
+      %else
+      %end
+
 %       for t=1:length(grad.indices)
 %         indices = grad.indices{t};
 %         emb_grad = grad.emb{t};
