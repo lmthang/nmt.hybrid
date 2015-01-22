@@ -273,8 +273,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       for l=1:params.numLayers
         model.W_tgt{l} = model.W_tgt{l} - params.lr*scale*grad.W_tgt{l};
       end
-      indices = find(any(grad.W_emb)); % find out non empty columns
-      model.W_emb(:, indices) = model.W_emb(:, indices) - params.lr*scale*grad.W_emb(:, indices);
+      %indices = find(any(grad.W_emb)); % find out non empty columns
+      model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - params.lr*scale*grad.W_emb(:, grad.indices);
       
       %% log info
       totalWords = totalWords + trainData.numWords; %sum(sum(trainData.tgtMask));
@@ -423,7 +423,7 @@ function [model, params] = initLSTM(params)
     model.W_tgt{l} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
     modelSize = modelSize + numel(model.W_tgt{l});
   end
-  model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize], 0, 'double'); % no GPU support for embedding matrix. use double since later we will subtract sparse grad matrix and Matlab only supports sparse matrix.
+  model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize], params.isGPU, params.dataType); % embeddings
   model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.lstmSize], params.isGPU, params.dataType); % softmax params
   modelSize = modelSize + numel(model.W_emb);
   modelSize = modelSize + numel(model.W_soft);
@@ -439,7 +439,7 @@ function [model, params] = initLSTM(params)
 end
 
 
-function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab) % [input, inputMask, tgtOutput, tgtMask, srcMaxLen, tgtMaxLen, numWords ] 
+function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab)
   % src
   if params.isBi
     srcFile = sprintf('%s.%s', prefix, params.srcLang);
