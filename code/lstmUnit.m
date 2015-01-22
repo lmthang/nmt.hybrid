@@ -9,7 +9,7 @@
 % Output:
 %   lstm struct
 %%
-function [lstmCell] = lstmUnit(W, x_t, h_t, c_t, params, f_bias)
+function [lstmCell] = lstmUnit(W, x_t, h_t, c_t, params) %, f_bias)
   %% input, forget, output gates and input signals before applying non-linear functions
   lstmCell.input_xh = [x_t; h_t];
   ifoa_linear = W*lstmCell.input_xh;    

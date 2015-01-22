@@ -88,29 +88,24 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
       %% decide encoder/decoder
       if (t>=srcMaxLen) % decoder
         W = model.W_tgt{ll};
-        f_bias = 0;
       else % encoder
         W = model.W_src{ll};
-        f_bias = params.f_bias;
       end
       
       %% input
       if ll==1 % first layer, get input embeddings
         x_t = input_embs(:, ((t-1)*curBatchSize+1):t*curBatchSize); % model.W_emb(:, input(:, t)); %
-        if params.isGradCheck
-          x_t(:, ~inputMask(:, t)) = 0; % zero out those zero-id embeddings
-        end
+        x_t(:, ~inputMask(:, t)) = 0; % zero out those zero-id embeddings
       else % subsequent layer, use the hidden state from the previous layer
         x_t = lstm{ll-1, t}.h_t;
       end
 
       %% lstm cell
       if t==1
-        lstm{ll, t} = lstmUnit(W, x_t, zero_state, zero_state, params, f_bias);
+        lstm{ll, t} = lstmUnit(W, x_t, zero_state, zero_state, params);
       else
-        lstm{ll, t} = lstmUnit(W, x_t, lstm{ll, t-1}.h_t, lstm{ll, t-1}.c_t, params, f_bias);
+        lstm{ll, t} = lstmUnit(W, x_t, lstm{ll, t-1}.h_t, lstm{ll, t-1}.c_t, params);
       end
-      %lstm{ll, t}.f_bias = f_bias;
 
       %% prediction at the top layer
       if ll==params.numLayers && (t>=srcMaxLen) 
@@ -198,6 +193,7 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
   grad.indices = unique(indices);
   grad.W_emb = aggregateMatrix(emb, indices, params.inVocabSize);
 
+  % TODO: why can't we comment out this code!!!
   if params.isGPU % copy to CPU
     grad.W_soft = gather(grad.W_soft);
     if params.isBi
