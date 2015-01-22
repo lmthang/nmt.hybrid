@@ -22,7 +22,7 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
   
   % grad that can be computed as we do the forward pass
   lstm = cell(params.numLayers, T); % each cell contains intermediate results for that timestep needed for backprop
-  %input_embs = model.W_emb(:, input);
+  input_embs = model.W_emb(:, input);
   
   % global opt
   %if params.globalOpt==1
@@ -45,7 +45,7 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
   emb = zeros(params.lstmSize, numInputWords);
   if params.isGPU % declare intermediate variables on GPU
     zero_state = zeros([params.lstmSize, curBatchSize], params.dataType, 'gpuArray');
-    %input_embs = gpuArray(input_embs); % load input embeddings onto GPUs
+    input_embs = gpuArray(input_embs); % load input embeddings onto GPUs
     
     totalCost = zeros(1, 1, params.dataType, 'gpuArray');
 
@@ -63,9 +63,6 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
     for ll=1:params.numLayers
       grad.W_tgt{ll} = zeros(4*params.lstmSize, 2*params.lstmSize, params.dataType, 'gpuArray');
     end
-    
-    % W_emb
-    %grad.W_emb = zeros(params.lstmSize, params.inVocabSize, params.dataType, 'gpuArray');
   else
     zero_state = zeros(params.lstmSize, curBatchSize);
     totalCost = 0.0;
@@ -84,9 +81,6 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
     for ll=1:params.numLayers
       grad.W_tgt{ll} = zeros(4*params.lstmSize, 2*params.lstmSize);
     end
-    
-    % W_emb
-    %grad.W_emb = zeros(params.lstmSize, params.inVocabSize);
   end
   
   for ll=1:params.numLayers % layer
@@ -102,7 +96,7 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
       
       %% input
       if ll==1 % first layer, get input embeddings
-        x_t = model.W_emb(:, input(:, t)); %input_embs(:, ((t-1)*curBatchSize+1):t*curBatchSize);
+        x_t = input_embs(:, ((t-1)*curBatchSize+1):t*curBatchSize); % model.W_emb(:, input(:, t)); %
         x_t(:, ~inputMask(:, t)) = 0; % zero out those zero-id embeddings
       else % subsequent layer, use the hidden state from the previous layer
         x_t = lstm{ll-1, t}.h_t;

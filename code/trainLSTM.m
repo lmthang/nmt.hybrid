@@ -275,20 +275,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         model.W_tgt{l} = model.W_tgt{l} - scaleLr*grad.W_tgt{l};
       end
       model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - scaleLr*grad.W_emb(:, grad.indices);
-
-      %if params.isGPU
-      %  emb_gpu = gpuArray(full(grad.W_emb(:, grad.indices)));
-      %  model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - scaleLr*emb_gpu;
-      %else
-      %end
-
-%       for t=1:length(grad.indices)
-%         indices = grad.indices{t};
-%         emb_grad = grad.emb{t};
-%         for jj=1:length(indices)
-%           model.W_emb(:, indices(jj)) = model.W_emb(:, indices(jj)) - scaleLr*emb_grad(:, jj);
-%         end
-%       end
       
       %% log info
       totalWords = totalWords + trainData.numWords; %sum(sum(trainData.tgtMask));
@@ -490,3 +476,17 @@ end
 %   [tgtSents, tgtNumSents] = loadMonoData(tgtFile, tgtEos, numSents, baseIndex);
 %   assert(srcNumSents==tgtNumSents);
 % end
+
+      %if params.isGPU
+      %  emb_gpu = gpuArray(full(grad.W_emb(:, grad.indices)));
+      %  model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - scaleLr*emb_gpu;
+      %else
+      %end
+
+%       for t=1:length(grad.indices)
+%         indices = grad.indices{t};
+%         emb_grad = grad.emb{t};
+%         for jj=1:length(indices)
+%           model.W_emb(:, indices(jj)) = model.W_emb(:, indices(jj)) - scaleLr*emb_grad(:, jj);
+%         end
+%       end
