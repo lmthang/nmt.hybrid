@@ -97,7 +97,9 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
       %% input
       if ll==1 % first layer, get input embeddings
         x_t = input_embs(:, ((t-1)*curBatchSize+1):t*curBatchSize); % model.W_emb(:, input(:, t)); %
-        x_t(:, ~inputMask(:, t)) = 0; % zero out those zero-id embeddings
+        if params.isGradCheck
+          x_t(:, ~inputMask(:, t)) = 0; % zero out those zero-id embeddings
+        end
       else % subsequent layer, use the hidden state from the previous layer
         x_t = lstm{ll-1, t}.h_t;
       end
@@ -159,7 +161,7 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
     dc{ll} = zero_state;
   end
   
-  numInputWordsProcessed = 0;
+  wordCount = 0;
   for t=T:-1:1 % time
     mask = inputMask(:, t);
     for ll=params.numLayers:-1:1 % layer
@@ -181,33 +183,13 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
       %% input grad
       if ll==1 % collect embedding grad
         numWords = sum(mask);
-        indices(numInputWordsProcessed+1:numInputWordsProcessed+numWords) = input(mask, t);
+        indices(wordCount+1:wordCount+numWords) = input(mask, t);
         if params.isGPU
-          emb(:, numInputWordsProcessed+1:numInputWordsProcessed+numWords) = double(gather(lstm_grad.d_xh(1:params.lstmSize, mask)));
+          emb(:, wordCount+1:wordCount+numWords) = double(gather(lstm_grad.d_xh(1:params.lstmSize, mask)));
         else
-          emb(:, numInputWordsProcessed+1:numInputWordsProcessed+numWords) = lstm_grad.d_xh(1:params.lstmSize, mask);
+          emb(:, wordCount+1:wordCount+numWords) = lstm_grad.d_xh(1:params.lstmSize, mask);
         end
-        numInputWordsProcessed = numInputWordsProcessed + numWords;
-%         if params.isGradCheck
-%           indices = input(mask, t);
-%           emb_grad = lstm_grad.d_xh(1:params.lstmSize, mask);
-%           for jj=1:length(indices)
-%             grad.W_emb(:, indices(jj)) = grad.W_emb(:, indices(jj)) + emb_grad(:, jj);
-%           end
-% 
-% %           if params.isGPU
-% %             emb_grad = double(gather(lstm_grad.d_xh(1:params.lstmSize, mask))); % copy embedding grads to CPU
-% %             for jj=1:length(indices)
-% %               grad.W_emb(:, indices(jj)) = grad.W_emb(:, indices(jj)) + emb_grad(:, jj);
-% %             end
-% %             %grad.W_emb = grad.W_emb + aggregateMatrix(emb_grad, indices, params.inVocabSize); %, params.isGPU);
-% %           else
-% %             emb_grad = lstm_grad.d_xh(1:params.lstmSize, mask);
-% %             grad.W_emb = grad.W_emb + aggregateMatrix(emb_grad, indices, params.inVocabSize); %, params.isGPU);
-% %           end
-%         else
-%           
-%         end
+        wordCount = wordCount + numWords;
       else % pass down hidden state grad to the below layer
         dh{ll-1}(:, mask) = dh{ll-1}(:, mask) + lstm_grad.d_xh(1:params.lstmSize, mask);
       end
@@ -230,6 +212,27 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
     totalCost = gather(totalCost);
   end
 end
+
+%         if params.isGradCheck
+%           indices = input(mask, t);
+%           emb_grad = lstm_grad.d_xh(1:params.lstmSize, mask);
+%           for jj=1:length(indices)
+%             grad.W_emb(:, indices(jj)) = grad.W_emb(:, indices(jj)) + emb_grad(:, jj);
+%           end
+% 
+% %           if params.isGPU
+% %             emb_grad = double(gather(lstm_grad.d_xh(1:params.lstmSize, mask))); % copy embedding grads to CPU
+% %             for jj=1:length(indices)
+% %               grad.W_emb(:, indices(jj)) = grad.W_emb(:, indices(jj)) + emb_grad(:, jj);
+% %             end
+% %             %grad.W_emb = grad.W_emb + aggregateMatrix(emb_grad, indices, params.inVocabSize); %, params.isGPU);
+% %           else
+% %             emb_grad = lstm_grad.d_xh(1:params.lstmSize, mask);
+% %             grad.W_emb = grad.W_emb + aggregateMatrix(emb_grad, indices, params.inVocabSize); %, params.isGPU);
+% %           end
+%         else
+%           
+%         end
 
 %log_probs = bsxfun(@minus, scores, simpleLogSumExp(scores));
 %log_probs = bsxfun(@minus, scores, logsumexp(scores));
