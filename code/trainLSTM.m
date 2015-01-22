@@ -285,8 +285,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         params.costTrain = totalCost/totalWords;
         params.speed = totalWords*0.001/timeElapsed;
         modelStr = wInfo(model);
-        fprintf(2, '%d, %d, %.2fK, %.4f, %.2f, gN=%.2f, %s, s=%d, t=%d, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, modelStr, trainData.srcMaxLen, trainData.tgtMaxLen, datestr(now));
-        fprintf(params.logId, '%d, %d, %.4fK, %g, %.2f, gN=%.2f, %s, s=%d, t=%d, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, modelStr, trainData.srcMaxLen, trainData.tgtMaxLen, datestr(now));
+        fprintf(2, '%d, %d, %.2fK, %g, %.2f, gN=%.2f, %s, s=%d, t=%d, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, modelStr, trainData.srcMaxLen, trainData.tgtMaxLen, datestr(now));
+        fprintf(params.logId, '%d, %d, %.2fK, %g, %.2f, gN=%.2f, %s, s=%d, t=%d, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, modelStr, trainData.srcMaxLen, trainData.tgtMaxLen, datestr(now));
         
         % reset
         totalWords = 0;
