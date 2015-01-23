@@ -94,7 +94,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   
   % grad check
   if params.isGradCheck
-    params.dataType = 'double';
     params.lstmSize = 2;
     params.batchSize = 10;
     params.batchId = 1;
@@ -274,7 +273,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       for l=1:params.numLayers
         model.W_tgt{l} = model.W_tgt{l} - scaleLr*grad.W_tgt{l};
       end
-      model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - scaleLr*grad.W_emb(:, grad.indices);
+      %model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - scaleLr*grad.W_emb(:, grad.indices);
+      model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - scaleLr*grad.W_emb; %(:, grad.indices);
       
       %% log info
       totalWords = totalWords + trainData.numWords; %sum(sum(trainData.tgtMask));
@@ -423,7 +423,8 @@ function [model, params] = initLSTM(params)
     model.W_tgt{l} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
     modelSize = modelSize + numel(model.W_tgt{l});
   end
-  model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize], 0, 'double'); %params.isGPU, params.dataType); % embeddings
+  %model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize], 0, 'double');
+  model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize], params.isGPU, params.dataType);
   model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.lstmSize], params.isGPU, params.dataType); % softmax params
   modelSize = modelSize + numel(model.W_emb);
   modelSize = modelSize + numel(model.W_soft);

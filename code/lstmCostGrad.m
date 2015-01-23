@@ -22,18 +22,13 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
   
   % grad that can be computed as we do the forward pass
   lstm = cell(params.numLayers, T); % each cell contains intermediate results for that timestep needed for backprop
-  input_embs = model.W_emb(:, input);
+  %input_embs = model.W_emb(:, input);
   
   % global opt
   %if params.globalOpt==1
   %  srcSentEmbs = sum(reshape(input_embs(:, 1:curBatchSize*srcMaxLen), params.lstmSize*curBatchSize, srcMaxLen), 2); % sum
   %  srcSentEmbs = bsxfun(@rdivide, reshape(srcSentEmbs, params.lstmSize, curBatchSize), trainData.srcLens');
   %end
-  
-  
-  if params.isGradCheck
-    grad.W_emb = sparse(params.lstmSize, params.inVocabSize); % live on CPU
-  end
   
   if params.isBi
     grad.W_src = cell(params.numLayers, 1);
@@ -42,10 +37,9 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
   
   numInputWords = sum(sum(inputMask));
   indices = zeros(numInputWords, 1);
-  emb = zeros(params.lstmSize, numInputWords);
   if params.isGPU % declare intermediate variables on GPU
     zero_state = zeros([params.lstmSize, curBatchSize], params.dataType, 'gpuArray');
-    input_embs = gpuArray(input_embs); % load input embeddings onto GPUs
+    %input_embs = gpuArray(input_embs); % load input embeddings onto GPUs
     
     totalCost = zeros(1, 1, params.dataType, 'gpuArray');
 
@@ -63,6 +57,8 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
     for ll=1:params.numLayers
       grad.W_tgt{ll} = zeros(4*params.lstmSize, 2*params.lstmSize, params.dataType, 'gpuArray');
     end
+    
+    emb = zeros(params.lstmSize, numInputWords, params.dataType, 'gpuArray');
   else
     zero_state = zeros(params.lstmSize, curBatchSize);
     totalCost = 0.0;
@@ -81,6 +77,8 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
     for ll=1:params.numLayers
       grad.W_tgt{ll} = zeros(4*params.lstmSize, 2*params.lstmSize);
     end
+  
+    emb = zeros(params.lstmSize, numInputWords);
   end
   
   for ll=1:params.numLayers % layer
@@ -94,7 +92,7 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
       
       %% input
       if ll==1 % first layer, get input embeddings
-        x_t = input_embs(:, ((t-1)*curBatchSize+1):t*curBatchSize); % model.W_emb(:, input(:, t)); %
+        x_t = model.W_emb(:, input(:, t)); %input_embs(:, ((t-1)*curBatchSize+1):t*curBatchSize); % 
         x_t(:, ~inputMask(:, t)) = 0; % zero out those zero-id embeddings
       else % subsequent layer, use the hidden state from the previous layer
         x_t = lstm{ll-1, t}.h_t;
@@ -132,7 +130,6 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
           grad.W_soft = grad.W_soft + probs*lstm{ll, t}.h_t(:, softmaxMask)';
 
           % grad_ht
-          %fprintf(2, '%d, %d, %s\t%s\n', ll, t, wInfo(model.W_soft), wInfo(probs));
           lstm{ll, t}.grad_ht = model.W_soft'* probs;
         end
       end
@@ -179,11 +176,7 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
       if ll==1 % collect embedding grad
         numWords = sum(mask);
         indices(wordCount+1:wordCount+numWords) = input(mask, t);
-        if params.isGPU
-          emb(:, wordCount+1:wordCount+numWords) = double(gather(lstm_grad.d_xh(1:params.lstmSize, mask)));
-        else
-          emb(:, wordCount+1:wordCount+numWords) = lstm_grad.d_xh(1:params.lstmSize, mask);
-        end
+        emb(:, wordCount+1:wordCount+numWords) = lstm_grad.d_xh(1:params.lstmSize, mask);
         wordCount = wordCount + numWords;
       else % pass down hidden state grad to the below layer
         dh{ll-1}(:, mask) = dh{ll-1}(:, mask) + lstm_grad.d_xh(1:params.lstmSize, mask);
@@ -191,24 +184,27 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
     end % end for layer
   end % end for time
   grad.indices = unique(indices);
-  grad.W_emb = aggregateMatrix(emb, indices, params.inVocabSize);
-
-  % TODO: why can't we comment out this code!!!
+  if params.isGPU
+    grad.W_emb = aggregateMatrix(double(gather(emb)), indices, params.inVocabSize);
+  else
+    grad.W_emb = aggregateMatrix(emb, indices, params.inVocabSize);
+  end
+  grad.W_emb = gpuArray(full(grad.W_emb(:, grad.indices)));
   if params.isGPU % copy to CPU
-    grad.W_soft = gather(grad.W_soft);
-    if params.isBi
-      for ll=1:params.numLayers
-        grad.W_src{ll} = gather(grad.W_src{ll});
-      end
-    end
-    
-    for ll=1:params.numLayers
-      grad.W_tgt{ll} = gather(grad.W_tgt{ll});
-    end
     totalCost = gather(totalCost);
   end
 end
 
+  %  grad.W_soft = gather(grad.W_soft);
+  %  if params.isBi
+  %    for ll=1:params.numLayers
+  %      grad.W_src{ll} = gather(grad.W_src{ll});
+  %    end
+  %  end
+  %  
+  %  for ll=1:params.numLayers
+  %    grad.W_tgt{ll} = gather(grad.W_tgt{ll});
+  %  end
 %         if params.isGradCheck
 %           indices = input(mask, t);
 %           emb_grad = lstm_grad.d_xh(1:params.lstmSize, mask);

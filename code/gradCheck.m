@@ -42,16 +42,22 @@ function gradCheck(model, params)
   fprintf(2, '# Num params=%d\n', numParams);
   
   % analytic grad
+  full_grad_W_emb = zeros(size(model.W_emb, 1), size(model.W_emb, 2));
   [totalCost, grad] = lstmCostGrad(model, trainData, params, 0);
-  if params.isBi
-    anaGrad =  param2stack(grad.W_src, grad.W_tgt, grad.W_soft, full(grad.W_emb));
+  if params.isGPU
+    full_grad_W_emb(:, grad.indices) = gather(grad.W_emb);
   else
-    anaGrad =  param2stack(grad.W_tgt, grad.W_soft, full(grad.W_emb));
+    full_grad_W_emb(:, grad.indices) = grad.W_emb;
+  end
+  if params.isBi
+    anaGrad =  param2stack(grad.W_src, grad.W_tgt, grad.W_soft, full_grad_W_emb); %full(grad.W_emb));
+  else
+    anaGrad =  param2stack(grad.W_tgt, grad.W_soft, full_grad_W_emb); %, full(grad.W_emb));
   end
   
   % empirical grad
   empGrad = zeros(numParams, 1);
-  delta = 0.0001;
+  delta = 0.01;
   abs_diff = 0;
   local_abs_diff = 0;
   
