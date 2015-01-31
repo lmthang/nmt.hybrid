@@ -145,6 +145,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     params.outVocabSize = oldParams.outVocabSize;
     params.lr = oldParams.lr;
     params.epoch = oldParams.epoch;
+    params.epochBatchCount = oldParams.epochBatchCount;
     params.bestCostValid = oldParams.bestCostValid;
     params.testPerplexity = oldParams.testPerplexity;
     startIter = oldParams.iter;
