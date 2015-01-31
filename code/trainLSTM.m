@@ -40,7 +40,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'isProfile', 0, @isnumeric);
   addOptional(p,'isBi', 1, @isnumeric); % isBi=0: mono model, isBi=1: bi (encoder-decoder) model.
   addOptional(p,'isClip', 0, @isnumeric); % isClip=1: clip forward 50, clip backward 1000.
-  addOptional(p,'isResume', 0, @isnumeric); % isResume=1: check if a model file exists, continue training from there.
+  addOptional(p,'isResume', 1, @isnumeric); % isResume=1: check if a model file exists, continue training from there.
   addOptional(p,'globalOpt', 0, @isnumeric); % globalOpt=0: no global model, 1: avg global model, 2: feedforward global model.
   addOptional(p,'dataType', 'single', @ischar); % Note: use double precision for grad check
   addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
@@ -319,7 +319,15 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     if params.isBi
       [srcTrainSents] = loadBatchData(srcID, params.baseIndex, params.chunkSize, params.srcEos);
     end
-    if numTrainSents == 0 % eof, end of an epoch
+    
+    % finetuning
+    if params.epoch > params.finetuneEpoch && mod(params.iter, params.finetuneCount)==0
+      fprintf(2, '# Finetuning %f -> %f\n', params.lr, params.lr*params.finetuneRate);
+      params.lr = params.lr*params.finetuneRate;
+    end
+    
+    % eof, end of an epoch
+    if numTrainSents == 0 
       fclose(tgtID);
       if params.isBi
         fclose(srcID);
@@ -337,11 +345,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       % new epoch
       params.epoch = params.epoch + 1;
       if params.epoch <= params.numEpoches % continue training
-        % finetuning
-        if params.epoch > params.finetuneEpoch && mod(params.iter, params.finetuneCount)==0
-          fprintf(2, '# Finetuning %f -> %f\n', params.lr, params.lr*params.finetuneRate);
-          params.lr = params.lr*params.finetuneRate;
-        end
         fprintf(2, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
         
         % reopen file
