@@ -134,7 +134,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.vocab = [tgtVocab srcVocab];
   
   %% Init / Load Model Parameters
-  params.modelFile = [outDir '/model.mat'];
+  params.modelFile = [outDir '/model.mat']; % store those with the best valid perplexity
+  params.modelRecentFile = [outDir '/modelRecent.mat'];
   if params.isGradCheck==0 && params.isResume && exist(params.modelFile, 'file') % a model exists, resume training
     fprintf(2, '# Model file %s exists. Try loading ...\n', params.modelFile);
     savedData = load(params.modelFile);
@@ -148,6 +149,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     params.epochBatchCount = oldParams.epochBatchCount;
     params.bestCostValid = oldParams.bestCostValid;
     params.testPerplexity = oldParams.testPerplexity;
+    params.finetuneCount = oldParams.finetuneCount;
     startIter = oldParams.iter;
     if params.epoch > 1
       params.iter = (params.epoch-1)*params.epochBatchCount;
@@ -204,7 +206,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   %% Training
   totalCost = 0; totalWords = 0;
   params.evalFreq = params.logFreq*10;
-  
+  params.saveFreq = params.evalFreq;
+
   % profile
   if params.isProfile
     profile on
@@ -309,6 +312,14 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
        
         [params] = evalValidTest(model, validData, testData, params);
       end
+
+      %% save
+      if mod(params.iter, params.saveFreq) == 0    
+        fprintf(2, '  save model cur test perplexity %.2f to %s\n', params.curTestPerplexity, params.modelRecentFile);
+        fprintf(params.logId, '  save model cur test perplexity %.2f to %s\n', params.curTestPerplexity, params.modelRecentFile);
+        save(params.modelRecentFile, 'model', 'params');
+      end
+
      end % end for batchId
 
     if params.epoch==1
@@ -373,11 +384,13 @@ function [params] = evalValidTest(model, validData, testData, params)
   costTest = costTest/testData.numWords;
   fprintf(2, '# eval %.2f, %d, %d, %.2fK, %.2f, train=%.4f, valid=%.4f, test=%.4f, %.2fs, %s\n', exp(costTest), params.epoch, params.iter, params.speed, params.lr, params.costTrain, costValid, costTest, datestr(now));
   fprintf(params.logId, '# eval %.2f, %d, %d, %.2fK, %.2f, train=%.4f, valid=%.4f, test=%.4f, %.2fs, %s\n', exp(costTest), params.epoch, params.iter, params.speed, params.lr, params.costTrain, costValid, costTest, datestr(now));
+    
+  params.curTestPerplexity = exp(costTest);
   
   if costValid < params.bestCostValid
     params.bestCostValid = costValid;
     params.costTest = costTest;
-    params.testPerplexity = exp(costTest);
+    params.testPerplexity = params.curTestPerplexity;
     fprintf(2, '  save model test perplexity %.2f to %s\n', params.testPerplexity, params.modelFile);
     fprintf(params.logId, '  save model test perplexity %.2f to %s\n', params.testPerplexity, params.modelFile);
     save(params.modelFile, 'model', 'params');
