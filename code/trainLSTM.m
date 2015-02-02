@@ -44,6 +44,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'globalOpt', 0, @isnumeric); % globalOpt=0: no global model, 1: avg global model, 2: feedforward global model.
   addOptional(p,'dataType', 'single', @ischar); % Note: use double precision for grad check
   addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
+  addOptional(p,'attnOpt', 0, @isnumeric); % attnOpt=0: no attention, 1: bilingual embedding attention
   addOptional(p,'seed', 0, @isnumeric); % 0: seed based on current clock time, else use the specified seed
   addOptional(p,'gpuDevice', 1, @isnumeric); % choose the gpuDevice to use. 
   addOptional(p,'debug', 0, @isnumeric); % 0: no debug, 1: debug
@@ -132,6 +133,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.tgtEos = length(tgtVocab);
   params.tgtVocabSize = length(tgtVocab);
   params.vocab = [tgtVocab srcVocab];
+  
+  assert(strcmp(outDir, '')==0);
+    
   params.logId = fopen([outDir '/log'], 'a');
   
   %% Init / Load Model Parameters

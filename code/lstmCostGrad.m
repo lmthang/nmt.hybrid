@@ -104,11 +104,11 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
       
       % masking
       curMask = inputMask(:, t)'; % curBatchSize * 1
-      maskedIndices = find(curMask);
-      unmaskedIndices = find(~curMask);
-      x_t(:, unmaskedIndices) = 0; % zero out those zero-id embeddings
-      h_t_1(:, unmaskedIndices) = 0;
-      c_t_1(:, unmaskedIndices) = 0;
+      unmaskedIds = find(curMask);
+      maskedIds = find(~curMask);
+      x_t(:, maskedIds) = 0; % zero out those zero-id embeddings
+      h_t_1(:, maskedIds) = 0;
+      c_t_1(:, maskedIds) = 0;
       
       %% lstm cell
       lstm{ll, t} = lstmUnit(W, x_t, h_t_1, c_t_1, params);
@@ -116,24 +116,26 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
       %% prediction at the top layer
       if ll==params.numLayers && (t>=srcMaxLen) 
         % predict tgtOutput[t-srcMaxLen+1]
-        tgtPredictedWords = tgtOutput(maskedIndices, t-srcMaxLen+1)';
+        tgtPredictedWords = tgtOutput(unmaskedIds, t-srcMaxLen+1)';
         numWords = length(tgtPredictedWords);
 
         % normalize, compute in log domain
-        scores = model.W_soft * lstm{ll, t}.h_t;  % params.outVocabSize * curBatchSize
-        mx = max(scores);
-        scores = bsxfun(@minus, scores, mx); % subtract max elements 
-        probs = exp(scores); % unnormalized probs 
-        norms = sum(probs); % normalization factors
-        probs = bsxfun(@times, probs, curMask./norms); % normalized probs, at the same time zero out those that are not included in the mask
+%         scores = model.W_soft * lstm{ll, t}.h_t;  % params.outVocabSize * curBatchSize
+%         mx = max(scores);
+%         scores = bsxfun(@minus, scores, mx); % subtract max elements 
+%         probs = exp(scores); % unnormalized probs 
+%         norms = sum(probs); % normalization factors
+%         probs = bsxfun(@rdivide, probs, norms); % normalized probs
+        [probs, scores, norms] = softmax(model.W_soft, lstm{ll, t}.h_t);
+        probs = bsxfun(@times, probs, curMask); % zero out at masked positions
 
         if params.assert
-          value = sum(sum(abs(scores(:, unmaskedIndices))));
+          value = sum(sum(abs(scores(:, maskedIds))));
           assert(gather(value)==0);
         end
 
         % cost
-        scoreIndices = sub2ind([params.outVocabSize, curBatchSize], tgtPredictedWords, maskedIndices); % 1 * numWords
+        scoreIndices = sub2ind([params.outVocabSize, curBatchSize], tgtPredictedWords, unmaskedIds); % 1 * numWords
         totalCost = totalCost - (sum(scores(scoreIndices)) - sum(log(norms).*curMask));
 
         if isCostOnly==0 % compute grad
@@ -200,7 +202,7 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
   end % end for time
 
   if params.isGPU
-    [grad.indices, I, J] = unique(indices);
+    [grad.indices, ~, J] = unique(indices);
     numUniqIndices = length(grad.indices);
     numEmbGrads = length(indices);
     sparseMatrix = zeros(numEmbGrads, numUniqIndices, params.dataType, 'gpuArray');
