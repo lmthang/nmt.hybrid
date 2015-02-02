@@ -81,7 +81,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   if ismac==0
     n = gpuDeviceCount;  
     if n>0 % GPU exists
-      fprintf('# %d GPUs exist. So, we will use GPUs. Data type = single.\n', n);
+      fprintf('# %d GPUs exist. So, we will use GPUs.\n', n);
       params.isGPU = 1;
       %reset(gpuDevice(params.gpuDevice));
       gpuDevice(params.gpuDevice)
@@ -136,9 +136,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   %% Init / Load Model Parameters
   params.modelFile = [outDir '/model.mat']; % store those with the best valid perplexity
   params.modelRecentFile = [outDir '/modelRecent.mat'];
-  if params.isGradCheck==0 && params.isResume && exist(params.modelFile, 'file') % a model exists, resume training
-    fprintf(2, '# Model file %s exists. Try loading ...\n', params.modelFile);
-    savedData = load(params.modelFile);
+  if params.isGradCheck==0 && params.isResume && exist(params.modelRecentFile, 'file') % a model exists, resume training
+    fprintf(2, '# Model file %s exists. Try loading ...\n', params.modelRecentFile);
+    savedData = load(params.modelRecentFile);
     
     % params
     oldParams = savedData.params;
@@ -149,6 +149,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     params.epochBatchCount = oldParams.epochBatchCount;
     params.bestCostValid = oldParams.bestCostValid;
     params.testPerplexity = oldParams.testPerplexity;
+
     params.finetuneCount = oldParams.finetuneCount;
     startIter = oldParams.iter;
     if params.epoch > 1
@@ -216,6 +217,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   startTime = clock;
   fprintf(2, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
   params.epochBatchCount = 0;
+  params.finetuneCount = 0;
   params.logId = fopen([outDir '/log'], 'w');
   while(1)
     assert(numTrainSents>0);
@@ -277,11 +279,10 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       for l=1:params.numLayers
         model.W_tgt{l} = model.W_tgt{l} - scaleLr*grad.W_tgt{l};
       end
-      %model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - scaleLr*grad.W_emb(:, grad.indices);
-      model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - scaleLr*grad.W_emb; %(:, grad.indices);
+      model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - scaleLr*grad.W_emb;
       
       %% log info
-      totalWords = totalWords + trainData.numWords; %sum(sum(trainData.tgtMask));
+      totalWords = totalWords + trainData.numWords;
       totalCost = totalCost + cost;
       if mod(params.iter, params.logFreq) == 0
         endTime = clock;
@@ -320,6 +321,11 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         save(params.modelRecentFile, 'model', 'params');
       end
 
+      % finetuning
+      if params.epoch > params.finetuneEpoch && mod(params.iter, params.finetuneCount)==0
+        fprintf(2, '# Finetuning %f -> %f\n', params.lr, params.lr*params.finetuneRate);
+        params.lr = params.lr*params.finetuneRate;
+      end
      end % end for batchId
 
     if params.epoch==1
@@ -330,12 +336,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     [tgtTrainSents, numTrainSents] = loadBatchData(tgtID, params.baseIndex, params.chunkSize, params.tgtEos);
     if params.isBi
       [srcTrainSents] = loadBatchData(srcID, params.baseIndex, params.chunkSize, params.srcEos);
-    end
-    
-    % finetuning
-    if params.epoch > params.finetuneEpoch && mod(params.iter, params.finetuneCount)==0
-      fprintf(2, '# Finetuning %f -> %f\n', params.lr, params.lr*params.finetuneRate);
-      params.lr = params.lr*params.finetuneRate;
     end
     
     % eof, end of an epoch
@@ -421,6 +421,7 @@ end
 
 %% Init model parameters
 function [model, params] = initLSTM(params)
+  fprintf(2, '# Init LSTM parameters using dataType=%s, initRange=%f\n', params.dataType, params.initRange);
   % stack vocab:  tgt-vocab + src-vocab
   modelSize = 0;
   if params.isBi

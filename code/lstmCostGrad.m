@@ -22,7 +22,6 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
   
   % grad that can be computed as we do the forward pass
   lstm = cell(params.numLayers, T); % each cell contains intermediate results for that timestep needed for backprop
-  %input_embs = model.W_emb(:, input);
   
   % global opt
   %if params.globalOpt==1
@@ -34,13 +33,12 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
     grad.W_src = cell(params.numLayers, 1);
   end
   grad.W_tgt = cell(params.numLayers, 1);
-  
+ 
   numInputWords = sum(sum(inputMask));
   indices = zeros(numInputWords, 1);
   if params.isGPU % declare intermediate variables on GPU
     zero_state = zeros([params.lstmSize, curBatchSize], params.dataType, 'gpuArray');
-    %input_embs = gpuArray(input_embs); % load input embeddings onto GPUs
-    
+   
     totalCost = zeros(1, 1, params.dataType, 'gpuArray');
 
     % grad
@@ -80,7 +78,7 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
   
     emb = zeros(params.lstmSize, numInputWords);
   end
-  
+ 
   for ll=1:params.numLayers % layer
     for t=1:T % time
       %% decide encoder/decoder
@@ -93,41 +91,55 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
       %% input
       if ll==1 % first layer, get input embeddings
         x_t = model.W_emb(:, input(:, t)); %input_embs(:, ((t-1)*curBatchSize+1):t*curBatchSize); % 
-        x_t(:, ~inputMask(:, t)) = 0; % zero out those zero-id embeddings
       else % subsequent layer, use the hidden state from the previous layer
         x_t = lstm{ll-1, t}.h_t;
       end
-
-      %% lstm cell
       if t==1
-        lstm{ll, t} = lstmUnit(W, x_t, zero_state, zero_state, params);
+        h_t_1 = zero_state;
+        c_t_1 = zero_state;
       else
-        lstm{ll, t} = lstmUnit(W, x_t, lstm{ll, t-1}.h_t, lstm{ll, t-1}.c_t, params);
+        h_t_1 = lstm{ll, t-1}.h_t; 
+        c_t_1 = lstm{ll, t-1}.c_t;
       end
+      
+      % masking
+      curMask = inputMask(:, t)'; % curBatchSize * 1
+      maskedIndices = find(curMask);
+      unmaskedIndices = find(~curMask);
+      x_t(:, unmaskedIndices) = 0; % zero out those zero-id embeddings
+      h_t_1(:, unmaskedIndices) = 0;
+      c_t_1(:, unmaskedIndices) = 0;
+      
+      %% lstm cell
+      lstm{ll, t} = lstmUnit(W, x_t, h_t_1, c_t_1, params);
 
       %% prediction at the top layer
       if ll==params.numLayers && (t>=srcMaxLen) 
-        softmaxMask = inputMask(:, t); % curBatchSize * 1
-        scores = model.W_soft * lstm{ll, t}.h_t(:, softmaxMask);  % params.outVocabSize * num_words
+        % predict tgtOutput[t-srcMaxLen+1]
+        tgtPredictedWords = tgtOutput(maskedIndices, t-srcMaxLen+1)';
+        numWords = length(tgtPredictedWords);
 
         % normalize, compute in log domain
+        scores = model.W_soft * lstm{ll, t}.h_t;  % params.outVocabSize * curBatchSize
         mx = max(scores);
-        log_probs = bsxfun(@minus, scores, log(sum(exp(bsxfun(@minus, scores, mx)))) + mx); 
+        scores = bsxfun(@minus, scores, mx); % subtract max elements 
+        probs = exp(scores); % unnormalized probs 
+        norms = sum(probs); % normalization factors
+        probs = bsxfun(@times, probs, curMask./norms); % normalized probs, at the same time zero out those that are not included in the mask
 
-        % predict tgtOutput[t-srcMaxLen+1]
-        % select from scores matrix, one number per column
-        tgt_predicted_words = tgtOutput(softmaxMask, t-srcMaxLen+1)';
-        num_words = length(tgt_predicted_words);
-        score_indices = sub2ind([params.outVocabSize, num_words], tgt_predicted_words, 1:num_words); % 1 * num_words
+        if params.assert
+          value = sum(sum(abs(scores(:, unmaskedIndices))));
+          assert(gather(value)==0);
+        end
 
         % cost
-        totalCost = totalCost - sum(log_probs(score_indices));
+        scoreIndices = sub2ind([params.outVocabSize, curBatchSize], tgtPredictedWords, maskedIndices); % 1 * numWords
+        totalCost = totalCost - (sum(scores(scoreIndices)) - sum(log(norms).*curMask));
 
         if isCostOnly==0 % compute grad
           % grad.W_soft
-          probs = exp(log_probs); % out_size * curBatchSize
-          probs(score_indices) = probs(score_indices) - ones(1, num_words); % minus one at predicted words
-          grad.W_soft = grad.W_soft + probs*lstm{ll, t}.h_t(:, softmaxMask)';
+          probs(scoreIndices) = probs(scoreIndices) - ones(1, numWords); % minus one at predicted words
+          grad.W_soft = grad.W_soft + probs*lstm{ll, t}.h_t';
 
           % grad_ht
           lstm{ll, t}.grad_ht = model.W_soft'* probs;
@@ -159,11 +171,14 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
     for ll=params.numLayers:-1:1 % layer
       %% hidden state grad
       if ll==params.numLayers && (t>=srcMaxLen) % get signals from the softmax layer
-        dh{ll}(:, mask) = dh{ll}(:, mask) + lstm{ll, t}.grad_ht; % accumulate grads wrt the hidden layer
+        % accumulate grads wrt the hidden layer 
+        dh{ll} = dh{ll} + lstm{ll, t}.grad_ht; 
       end
 
       %% cell backprop
-      [dc{ll}, dh{ll}, lstm_grad] = lstmUnitGrad(model, lstm, dc{ll}, dh{ll}, ll, t, srcMaxLen, zero_state, params);
+      [lstm_grad] = lstmUnitGrad(model, lstm, dc{ll}, dh{ll}, ll, t, srcMaxLen, zero_state, params);
+      dc{ll} = lstm_grad.dc;
+      dh{ll} = lstm_grad.d_xh(params.lstmSize+1:end, :);
 
       %% grad.W_src / grad.W_tgt
       if (t>=srcMaxLen)
@@ -183,17 +198,54 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
       end
     end % end for layer
   end % end for time
-  grad.indices = unique(indices);
+
   if params.isGPU
-    grad.W_emb = aggregateMatrix(double(gather(emb)), indices, params.inVocabSize);
-  else
-    grad.W_emb = aggregateMatrix(emb, indices, params.inVocabSize);
-  end
-  grad.W_emb = gpuArray(full(grad.W_emb(:, grad.indices)));
-  if params.isGPU % copy to CPU
+    [grad.indices, I, J] = unique(indices);
+    numUniqIndices = length(grad.indices);
+    numEmbGrads = length(indices);
+    sparseMatrix = zeros(numEmbGrads, numUniqIndices, params.dataType, 'gpuArray');
+    sparseIndices = sub2ind([numEmbGrads, numUniqIndices], 1:numEmbGrads, J'); 
+    sparseMatrix(sparseIndices) = ones(numEmbGrads, 1);
+    grad.W_emb = emb*sparseMatrix;
     totalCost = gather(totalCost);
+  else
+    grad.indices = unique(indices);
+    grad.W_emb = aggregateMatrix(emb, indices, params.inVocabSize);
+    grad.W_emb = full(grad.W_emb(:, grad.indices));
   end
 end
+
+    %grad.indices = unique(indices);
+    %grad.W_emb = aggregateMatrix(double(gather(emb)), indices, params.inVocabSize);
+    %grad.W_emb = gpuArray(full(grad.W_emb(:, grad.indices)));
+
+  %input_embs = model.W_emb(:, input);
+    %input_embs = gpuArray(input_embs); % load input embeddings onto GPUs
+ 
+%        if isFast
+%        else
+%          scores = model.W_soft * lstm{ll, t}.h_t(:, curMask);  % params.outVocabSize * numWords
+%          mx = max(scores);
+%          log_probs = bsxfun(@minus, scores, log(sum(exp(bsxfun(@minus, scores, mx)))) + mx); 
+%        
+%          % select from scores matrix, one number per column
+%          scoreIndices = sub2ind([params.outVocabSize, numWords], tgtPredictedWords, 1:numWords); % 1 * numWords
+%
+%          % cost
+%          totalCost = totalCost - sum(log_probs(scoreIndices));
+%        end
+
+%          if isFast
+%          else
+%            probs = exp(log_probs); % out_size * numWords
+%            probs(scoreIndices) = probs(scoreIndices) - ones(1, numWords); % minus one at predicted words
+%            grad.W_soft = grad.W_soft + probs*lstm{ll, t}.h_t(:, curMask)';
+%          end
+
+%        if isFast
+%        else
+%          dh{ll}(:, mask) = dh{ll}(:, mask) + lstm{ll, t}.grad_ht; 
+%        end
 
   %  grad.W_soft = gather(grad.W_soft);
   %  if params.isBi
@@ -387,7 +439,7 @@ end
       %end
 
         %if isempty(find(isnan(probs), 1))
-        %  assert(abs(sum(sum(probs))-num_words) < 0.001, '! Differ sum(sum(probs)) %g vs. num_words %d\n', sum(sum(probs)), num_words); % normal prob distributions
+        %  assert(abs(sum(sum(probs))-numWords) < 0.001, '! Differ sum(sum(probs)) %g vs. numWords %d\n', sum(sum(probs)), numWords); % normal prob distributions
         %end
 
 

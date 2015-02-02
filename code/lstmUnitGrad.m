@@ -1,4 +1,4 @@
-function [dc, dh, lstm_grad] = lstmUnitGrad(model, lstm, dc, dh, ll, t, srcMaxLen, zero_state, params)
+function [lstm_grad] = lstmUnitGrad(model, lstm, dc, dh, ll, t, srcMaxLen, zero_state, params)
   if params.isGPU
     %% dh, dc
     if params.lstmOpt==0 % h_t = o_g * f(c_t)
@@ -53,7 +53,8 @@ function [dc, dh, lstm_grad] = lstmUnitGrad(model, lstm, dc, dh, ll, t, srcMaxLe
   end
   
   % dc
-  dc = lstm{ll, t}.f_gate.*dc; % contribute to grad of c_{t-1} = f_t * d(c_t) %(lstm{ll, t}.f_gate + lstm{ll, t}.f_bias)
+  lstm_grad.dc = lstm{ll, t}.f_gate.*dc; % contribute to grad of c_{t-1} = f_t * d(c_t) %(lstm{ll, t}.f_gate + lstm{ll, t}.f_bias)
+  
   % grad W
   if (t>=srcMaxLen) % tgt
     W = model.W_tgt{ll};
@@ -62,23 +63,19 @@ function [dc, dh, lstm_grad] = lstmUnitGrad(model, lstm, dc, dh, ll, t, srcMaxLe
   end
   d_ifoa = [di; df; do; da];
   lstm_grad.W = d_ifoa*lstm{ll, t}.input_xh';
+  
   % dx, dh
   lstm_grad.d_xh = W'*d_ifoa;
-  %lstm_grad.dx = d_xh(1:params.lstmSize, :); 
-  dh =  lstm_grad.d_xh(params.lstmSize+1:end, :);
-  
-  %if params.debug==2 && params.batchId==1 && (t==srcMaxLen || t==1)
-  %  fprintf(2, '# t %d, l %d\n dc:%s, dh:%s\n f_g:%s, i_g:%s, o_g:%s\n grad:%s\n', t, ll, wInfo(dc), wInfo(dh), wInfo(lstm{ll, t}.f_gate), wInfo(lstm{ll, t}.i_gate), wInfo(lstm{ll, t}.o_gate), wInfo(lstm_grad));
-  %end
-  
+ 
+ 
   % clip hidden/cell derivatives
   if params.isClip
     if params.isGPU
-     dh = arrayfun(@clipBackward, dh);
-     dc = arrayfun(@clipBackward, dc);
+     lstm_grad.d_xh = arrayfun(@clipBackward, lstm_grad.d_xh);
+     lstm_grad.dc = arrayfun(@clipBackward, lstm_grad.dc);
     else
-     dh(dh>params.clipBackward) = params.clipBackward; dh(dh<-params.clipBackward) = -params.clipBackward;
-     dc(dc>params.clipBackward) = params.clipBackward; dc(dc<-params.clipBackward) = -params.clipBackward;
+     lstm_grad.d_xh(lstm_grad.d_xh>params.clipBackward) = params.clipBackward; lstm_grad.d_xh(lstm_grad.d_xh<-params.clipBackward) = -params.clipBackward;
+     lstm_grad.dc(lstm_grad.dc>params.clipBackward) = params.clipBackward; lstm_grad.dc(lstm_grad.dc<-params.clipBackward) = -params.clipBackward;
     end
   end
 end
@@ -113,7 +110,10 @@ function [value] = plusMult(x, y, z)
   value = x + y*z;
 end
 
-
-%   % mask dh, dc
-%   dh = bsxfun(@times, dh, mask');
-%   dc = bsxfun(@times, dc, mask');
+  %lstm_grad.dx = d_xh(1:params.lstmSize, :); 
+  %dh =  d_xh(params.lstmSize+1:end, :);
+ 
+  %if params.debug==2 && params.batchId==1 && (t==srcMaxLen || t==1)
+  %  fprintf(2, '# t %d, l %d\n dc:%s, dh:%s\n f_g:%s, i_g:%s, o_g:%s\n grad:%s\n', t, ll, wInfo(dc), wInfo(dh), wInfo(lstm{ll, t}.f_gate), wInfo(lstm{ll, t}.i_gate), wInfo(lstm{ll, t}.o_gate), wInfo(lstm_grad));
+  %end
+ 

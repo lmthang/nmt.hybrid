@@ -1,0 +1,119 @@
+>> trainLSTM('~/deepmt/data/fren/id/corpus.tok.moses.filtered.sorted','~/deepmt/data/fren/id/ntst1213','~/deepmt/data/fren/id/ntst14','en','fr','~/deepmt/data/fren/corpus.tok.moses.filtered.en.vocab.40000','~/deepmt/data/fren/corpus.tok.moses.filtered.fr.vocab.40000','../output',0,'lstmSize',1000,'maxGradNorm',5,'learningRate',1,'initRange',0.1,'batchSize',128,'numEpoches',10,'logFreq',1,'isClip',0,'numLayers',1, 'seed', 0)
+# 3 GPUs exist. So, we will use GPUs.
+
+ans = 
+
+  CUDADevice with properties:
+
+                      Name: 'Tesla K40m'
+                     Index: 1
+         ComputeCapability: '3.5'
+            SupportsDouble: 1
+             DriverVersion: 6.5000
+            ToolkitVersion: 6
+        MaxThreadsPerBlock: 1024
+          MaxShmemPerBlock: 49152
+        MaxThreadBlockSize: [1024 1024 64]
+               MaxGridSize: [2.1475e+09 65535 65535]
+                 SIMDWidth: 32
+               TotalMemory: 1.2079e+10
+           AvailableMemory: 1.1909e+10
+       MultiprocessorCount: 15
+              ClockRateKHz: 745000
+               ComputeMode: 'Default'
+      GPUOverlapsTransfers: 1
+    KernelExecutionTimeout: 0
+          CanMapHostMemory: 1
+           DeviceSupported: 1
+            DeviceSelected: 1
+
+# Loading vocab from file ~/deepmt/data/fren/corpus.tok.moses.filtered.fr.vocab.40000 ...
+# Loading vocab from file ~/deepmt/data/fren/corpus.tok.moses.filtered.en.vocab.40000 ...
+## Bilingual setting
+# Init LSTM parameters using dataType=single, initRange=0.100000
+# Model size = 136004000
+# assert = 0
+# baseIndex = 0
+# batchSize = 128
+# dataType = single
+# debug = 0
+# epochFraction = 0.5
+# f_bias = 0
+# finetuneEpoch = 3
+# finetuneRate = 0.5
+# globalOpt = 0
+# gpuDevice = 1
+# initRange = 0.1
+# isBi = 1
+# isClip = 0
+# isGradCheck = 0
+# isProfile = 0
+# isResume = 1
+# learningRate = 1
+# logFreq = 1
+# lstmOpt = 0
+# lstmSize = 1000
+# maxGradNorm = 5
+# numEpoches = 10
+# numLayers = 1
+# outDir = ../output
+# seed = 0
+# srcLang = en
+# srcVocabFile = ~/deepmt/data/fren/corpus.tok.moses.filtered.en.vocab.40000
+# testPrefix = ~/deepmt/data/fren/id/ntst14
+# tgtLang = fr
+# tgtVocabFile = ~/deepmt/data/fren/corpus.tok.moses.filtered.fr.vocab.40000
+# trainPrefix = ~/deepmt/data/fren/id/corpus.tok.moses.filtered.sorted
+# validPrefix = ~/deepmt/data/fren/id/ntst1213
+# chunkSize = 12800
+# clipForward = 50
+# clipBackward = 1000
+# nonlinear_gate_f = sigmoid
+# nonlinear_gate_f_prime = sigmoidPrime
+# nonlinear_f = tanh
+# nonlinear_f_prime = tanhPrime
+# isGPU = 1
+# srcEos = 40001
+# srcSos = 40002
+# srcVocabSize = 40002
+# tgtEos = 40001
+# tgtVocabSize = 40001
+# modelFile = ../output/model.mat
+# modelRecentFile = ../output/modelRecent.mat
+# inVocabSize = 80003
+# outVocabSize = 40001
+# modelSize = 136004000
+# lr = 1
+# epoch = 1
+# bestCostValid = 100000
+# iter = 0
+# Loading data src ~/deepmt/data/fren/id/ntst1213.en
+  src 1: Parliament Does Not Support Amendment <unk> <unk> <s_eos>
+  src end: &quot; Maybe I &apos;ll call some friends so we can have a laugh together &quot; said <unk> Ford , <unk> communications student . <s_eos>
+# Loading data tgt ~/deepmt/data/fren/id/ntst1213.fr
+  tgt 1: Le Parlement n&apos; a pas ratifié l&apos; amendement pour la libération de <unk> <t_eos>
+  tgt end: &quot; Parfois , j&apos; appelle des amis et nous en <unk> ensemble &quot; , a commenté <unk> Ford , étudiante en communications de 20 ans . <t_eos>
+  numWords=161447
+# Loading data src ~/deepmt/data/fren/id/ntst14.en
+  src 1: Jet makers <unk> over seat width with big orders at stake <s_eos>
+  src end: &quot; We &apos;re pleased the FAA recognizes that an enjoyable passenger experience is not incompatible with safety and security , &quot; said Roger Dow , CEO of the U.S. Travel Association . <s_eos>
+# Loading data tgt ~/deepmt/data/fren/id/ntst14.fr
+  tgt 1: Les <unk> se <unk> au sujet de la largeur des sièges alors que de grosses commandes sont en jeu <t_eos>
+  tgt end: « Nous sommes heureux que la FAA reconnaisse qu&apos; une expérience passager agréable n&apos; est pas incompatible avec la sécurité » , a déclaré Roger Dow , Président et directeur de l&apos; U.S. Travel Association . <t_eos>
+  numWords=84197
+# Load train data srcFile "~/deepmt/data/fren/id/corpus.tok.moses.filtered.sorted.en" and tgtFile "~/deepmt/data/fren/id/corpus.tok.moses.filtered.sorted.fr"
+  src 1: * - Main goods are marked with red color . <s_eos>
+  src end: The cuisine serves plain cooking and international dishes . <s_eos>
+  tgt: * - les marchandises principales sont <unk> par la couleur rouge . <t_eos>
+  tgt end: La cuisine de l ’ hôtel vous sert des plats de la cuisine régionale et internationale . <t_eos>
+# Epoch 1, lr=1, 02-Feb-2015 00:44:40
+1, 1, 0.72K, 1, 10.59, gN=1.86,  W_src{1}=0.050,-0.101,0.102 W_tgt{1}=0.050,-0.106,0.106 W_emb=0.050,-0.139,0.161 W_soft=0.050,-0.157,0.154, s=11, t=45, 02-Feb-2015 00:44:43
+1, 2, 0.94K, 1, 10.37, gN=6.80,  W_src{1}=0.050,-0.103,0.104 W_tgt{1}=0.050,-0.140,0.138 W_emb=0.050,-0.200,0.221 W_soft=0.050,-0.207,0.241, s=11, t=59, 02-Feb-2015 00:44:45
+1, 3, 1.28K, 1, 8.77, gN=18.10,  W_src{1}=0.050,-0.104,0.105 W_tgt{1}=0.050,-0.140,0.139 W_emb=0.050,-0.205,0.229 W_soft=0.050,-0.285,0.276, s=11, t=49, 02-Feb-2015 00:44:47
+1, 4, 1.12K, 1, 24.63, gN=204.92,  W_src{1}=0.050,-0.103,0.103 W_tgt{1}=0.050,-0.139,0.146 W_emb=0.050,-0.204,0.229 W_soft=0.050,-0.276,0.284, s=11, t=51, 02-Feb-2015 00:44:48
+1, 5, 1.10K, 1, 10.76, gN=53.12,  W_src{1}=0.050,-0.103,0.104 W_tgt{1}=0.050,-0.137,0.146 W_emb=0.050,-0.200,0.232 W_soft=0.050,-0.374,0.358, s=11, t=46, 02-Feb-2015 00:44:50
+1, 6, 0.80K, 1, 11.37, gN=33.77,  W_src{1}=0.050,-0.102,0.103 W_tgt{1}=0.050,-0.136,0.148 W_emb=0.050,-0.203,0.247 W_soft=0.050,-0.359,0.338, s=11, t=62, 02-Feb-2015 00:44:52
+1, 7, 1.07K, 1, 10.29, gN=15.50,  W_src{1}=0.050,-0.104,0.104 W_tgt{1}=0.050,-0.142,0.148 W_emb=0.050,-0.237,0.288 W_soft=0.050,-0.356,0.364, s=11, t=42, 02-Feb-2015 00:44:54
+1, 8, 1.32K, 1, 10.96, gN=60.71,  W_src{1}=0.050,-0.103,0.103 W_tgt{1}=0.050,-0.143,0.163 W_emb=0.050,-0.242,0.294 W_soft=0.050,-0.364,0.343, s=11, t=35, 02-Feb-2015 00:44:55
+1, 9, 1.20K, 1, 10.15, gN=20.54,  W_src{1}=0.050,-0.103,0.104 W_tgt{1}=0.050,-0.177,0.171 W_emb=0.050,-0.260,0.309 W_soft=0.050,-0.351,0.318, s=11, t=40, 02-Feb-2015 00:44:56
+1, 10, 0.95K, 1, 9.49, gN=20.95,  W_src{1}=0.050,-0.104,0.104 W_tgt{1}=0.050,-0.177,0.171 W_emb=0.050,-0.273,0.323 W_soft=0.050,-0.381,0.374, s=11, t=57, 02-Feb-2015 00:44:58
