@@ -81,7 +81,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   if ismac==0
     n = gpuDeviceCount;  
     if n>0 % GPU exists
-      fprintf('# %d GPUs exist. So, we will use GPUs.\n', n);
+      fprintf(2, '# %d GPUs exist. So, we will use GPUs.\n', n);
       params.isGPU = 1;
       %reset(gpuDevice(params.gpuDevice));
       gpuDevice(params.gpuDevice)
@@ -132,12 +132,14 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.tgtEos = length(tgtVocab);
   params.tgtVocabSize = length(tgtVocab);
   params.vocab = [tgtVocab srcVocab];
+  params.logId = fopen([outDir '/log'], 'a');
   
   %% Init / Load Model Parameters
   params.modelFile = [outDir '/model.mat']; % store those with the best valid perplexity
   params.modelRecentFile = [outDir '/modelRecent.mat'];
   if params.isGradCheck==0 && params.isResume && exist(params.modelRecentFile, 'file') % a model exists, resume training
     fprintf(2, '# Model file %s exists. Try loading ...\n', params.modelRecentFile);
+    fprintf(params.logId, '# Model file %s exists. Try loading ...\n', params.modelRecentFile);
     savedData = load(params.modelRecentFile);
     
     % params
@@ -149,8 +151,16 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     params.epochBatchCount = oldParams.epochBatchCount;
     params.bestCostValid = oldParams.bestCostValid;
     params.testPerplexity = oldParams.testPerplexity;
+    if isfield(oldParams, 'finetuneCount')
+      params.finetuneCount = oldParams.finetuneCount;
+    else
+      if params.epoch > params.finetuneEpoch && params.epochBatchCount>0 % try to determine finetuneCount, we should rarely need this
+        params.finetuneCount = floor(params.epochFraction*params.epochBatchCount);
+      else
+        params.finetuneCount = 0;
+      end
+    end
 
-    params.finetuneCount = oldParams.finetuneCount;
     startIter = oldParams.iter;
     if params.epoch > 1
       params.iter = (params.epoch-1)*params.epochBatchCount;
@@ -163,6 +173,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     clear savedData;
     
     fprintf(2, '  loaded! lr=%g, epoch=%d, iter=%d, bestCostValid=%g, testPerplexity=%g\n', params.lr, params.epoch, startIter, params.bestCostValid, params.testPerplexity);
+    fprintf(params.logId, '  loaded! lr=%g, epoch=%d, iter=%d, bestCostValid=%g, testPerplexity=%g\n', params.lr, params.epoch, startIter, params.bestCostValid, params.testPerplexity);
   else % start from scratch
     [model, params] = initLSTM(params);
     params.lr = params.learningRate;
@@ -170,9 +181,12 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     params.bestCostValid = 1e5;
     startIter = 0;
     params.iter = 0;  % number of batches we have processed
+    params.epochBatchCount = 0;
+    params.finetuneCount = 0;
   end
   
-  printParams(params);
+  printParams(1, params);
+  printParams(params.logId, params);
 
   %% Check Grad
   if params.isGradCheck
@@ -216,10 +230,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   
   startTime = clock;
   fprintf(2, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
-  params.epochBatchCount = 0;
-  params.finetuneCount = 0;
-  params.logId = fopen([outDir '/log'], 'w');
-  while(1)
+  fprintf(params.logId, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
+  isRun = 1;
+  while(isRun)
     assert(numTrainSents>0);
     numBatches = floor((numTrainSents-1)/params.batchSize) + 1;
     for batchId = 1 : numBatches
@@ -249,7 +262,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       %printSent(trainData.input(1, :), vocab, '  input:');
       if isnan(cost) || isinf(cost)
         fprintf(2, 'epoch=%d, iter=%d, nan/inf cost=%g\n', params.epoch, params.iter, cost);
-        continue;
+        fprintf(params.logId, 'epoch=%d, iter=%d, nan/inf cost=%g\n', params.epoch, params.iter, cost);
+        isRun = 0;
+        break;
       end
       
       %% grad clipping
@@ -324,6 +339,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       % finetuning
       if params.epoch > params.finetuneEpoch && mod(params.iter, params.finetuneCount)==0
         fprintf(2, '# Finetuning %f -> %f\n', params.lr, params.lr*params.finetuneRate);
+        fprintf(params.logId, '# Finetuning %f -> %f\n', params.lr, params.lr*params.finetuneRate);
         params.lr = params.lr*params.finetuneRate;
       end
      end % end for batchId
@@ -331,7 +347,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     if params.epoch==1
       params.epochBatchCount = params.epochBatchCount + numBatches;
     end
-    
+
     % read more data
     [tgtTrainSents, numTrainSents] = loadBatchData(tgtID, params.baseIndex, params.chunkSize, params.tgtEos);
     if params.isBi
@@ -347,6 +363,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       if params.epoch==1
         params.finetuneCount = floor(params.epochFraction*params.epochBatchCount);
         fprintf(2, '# Num batches per epoch = %d, finetune count=%d\n', params.epochBatchCount, params.finetuneCount);
+        fprintf(params.logId, '# Num batches per epoch = %d, finetune count=%d\n', params.epochBatchCount, params.finetuneCount);
         if params.evalFreq > params.epochBatchCount
           fprintf(2, '! change evalFreq from %d -> %d\n', params.evalFreq, params.epochBatchCount);
           params.evalFreq = params.epochBatchCount;
@@ -358,6 +375,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       params.epoch = params.epoch + 1;
       if params.epoch <= params.numEpoches % continue training
         fprintf(2, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
+        fprintf(params.logId, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
         
         % reopen file
         tgtID = fopen(tgtTrainFile, 'r');
