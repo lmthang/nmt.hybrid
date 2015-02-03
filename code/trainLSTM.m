@@ -38,6 +38,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'logFreq', 10, @isnumeric); % how frequent (number of batches) we want to log stuffs
   addOptional(p,'isBi', 1, @isnumeric); % isBi=0: mono model, isBi=1: bi (encoder-decoder) model.
   addOptional(p,'isClip', 0, @isnumeric); % isClip=1: clip forward 50, clip backward 1000.
+  addOptional(p,'isReverse', 0, @isnumeric); % isReverse=1: src data = $prefix.reversed.$srcLang (instead of $prefix.$srcLang)
   addOptional(p,'isResume', 1, @isnumeric); % isResume=1: check if a model file exists, continue training from there.
   addOptional(p,'dataType', 'single', @ischar); % Note: use double precision for grad check
 
@@ -227,7 +228,11 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   % train
   tgtTrainFile = sprintf('%s.%s', params.trainPrefix, params.tgtLang);
   if params.isBi
-    srcTrainFile = sprintf('%s.%s', params.trainPrefix, params.srcLang);
+    if params.isReverse
+      srcTrainFile = sprintf('%s.reversed.%s', params.trainPrefix, params.srcLang);
+    else
+      srcTrainFile = sprintf('%s.%s', params.trainPrefix, params.srcLang);
+    end
     fprintf(2, '# Load train data srcFile "%s" and tgtFile "%s"\n', srcTrainFile, tgtTrainFile);
     srcID = fopen(srcTrainFile, 'r');
     [srcTrainSents] = loadBatchData(srcID, params.baseIndex, params.chunkSize, params.srcEos);
@@ -241,7 +246,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   printSent(tgtTrainSents{1}, tgtVocab, '  tgt:');
   printSent(tgtTrainSents{end}, tgtVocab, '  tgt end:');
 
-  %% Training
+  %%%%%%%%%%%%%%
+  %% Training %%
+  %%%%%%%%%%%%%%
   totalCost = 0; totalWords = 0;
   params.evalFreq = params.logFreq*10;
   params.saveFreq = params.evalFreq;
@@ -515,7 +522,11 @@ end
 function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab)
   % src
   if params.isBi
-    srcFile = sprintf('%s.%s', prefix, params.srcLang);
+    if params.isReverse
+      srcFile = sprintf('%s.reversed.%s', prefix, params.srcLang);
+    else
+      srcFile = sprintf('%s.%s', prefix, params.srcLang);
+    end
     [srcSents] = loadMonoData(srcFile, params.srcEos, -1, params.baseIndex, srcVocab, 'src');
   else
     srcSents = {};
