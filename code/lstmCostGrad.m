@@ -8,78 +8,34 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
 %
 %%%
 
+  %%%%%%%%%%%%
+  %%% INIT %%%
+  %%%%%%%%%%%%
   input = trainData.input;
   inputMask = trainData.inputMask;
   tgtOutput = trainData.tgtOutput;
   srcMaxLen = trainData.srcMaxLen;
   tgtMaxLen = trainData.tgtMaxLen;
   
-  %%%%%%%%%%%%%%%%%%%%
-  %%% FORWARD PASS %%%
-  %%%%%%%%%%%%%%%%%%%%
   T = srcMaxLen+tgtMaxLen-1;
   curBatchSize = size(input, 1);
   
-  % grad that can be computed as we do the forward pass
-  lstm = cell(params.numLayers, T); % each cell contains intermediate results for that timestep needed for backprop
+  numInputWords = sum(sum(inputMask));
+  indices = zeros(numInputWords, 1);
+  [grad, zero_state, totalCost, emb] = initGrad(params, curBatchSize, numInputWords);
+
   
   % global opt
   %if params.globalOpt==1
   %  srcSentEmbs = sum(reshape(input_embs(:, 1:curBatchSize*srcMaxLen), params.lstmSize*curBatchSize, srcMaxLen), 2); % sum
   %  srcSentEmbs = bsxfun(@rdivide, reshape(srcSentEmbs, params.lstmSize, curBatchSize), trainData.srcLens');
   %end
-  
-  if params.isBi
-    grad.W_src = cell(params.numLayers, 1);
-  end
-  grad.W_tgt = cell(params.numLayers, 1);
- 
-  numInputWords = sum(sum(inputMask));
-  indices = zeros(numInputWords, 1);
-  if params.isGPU % declare intermediate variables on GPU
-    zero_state = zeros([params.lstmSize, curBatchSize], params.dataType, 'gpuArray');
-   
-    totalCost = zeros(1, 1, params.dataType, 'gpuArray');
 
-    % grad
-    grad.W_soft = zeros(params.outVocabSize, params.lstmSize, params.dataType, 'gpuArray');
-    
-    % W_src
-    if params.isBi
-      for ll=1:params.numLayers
-        grad.W_src{ll} = zeros(4*params.lstmSize, 2*params.lstmSize, params.dataType, 'gpuArray');
-      end
-    end
-    
-    % W_tgt
-    for ll=1:params.numLayers
-      grad.W_tgt{ll} = zeros(4*params.lstmSize, 2*params.lstmSize, params.dataType, 'gpuArray');
-    end
-    
-    emb = zeros(params.lstmSize, numInputWords, params.dataType, 'gpuArray');
-  else
-    zero_state = zeros(params.lstmSize, curBatchSize);
-    totalCost = 0.0;
-    
-    % grad 
-    grad.W_soft = zeros(params.outVocabSize, params.lstmSize);
-    
-    % W_src
-    if params.isBi
-      for ll=1:params.numLayers
-        grad.W_src{ll} = zeros(4*params.lstmSize, 2*params.lstmSize);
-      end
-    end
-    
-    % W_tgt
-    for ll=1:params.numLayers
-      grad.W_tgt{ll} = zeros(4*params.lstmSize, 2*params.lstmSize);
-    end
-  
-    emb = zeros(params.lstmSize, numInputWords);
-  end
-
+  %%%%%%%%%%%%%%%%%%%%
+  %%% FORWARD PASS %%%
+  %%%%%%%%%%%%%%%%%%%%
   timeInfo = cell(T, 1);
+  lstm = cell(params.numLayers, T); % each cell contains intermediate results for that timestep needed for backprop
   for ll=1:params.numLayers % layer
     for t=1:T % time
       %% decide encoder/decoder
@@ -207,6 +163,55 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
   end
 end
 
+function [grad, zero_state, totalCost, emb] = initGrad(params, curBatchSize, numInputWords)
+  if params.isBi
+    grad.W_src = cell(params.numLayers, 1);
+  end
+  grad.W_tgt = cell(params.numLayers, 1);
+ 
+  if params.isGPU % declare intermediate variables on GPU
+    zero_state = zeros([params.lstmSize, curBatchSize], params.dataType, 'gpuArray');
+   
+    totalCost = zeros(1, 1, params.dataType, 'gpuArray');
+
+    % grad
+    grad.W_soft = zeros(params.outVocabSize, params.lstmSize, params.dataType, 'gpuArray');
+    
+    % W_src
+    if params.isBi
+      for ll=1:params.numLayers
+        grad.W_src{ll} = zeros(4*params.lstmSize, 2*params.lstmSize, params.dataType, 'gpuArray');
+      end
+    end
+    
+    % W_tgt
+    for ll=1:params.numLayers
+      grad.W_tgt{ll} = zeros(4*params.lstmSize, 2*params.lstmSize, params.dataType, 'gpuArray');
+    end
+    
+    emb = zeros(params.lstmSize, numInputWords, params.dataType, 'gpuArray');
+  else
+    zero_state = zeros(params.lstmSize, curBatchSize);
+    totalCost = 0.0;
+    
+    % grad 
+    grad.W_soft = zeros(params.outVocabSize, params.lstmSize);
+    
+    % W_src
+    if params.isBi
+      for ll=1:params.numLayers
+        grad.W_src{ll} = zeros(4*params.lstmSize, 2*params.lstmSize);
+      end
+    end
+    
+    % W_tgt
+    for ll=1:params.numLayers
+      grad.W_tgt{ll} = zeros(4*params.lstmSize, 2*params.lstmSize);
+    end
+  
+    emb = zeros(params.lstmSize, numInputWords);
+  end
+end
 
   %if params.isGPU
   %  [grad.indices, ~, J] = unique(indices);
