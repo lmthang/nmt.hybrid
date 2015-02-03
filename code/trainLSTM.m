@@ -508,7 +508,7 @@ function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab)
 end
 
 function [sents, numSents] = loadMonoData(file, eos, numSents, baseIndex, vocab, label)
-  fprintf(2, '# Loading data %s %s\n', label, file);
+  fprintf(2, '# Loading data %s from file %s\n', label, file);
   fid = fopen(file, 'r');
   [sents, numSents] = loadBatchData(fid, baseIndex, numSents, eos);
   fclose(fid);

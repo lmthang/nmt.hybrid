@@ -24,13 +24,13 @@ fi
 
 #MATLAB=/afs/cs/software/bin/matlab_r2013b
 MATLAB=matlab
-trainPrefix=$1
-validPrefix=$2
-testPrefix=$3
-srcLang=$4
-tgtLang=$5
-srcVocabFile=$6
-tgtVocabFile=$7
+trainPrefix='/home/hyhieu/Code/lstm_matlab/output/train.10k.id'
+validPrefix='/home/hyhieu/Code/lstm_matlab/output/valid.3k.id'
+testPrefix='/home/hyhieu/Code/lstm_matlab/output/test.3k.id'
+srcLang='de'
+tgtLang='en'
+srcVocabFile='../data/train.10k.de.vocab.1000'
+tgtVocabFile='../data/train.10k.en.vocab.1000'
 outDir=$8
 baseIndex=$9
 lstmSize=${10}
@@ -54,7 +54,7 @@ mkdir -p $outDir
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 echo "# Script dir = $DIR"
 echo "cd $DIR/../code"
-cd $DIR/../code
 
+cd /home/hyhieu/Code/lstm_matlab/code
 $MATLAB -nodesktop -nodisplay -nosplash -r "$matlabCommand ; exit()"  # 
 

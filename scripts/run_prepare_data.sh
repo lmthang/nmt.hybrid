@@ -1,7 +1,7 @@
-#!/bin/sh
+#!/bin/bash
 # Author: Minh-Thang Luong <luong.m.thang@gmail.com>, created on Fri Nov 14 13:32:54 PST 2014
 
-if [[ ! $# -eq 6 && ! $# -eq 5 ]]
+if [[ ! $# -eq 6 && ! $# -eq 5 ]];
 then
     echo "`basename $0` trainFile validFile testFile vocabSize outDir [freq]" 
     echo "If freq is specified, use freq instead of vocabSize"
@@ -26,12 +26,13 @@ function execute_check {
   file=$1 
   cmd=$2
   
-  if [[ -f $file || -d $file ]]; then
+  if [[ -f $file || -d $file ]];
+  then
     echo ""
     echo "! File/directory $file exists. Skip."
   else
     echo ""
-    if [ $VERBOSE -eq 1 ]; then
+    if [[ $VERBOSE -eq 1 ]]; then
       echo "# Executing: $cmd"
     fi
     

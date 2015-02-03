@@ -4,6 +4,7 @@ function [totalCost, grad] = lstmDecoder(model, input, inputMask, srcMaxLen, par
 % Decode from an LSTM model
 %
 % Thang Luong @ 2014, <lmthang@stanford.edu>
+% Hieu Pham @ 2015, <hyhieu@cs.stanford.edu>
 %
 %%%
   
@@ -20,22 +21,75 @@ function [totalCost, grad] = lstmDecoder(model, input, inputMask, srcMaxLen, par
   else
     zero_state = zeros([params.lstmSize, curBatchSize]);
   end
-  
-  W = model.W_src;
-  for t=1:srcMaxLen
-    % get input embeddings
-    %x_t = model.W_emb(:, input(:, t));
-    x_t = input_embs(:, ((t-1)*curBatchSize+1):t*curBatchSize);
-    if params.isGradCheck 
-      x_t(:, ~inputMask(:, t)) = 0; % for gradient check code, zero out those unused so that gradients of those zero-id embeddings can pass.
+
+  % encode
+  lstm = cell(params.numLayers, 1); % lstm can be over written, as we do not need to backprop
+  for t=1:srcMaxLen % time
+    for ll=1:params.numLayers % layer
+      %% encoder W matrix
+      W = model.W_src{ll};
+      
+      %% previous-time input
+      if t==1 % first time step
+        h_t_1 = zero_state;
+        c_t_1 = zero_state;
+      else
+        h_t_1 = lstm{ll, t-1}.h_t; 
+        c_t_1 = lstm{ll, t-1}.c_t;
+      end
+
+      %% current-time input
+      if ll==1 % first layer
+        x_t = model.W_emb(:, input(:, t));
+
+        % prepare mask
+        mask = inputMask(:, t)'; % curBatchSize * 1
+        unmaskedIds = find(timeInfo{t}.mask);
+        maskedIds = find(~timeInfo{t}.mask);
+
+        % masking
+        x_t(:, maskedIds) = 0; 
+        h_t_1(:, maskedIds) = 0;
+        c_t_1(:, maskedIds) = 0;
+      else % subsequent layer, use the previous-layer hidden state
+        x_t = lstm{ll-1}.h_t;
+
+        % assert on masking assumptions
+        if params.assert
+          assert(gather(sum(sum(x_t(:, timeInfo{t}.maskedIds)))) == 0);
+          assert(gather(sum(sum(h_t_1(:, timeInfo{t}.maskedIds)))) == 0);
+          assert(gather(sum(sum(c_t_1(:, timeInfo{t}.maskedIds)))) == 0);
+        end
+      end
+     
+      %% lstm cell
+      lstm{ll} = lstmUnit(W, x_t, h_t_1, c_t_1, params);
+
+%       %% prediction at the top layer
+%       if ll==params.numLayers && (t>=srcMaxLen) 
+%         % softmax
+%         [probs, scores, norms] = softmax(model.W_soft, lstm{ll, t}.h_t, timeInfo{t}.mask);
+%         if params.assert
+%           value = sum(sum(abs(scores(:, timeInfo{t}.maskedIds))));
+%           assert(gather(value)==0);
+%         end
+% 
+%         % cost
+%         tgtPredictedWords = tgtOutput(timeInfo{t}.unmaskedIds, t-srcMaxLen+1)'; % predict tgtOutput[t-srcMaxLen+1]
+%         scoreIndices = sub2ind([params.outVocabSize, curBatchSize], tgtPredictedWords, timeInfo{t}.unmaskedIds); % 1 * length(tgtPredictedWords)
+%         totalCost = totalCost - (sum(scores(scoreIndices)) - sum(log(norms).*timeInfo{t}.mask));
+% 
+%         if isCostOnly==0 % compute grad
+%           % grad.W_soft
+%           probs(scoreIndices) = probs(scoreIndices) - 1; % minus one at predicted words
+%           grad.W_soft = grad.W_soft + probs*lstm{ll, t}.h_t';
+% 
+%           % grad_ht
+%           lstm{ll, t}.grad_ht = model.W_soft'* probs;
+%         end
+%       end
     end
-    
-    if t==1
-      lstm = lstmUnit(W, x_t, zero_state, zero_state, params);
-    else
-      lstm = lstmUnit(W, x_t, lstm.h_t, lstm.c_t, params);
-    end
-  end % for t
+  end
   
   % start decoding
   W = model.W_tgt;
@@ -43,33 +97,5 @@ function [totalCost, grad] = lstmDecoder(model, input, inputMask, srcMaxLen, par
   for t=1:tgtMaxLen
     % prediction
     
-  end
-  
-  if (t>=srcMaxLen) % predict tgtOutput[t-srcMaxLen+1]
-    t_pos = t-srcMaxLen+1;
-    softmaxMask = tgtMask(:, t_pos); % curBatchSize * 1
-    scores = model.W_soft * lstm{t}.h_t(:, softmaxMask);  % params.outVocabSize * num_words
-
-    % normalize, compute in log domain
-    mx = max(scores);
-    log_probs = bsxfun(@minus, scores, log(sum(exp(bsxfun(@minus, scores, mx)))) + mx); 
-
-    % select from scores matrix, one number per column
-    tgt_predicted_words = tgtOutput(softmaxMask, t_pos)';
-    num_words = length(tgt_predicted_words);
-    score_indices = sub2ind([params.outVocabSize, num_words], tgt_predicted_words, 1:num_words); % 1 * num_words
-
-    % cost
-    totalCost = totalCost - sum(log_probs(score_indices));
-
-    if isCostOnly==0 % compute grad
-      % grad.W_soft
-      probs = exp(log_probs); % out_size * curBatchSize
-      probs(score_indices) = probs(score_indices) - ones(1, num_words); % minus one at predicted words
-      grad.W_soft = grad.W_soft + probs*lstm{t}.h_t(:, softmaxMask)';
-
-      % grad_ht
-      lstm{t}.grad_ht = model.W_soft'* probs;
-    end
   end
 end
