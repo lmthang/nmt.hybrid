@@ -50,7 +50,14 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
 
   %% research options
   addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
-  addOptional(p,'attnOpt', 0, @isnumeric); % attnOpt=0: no attention, 1: bilingual embedding attention
+  % attnOpt=0: no attention.
+  %         1: bilingual embedding attention.
+  %         2: same as Bengio. NOT IMPLEMENTED.
+  addOptional(p,'attnOpt', 0, @isnumeric); 
+  % attnFunc=0: no attention.
+  %         1: a_t,i = f(tgt_h_t, src_h_i) = tanh(tgt_h_t' * W_a * src_h_i)
+  %         2: simialr to Bengio a_t,i = f(tgt_h_t, src_h_i) = v_a'tanh(W_a_tgt*tgt_h_t + W_a_src*src_h_i). NOT IMPLEMENTED.
+  addOptional(p,'attnFunc', 0, @isnumeric); 
   addOptional(p,'globalOpt', 0, @isnumeric); % globalOpt=0: no global model, 1: avg global model, 2: feedforward global model.
   addOptional(p,'f_bias', 0, @isnumeric); % bias added to the forget gate
 
@@ -77,6 +84,10 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.nonlinear_f = @tanh;
   params.nonlinear_f_prime = @tanhPrime;
  
+  % params assertions
+  assert(params.attnOpt==0 || params.attnFunc>0);
+  assert(params.attnFunc==0 || params.attnOpt>0);
+  
   % rand seed
   if params.isGradCheck || params.isProfile || params.seed
     s = RandStream('mt19937ar','Seed',params.seed);
@@ -471,17 +482,30 @@ function [model, params] = initLSTM(params)
     model.W_tgt{l} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
     modelSize = modelSize + numel(model.W_tgt{l});
   end
-  %model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize], 0, 'double');
+ 
+  % W_emb
   model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize], params.isGPU, params.dataType);
-  model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.lstmSize], params.isGPU, params.dataType); % softmax params
   modelSize = modelSize + numel(model.W_emb);
-  modelSize = modelSize + numel(model.W_soft);
-  
   % set parameters correspond to zero words
   if params.isBi
     model.W_emb(:, params.tgtVocabSize + params.srcSos) = zeros(params.lstmSize, 1);
   end
   model.W_emb(:, params.tgtEos) = zeros(params.lstmSize, 1);
+  
+  % W_soft
+  model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.lstmSize], params.isGPU, params.dataType);
+  modelSize = modelSize + numel(model.W_soft);
+  
+  % attention mechanism
+  if params.attnFunc==1 % tanh(tgt_h_t' * W_a * src_h_i)
+    model.W_a = randomMatrix(params.initRange, [params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
+    modelSize = modelSize + numel(model.W_a);
+  elseif params.attnFunc==2 % v_a'tanh(W_a_tgt*tgt_h_t + W_a*src_h_i)
+    model.W_a = randomMatrix(params.initRange, [params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
+    model.W_a_tgt = randomMatrix(params.initRange, [params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
+    model.v_a = randomMatrix(params.initRange, [params.lstmSize, 1], params.isGPU, params.dataType);
+    modelSize = modelSize + numel(model.W_a) + numel(model.W_a_tgt) + numel(model.v_a);
+  end
   
   fprintf(2, '# Model size = %d\n', modelSize);
   params.modelSize = modelSize;

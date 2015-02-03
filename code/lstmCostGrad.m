@@ -36,6 +36,16 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
   %%%%%%%%%%%%%%%%%%%%
   timeInfo = cell(T, 1);
   lstm = cell(params.numLayers, T); % each cell contains intermediate results for that timestep needed for backprop
+  
+  % attention mechanism
+  if params.attnOpt>0
+    if params.isGPU
+      srcAlignStates = zeros([params.lstmSize, curBatchSize, srcMaxLen-1], params.dataType, 'gpuArray');
+    else
+      srcAlignStates = zeros([params.lstmSize, curBatchSize, srcMaxLen-1]);
+    end
+  end
+  
   for ll=1:params.numLayers % layer
     for t=1:T % time
       %% decide encoder/decoder
@@ -62,32 +72,38 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
         timeInfo{t}.mask = inputMask(:, t)'; % curBatchSize * 1
         timeInfo{t}.unmaskedIds = find(timeInfo{t}.mask);
         timeInfo{t}.maskedIds = find(~timeInfo{t}.mask);
-
-        % masking
-        x_t(:, timeInfo{t}.maskedIds) = 0; 
-        h_t_1(:, timeInfo{t}.maskedIds) = 0;
-        c_t_1(:, timeInfo{t}.maskedIds) = 0;
       else % subsequent layer, use the previous-layer hidden state
         x_t = lstm{ll-1, t}.h_t;
-
-        % assert on masking assumptions
-        if params.assert
-          assert(gather(sum(sum(x_t(:, timeInfo{t}.maskedIds)))) == 0);
-          assert(gather(sum(sum(h_t_1(:, timeInfo{t}.maskedIds)))) == 0);
-          assert(gather(sum(sum(c_t_1(:, timeInfo{t}.maskedIds)))) == 0);
-        end
       end
+      
+      % masking
+      x_t(:, timeInfo{t}.maskedIds) = 0; 
+      h_t_1(:, timeInfo{t}.maskedIds) = 0;
+      c_t_1(:, timeInfo{t}.maskedIds) = 0;
      
       %% lstm cell
       lstm{ll, t} = lstmUnit(W, x_t, h_t_1, c_t_1, params);
-
+      
+      %% attention mechanism: keep track of src hidden states at the top level
+      if params.attnOpt==1 && ll==params.numLayers && (t<srcMaxLen)
+        srcAlignStates(:, :, t) = model.W_a * lstm{ll, t}.h_t; % W_a * src_h
+      end
+        
       %% prediction at the top layer
-      if ll==params.numLayers && (t>=srcMaxLen) 
+      if ll==params.numLayers && (t>=srcMaxLen)
+        % attention mechanism
+        if params.attnOpt==1 % compute alignment vector after the current hidden state has been computed
+          [alignWeights] = computeAlignWeights(lstm{ll, t}.h_t, model, srcAlignStates, params, curBatchSize, srcMaxLen);
+        end
+        
         % softmax
         [probs, scores, norms] = softmax(model.W_soft, lstm{ll, t}.h_t, timeInfo{t}.mask);
         if params.assert
-          value = sum(sum(abs(scores(:, timeInfo{t}.maskedIds))));
-          assert(gather(value)==0);
+          if params.isGPU
+            assert(gather(sum(sum(abs(scores(:, timeInfo{t}.maskedIds)))))==0);
+          else
+            assert(sum(sum(abs(scores(:, timeInfo{t}.maskedIds))))==0);
+          end
         end
 
         % cost
@@ -163,6 +179,38 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
   end
 end
 
+function [alignWeights] = computeAlignWeights(h_t, model, srcAlignStates, params, curBatchSize, srcMaxLen)
+  if params.attnFunc==1 % tgt_h' * W_a * src_h
+    alignWeights = squeeze(sum(bsxfun(@times, srcAlignStates, h_t))); % curBatchSize * (srcMaxLen-1)
+
+    % assert
+    if params.assert
+      results = zeros(curBatchSize, srcMaxLen-1);
+      for iii=1:(srcMaxLen-1)
+        results(:, iii) = transpose(sum(srcAlignStates(:, :, iii).*h_t));
+      end
+      assert(sum(sum(abs(alignWeights-results)))<1e-5);
+    end
+  elseif params.attnFunc==2 % v_a' * tanh(W_a_tgt * tgt_h +  W_a * src_h)
+    alignWeights = tanh(bsxfun(@plus, srcAlignStates, model.W_a_tgt*h_t)); % lstmSize * curBatchSize * (srcMaxLen-1)
+    alignWeights = squeeze(sum(bsxfun(@times, alignWeights, model.v_a))); % curBatchSize * (srcMaxLen-1)
+
+    % assert
+    if params.assert
+      results = zeros(curBatchSize, srcMaxLen-1);
+      tgtAlignState = model.W_a_tgt*h_t;
+      for iii=1:(srcMaxLen-1)
+        results(:, iii) = transpose(model.v_a'*tanh(srcAlignStates(:, :, iii) + tgtAlignState));
+      end
+      assert(sum(sum(abs(alignWeights-results)))<1e-5);
+    end
+  end
+
+  if params.assert % curBatchSize * (srcMaxLen-1)
+    assert(size(alignWeights, 1)==curBatchSize);
+    assert(size(alignWeights, 2)==(srcMaxLen-1));
+  end
+end
 function [grad, zero_state, totalCost, emb] = initGrad(params, curBatchSize, numInputWords)
   if params.isBi
     grad.W_src = cell(params.numLayers, 1);

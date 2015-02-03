@@ -34,7 +34,13 @@ function gradCheck(model, params)
 
   % theta
   if params.isBi
-    [theta, decodeInfo] = param2stack(model.W_src, model.W_tgt, model.W_soft, model.W_emb);
+    if params.attnFunc==0
+      [theta, decodeInfo] = param2stack(model.W_src, model.W_tgt, model.W_soft, model.W_emb);
+    elseif params.attnFunc==1
+      [theta, decodeInfo] = param2stack(model.W_src, model.W_tgt, model.W_soft, model.W_emb, model.W_a);
+    elseif params.attnFunc==2
+      [theta, decodeInfo] = param2stack(model.W_src, model.W_tgt, model.W_soft, model.W_emb, model.W_a, model.W_a_tgt, model.v_a);
+    end
   else
     [theta, decodeInfo] = param2stack(model.W_tgt, model.W_soft, model.W_emb);
   end
@@ -74,7 +80,13 @@ function gradCheck(model, params)
     thetaNew(i) = thetaNew(i) + delta;
     if params.isBi
       [modelNew.W_src, modelNew.W_tgt, modelNew.W_soft, modelNew.W_emb] = stack2param(thetaNew, decodeInfo);
-      
+      if params.attnFunc==0
+        [modelNew.W_src, modelNew.W_tgt, modelNew.W_soft, modelNew.W_emb] = stack2param(thetaNew, decodeInfo);
+      elseif params.attnFunc==1
+        [modelNew.W_src, modelNew.W_tgt, modelNew.W_soft, modelNew.W_emb, modelNew.W_a] = stack2param(thetaNew, decodeInfo);
+      elseif params.attnFunc==2
+        [modelNew.W_src, modelNew.W_tgt, modelNew.W_soft, modelNew.W_emb, modelNew.W_a, modelNew.W_a_tgt, modelNew.v_a] = stack2param(thetaNew, decodeInfo);
+      end
     else
       model.W_src = [];
       [modelNew.W_tgt, modelNew.W_soft, modelNew.W_emb] = stack2param(thetaNew, decodeInfo);
