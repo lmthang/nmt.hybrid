@@ -36,20 +36,28 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'finetuneEpoch', 3, @isnumeric); % epoch > finetuneEpoch, start halving learning rate every epochFraction of an epoch, e.g., every 0.5 epoch
   addOptional(p,'finetuneRate', 0.5, @isnumeric); % multiply learning rate by this factor each time we finetune
   addOptional(p,'logFreq', 10, @isnumeric); % how frequent (number of batches) we want to log stuffs
-  addOptional(p,'isGradCheck', 0, @isnumeric); % set 1 to check the gradient, no need to specify other input arguments as toy data is automatically generated.
-  addOptional(p,'isProfile', 0, @isnumeric);
   addOptional(p,'isBi', 1, @isnumeric); % isBi=0: mono model, isBi=1: bi (encoder-decoder) model.
   addOptional(p,'isClip', 0, @isnumeric); % isClip=1: clip forward 50, clip backward 1000.
   addOptional(p,'isResume', 1, @isnumeric); % isResume=1: check if a model file exists, continue training from there.
-  addOptional(p,'globalOpt', 0, @isnumeric); % globalOpt=0: no global model, 1: avg global model, 2: feedforward global model.
   addOptional(p,'dataType', 'single', @ischar); % Note: use double precision for grad check
-  addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
-  addOptional(p,'attnOpt', 0, @isnumeric); % attnOpt=0: no attention, 1: bilingual embedding attention
-  addOptional(p,'seed', 0, @isnumeric); % 0: seed based on current clock time, else use the specified seed
-  addOptional(p,'gpuDevice', 1, @isnumeric); % choose the gpuDevice to use. 
+
+  %% debugging options
+  addOptional(p,'isGradCheck', 0, @isnumeric); % set 1 to check the gradient, no need input arguments as toy data is automatically generated.
+  addOptional(p,'isProfile', 0, @isnumeric);
   addOptional(p,'debug', 0, @isnumeric); % 0: no debug, 1: debug
   addOptional(p,'assert', 0, @isnumeric); % 0: no sanity check, 1: yes
+  addOptional(p,'seed', 0, @isnumeric); % 0: seed based on current clock time, else use the specified seed
+
+  %% research options
+  addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
+  addOptional(p,'attnOpt', 0, @isnumeric); % attnOpt=0: no attention, 1: bilingual embedding attention
+  addOptional(p,'globalOpt', 0, @isnumeric); % globalOpt=0: no global model, 1: avg global model, 2: feedforward global model.
   addOptional(p,'f_bias', 0, @isnumeric); % bias added to the forget gate
+
+  %% system options
+  addOptional(p,'onlyCPU', 0, @isnumeric); % 1: avoid using GPUs
+  addOptional(p,'gpuDevice', 1, @isnumeric); % choose the gpuDevice to use. 
+
   p.KeepUnmatched = true;
   parse(p,trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFile,tgtVocabFile,outDir,baseIndex,varargin{:})
   params = p.Results;
@@ -79,7 +87,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   
   % check GPUs
   params.isGPU = 0;
-  if ismac==0
+  if ismac==0 && params.onlyCPU==0
     n = gpuDeviceCount;  
     if n>0 % GPU exists
       fprintf(2, '# %d GPUs exist. So, we will use GPUs.\n', n);

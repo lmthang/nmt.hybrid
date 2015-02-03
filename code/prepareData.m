@@ -49,9 +49,10 @@ function [input, inputMask, tgtOutput, srcMaxLen, tgtMaxLen, numWords, srcLens] 
       srcEos = srcSents{1}(end) + params.tgtVocabSize;
       assert(input(1, srcMaxLen)==srcEos);
     end
-     assert(numWords == sum(tgtLens));
-    label = 'input';
-    printSent(input(1, :), params.vocab, ['  ', label, ' 1:']);
-    printSent(input(end, :), params.vocab, ['  ', label, ' end:']);
+    
+    assert(numWords == sum(tgtLens));
+    %label = 'input';
+    %printSent(input(1, :), params.vocab, ['  ', label, ' 1:']);
+    %printSent(input(end, :), params.vocab, ['  ', label, ' end:']);
   end
 end
