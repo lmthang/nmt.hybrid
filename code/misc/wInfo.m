@@ -24,8 +24,9 @@ function [output] = wInfo(allW)
 end
 
 function [infoStr] = info(W)
-  W = full(W);
+  %W = full(W);
   avg = sum(sum(abs(W)))/numel(W);
-  infoStr = sprintf('%.3f,%.3f,%.3f', avg, min(min(full(W))), max(max(full(W)))); 
+  infoStr = sprintf('%.3f', avg);
+  %infoStr = sprintf('%.3f,%.3f,%.3f', avg, min(min(full(W))), max(max(full(W)))); 
   %infoStr = sprintf('%s,%.3f,%.3f,%.3f', mat2str(size(W)), avg, min(min(full(W))), max(max(full(W)))); 
 end
