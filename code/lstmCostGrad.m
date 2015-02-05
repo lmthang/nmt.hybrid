@@ -22,6 +22,10 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
   
   numInputWords = sum(sum(inputMask));
   indices = zeros(numInputWords, 1);
+  if params.embCPU && params.isGPU % only put part of the emb matrix onto GPU
+    input_embs = model.W_emb(:, input);
+    input_embs = gpuArray(input_embs); % load input embeddings onto GPUs
+  end
   [grad, zero_state, totalCost, emb] = initGrad(params, curBatchSize, numInputWords);
 
   
@@ -66,7 +70,11 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
 
       %% current-time input
       if ll==1 % first layer
-        x_t = model.W_emb(:, input(:, t));
+        if params.embCPU && params.isGPU
+          x_t = input_embs(:, ((t-1)*curBatchSize+1):t*curBatchSize);
+        else
+          x_t = model.W_emb(:, input(:, t));
+        end
 
         % prepare mask
         timeInfo{t}.mask = inputMask(:, t)'; % curBatchSize * 1
@@ -175,6 +183,9 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
   % grad W_emb
   [grad.W_emb, grad.indices] = aggregateMatrix(emb, indices, params.isGPU, params.dataType);
   if params.isGPU
+    if params.embCPU
+      grad.W_emb = double(gather(grad.W_emb));
+    end
     totalCost = gather(totalCost);
   end
 end
@@ -287,9 +298,7 @@ end
     %grad.W_emb = aggregateMatrix(double(gather(emb)), indices, params.inVocabSize);
     %grad.W_emb = gpuArray(full(grad.W_emb(:, grad.indices)));
 
-  %input_embs = model.W_emb(:, input);
-    %input_embs = gpuArray(input_embs); % load input embeddings onto GPUs
- 
+
 %        if isFast
 %        else
 %          scores = model.W_soft * lstm{ll, t}.h_t(:, curMask);  % params.outVocabSize * numWords

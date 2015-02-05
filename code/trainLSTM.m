@@ -63,6 +63,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'f_bias', 0, @isnumeric); % bias added to the forget gate
 
   %% system options
+  addOptional(p,'embCPU', 0, @isnumeric); % 1: put W_emb on CPU even if GPUs exist
   addOptional(p,'onlyCPU', 0, @isnumeric); % 1: avoid using GPUs
   addOptional(p,'gpuDevice', 1, @isnumeric); % choose the gpuDevice to use. 
 
@@ -345,7 +346,11 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       for l=1:params.numLayers
         model.W_tgt{l} = model.W_tgt{l} - scaleLr*grad.W_tgt{l};
       end
-      model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - scaleLr*grad.W_emb;
+      if params.embCPU && params.isGPU
+        model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - gather(scaleLr)*grad.W_emb;
+      else
+        model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - scaleLr*grad.W_emb;
+      end
       
       %% log info
       totalWords = totalWords + trainData.numWords;
@@ -515,7 +520,12 @@ function [model, params] = initLSTM(params)
   end
  
   % W_emb
-  model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize], params.isGPU, params.dataType);
+  if params.embCPU == 1
+    fprintf(2, '# W_emb is explicitly put on CPU\n');
+    model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize], 0, 'double');
+  else
+    model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize], params.isGPU, params.dataType);
+  end
   modelSize = modelSize + numel(model.W_emb);
   % set parameters correspond to zero words
   if params.isBi
