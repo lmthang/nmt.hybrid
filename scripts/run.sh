@@ -55,5 +55,6 @@ echo "# Script dir = $DIR"
 echo "cd $DIR/../code"
 cd $DIR/../code
 
-$MATLAB -nodesktop -nodisplay -nosplash -r "$matlabCommand ; exit()"  # 
+echo "matlab -nodesktop -nodisplay -nosplash -r \"$matlabCommand ; exit()\""
+matlab -nodesktop -nodisplay -nosplash -r "$matlabCommand ; exit()"
 
