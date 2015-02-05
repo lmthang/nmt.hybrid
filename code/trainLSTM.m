@@ -265,6 +265,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   fprintf(2, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
   fprintf(params.logId, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
   isRun = 1;
+  lastNanIter = -1;
+  nanCount = 0;
   while(isRun)
     assert(numTrainSents>0);
     numBatches = floor((numTrainSents-1)/params.batchSize) + 1;
@@ -288,16 +290,33 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       end
       tgtBatchSents = tgtTrainSents(startId:endId);
       [trainData.input, trainData.inputMask, trainData.tgtOutput, trainData.srcMaxLen, trainData.tgtMaxLen, trainData.numWords, trainData.srcLens] = prepareData(srcBatchSents, tgtBatchSents, params);
-      % core part
-      [cost, grad] = lstmCostGrad(model, trainData, params, 0);
-      
       %vocab = [tgtVocab srcVocab]
       %printSent(trainData.input(1, :), vocab, '  input:');
+     
+      %%%%%%%%%%%%%%%
+      %% core part %%
+      %%%%%%%%%%%%%%%
+      [cost, grad] = lstmCostGrad(model, trainData, params, 0);
+
+      %% handle nan/inf
       if isnan(cost) || isinf(cost)
-        fprintf(2, 'epoch=%d, iter=%d, nan/inf cost=%g\n', params.epoch, params.iter, cost);
-        fprintf(params.logId, 'epoch=%d, iter=%d, nan/inf cost=%g\n', params.epoch, params.iter, cost);
-        isRun = 0;
-        break;
+        modelStr = wInfo(model);
+        gradStr = wInfo(grad);
+        fprintf(2, 'epoch=%d, iter=%d, nan/inf cost=%g, gradStr=%s, modelStr=%s\n', params.epoch, params.iter, cost, gradStr, modelStr);
+        fprintf(params.logId, 'epoch=%d, iter=%d, nan/inf cost=%g, gradStr=%s, modelStr=%s\n', params.epoch, params.iter, cost, gradStr, modelStr);
+        if lastNanIter == (params.iter-1) % consecutive nan
+          nanCount = nanCount + 1;
+        else
+          nanCount = 1;
+        end
+        lastNanIter = params.iter;
+
+        if nanCount==10 % enough patience, stop!
+          isRun = 0;
+          break;
+        else
+          continue;
+        end
       end
       
       %% grad clipping
