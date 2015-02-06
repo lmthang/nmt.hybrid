@@ -45,9 +45,12 @@ run.sh  Train LSTM models
   batchSize   Number of sentences per minibatch, larger gives faster training time but worse results
   numEpoches    Number of training epochs
   logFreq     Compute validation perplexities after [logFreq] dots printed
-
+  otherOptions    Other options to trainLSTM
 The script run.sh will call the main LSTM training code at code/trainLSTM.m
 See the trainLSTM.m code for more options, e.g., training multiple layers.
+
+For otherOptions, you can put things like
+'embCPU',1: to reduce memory footprint by putting embedding matrix on the CPU and only load the needed part onto GPU.
 
 /*********************/
 /** Sample commands **/

@@ -38,6 +38,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'logFreq', 10, @isnumeric); % how frequent (number of batches) we want to log stuffs
   addOptional(p,'isBi', 1, @isnumeric); % isBi=0: mono model, isBi=1: bi (encoder-decoder) model.
   addOptional(p,'isClip', 0, @isnumeric); % isClip=1: clip forward 50, clip backward 1000.
+  addOptional(p,'isReverse', 0, @isnumeric); % isReverse=1: src data = $prefix.reversed.$srcLang (instead of $prefix.$srcLang)
   addOptional(p,'isResume', 1, @isnumeric); % isResume=1: check if a model file exists, continue training from there.
   addOptional(p,'dataType', 'single', @ischar); % Note: use double precision for grad check
 
@@ -50,11 +51,19 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
 
   %% research options
   addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
-  addOptional(p,'attnOpt', 0, @isnumeric); % attnOpt=0: no attention, 1: bilingual embedding attention
+  % attnOpt=0: no attention.
+  %         1: bilingual embedding attention.
+  %         2: same as Bengio. NOT IMPLEMENTED.
+  addOptional(p,'attnOpt', 0, @isnumeric); 
+  % attnFunc=0: no attention.
+  %         1: a_t,i = f(tgt_h_t, src_h_i) = tanh(tgt_h_t' * W_a * src_h_i)
+  %         2: simialr to Bengio a_t,i = f(tgt_h_t, src_h_i) = v_a'tanh(W_a_tgt*tgt_h_t + W_a_src*src_h_i). NOT IMPLEMENTED.
+  addOptional(p,'attnFunc', 0, @isnumeric); 
   addOptional(p,'globalOpt', 0, @isnumeric); % globalOpt=0: no global model, 1: avg global model, 2: feedforward global model.
   addOptional(p,'f_bias', 0, @isnumeric); % bias added to the forget gate
 
   %% system options
+  addOptional(p,'embCPU', 0, @isnumeric); % 1: put W_emb on CPU even if GPUs exist
   addOptional(p,'onlyCPU', 0, @isnumeric); % 1: avoid using GPUs
   addOptional(p,'gpuDevice', 1, @isnumeric); % choose the gpuDevice to use. 
 
@@ -77,6 +86,10 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.nonlinear_f = @tanh;
   params.nonlinear_f_prime = @tanhPrime;
  
+  % params assertions
+  assert(params.attnOpt==0 || params.attnFunc>0);
+  assert(params.attnFunc==0 || params.attnOpt>0);
+  
   % rand seed
   if params.isGradCheck || params.isProfile || params.seed
     s = RandStream('mt19937ar','Seed',params.seed);
@@ -191,6 +204,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     params.lr = params.learningRate;
     params.epoch = 1;
     params.bestCostValid = 1e5;
+    params.testPerplexity = 1e5;
+    params.curTestPerplexity = 1e5;
     startIter = 0;
     params.iter = 0;  % number of batches we have processed
     params.epochBatchCount = 0;
@@ -216,7 +231,11 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   % train
   tgtTrainFile = sprintf('%s.%s', params.trainPrefix, params.tgtLang);
   if params.isBi
-    srcTrainFile = sprintf('%s.%s', params.trainPrefix, params.srcLang);
+    if params.isReverse
+      srcTrainFile = sprintf('%s.reversed.%s', params.trainPrefix, params.srcLang);
+    else
+      srcTrainFile = sprintf('%s.%s', params.trainPrefix, params.srcLang);
+    end
     fprintf(2, '# Load train data srcFile "%s" and tgtFile "%s"\n', srcTrainFile, tgtTrainFile);
     srcID = fopen(srcTrainFile, 'r');
     [srcTrainSents] = loadBatchData(srcID, params.baseIndex, params.chunkSize, params.srcEos);
@@ -230,10 +249,12 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   printSent(tgtTrainSents{1}, tgtVocab, '  tgt:');
   printSent(tgtTrainSents{end}, tgtVocab, '  tgt end:');
 
-  %% Training
+  %%%%%%%%%%%%%%
+  %% Training %%
+  %%%%%%%%%%%%%%
   totalCost = 0; totalWords = 0;
   params.evalFreq = params.logFreq*10;
-  params.saveFreq = params.evalFreq;
+  %params.saveFreq = params.evalFreq;
 
   % profile
   if params.isProfile
@@ -244,6 +265,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   fprintf(2, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
   fprintf(params.logId, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
   isRun = 1;
+  lastNanIter = -1;
+  nanCount = 0;
   while(isRun)
     assert(numTrainSents>0);
     numBatches = floor((numTrainSents-1)/params.batchSize) + 1;
@@ -267,16 +290,33 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       end
       tgtBatchSents = tgtTrainSents(startId:endId);
       [trainData.input, trainData.inputMask, trainData.tgtOutput, trainData.srcMaxLen, trainData.tgtMaxLen, trainData.numWords, trainData.srcLens] = prepareData(srcBatchSents, tgtBatchSents, params);
-      % core part
-      [cost, grad] = lstmCostGrad(model, trainData, params, 0);
-      
       %vocab = [tgtVocab srcVocab]
       %printSent(trainData.input(1, :), vocab, '  input:');
+     
+      %%%%%%%%%%%%%%%
+      %% core part %%
+      %%%%%%%%%%%%%%%
+      [cost, grad] = lstmCostGrad(model, trainData, params, 0);
+
+      %% handle nan/inf
       if isnan(cost) || isinf(cost)
-        fprintf(2, 'epoch=%d, iter=%d, nan/inf cost=%g\n', params.epoch, params.iter, cost);
-        fprintf(params.logId, 'epoch=%d, iter=%d, nan/inf cost=%g\n', params.epoch, params.iter, cost);
-        isRun = 0;
-        break;
+        modelStr = wInfo(model);
+        gradStr = wInfo(grad);
+        fprintf(2, 'epoch=%d, iter=%d, nan/inf cost=%g, gradStr=%s, modelStr=%s\n', params.epoch, params.iter, cost, gradStr, modelStr);
+        fprintf(params.logId, 'epoch=%d, iter=%d, nan/inf cost=%g, gradStr=%s, modelStr=%s\n', params.epoch, params.iter, cost, gradStr, modelStr);
+        if lastNanIter == (params.iter-1) % consecutive nan
+          nanCount = nanCount + 1;
+        else
+          nanCount = 1;
+        end
+        lastNanIter = params.iter;
+
+        if nanCount==10 % enough patience, stop!
+          isRun = 0;
+          break;
+        else
+          continue;
+        end
       end
       
       %% grad clipping
@@ -295,8 +335,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         scale = scale*params.maxGradNorm/gradNorm;
       end
       
-      scaleLr = params.lr*scale;
       %% update parameters
+      scaleLr = params.lr*scale;
       model.W_soft = model.W_soft - scaleLr*grad.W_soft;
       if params.isBi
         for l=1:params.numLayers
@@ -306,7 +346,11 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       for l=1:params.numLayers
         model.W_tgt{l} = model.W_tgt{l} - scaleLr*grad.W_tgt{l};
       end
-      model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - scaleLr*grad.W_emb;
+      if params.embCPU && params.isGPU
+        model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - gather(scaleLr)*grad.W_emb;
+      else
+        model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - scaleLr*grad.W_emb;
+      end
       
       %% log info
       totalWords = totalWords + trainData.numWords;
@@ -316,9 +360,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         timeElapsed = etime(endTime, startTime);
         params.costTrain = totalCost/totalWords;
         params.speed = totalWords*0.001/timeElapsed;
-        modelStr = wInfo(model);
-        fprintf(2, '%d, %d, %.2fK, %g, %.2f, gN=%.2f, %s, s=%d, t=%d, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, modelStr, trainData.srcMaxLen, trainData.tgtMaxLen, datestr(now));
-        fprintf(params.logId, '%d, %d, %.2fK, %g, %.2f, gN=%.2f, %s, s=%d, t=%d, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, modelStr, trainData.srcMaxLen, trainData.tgtMaxLen, datestr(now));
+        fprintf(2, '%d, %d, %.2fK, %g, %.2f, gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, datestr(now));
+        fprintf(params.logId, '%d, %d, %.2fK, %g, %.2f, gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, datestr(now));
         
         % reset
         totalWords = 0;
@@ -328,6 +371,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
 
       %% eval
       if mod(params.iter, params.evalFreq) == 0    
+        % profile
         if params.isProfile
           if ismac
             profile viewer;
@@ -337,15 +381,15 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
           end
           return;
         end
-       
+        
+        % eval
         [params] = evalValidTest(model, validData, testData, params);
-      end
 
-      %% save
-      if mod(params.iter, params.saveFreq) == 0    
+        % save
         fprintf(2, '  save model cur test perplexity %.2f to %s\n', params.curTestPerplexity, params.modelRecentFile);
         fprintf(params.logId, '  save model cur test perplexity %.2f to %s\n', params.curTestPerplexity, params.modelRecentFile);
         save(params.modelRecentFile, 'model', 'params');
+        startTime = clock;
       end
 
       % finetuning
@@ -354,7 +398,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         fprintf(params.logId, '# Finetuning %f -> %f\n', params.lr, params.lr*params.finetuneRate);
         params.lr = params.lr*params.finetuneRate;
       end
-     end % end for batchId
+    end % end for batchId
 
     if params.epoch==1
       params.epochBatchCount = params.epochBatchCount + numBatches;
@@ -407,16 +451,19 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
 end
 
 function [params] = evalValidTest(model, validData, testData, params)
+  startTime = clock;
   [costValid] = evalCost(model, validData, params); % inputValid, inputValidMask, tgtValidOutput, tgtValidMask, srcValidMaxLen, tgtValidMaxLen, params);
   [costTest] = evalCost(model, testData, params); %inputTest, inputTestMask, tgtTestOutput, tgtTestMask, srcTestMaxLen, tgtTestMaxLen, params);
   
   costValid = costValid/validData.numWords;
   costTest = costTest/testData.numWords;
-  fprintf(2, '# eval %.2f, %d, %d, %.2fK, %.2f, train=%.4f, valid=%.4f, test=%.4f, %.2fs, %s\n', exp(costTest), params.epoch, params.iter, params.speed, params.lr, params.costTrain, costValid, costTest, datestr(now));
-  fprintf(params.logId, '# eval %.2f, %d, %d, %.2fK, %.2f, train=%.4f, valid=%.4f, test=%.4f, %.2fs, %s\n', exp(costTest), params.epoch, params.iter, params.speed, params.lr, params.costTrain, costValid, costTest, datestr(now));
+  modelStr = wInfo(model);
+  endTime = clock;
+  timeElapsed = etime(endTime, startTime);
+  fprintf(2, '# eval %.2f, %d, %d, %.2fK, %.2f, train=%.4f, valid=%.4f, test=%.4f, %s, time=%.2fs\n', exp(costTest), params.epoch, params.iter, params.speed, params.lr, params.costTrain, costValid, costTest, modelStr, timeElapsed);
+  fprintf(params.logId, '# eval %.2f, %d, %d, %.2fK, %.2f, train=%.4f, valid=%.4f, test=%.4f, %s, time=%.2fs\n', exp(costTest), params.epoch, params.iter, params.speed, params.lr, params.costTrain, costValid, costTest, modelStr, timeElapsed);
     
   params.curTestPerplexity = exp(costTest);
-  
   if costValid < params.bestCostValid
     params.bestCostValid = costValid;
     params.costTest = costTest;
@@ -471,17 +518,35 @@ function [model, params] = initLSTM(params)
     model.W_tgt{l} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
     modelSize = modelSize + numel(model.W_tgt{l});
   end
-  %model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize], 0, 'double');
-  model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize], params.isGPU, params.dataType);
-  model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.lstmSize], params.isGPU, params.dataType); % softmax params
+ 
+  % W_emb
+  if params.embCPU == 1
+    fprintf(2, '# W_emb is explicitly put on CPU\n');
+    model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize], 0, 'double');
+  else
+    model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize], params.isGPU, params.dataType);
+  end
   modelSize = modelSize + numel(model.W_emb);
-  modelSize = modelSize + numel(model.W_soft);
-  
   % set parameters correspond to zero words
   if params.isBi
     model.W_emb(:, params.tgtVocabSize + params.srcSos) = zeros(params.lstmSize, 1);
   end
   model.W_emb(:, params.tgtEos) = zeros(params.lstmSize, 1);
+  
+  % W_soft
+  model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.lstmSize], params.isGPU, params.dataType);
+  modelSize = modelSize + numel(model.W_soft);
+  
+  % attention mechanism
+  if params.attnFunc==1 % tanh(tgt_h_t' * W_a * src_h_i)
+    model.W_a = randomMatrix(params.initRange, [params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
+    modelSize = modelSize + numel(model.W_a);
+  elseif params.attnFunc==2 % v_a'tanh(W_a_tgt*tgt_h_t + W_a*src_h_i)
+    model.W_a = randomMatrix(params.initRange, [params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
+    model.W_a_tgt = randomMatrix(params.initRange, [params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
+    model.v_a = randomMatrix(params.initRange, [params.lstmSize, 1], params.isGPU, params.dataType);
+    modelSize = modelSize + numel(model.W_a) + numel(model.W_a_tgt) + numel(model.v_a);
+  end
   
   fprintf(2, '# Model size = %d\n', modelSize);
   params.modelSize = modelSize;
@@ -491,7 +556,11 @@ end
 function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab)
   % src
   if params.isBi
-    srcFile = sprintf('%s.%s', prefix, params.srcLang);
+    if params.isReverse
+      srcFile = sprintf('%s.reversed.%s', prefix, params.srcLang);
+    else
+      srcFile = sprintf('%s.%s', prefix, params.srcLang);
+    end
     [srcSents] = loadMonoData(srcFile, params.srcEos, -1, params.baseIndex, srcVocab, 'src');
   else
     srcSents = {};
