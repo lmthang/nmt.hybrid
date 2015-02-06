@@ -26,7 +26,7 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
     input_embs = model.W_emb(:, input);
     input_embs = gpuArray(input_embs); % load input embeddings onto GPUs
   end
-  [grad, zero_state, totalCost, emb] = initGrad(params, curBatchSize, numInputWords);
+  [grad, zero_state, totalCost, emb] = initGrad(model, params, curBatchSize, numInputWords);
 
   
   % global opt
@@ -105,7 +105,14 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
         end
         
         % softmax
-        [probs, scores, norms] = softmax(model.W_soft, lstm{ll, t}.h_t, timeInfo{t}.mask);
+        if params.softmaxDim>0
+          % softmax_h = f(W_h * h_t)
+          linear_softmax_h = model.W_h*lstm{ll, t}.h_t;
+          softmax_h = params.nonlinear_f(linear_softmax_h);
+        else
+          softmax_h = lstm{ll, t}.h_t;
+        end
+        [probs, scores, norms] = softmax(model.W_soft, softmax_h, timeInfo{t}.mask);
         if params.assert
           if params.isGPU
             assert(gather(sum(sum(abs(scores(:, timeInfo{t}.maskedIds)))))==0);
@@ -120,12 +127,32 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
         totalCost = totalCost - (sum(scores(scoreIndices)) - sum(log(norms).*timeInfo{t}.mask));
 
         if isCostOnly==0 % compute grad
-          % grad.W_soft
           probs(scoreIndices) = probs(scoreIndices) - 1; % minus one at predicted words
-          grad.W_soft = grad.W_soft + probs*lstm{ll, t}.h_t';
+          
+          
+          if params.softmaxDim>0
+            % grad.W_soft
+            grad.W_soft = grad.W_soft + probs*softmax_h';
+            grad_softmax_h = model.W_soft'* probs;
+            
+            % softmax_h = f(W_h * h_t)
+            % f'(linear_softmax_h).*grad_softmax_h
+            tmp_result = params.nonlinear_f_prime(linear_softmax_h).*grad_softmax_h;
+            
+            % grad.W_h
+            grad.W_h = grad.W_h + tmp_result*lstm{ll, t}.h_t';
+            
+            % grad_ht
+            lstm{ll, t}.grad_ht = model.W_h'*tmp_result;
+          else
+            % grad.W_soft
+            grad.W_soft = grad.W_soft + probs*lstm{ll, t}.h_t';
+            
+            % grad_ht
+            lstm{ll, t}.grad_ht = model.W_soft'* probs;
+          end
 
-          % grad_ht
-          lstm{ll, t}.grad_ht = model.W_soft'* probs;
+          
         end
       end
     end
@@ -222,55 +249,50 @@ function [alignWeights] = computeAlignWeights(h_t, model, srcAlignStates, params
     assert(size(alignWeights, 2)==(srcMaxLen-1));
   end
 end
-function [grad, zero_state, totalCost, emb] = initGrad(params, curBatchSize, numInputWords)
-  if params.isBi
-    grad.W_src = cell(params.numLayers, 1);
-  end
-  grad.W_tgt = cell(params.numLayers, 1);
- 
-  if params.isGPU % declare intermediate variables on GPU
-    zero_state = zeros([params.lstmSize, curBatchSize], params.dataType, 'gpuArray');
-   
-    totalCost = zeros(1, 1, params.dataType, 'gpuArray');
-
-    % grad
-    grad.W_soft = zeros(params.outVocabSize, params.lstmSize, params.dataType, 'gpuArray');
-    
-    % W_src
-    if params.isBi
-      for ll=1:params.numLayers
-        grad.W_src{ll} = zeros(4*params.lstmSize, 2*params.lstmSize, params.dataType, 'gpuArray');
-      end
-    end
-    
-    % W_tgt
-    for ll=1:params.numLayers
-      grad.W_tgt{ll} = zeros(4*params.lstmSize, 2*params.lstmSize, params.dataType, 'gpuArray');
-    end
-    
-    emb = zeros(params.lstmSize, numInputWords, params.dataType, 'gpuArray');
-  else
-    zero_state = zeros(params.lstmSize, curBatchSize);
-    totalCost = 0.0;
-    
-    % grad 
-    grad.W_soft = zeros(params.outVocabSize, params.lstmSize);
-    
-    % W_src
-    if params.isBi
-      for ll=1:params.numLayers
-        grad.W_src{ll} = zeros(4*params.lstmSize, 2*params.lstmSize);
-      end
-    end
-    
-    % W_tgt
-    for ll=1:params.numLayers
-      grad.W_tgt{ll} = zeros(4*params.lstmSize, 2*params.lstmSize);
-    end
+function [grad, zero_state, totalCost, emb] = initGrad(model, params, curBatchSize, numInputWords)
+  zero_state = zeroMatrix([params.lstmSize, curBatchSize], params.isGPU, params.dataType);
+  totalCost = zeroMatrix([1, 1], params.isGPU, params.dataType);
   
-    emb = zeros(params.lstmSize, numInputWords);
+  %% grad
+  for ii=1:length(params.varsNoEmb)
+    field = params.varsNoEmb{ii};
+    if iscell(model.(field))
+      for jj=1:length(model.(field)) % cell, like W_src, W_tgt
+        grad.(field){jj} = zeroMatrix(size(model.(field){jj}), params.isGPU, params.dataType);
+      end
+    else
+      grad.(field) = zeroMatrix(size(model.(field)), params.isGPU, params.dataType);
+    end
   end
+
+  % emb
+  emb = zeroMatrix([params.lstmSize, numInputWords], params.isGPU, params.dataType);
 end
+
+%   if params.isBi
+%     grad.W_src = cell(params.numLayers, 1);
+%   end
+%   grad.W_tgt = cell(params.numLayers, 1);
+%  
+%   % W_soft
+%   if params.softmaxDim>0
+%     grad.W_h = zeroMatrix([params.softmaxDim, params.lstmSize], params.isGPU, params.dataType);
+%     grad.W_soft = zeroMatrix([params.outVocabSize, params.softmaxDim], params.isGPU, params.dataType);
+%   else
+%     grad.W_soft = zeroMatrix([params.outVocabSize, params.lstmSize], params.isGPU, params.dataType);
+%   end
+%   
+%   % W_src
+%   if params.isBi
+%     for ll=1:params.numLayers
+%       grad.W_src{ll} = zeroMatrix([4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
+%     end
+%   end
+%   
+%   % W_tgt
+%   for ll=1:params.numLayers
+%     grad.W_tgt{ll} = zeroMatrix([4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
+%   end
 
   %if params.isGPU
   %  [grad.indices, ~, J] = unique(indices);
