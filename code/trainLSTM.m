@@ -162,56 +162,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   %% Init / Load Model Parameters
   params.modelFile = [outDir '/model.mat']; % store those with the best valid perplexity
   params.modelRecentFile = [outDir '/modelRecent.mat'];
-  if params.isGradCheck==0 && params.isResume && exist(params.modelRecentFile, 'file') % a model exists, resume training
-    fprintf(2, '# Model file %s exists. Try loading ...\n', params.modelRecentFile);
-    fprintf(params.logId, '# Model file %s exists. Try loading ...\n', params.modelRecentFile);
-    savedData = load(params.modelRecentFile);
-    
-    % params
-    oldParams = savedData.params;
-    params.inVocabSize = oldParams.inVocabSize;
-    params.outVocabSize = oldParams.outVocabSize;
-    params.lr = oldParams.lr;
-    params.epoch = oldParams.epoch;
-    params.epochBatchCount = oldParams.epochBatchCount;
-    params.bestCostValid = oldParams.bestCostValid;
-    params.testPerplexity = oldParams.testPerplexity;
-    if isfield(oldParams, 'finetuneCount')
-      params.finetuneCount = oldParams.finetuneCount;
-    else
-      if params.epoch > params.finetuneEpoch && params.epochBatchCount>0 % try to determine finetuneCount, we should rarely need this
-        params.finetuneCount = floor(params.epochFraction*params.epochBatchCount);
-      else
-        params.finetuneCount = 0;
-      end
-    end
-
-    startIter = oldParams.iter;
-    if params.epoch > 1
-      params.iter = (params.epoch-1)*params.epochBatchCount;
-    else
-      params.iter = 0;  % number of batches we have processed
-    end
-    
-    % model
-    model = savedData.model;
-    clear savedData;
-    
-    fprintf(2, '  loaded! lr=%g, epoch=%d, iter=%d, bestCostValid=%g, testPerplexity=%g\n', params.lr, params.epoch, startIter, params.bestCostValid, params.testPerplexity);
-    fprintf(params.logId, '  loaded! lr=%g, epoch=%d, iter=%d, bestCostValid=%g, testPerplexity=%g\n', params.lr, params.epoch, startIter, params.bestCostValid, params.testPerplexity);
-  else % start from scratch
-    [model, params] = initLSTM(params);
-    params.lr = params.learningRate;
-    params.epoch = 1;
-    params.bestCostValid = 1e5;
-    params.testPerplexity = 1e5;
-    params.curTestPerplexity = 1e5;
-    startIter = 0;
-    params.iter = 0;  % number of batches we have processed
-    params.epochBatchCount = 0;
-    params.finetuneCount = 0;
-  end
-  
+  [model, params] = initLoadModel(params);
   printParams(1, params);
   printParams(params.logId, params);
 
@@ -223,7 +174,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     return;
   end
   
-  %% Load data
+  %%%%%%%%%%%%%%%
+  %% Load data %%
+  %%%%%%%%%%%%%%%
   % valid & test
   [validData] = loadPrepareData(params, params.validPrefix, srcVocab, tgtVocab);
   [testData] = loadPrepareData(params, params.testPrefix, srcVocab, tgtVocab);
@@ -273,7 +226,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     for batchId = 1 : numBatches
       params.iter = params.iter + 1;
       params.batchId = batchId;
-      if params.iter <= startIter
+      if params.iter <= params.startIter
         continue;
       end
       startId = (batchId-1)*params.batchSize+1;
@@ -448,6 +401,58 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   end % end for while(1)
   
   fclose(params.logId);
+end
+
+function [model, params] = initLoadModel(params)
+  if params.isGradCheck==0 && params.isResume && exist(params.modelRecentFile, 'file') % a model exists, resume training
+    fprintf(2, '# Model file %s exists. Try loading ...\n', params.modelRecentFile);
+    fprintf(params.logId, '# Model file %s exists. Try loading ...\n', params.modelRecentFile);
+    savedData = load(params.modelRecentFile);
+    
+    % params
+    oldParams = savedData.params;
+    params.inVocabSize = oldParams.inVocabSize;
+    params.outVocabSize = oldParams.outVocabSize;
+    params.lr = oldParams.lr;
+    params.epoch = oldParams.epoch;
+    params.epochBatchCount = oldParams.epochBatchCount;
+    params.bestCostValid = oldParams.bestCostValid;
+    params.testPerplexity = oldParams.testPerplexity;
+    if isfield(oldParams, 'finetuneCount')
+      params.finetuneCount = oldParams.finetuneCount;
+    else
+      if params.epoch > params.finetuneEpoch && params.epochBatchCount>0 % try to determine finetuneCount, we should rarely need this
+        params.finetuneCount = floor(params.epochFraction*params.epochBatchCount);
+      else
+        params.finetuneCount = 0;
+      end
+    end
+
+    params.startIter = oldParams.iter;
+    if params.epoch > 1
+      params.iter = (params.epoch-1)*params.epochBatchCount;
+    else
+      params.iter = 0;  % number of batches we have processed
+    end
+    
+    % model
+    model = savedData.model;
+    clear savedData;
+    
+    fprintf(2, '  loaded! lr=%g, epoch=%d, iter=%d, bestCostValid=%g, testPerplexity=%g\n', params.lr, params.epoch, params.startIter, params.bestCostValid, params.testPerplexity);
+    fprintf(params.logId, '  loaded! lr=%g, epoch=%d, iter=%d, bestCostValid=%g, testPerplexity=%g\n', params.lr, params.epoch, params.startIter, params.bestCostValid, params.testPerplexity);
+  else % start from scratch
+    [model, params] = initLSTM(params);
+    params.lr = params.learningRate;
+    params.epoch = 1;
+    params.bestCostValid = 1e5;
+    params.testPerplexity = 1e5;
+    params.curTestPerplexity = 1e5;
+    params.startIter = 0;
+    params.iter = 0;  % number of batches we have processed
+    params.epochBatchCount = 0;
+    params.finetuneCount = 0;
+  end
 end
 
 function [params] = evalValidTest(model, validData, testData, params)
