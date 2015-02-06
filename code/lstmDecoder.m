@@ -1,4 +1,4 @@
-function [totalCost, grad] = lstmDecoder(model, input, inputMask, srcMaxLen, params)
+function [candidates, scores] = lstmDecoder(model, input, inputMask, srcMaxLen, params)
 %%%
 %
 % Decode from an LSTM model
@@ -55,41 +55,10 @@ function [totalCost, grad] = lstmDecoder(model, input, inputMask, srcMaxLen, par
         c_t_1(:, maskedIds) = 0;
       else % subsequent layer, use the previous-layer hidden state
         x_t = lstm{ll-1}.h_t;
-
-%         % assert on masking assumptions
-%         if params.assert
-%           assert(gather(sum(sum(x_t(:, timeInfo{t}.maskedIds)))) == 0);
-%           assert(gather(sum(sum(h_t_1(:, timeInfo{t}.maskedIds)))) == 0);
-%           assert(gather(sum(sum(c_t_1(:, timeInfo{t}.maskedIds)))) == 0);
-%         end
       end
      
       %% lstm cell
       lstm{ll} = lstmUnit(W, x_t, h_t_1, c_t_1, params);
-
-%       %% prediction at the top layer
-%       if ll==params.numLayers && (t>=srcMaxLen) 
-%         % softmax
-%         [probs, scores, norms] = softmax(model.W_soft, lstm{ll, t}.h_t, timeInfo{t}.mask);
-%         if params.assert
-%           value = sum(sum(abs(scores(:, timeInfo{t}.maskedIds))));
-%           assert(gather(value)==0);
-%         end
-% 
-%         % cost
-%         tgtPredictedWords = tgtOutput(timeInfo{t}.unmaskedIds, t-srcMaxLen+1)'; % predict tgtOutput[t-srcMaxLen+1]
-%         scoreIndices = sub2ind([params.outVocabSize, curBatchSize], tgtPredictedWords, timeInfo{t}.unmaskedIds); % 1 * length(tgtPredictedWords)
-%         totalCost = totalCost - (sum(scores(scoreIndices)) - sum(log(norms).*timeInfo{t}.mask));
-% 
-%         if isCostOnly==0 % compute grad
-%           % grad.W_soft
-%           probs(scoreIndices) = probs(scoreIndices) - 1; % minus one at predicted words
-%           grad.W_soft = grad.W_soft + probs*lstm{ll, t}.h_t';
-% 
-%           % grad_ht
-%           lstm{ll, t}.grad_ht = model.W_soft'* probs;
-%         end
-%       end
     end
   end
   
