@@ -40,6 +40,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'isClip', 0, @isnumeric); % isClip=1: clip forward 50, clip backward 1000.
   addOptional(p,'isReverse', 0, @isnumeric); % isReverse=1: src data = $prefix.reversed.$srcLang (instead of $prefix.$srcLang)
   addOptional(p,'isResume', 1, @isnumeric); % isResume=1: check if a model file exists, continue training from there.
+  addOptional(p,'softmaxDim', 0, @isnumeric); % softmaxDim>0 convert hidden state into an intermediate representation of size softmaxDim before going through the softmax
   addOptional(p,'dataType', 'single', @ischar); % Note: use double precision for grad check
 
   %% debugging options
@@ -51,6 +52,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
 
   %% research options
   addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
+  addOptional(p,'gradNormOpt', 0, @isnumeric); % gradOpt=0: basic, 1: add W_emb
   % attnOpt=0: no attention.
   %         1: bilingual embedding attention.
   %         2: same as Bengio. NOT IMPLEMENTED.
@@ -272,33 +274,26 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         end
       end
       
-      %% grad clipping
-      gradNorm = double(sum(sum(grad.W_soft.^2))); % sum(sum(grad.W_emb.^2)) + 
-      if params.isBi
-        for l=1:params.numLayers
-          gradNorm = gradNorm + double(sum(sum(grad.W_src{l}.^2)));
-        end
-      end
-      for l=1:params.numLayers
-        gradNorm = gradNorm + double(sum(sum(grad.W_tgt{l}.^2)));
-      end
-      gradNorm = sqrt(gradNorm) / params.batchSize;
+      %% grad clipping      
+      [gradNorm, indNorms] = computeGradNorm(grad, params.batchSize, params.varsNoEmb); % historical reason: we exclude W_emb
       scale = 1.0/params.batchSize; % grad is divided by batchSize
       if gradNorm > params.maxGradNorm
         scale = scale*params.maxGradNorm/gradNorm;
       end
+      scaleLr = params.lr*scale;
       
       %% update parameters
-      scaleLr = params.lr*scale;
-      model.W_soft = model.W_soft - scaleLr*grad.W_soft;
-      if params.isBi
-        for l=1:params.numLayers
-          model.W_src{l} = model.W_src{l} - scaleLr*grad.W_src{l};
+      for ii=1:length(params.varsNoEmb)
+        field = params.varsNoEmb{ii};
+        if iscell(model.(field))
+          for jj=1:length(model.(field)) % cell, like W_src, W_tgt
+            model.(field){jj} = model.(field){jj} - scaleLr*grad.(field){jj};
+          end
+        else
+          model.(field) = model.(field) - scaleLr*grad.(field);
         end
       end
-      for l=1:params.numLayers
-        model.W_tgt{l} = model.W_tgt{l} - scaleLr*grad.W_tgt{l};
-      end
+      % update W_emb separately
       if params.embCPU && params.isGPU
         model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - gather(scaleLr)*grad.W_emb;
       else
@@ -313,8 +308,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         timeElapsed = etime(endTime, startTime);
         params.costTrain = totalCost/totalWords;
         params.speed = totalWords*0.001/timeElapsed;
-        fprintf(2, '%d, %d, %.2fK, %g, %.2f, gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, datestr(now));
-        fprintf(params.logId, '%d, %d, %.2fK, %g, %.2f, gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, datestr(now));
+        fprintf(2, '%d, %d, %.2fK, %g, %.2f, gN=%.2f norms%s, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, wInfo(indNorms, 1), datestr(now));
+        fprintf(params.logId, '%d, %d, %.2fK, %g, %.2f, gN=%.2f norms%s, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, wInfo(indNorms, 1), datestr(now));
         
         % reset
         totalWords = 0;
@@ -503,25 +498,25 @@ end
 
 %% Init model parameters
 function [model, params] = initLSTM(params)
-  fprintf(2, '# Init LSTM parameters using dataType=%s, initRange=%f\n', params.dataType, params.initRange);
+  fprintf(2, '# Init LSTM parameters using dataType=%s, initRange=%g\n', params.dataType, params.initRange);
+  
   % stack vocab:  tgt-vocab + src-vocab
-  modelSize = 0;
   if params.isBi
     params.inVocabSize = params.tgtVocabSize + params.srcVocabSize;
-    model.W_src = cell(params.numLayers, 1);
+    model.W_src = cell(params.numLayers, 1);    
+    
     for l=1:params.numLayers
       model.W_src{l} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
-      modelSize = modelSize + numel(model.W_src{l});
     end
   else
     params.inVocabSize = params.tgtVocabSize;
   end
   params.outVocabSize = params.tgtVocabSize;
   
+  % W_tgt
   model.W_tgt = cell(params.numLayers, 1);
   for l=1:params.numLayers
     model.W_tgt{l} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
-    modelSize = modelSize + numel(model.W_tgt{l});
   end
  
   % W_emb
@@ -531,7 +526,6 @@ function [model, params] = initLSTM(params)
   else
     model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize], params.isGPU, params.dataType);
   end
-  modelSize = modelSize + numel(model.W_emb);
   % set parameters correspond to zero words
   if params.isBi
     model.W_emb(:, params.tgtVocabSize + params.srcSos) = zeros(params.lstmSize, 1);
@@ -539,24 +533,35 @@ function [model, params] = initLSTM(params)
   model.W_emb(:, params.tgtEos) = zeros(params.lstmSize, 1);
   
   % W_soft
-  model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.lstmSize], params.isGPU, params.dataType);
-  modelSize = modelSize + numel(model.W_soft);
+  if params.softmaxDim>0
+    model.W_h = randomMatrix(params.initRange, [params.softmaxDim, params.lstmSize], params.isGPU, params.dataType);
+    model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.softmaxDim], params.isGPU, params.dataType);
+  else
+    model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.lstmSize], params.isGPU, params.dataType);
+  end
   
   % attention mechanism
   if params.attnFunc==1 % tanh(tgt_h_t' * W_a * src_h_i)
     model.W_a = randomMatrix(params.initRange, [params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
-    modelSize = modelSize + numel(model.W_a);
   elseif params.attnFunc==2 % v_a'tanh(W_a_tgt*tgt_h_t + W_a*src_h_i)
     model.W_a = randomMatrix(params.initRange, [params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
     model.W_a_tgt = randomMatrix(params.initRange, [params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
     model.v_a = randomMatrix(params.initRange, [params.lstmSize, 1], params.isGPU, params.dataType);
-    modelSize = modelSize + numel(model.W_a) + numel(model.W_a_tgt) + numel(model.v_a);
   end
   
-  fprintf(2, '# Model size = %d\n', modelSize);
-  params.modelSize = modelSize;
+  params.modelSize = modelSizes(model);
+  params.vars = fields(model);
+  
+  % right now, we have been training models in which the gradNorm
+  % computation excludes W_emb, so we'll stick with that for now.
+  params.varsNoEmb = params.vars;
+  for ii=1:length(params.vars)
+    if strcmp(params.vars{ii}, 'W_emb')
+      params.varsNoEmb(ii) = [];
+      break;
+    end
+  end
 end
-
 
 function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab)
   % src
@@ -591,8 +596,35 @@ function [sents, numSents] = loadMonoData(file, eos, numSents, baseIndex, vocab,
 end
 
 
-%% Check gradients %%
+%% Unused code %%
+%       if params.softmaxDim>0
+%         model.W_h = model.W_h - scaleLr*grad.W_h;
+%       end
+%       model.W_soft = model.W_soft - scaleLr*grad.W_soft;
+%       if params.isBi
+%         for l=1:params.numLayers
+%           model.W_src{l} = model.W_src{l} - scaleLr*grad.W_src{l};
+%         end
+%       end
+%       for l=1:params.numLayers
+%         model.W_tgt{l} = model.W_tgt{l} - scaleLr*grad.W_tgt{l};
+%       end
 
+
+%       gradNorm = double(sum(sum(grad.W_soft.^2))); % + sum(sum(grad.W_emb.^2));
+%       if params.softmaxDim>0
+%         gradNorm = gradNorm + double(sum(sum(grad.W_h.^2)));
+%       end
+%       if params.isBi
+%         for l=1:params.numLayers
+%           gradNorm = gradNorm + double(sum(sum(grad.W_src{l}.^2)));
+%         end
+%       end
+%       for l=1:params.numLayers
+%         gradNorm = gradNorm + double(sum(sum(grad.W_tgt{l}.^2)));
+%       end
+%       gradNorm = sqrt(gradNorm) / params.batchSize;
+      
 %% Load parallel sentences %%
 % function [srcSents, tgtSents, srcNumSents] = loadParallelData(srcFile, tgtFile, srcEos, tgtEos, numSents, baseIndex)
 %   [srcSents, srcNumSents] = loadMonoData(srcFile, srcEos, numSents, baseIndex);
