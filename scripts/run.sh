@@ -22,7 +22,6 @@ if [[ $# -lt 16 || $# -gt 17 ]]; then
   exit
 fi
 
-#MATLAB=/afs/cs/software/bin/matlab_r2013b
 trainPrefix=$1
 validPrefix=$2
 testPrefix=$3
@@ -55,6 +54,6 @@ echo "# Script dir = $DIR"
 echo "cd $DIR/../code"
 cd $DIR/../code
 
-echo "matlab -nodesktop -nodisplay -nosplash -r \"$matlabCommand ; exit()\""
-matlab -nodesktop -nodisplay -nosplash -r "$matlabCommand ; exit()"
+echo "$MATLAB -nodesktop -nodisplay -nosplash -r \"$matlabCommand ; exit()\""
+$MATLAB -nodesktop -nodisplay -nosplash -r "$matlabCommand ; exit()"
 

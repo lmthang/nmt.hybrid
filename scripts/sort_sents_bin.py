@@ -37,9 +37,10 @@ def process_command_line():
   parser.add_argument('--src_lang', dest='src_lang', type=str, default='', help='src lang (default=\'\')') 
   parser.add_argument('--tgt_lang', dest='tgt_lang', type=str, default='', help='tgt lang (default=\'\')') 
   parser.add_argument('--batch_size', dest='batch_size', type=int, default=128, help='batch size (default=128)') 
-  parser.add_argument('--max_len', dest='max_len', type=int, default=100, help='sentences with lengths outside of this threshold is put into a separate group (default=100)') 
   parser.add_argument('--num_bins', dest='num_bins', type=int, default=6, help='num_bins: splits sentences of lens [1, maxLen] into (num_bins-1) bins, and the rest of the sentences into the last bin (default=6)')
-  parser.add_argument('--filter', dest='is_filtered', action='store_true', default=False, help='enabling filtering mode, exclude sentence pairs in which one side contains all <unk> tokens or the number of words on one side is more max_len (default: false)') 
+  parser.add_argument('--filter', dest='is_filtered', action='store_true', default=False, help='enabling filtering mode, exclude sentence pairs in which one side contains all <unk> tokens or the number of words on one side is more than max_len or less than min_len (default: false)') 
+  parser.add_argument('--max_len', dest='max_len', type=int, default=100, help='sentences with lengths above this threshold will be discarded (default=100)') 
+  parser.add_argument('--min_len', dest='min_len', type=int, default=1, help='sentences with lengths below this threshold will be discarded (default=1)') 
   parser.add_argument('--unk_str', dest='unk_str', type=str, default='', help='use in conjunction with --filter (default=\'\')') 
   
   args = parser.parse_args()
@@ -52,13 +53,13 @@ def check_dir(out_file):
     sys.stderr.write('! Directory %s doesn\'t exist, creating ...\n' % dir_name)
     os.makedirs(dir_name)
 
-def load_entire_file(in_file, num_bins, max_len, is_filtered, unk_str):
+def load_entire_file(in_file, num_bins, max_len, min_len, is_filtered, unk_str):
   inf = codecs.open(in_file, 'r', 'utf-8')
   sents = []
   filter_flags = []
 
   bin_len = max_len / (num_bins-1) # the first (num_bins-1) will have sentences with lens [1 max_len], the rest goes into the last bin
-  sys.stderr.write('num_bins=%d, max_len=%d, bin_len=%d\n' % (num_bins, max_len, bin_len))
+  sys.stderr.write('num_bins=%d, max_len=%d, min_len=%d, bin_len=%d\n' % (num_bins, max_len, min_len, bin_len))
   bin_lists = [] # bin_lists[i]: list of sentence ids in that bin
   for ii in xrange(num_bins):
     bin_lists.append([])
@@ -73,7 +74,7 @@ def load_entire_file(in_file, num_bins, max_len, is_filtered, unk_str):
     sents.append(line)
     if is_filtered:
       filter_flag = True
-      if sent_len<=max_len: # skip those with len > max_len
+      if sent_len<=max_len and sent_len>=min_len: # skip those with len > max_len or < min_len
         for token in tokens: # skip those with all <unk>
           if token!=unk_str:
             filter_flag = False
@@ -98,7 +99,7 @@ def load_entire_file(in_file, num_bins, max_len, is_filtered, unk_str):
 
   return (sents, bin_lists, bin_len, sent_max_len, filter_flags) 
 
-def print_sent_pair(sents, tgt_sents, align_sents, ouf, id_ouf, tgt_ouf, align_ouf, filter_flags, is_parallel, is_align, is_filtered, max_len, unk_str, index, filter_count):
+def print_sent_pair(sents, tgt_sents, align_sents, ouf, id_ouf, tgt_ouf, align_ouf, filter_flags, is_parallel, is_align, is_filtered, max_len, min_len, unk_str, index, filter_count):
   # check if we want to skip a pair
   filter_flag = False
   if is_filtered and filter_flags[index]:
@@ -107,7 +108,7 @@ def print_sent_pair(sents, tgt_sents, align_sents, ouf, id_ouf, tgt_ouf, align_o
     if is_filtered and not filter_flag:
       filter_flag = True
       tokens = tgt_sents[index].split()
-      if len(tokens)<max_len: # skip those len>max_len
+      if len(tokens)<=max_len and len(tokens)>=min_len: # skip those len>max_len or <min_len
         for token in tokens: # skip those with all <unk>
           if token!=unk_str:
             filter_flag = False
@@ -127,12 +128,12 @@ def print_sent_pair(sents, tgt_sents, align_sents, ouf, id_ouf, tgt_ouf, align_o
   
   return filter_count
 
-def process_files(in_file, src_lang, tgt_lang, out_file, batch_size, num_bins, max_len, is_filtered, unk_str):
+def process_files(in_file, src_lang, tgt_lang, out_file, batch_size, num_bins, max_len, min_len, is_filtered, unk_str):
   """
   Read data from in_file, and output to out_file
   """
 
-  sys.stderr.write('# in_file = %s, src_lang = %s, tgt_lang = %s, out_file = %s, batch_size = %d, num_bins = %d, max_len = %d\n' % (in_file, src_lang, tgt_lang, out_file, batch_size, num_bins, max_len))
+  sys.stderr.write('# in_file = %s, src_lang = %s, tgt_lang = %s, out_file = %s, batch_size = %d, num_bins = %d, max_len = %d, min_len = %d\n' % (in_file, src_lang, tgt_lang, out_file, batch_size, num_bins, max_len, min_len))
   check_dir(out_file)
    
   # IO
@@ -145,7 +146,7 @@ def process_files(in_file, src_lang, tgt_lang, out_file, batch_size, num_bins, m
     is_parallel = True
 
     # src
-    (sents, bin_lists, bin_len, sent_max_len, filter_flags) = load_entire_file(in_file + '.' + src_lang, num_bins, max_len, is_filtered, unk_str)
+    (sents, bin_lists, bin_len, sent_max_len, filter_flags) = load_entire_file(in_file + '.' + src_lang, num_bins, max_len, min_len, is_filtered, unk_str)
     ouf = codecs.open(out_file + '.' + src_lang, 'w', 'utf-8')
 
     # tgt
@@ -169,7 +170,7 @@ def process_files(in_file, src_lang, tgt_lang, out_file, batch_size, num_bins, m
       align_ouf = codecs.open(out_file + '.align', 'w', 'utf-8')
       is_align = True
   else:
-    (sents, bin_lists, bin_len, sent_max_len, filter_flags) = load_entire_file(in_file, num_bins, max_len, is_filtered, unk_str)
+    (sents, bin_lists, bin_len, sent_max_len, filter_flags) = load_entire_file(in_file, num_bins, max_len, min_len, is_filtered, unk_str)
     ouf = codecs.open(out_file, 'w', 'utf-8')
     tgt_ouf = -1
     align_ouf = -1
@@ -194,7 +195,7 @@ def process_files(in_file, src_lang, tgt_lang, out_file, batch_size, num_bins, m
       #ouf.write('# [%d, %d]: num sents %d, num_batchs %d\n' % (start_len, end_len, num_sents, num_batchs))
       for jj in xrange(num_batchs*batch_size):
         index = bin_lists[ii][jj]
-        filter_count = print_sent_pair(sents, tgt_sents, align_sents, ouf, id_ouf, tgt_ouf, align_ouf, filter_flags, is_parallel, is_align, is_filtered, max_len, unk_str, index, filter_count)
+        filter_count = print_sent_pair(sents, tgt_sents, align_sents, ouf, id_ouf, tgt_ouf, align_ouf, filter_flags, is_parallel, is_align, is_filtered, max_len, min_len, unk_str, index, filter_count)
 
       end_points.append(num_batchs*batch_size)
     
@@ -204,7 +205,7 @@ def process_files(in_file, src_lang, tgt_lang, out_file, batch_size, num_bins, m
       #ouf.write('# remained sents = %d\n' % (len(bin_lists[ii])-end_points[ii])) 
       for jj in xrange(end_points[ii], len(bin_lists[ii])):
         index = bin_lists[ii][jj]
-        filter_count = print_sent_pair(sents, tgt_sents, align_sents, ouf, id_ouf, tgt_ouf, align_ouf, filter_flags, is_parallel, is_align, is_filtered, max_len, unk_str, index, filter_count)
+        filter_count = print_sent_pair(sents, tgt_sents, align_sents, ouf, id_ouf, tgt_ouf, align_ouf, filter_flags, is_parallel, is_align, is_filtered, max_len, min_len, unk_str, index, filter_count)
   
   if is_filtered:
     sys.stderr.write('Filtered out %d sentences\n' % filter_count)
@@ -220,4 +221,4 @@ if __name__ == '__main__':
   args = process_command_line()
   if args.is_filtered:
     assert args.unk_str!='', 'for --filter, unk_str needs to be specified\n'
-  process_files(args.in_file, args.src_lang, args.tgt_lang, args.out_file, args.batch_size, args.num_bins, args.max_len, args.is_filtered, args.unk_str)
+  process_files(args.in_file, args.src_lang, args.tgt_lang, args.out_file, args.batch_size, args.num_bins, args.max_len, args.min_len, args.is_filtered, args.unk_str)
