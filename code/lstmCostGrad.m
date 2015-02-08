@@ -80,6 +80,7 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
         timeInfo{t}.mask = inputMask(:, t)'; % curBatchSize * 1
         timeInfo{t}.unmaskedIds = find(timeInfo{t}.mask);
         timeInfo{t}.maskedIds = find(~timeInfo{t}.mask);
+        timeInfo{t}.numWords = length(timeInfo{t}.unmaskedIds);
       else % subsequent layer, use the previous-layer hidden state
         x_t = lstm{ll-1, t}.h_t;
       end
@@ -89,8 +90,28 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
       h_t_1(:, timeInfo{t}.maskedIds) = 0;
       c_t_1(:, timeInfo{t}.maskedIds) = 0;
      
+      
+      %% dropout
+      if params.dropout<1
+        if ~params.isGradCheck
+          if params.isGPU
+            dropoutMask = (rand(size(x_t), 'gpuArray')<params.dropout)/params.dropout;
+          else
+            dropoutMask = (rand(size(x_t))<params.dropout)/params.dropout;
+          end
+        else % for gradient check use the same mask
+          dropoutMask = params.dropoutMask;
+        end
+        x_t = x_t.*dropoutMask;
+      end
+      
       %% lstm cell
       lstm{ll, t} = lstmUnit(W, x_t, h_t_1, c_t_1, params);
+      
+      % store dropout mask
+      if params.dropout<1
+        lstm{ll, t}.dropoutMask = dropoutMask;
+      end
       
       %% attention mechanism: keep track of src hidden states at the top level
       if params.attnOpt==1 && ll==params.numLayers && (t<srcMaxLen)
@@ -99,12 +120,12 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
         
       %% prediction at the top layer
       if ll==params.numLayers && (t>=srcMaxLen)
-        % attention mechanism
+        %% attention mechanism
         if params.attnOpt==1 % compute alignment vector after the current hidden state has been computed
           [alignWeights] = computeAlignWeights(lstm{ll, t}.h_t, model, srcAlignStates, params, curBatchSize, srcMaxLen);
         end
         
-        % softmax
+        %% softmax
         if params.softmaxDim>0
           % softmax_h = f(W_h * h_t)
           linear_softmax_h = model.W_h*lstm{ll, t}.h_t;
@@ -121,7 +142,7 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
           end
         end
 
-        % cost
+        %% cost
         tgtPredictedWords = tgtOutput(timeInfo{t}.unmaskedIds, t-srcMaxLen+1)'; % predict tgtOutput[t-srcMaxLen+1]
         scoreIndices = sub2ind([params.outVocabSize, curBatchSize], tgtPredictedWords, timeInfo{t}.unmaskedIds); % 1 * length(tgtPredictedWords)
         totalCost = totalCost - (sum(scores(scoreIndices)) - sum(log(norms).*timeInfo{t}.mask));
@@ -176,7 +197,8 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
   wordCount = 0;
   for t=T:-1:1 % time
     unmaskedIds = timeInfo{t}.unmaskedIds;
-
+    numWords = timeInfo{t}.numWords;
+    
     for ll=params.numLayers:-1:1 % layer
       %% hidden state grad
       if ll==params.numLayers && (t>=srcMaxLen) % get signals from the softmax layer
@@ -195,14 +217,21 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
         grad.W_src{ll} = grad.W_src{ll} + lstm_grad.W;
       end
 
+      %% dropout
+      if params.dropout<1
+        embGrad = lstm_grad.d_xh(1:params.lstmSize, :).*lstm{ll, t}.dropoutMask;
+        embGrad = embGrad(:, unmaskedIds);  
+      else
+        embGrad = lstm_grad.d_xh(1:params.lstmSize, unmaskedIds);
+      end
+      
       %% input grad
       if ll==1 % collect embedding grad
-        numWords = length(unmaskedIds);
         indices(wordCount+1:wordCount+numWords) = input(unmaskedIds, t);
-        emb(:, wordCount+1:wordCount+numWords) = lstm_grad.d_xh(1:params.lstmSize, unmaskedIds);
+        emb(:, wordCount+1:wordCount+numWords) = embGrad;
         wordCount = wordCount + numWords;
       else % pass down hidden state grad to the below layer
-        dh{ll-1}(:, unmaskedIds) = dh{ll-1}(:, unmaskedIds) + lstm_grad.d_xh(1:params.lstmSize, unmaskedIds);
+        dh{ll-1}(:, unmaskedIds) = dh{ll-1}(:, unmaskedIds) + embGrad;
       end
     end % end for layer
   end % end for time
