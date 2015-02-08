@@ -9,15 +9,16 @@
 %  For the monolingual case, each src sent contains a single simple tgtSos,
 %   hence srcMaxLen = 1
 function [input, inputMask, tgtOutput, srcMaxLen, tgtMaxLen, numWords, srcLens] = prepareData(srcSents, tgtSents, params)
+  numSents = length(tgtSents);
   if params.isBi
     srcZeroId = params.tgtVocabSize + params.srcSos;
     srcLens = cellfun(@(x) length(x), srcSents);
     srcMaxLen = max(srcLens);
   else
+    srcLens = ones(numSents, 1);
     srcZeroId = params.tgtSos;
     srcMaxLen = 1;
   end
-  numSents = length(tgtSents);
   tgtLens = cellfun(@(x) length(x), tgtSents);
   tgtMaxLen = max(tgtLens);
   input = [srcZeroId*ones(numSents, srcMaxLen) params.tgtEos*ones(numSents, tgtMaxLen-1)]; % size numSents * (srcMaxLen + tgtMaxLen - 1)
