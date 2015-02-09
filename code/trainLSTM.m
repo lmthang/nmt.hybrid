@@ -455,6 +455,8 @@ function [model, params] = initLoadModel(params)
     params.epochBatchCount = 0;
     params.finetuneCount = 0;
   end
+
+  params = setupVars(model, params);
 end
 
 function [params] = evalValidTest(model, validData, testData, params)
@@ -561,6 +563,9 @@ function [model, params] = initLSTM(params)
   end
   
   params.modelSize = modelSizes(model);
+end
+
+function [params] = setupVars(model, params)
   params.vars = fields(model);
   
   % right now, we have been training models in which the gradNorm
