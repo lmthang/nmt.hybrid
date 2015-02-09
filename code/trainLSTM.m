@@ -42,6 +42,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'isResume', 1, @isnumeric); % isResume=1: check if a model file exists, continue training from there.
   addOptional(p,'softmaxDim', 0, @isnumeric); % softmaxDim>0 convert hidden state into an intermediate representation of size softmaxDim before going through the softmax
   addOptional(p,'dataType', 'single', @ischar); % Note: use double precision for grad check
+  addOptional(p,'maxSentLen', 50, @isnumeric); % mostly apply to src, used in attention-based models
+  addOptional(p,'dropout', 1, @isnumeric); % dropout prob: 1 no dropout, <1: dropout
+  
 
   %% debugging options
   addOptional(p,'isGradCheck', 0, @isnumeric); % set 1 to check the gradient, no need input arguments as toy data is automatically generated.
@@ -53,14 +56,12 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   %% research options
   addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
   addOptional(p,'gradNormOpt', 0, @isnumeric); % gradOpt=0: basic, 1: add W_emb
-  % attnOpt=0: no attention.
-  %         1: bilingual embedding attention.
-  %         2: same as Bengio. NOT IMPLEMENTED.
-  addOptional(p,'attnOpt', 0, @isnumeric); 
   % attnFunc=0: no attention.
-  %         1: a_t,i = f(tgt_h_t, src_h_i) = tanh(tgt_h_t' * W_a * src_h_i)
-  %         2: simialr to Bengio a_t,i = f(tgt_h_t, src_h_i) = v_a'tanh(W_a_tgt*tgt_h_t + W_a_src*src_h_i). NOT IMPLEMENTED.
-  addOptional(p,'attnFunc', 0, @isnumeric); 
+  %          1: a_t = softmax(W_a * [tgt_h_t; srcLens]) 
+  %          2: a_t = softmax(tanh(W_a * [tgt_h_t; srcLens])) 
+  addOptional(p,'attnFunc', 0, @isnumeric);
+  addOptional(p,'attnSize', 0, @isnumeric); % dim of the vector used to input to the final softmax, if 0, use lstmSize
+  
   addOptional(p,'globalOpt', 0, @isnumeric); % globalOpt=0: no global model, 1: avg global model, 2: feedforward global model.
   addOptional(p,'f_bias', 0, @isnumeric); % bias added to the forget gate
 
@@ -89,8 +90,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.nonlinear_f_prime = @tanhPrime;
  
   % params assertions
-  assert(params.attnOpt==0 || params.attnFunc>0);
-  assert(params.attnFunc==0 || params.attnOpt>0);
+  
   
   % rand seed
   if params.isGradCheck || params.isProfile || params.seed
@@ -121,6 +121,13 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     params.lstmSize = 2;
     params.batchSize = 10;
     params.batchId = 1;
+    params.maxSentLen = 5;
+    params.initRange = 10;
+  end
+  
+  % attention
+  if params.attnFunc>0 && params.attnSize==0
+    params.attnSize = params.lstmSize;
   end
   
   %% Load vocabs
@@ -494,6 +501,7 @@ function [cost] = evalCost(model, data, params) %input, inputMask, tgtOutput, tg
     trainData.input = data.input(startId:endId, :);
     trainData.inputMask = data.inputMask(startId:endId, :);
     trainData.tgtOutput = data.tgtOutput(startId:endId, :);
+    trainData.srcLens = data.srcLens(startId:endId);
     cost = cost + lstmCostGrad(model, trainData, params, 1);
   end
 end
@@ -534,21 +542,24 @@ function [model, params] = initLSTM(params)
   end
   model.W_emb(:, params.tgtEos) = zeros(params.lstmSize, 1);
   
+  % attention mechanism
+  if params.attnFunc>0 
+    model.W_a = randomMatrix(params.initRange, [params.maxSentLen, params.lstmSize+1], params.isGPU, params.dataType);
+    % attn_t = H_src * a_t
+    % h_attn_t = f(W_ah * [attn_t; h_t])
+    model.W_ah = randomMatrix(params.initRange, [params.attnSize, 2*params.lstmSize], params.isGPU, params.dataType);
+  end
+  
   % W_soft
-  if params.softmaxDim>0
+  if params.softmaxDim>0 % compress softmax
     model.W_h = randomMatrix(params.initRange, [params.softmaxDim, params.lstmSize], params.isGPU, params.dataType);
     model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.softmaxDim], params.isGPU, params.dataType);
   else
-    model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.lstmSize], params.isGPU, params.dataType);
-  end
-  
-  % attention mechanism
-  if params.attnFunc==1 % tanh(tgt_h_t' * W_a * src_h_i)
-    model.W_a = randomMatrix(params.initRange, [params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
-  elseif params.attnFunc==2 % v_a'tanh(W_a_tgt*tgt_h_t + W_a*src_h_i)
-    model.W_a = randomMatrix(params.initRange, [params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
-    model.W_a_tgt = randomMatrix(params.initRange, [params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
-    model.v_a = randomMatrix(params.initRange, [params.lstmSize, 1], params.isGPU, params.dataType);
+    if params.attnFunc>0 % attention
+      model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.attnSize], params.isGPU, params.dataType);
+    else
+      model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.lstmSize], params.isGPU, params.dataType);
+    end
   end
   
   params.modelSize = modelSizes(model);
@@ -586,7 +597,7 @@ function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab)
   [tgtSents] = loadMonoData(tgtFile, params.tgtEos, -1, params.baseIndex, tgtVocab, 'tgt');
 
   % prepare
-  [data.input, data.inputMask, data.tgtOutput, data.srcMaxLen, data.tgtMaxLen, data.numWords] = prepareData(srcSents, tgtSents, params);
+  [data.input, data.inputMask, data.tgtOutput, data.srcMaxLen, data.tgtMaxLen, data.numWords, data.srcLens] = prepareData(srcSents, tgtSents, params);
   
   fprintf(2, '  numWords=%d\n', data.numWords);
 end
@@ -602,6 +613,23 @@ end
 
 
 %% Unused code %%
+  % attnOpt=0: no attention.
+  %         1: bilingual embedding attention.
+  %         2: same as Bengio. NOT IMPLEMENTED.
+  %addOptional(p,'attnOpt', 0, @isnumeric); 
+  % assert(params.attnOpt==0 || params.attnFunc>0);
+  % assert(params.attnFunc==0 || params.attnOpt>0);
+  %         1: a_t,i = f(tgt_h_t, src_h_i) = tanh(tgt_h_t' * W_a * src_h_i)
+  %         2: simialr to Bengio a_t,i = f(tgt_h_t, src_h_i) = v_a'tanh(W_a_tgt*tgt_h_t + W_a_src*src_h_i). NOT IMPLEMENTED.if params.attnFunc==1 % tanh(tgt_h_t' * W_a * src_h_i)
+%     model.W_a = randomMatrix(params.initRange, [params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
+%   elseif params.attnFunc==2 % v_a'tanh(W_a_tgt*tgt_h_t + W_a*src_h_i)
+%     model.W_a = randomMatrix(params.initRange, [params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
+%     model.W_a_tgt = randomMatrix(params.initRange, [params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
+%     model.v_a = randomMatrix(params.initRange, [params.lstmSize, 1], params.isGPU, params.dataType);
+%   else
+%   end
+
+
 %       if params.softmaxDim>0
 %         model.W_h = model.W_h - scaleLr*grad.W_h;
 %       end

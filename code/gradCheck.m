@@ -8,14 +8,14 @@ function gradCheck(model, params)
 %%%
   % generate pseudo data
   if params.isBi
-    srcTrainMaxLen = 5;
+    srcTrainMaxLen = params.maxSentLen;
     srcTrainSents = cell(1, params.batchSize);
   else
     srcTrainSents = {};
   end
 
   tgtTrainSents = cell(1, params.batchSize);
-  tgtTrainMaxLen = 5;
+  tgtTrainMaxLen = params.maxSentLen;
 
   for ii=1:params.batchSize
     if params.isBi
@@ -30,8 +30,19 @@ function gradCheck(model, params)
   end
 
   % prepare data
-  [trainData.input, trainData.inputMask, trainData.tgtOutput, trainData.srcMaxLen, trainData.tgtMaxLen, trainData.srcLens] = prepareData(srcTrainSents, tgtTrainSents, params);
+  [trainData.input, trainData.inputMask, trainData.tgtOutput, trainData.srcMaxLen, trainData.tgtMaxLen, trainData.numWords, trainData.srcLens] = prepareData(srcTrainSents, tgtTrainSents, params);
 
+    
+  % for gradient check purpose
+  if params.dropout<1 % use the same dropout mask
+    curBatchSize = size(trainData.input, 1);
+    if params.isGPU
+      params.dropoutMask = (rand(params.lstmSize, curBatchSize, 'gpuArray')<params.dropout)/params.dropout;
+    else
+      params.dropoutMask = (rand(params.lstmSize, curBatchSize)<params.dropout)/params.dropout;
+    end
+  end
+  
   % analytic grad
   full_grad_W_emb = zeros(size(model.W_emb, 1), size(model.W_emb, 2));
   [totalCost, grad] = lstmCostGrad(model, trainData, params, 0);
