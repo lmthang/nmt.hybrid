@@ -100,4 +100,5 @@ export MATLAB=matlab
 To run directly in Matlab, cd into code/ directory and run:
 trainLSTM('../output/train.10k.id', '../output/valid.3k.id', '../output/test.3k.id', '', 'en', '', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1)
 
-
+For PTB data:
+trainLSTM('../data/ptb/id/ptb.train', '../data/ptb/id/ptb.valid', '../data/ptb/id/ptb.test', '', 'en', '', '../data/ptb/ptb.train.txt.vocab.10000', '../output', 0, 'logFreq', 10,'isBi',0,'lstmSize',200)
