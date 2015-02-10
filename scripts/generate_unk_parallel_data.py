@@ -14,6 +14,8 @@ import codecs
 import random
 
 import text
+reload(sys)
+sys.setdefaultencoding('utf-8')
 
 ### Function declarations ###
 def process_command_line():
@@ -315,11 +317,16 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
 
     # convert to integers
     tgt_unk_tokens.append(eos)
-    src_indices = text.to_id(src_unk_tokens, src_vocab_map, tgt_vocab_size)
+    if is_separate_output: # for separate output, we don't increase indices by tgt_vocab_size
+      src_indices = text.to_id(src_unk_tokens, src_vocab_map)
+    else:
+      src_indices = text.to_id(src_unk_tokens, src_vocab_map, tgt_vocab_size)
+
     tgt_indices = text.to_id(tgt_unk_tokens, tgt_vocab_map)
     if is_separate_output:
       if no_eos:
         src_id_ouf.write('%s\n' %  (' '.join(src_indices[0:-1]))) 
+        tgt_id_ouf.write('%s\n' %  (' '.join(tgt_indices[0:-1]))) 
       else:
         src_id_ouf.write('%s\n' %  (' '.join(src_indices))) 
         tgt_id_ouf.write('%s\n' %  (' '.join(tgt_indices))) 

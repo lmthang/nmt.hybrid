@@ -41,6 +41,8 @@ def process_command_line():
   parser.add_argument('--filter', dest='is_filtered', action='store_true', default=False, help='enabling filtering mode, exclude sentence pairs in which one side contains all <unk> tokens or the number of words on one side is more than max_len or less than min_len (default: false)') 
   parser.add_argument('--max_len', dest='max_len', type=int, default=100, help='sentences with lengths above this threshold will be discarded (default=100)') 
   parser.add_argument('--min_len', dest='min_len', type=int, default=1, help='sentences with lengths below this threshold will be discarded (default=1)') 
+  parser.add_argument('--tgt_max_len', dest='tgt_max_len', type=int, default=0, help='tgt sentences with lengths above this threshold will be discarded (default=max_len)') 
+  parser.add_argument('--tgt_min_len', dest='tgt_min_len', type=int, default=0, help='tgt entences with lengths below this threshold will be discarded (default=min_len)') 
   parser.add_argument('--unk_str', dest='unk_str', type=str, default='', help='use in conjunction with --filter (default=\'\')') 
   
   args = parser.parse_args()
@@ -128,12 +130,12 @@ def print_sent_pair(sents, tgt_sents, align_sents, ouf, id_ouf, tgt_ouf, align_o
   
   return filter_count
 
-def process_files(in_file, src_lang, tgt_lang, out_file, batch_size, num_bins, max_len, min_len, is_filtered, unk_str):
+def process_files(in_file, src_lang, tgt_lang, out_file, batch_size, num_bins, max_len, min_len, tgt_max_len, tgt_min_len, is_filtered, unk_str):
   """
   Read data from in_file, and output to out_file
   """
 
-  sys.stderr.write('# in_file = %s, src_lang = %s, tgt_lang = %s, out_file = %s, batch_size = %d, num_bins = %d, max_len = %d, min_len = %d\n' % (in_file, src_lang, tgt_lang, out_file, batch_size, num_bins, max_len, min_len))
+  sys.stderr.write('# in_file = %s, src_lang = %s, tgt_lang = %s, out_file = %s, batch_size = %d, num_bins = %d, max_len = %d, min_len = %d, tgt_max_len=%d, tgt_min_len=%d\n' % (in_file, src_lang, tgt_lang, out_file, batch_size, num_bins, max_len, min_len, tgt_max_len, tgt_min_len))
   check_dir(out_file)
    
   # IO
@@ -195,7 +197,7 @@ def process_files(in_file, src_lang, tgt_lang, out_file, batch_size, num_bins, m
       #ouf.write('# [%d, %d]: num sents %d, num_batchs %d\n' % (start_len, end_len, num_sents, num_batchs))
       for jj in xrange(num_batchs*batch_size):
         index = bin_lists[ii][jj]
-        filter_count = print_sent_pair(sents, tgt_sents, align_sents, ouf, id_ouf, tgt_ouf, align_ouf, filter_flags, is_parallel, is_align, is_filtered, max_len, min_len, unk_str, index, filter_count)
+        filter_count = print_sent_pair(sents, tgt_sents, align_sents, ouf, id_ouf, tgt_ouf, align_ouf, filter_flags, is_parallel, is_align, is_filtered, tgt_max_len, tgt_min_len, unk_str, index, filter_count)
 
       end_points.append(num_batchs*batch_size)
     
@@ -205,7 +207,7 @@ def process_files(in_file, src_lang, tgt_lang, out_file, batch_size, num_bins, m
       #ouf.write('# remained sents = %d\n' % (len(bin_lists[ii])-end_points[ii])) 
       for jj in xrange(end_points[ii], len(bin_lists[ii])):
         index = bin_lists[ii][jj]
-        filter_count = print_sent_pair(sents, tgt_sents, align_sents, ouf, id_ouf, tgt_ouf, align_ouf, filter_flags, is_parallel, is_align, is_filtered, max_len, min_len, unk_str, index, filter_count)
+        filter_count = print_sent_pair(sents, tgt_sents, align_sents, ouf, id_ouf, tgt_ouf, align_ouf, filter_flags, is_parallel, is_align, is_filtered, tgt_max_len, tgt_min_len, unk_str, index, filter_count)
   
   if is_filtered:
     sys.stderr.write('Filtered out %d sentences\n' % filter_count)
@@ -221,4 +223,8 @@ if __name__ == '__main__':
   args = process_command_line()
   if args.is_filtered:
     assert args.unk_str!='', 'for --filter, unk_str needs to be specified\n'
-  process_files(args.in_file, args.src_lang, args.tgt_lang, args.out_file, args.batch_size, args.num_bins, args.max_len, args.min_len, args.is_filtered, args.unk_str)
+  if args.tgt_min_len == 0:
+    args.tgt_min_len = args.min_len  
+  if args.tgt_max_len == 0:
+    args.tgt_max_len = args.max_len
+  process_files(args.in_file, args.src_lang, args.tgt_lang, args.out_file, args.batch_size, args.num_bins, args.max_len, args.min_len, args.tgt_max_len, args.tgt_min_len, args.is_filtered, args.unk_str)
