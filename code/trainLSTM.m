@@ -122,7 +122,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     params.batchSize = 10;
     params.batchId = 1;
     params.maxSentLen = 5;
-    params.initRange = 10;
+    %params.initRange = 10;
   end
   
   % attention
