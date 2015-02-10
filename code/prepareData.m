@@ -12,7 +12,7 @@ function [input, inputMask, tgtOutput, srcMaxLen, tgtMaxLen, numWords, srcLens] 
   numSents = length(tgtSents);
   if params.isBi
     srcZeroId = params.tgtVocabSize + params.srcSos;
-    srcLens = cellfun(@(x) length(x), srcSents);
+    srcLens = cellfun(@(x) length(x), srcSents)';
     srcMaxLen = max(srcLens);
   else
     srcLens = ones(numSents, 1);
