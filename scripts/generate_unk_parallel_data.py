@@ -40,6 +40,8 @@ def process_command_line():
   parser.add_argument('--reverse_alignment', dest='is_reverse_alignment', action='store_true', help='reverse alignment (tgtId-srcId) instead of srcId-tgtId')
 
   parser.add_argument('--freq', dest='freq', type=int, default=0, help='freq (default=5)')
+  parser.add_argument('--separate_output', dest='is_separate_output', action='store_true', default=False, help='output src and tgt indices into separate files (default=False)')
+  parser.add_argument('--no_eos', dest='no_eos', action='store_true', default=False, help='no eos (default=False)')
   
   args = parser.parse_args()
   return args
@@ -89,7 +91,7 @@ def add_unks(words, vocab_map, vocab_size, num_unks):
     (words, vocab_map, vocab_size) = text.add_word_to_vocab(unk, words, vocab_map, vocab_size)
   return (words, vocab_map, vocab_size)
 
-def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_alignment, opt, dict_file, src_vocab_file, tgt_vocab_file, src_vocab_size, tgt_vocab_size, src_output_opt, eos = '</s>', delim='*', unk_symbol='<unk>'):
+def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_alignment, opt, dict_file, src_vocab_file, tgt_vocab_file, src_vocab_size, tgt_vocab_size, src_output_opt, is_separate_output, no_eos, eos = '</s>', delim='*', unk_symbol='<unk>'):
   """
   """
   
@@ -111,25 +113,32 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
     (dict_map, dict_size) = text.load_dict(dict_file)
 
   if src_vocab_file == '':
-    src_vocab_file = in_prefix + '.vocab.' + str(src_vocab_size) + '.' + src_lang
+    src_vocab_file = in_prefix + '.' + src_lang + '.vocab.' + str(src_vocab_size) 
   (src_words, src_vocab_map, src_vocab_size) = text.get_vocab(src_file, src_vocab_file, freq, src_vocab_size, unk_symbol)
   
   if tgt_vocab_file == '':
-    tgt_vocab_file = in_prefix + '.vocab.' + str(tgt_vocab_size) + '.' + tgt_lang
+    tgt_vocab_file = in_prefix + '.' + tgt_lang + '.vocab.' + str(tgt_vocab_size)
   (tgt_words, tgt_vocab_map, tgt_vocab_size) = text.get_vocab(tgt_file, tgt_vocab_file, freq, tgt_vocab_size, unk_symbol)
   
   # output
   check_dir(out_prefix)
-  src_tgt_id_file = out_prefix + '.' + src_lang + '-' + tgt_lang + '.id'
-  src_tgt_id_ouf = codecs.open(src_tgt_id_file, 'w', 'utf-8')
+  if is_separate_output:
+    src_id_file = out_prefix + '.id.' + src_lang 
+    tgt_id_file = out_prefix + '.id.' + tgt_lang
+    src_id_ouf = codecs.open(src_id_file, 'w', 'utf-8')
+    tgt_id_ouf = codecs.open(tgt_id_file, 'w', 'utf-8')
+  else:
+    src_tgt_id_file = out_prefix + '.' + src_lang + '-' + tgt_lang + '.id'
+    src_tgt_id_ouf = codecs.open(src_tgt_id_file, 'w', 'utf-8')
+
   src_unk_file = out_prefix + '.' + src_lang
   src_ouf = codecs.open(src_unk_file, 'w', 'utf-8')
   tgt_unk_file = out_prefix + '.' + tgt_lang
   tgt_ouf = codecs.open(tgt_unk_file, 'w', 'utf-8')
     
-  num_unks = 20
   window = 7 # for opt=1 and 4, add 2*window + 1 position words    
   if opt==1:
+    num_unks = 0
     (src_words, src_vocab_map, src_vocab_size) = add_unks(src_words, src_vocab_map, src_vocab_size, num_unks)
   
     # add relative position words to tgt vocab
@@ -147,6 +156,7 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
     pos_null = '<p_n>'
     (tgt_words, tgt_vocab_map, tgt_vocab_size) = text.add_word_to_vocab(pos_null, tgt_words, tgt_vocab_map, tgt_vocab_size)
   elif opt==2 or opt==0:
+    num_unks = 20
     (src_words, src_vocab_map, src_vocab_size) = add_unks(src_words, src_vocab_map, src_vocab_size, num_unks)
     (tgt_words, tgt_vocab_map, tgt_vocab_size) = add_unks(tgt_words, tgt_vocab_map, tgt_vocab_size, num_unks)
   elif opt==3: # for opt 3, we only use <unk>
@@ -184,7 +194,11 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
   global_forw_dist = 0
   global_back_dist = 0
   line_id = 0
-  sys.stderr.write('# Output to %s*\n' % src_tgt_id_file)
+  if is_separate_output:
+    sys.stderr.write('# Output to %s* and %s*\n' % (src_id_file, tgt_id_file))
+  else:
+    sys.stderr.write('# Output to %s*\n' % src_tgt_id_file)
+
   debug = True
   for src_line in src_inf:
     src_line = src_line.strip()
@@ -237,9 +251,10 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
           if best_src_pos !=-1: # aligned word 
             assert best_src_pos >= (tgt_pos-window) and best_src_pos <= (tgt_pos+window)
             pos_word = '<p_' + str(tgt_pos-best_src_pos) + '>'
- 
-          tgt_unk_tokens.append(tgt_token)
+
+          # Thang Jan 2015: purposely put pos in front of word
           tgt_unk_tokens.append(pos_word)
+          tgt_unk_tokens.append(tgt_token)
         else: # opt=4
           if tgt_token==unk_symbol:
             if best_src_pos!=-1: # aligned 
@@ -292,14 +307,27 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
         src_unk_tokens[-1] = src_split # replace eos by src_split
         src_unk_tokens.extend(reverse_src_unk_tokens)
         
-    src_ouf.write('%s\n' %  (' '.join(src_unk_tokens)))
-    tgt_ouf.write('%s\n' %  (' '.join(tgt_unk_tokens)))
+    if no_eos:
+      src_ouf.write('%s\n' %  (' '.join(src_unk_tokens[0:-1])))
+    else:
+      src_ouf.write('%s\n' %  (' '.join(src_unk_tokens)))
+    tgt_ouf.write('%s\n' %  (' '.join(tgt_unk_tokens))) # this one doesn't have <eos> at the end
 
     # convert to integers
     tgt_unk_tokens.append(eos)
     src_indices = text.to_id(src_unk_tokens, src_vocab_map, tgt_vocab_size)
     tgt_indices = text.to_id(tgt_unk_tokens, tgt_vocab_map)
-    src_tgt_id_ouf.write('%s %s %s\n' %  (' '.join(src_indices), delim, ' '.join(tgt_indices))) 
+    if is_separate_output:
+      if no_eos:
+        src_id_ouf.write('%s\n' %  (' '.join(src_indices[0:-1]))) 
+      else:
+        src_id_ouf.write('%s\n' %  (' '.join(src_indices))) 
+        tgt_id_ouf.write('%s\n' %  (' '.join(tgt_indices))) 
+    else:
+      if no_eos:
+        src_tgt_id_ouf.write('%s %s %s\n' %  (' '.join(src_indices[0:-1]), delim, ' '.join(tgt_indices[0:-1]))) 
+      else:
+        src_tgt_id_ouf.write('%s %s %s\n' %  (' '.join(src_indices), delim, ' '.join(tgt_indices))) 
     
     # debug
     if debug == True and num_aligned_unks>0 and forw_dist>0 and back_dist>0:
@@ -327,11 +355,15 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
   if opt>0:
     align_inf.close()
 
-  src_tgt_id_ouf.close()
+  if is_separate_output:
+    src_id_ouf.close()
+    tgt_id_ouf.close()
+  else:
+    src_tgt_id_ouf.close()
   src_ouf.close()
   tgt_ouf.close()
 
 if __name__ == '__main__':
   args = process_command_line()
-  process_files(args.in_prefix, args.src_lang, args.tgt_lang, args.out_prefix, args.freq, args.is_reverse_alignment, args.opt, args.dict_file, args.src_vocab_file, args.tgt_vocab_file, args.src_vocab_size, args.tgt_vocab_size, args.src_output_opt)
+  process_files(args.in_prefix, args.src_lang, args.tgt_lang, args.out_prefix, args.freq, args.is_reverse_alignment, args.opt, args.dict_file, args.src_vocab_file, args.tgt_vocab_file, args.src_vocab_size, args.tgt_vocab_size, args.src_output_opt, args.is_separate_output, args.no_eos)
 

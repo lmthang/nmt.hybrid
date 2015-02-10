@@ -58,10 +58,16 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, opt, src_voca
   tgt_inf = codecs.open(tgt_file, 'r', 'utf-8')
   align_inf = codecs.open(in_prefix + '.align', 'r', 'utf-8')
 
-  src_vocab_file = in_prefix + '.vocab.' + src_lang
+  if src_vocab_size>0:
+    src_vocab_file = in_prefix + '.' + src_lang + '.vocab.' + str(src_vocab_size)
+  elif freq>0:
+    src_vocab_file = in_prefix + '.' + src_lang + '.vocab.f' + str(freq)
   (src_words, src_vocab_map, src_vocab_size) = text.get_vocab(src_file, src_vocab_file, freq, src_vocab_size, unk_symbol)
   
-  tgt_vocab_file = in_prefix + '.vocab.' + tgt_lang
+  if tgt_vocab_size>0:
+    tgt_vocab_file = in_prefix + '.' + tgt_lang + '.vocab.' + str(tgt_vocab_size)
+  elif freq>0:
+    tgt_vocab_file = in_prefix + '.' + tgt_lang + '.vocab.f' + str(freq)  
   (tgt_words, tgt_vocab_map, tgt_vocab_size) = text.get_vocab(tgt_file, tgt_vocab_file, freq, tgt_vocab_size, unk_symbol)
   
   # process corpus
