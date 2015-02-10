@@ -44,7 +44,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'dataType', 'single', @ischar); % Note: use double precision for grad check
   addOptional(p,'maxSentLen', 50, @isnumeric); % mostly apply to src, used in attention-based models
   addOptional(p,'dropout', 1, @isnumeric); % dropout prob: 1 no dropout, <1: dropout
-  
+  % 0 no, 1: positional model (on the tgt side, produce pos, then word)
+  % 2: like 1, but use positional info to provide src input for the decoder
+  addOptional(p,'posModel', 0, @isnumeric);
 
   %% debugging options
   addOptional(p,'isGradCheck', 0, @isnumeric); % set 1 to check the gradient, no need input arguments as toy data is automatically generated.
@@ -214,7 +216,11 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   %%%%%%%%%%%%%%
   %% Training %%
   %%%%%%%%%%%%%%
-  totalCost = 0; totalWords = 0;
+  trainCost.total = 0; totalWords = 0;
+  if params.posModel>0 % positional model
+    trainCost.pos = 0;
+    trainCost.word = 0;
+  end
   params.evalFreq = params.logFreq*10;
   %params.saveFreq = params.evalFreq;
 
@@ -258,14 +264,14 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       %%%%%%%%%%%%%%%
       %% core part %%
       %%%%%%%%%%%%%%%
-      [cost, grad] = lstmCostGrad(model, trainData, params, 0);
+      [costs, grad] = lstmCostGrad(model, trainData, params, 0);
 
       %% handle nan/inf
-      if isnan(cost) || isinf(cost)
+      if isnan(costs.total) || isinf(costs.total)
         modelStr = wInfo(model);
         gradStr = wInfo(grad);
-        fprintf(2, 'epoch=%d, iter=%d, nan/inf cost=%g, gradStr=%s, modelStr=%s\n', params.epoch, params.iter, cost, gradStr, modelStr);
-        fprintf(params.logId, 'epoch=%d, iter=%d, nan/inf cost=%g, gradStr=%s, modelStr=%s\n', params.epoch, params.iter, cost, gradStr, modelStr);
+        fprintf(2, 'epoch=%d, iter=%d, nan/inf cost=%g, gradStr=%s, modelStr=%s\n', params.epoch, params.iter, costs.total, gradStr, modelStr);
+        fprintf(params.logId, 'epoch=%d, iter=%d, nan/inf cost=%g, gradStr=%s, modelStr=%s\n', params.epoch, params.iter, costs.total, gradStr, modelStr);
         if lastNanIter == (params.iter-1) % consecutive nan
           nanCount = nanCount + 1;
         else
@@ -309,18 +315,33 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       
       %% log info
       totalWords = totalWords + trainData.numWords;
-      totalCost = totalCost + cost;
+      trainCost.total = trainCost.total + costs.total;
+      if params.posModel>0 % positional model
+        trainCost.pos = trainCost.pos + costs.pos;
+        trainCost.word = trainCost.word + costs.word;
+      end
       if mod(params.iter, params.logFreq) == 0
         endTime = clock;
         timeElapsed = etime(endTime, startTime);
-        params.costTrain = totalCost/totalWords;
+        params.costTrain = trainCost.total/totalWords;
         params.speed = totalWords*0.001/timeElapsed;
-        fprintf(2, '%d, %d, %.2fK, %g, %.2f, gN=%.2f norms%s, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, wInfo(indNorms, 1), datestr(now));
-        fprintf(params.logId, '%d, %d, %.2fK, %g, %.2f, gN=%.2f norms%s, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, wInfo(indNorms, 1), datestr(now));
+        if params.posModel>0 % positional model
+          params.costTrainPos = trainCost.pos*2/totalWords;
+          params.costTrainWord = trainCost.word*2/totalWords;
+          fprintf(2, '%d, %d, %.2fK, %g, %.2f (%.2f, %.2f), gN=%.2f norms%s, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, wInfo(indNorms, 1), datestr(now));
+          fprintf(params.logId, '%d, %d, %.2fK, %g, %.2f (%.2f, %.2f), gN=%.2f norms%s, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, gradNorm, wInfo(indNorms, 1), datestr(now));
+        else
+          fprintf(2, '%d, %d, %.2fK, %g, %.2f, gN=%.2f norms%s, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, wInfo(indNorms, 1), datestr(now));
+          fprintf(params.logId, '%d, %d, %.2fK, %g, %.2f, gN=%.2f norms%s, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, wInfo(indNorms, 1), datestr(now));
+        end
         
         % reset
         totalWords = 0;
-        totalCost = 0;
+        trainCost.total = 0;
+        if params.posModel>0 % positional model
+          trainCost.pos = 0;
+          trainCost.word = 0;
+        end
         startTime = clock;
       end
 

@@ -6,24 +6,27 @@ function [attnGrad] = attnBackprop(model, srcAlignStates, softmax_h, grad_softma
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 %
 %%%
+  %% grad_softmax_h -> grad.W_ah, grad_ah 
+  % attn_h_concat = [attn_t; tgt_h_t]
+  % softmax_h = f(W_ah*attn_h_concat)
   % f'(softmax_h).*grad_softmax_h
   tmpResult = params.nonlinear_f_prime(softmax_h).*grad_softmax_h;  
-
   % grad.W_ah
   attnGrad.W_ah = tmpResult*attn_h_concat';
-
-  %% grad_ah -> grad_ht, grad_attn
+  % grad_ah
   grad_ah = model.W_ah'*tmpResult;
+  
+  %% grad_ah -> grad_ht, grad_attn
   % grad_ht
   attnGrad.ht = grad_ah(params.lstmSize+1:end, :);
   % grad_attn
   grad_attn = permute(grad_ah(1:params.lstmSize, :), [1, 2, 3]); % change from lstmSize*curBatchSize -> lstmSize*curBatchSize*1
 
   %% from grad_attn -> grad_srcAlignStates, grad_alignWeights
+  % attn_t = H_src* a_t
   % srcAlignStates: lstmSize * curBatchSize * maxSentLen
   % grad_attn: lstmSize * curBatchSize * 1
   % alignWeights: 1 * curBatchSize * maxSentLen
-
   % grad_srcAlignStates = grad_attn * alignWeights'
   attnGrad.srcAlignStates = bsxfun(@times, grad_attn, alignWeights);
 
@@ -48,9 +51,9 @@ function [attnGrad] = attnBackprop(model, srcAlignStates, softmax_h, grad_softma
   grad_scores = tmpResult - bsxfun(@times, alignWeights, sum(tmpResult, 1));
 
   %% grad_scores -> grad.Wa, grad_ht
-  if params.attnFunc==1 % s_t = W_a * [tgt_h_t; srcLens]
+  if params.attnFunc==1 % s_t = W_a * attnInput
     tmpResult = grad_scores;
-  elseif params.attnFunc==2 % a_t softmax(tanh(W_a * [tgt_h_t; srcLens]))
+  elseif params.attnFunc==2 % s_t = f(W_a * attnInput)
     tmpResult = params.nonlinear_f_prime(alignScores).*grad_scores;
   end
   % grad.W_a = tmpResult * attnInput'
