@@ -1,7 +1,8 @@
-function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
+function [costs, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
 %%%
 %
-% Compute cost/grad for LSTM.
+% Compute cost/grad for LSTM. 
+% When params.posModel>0, returns costs.pos and costs.word
 % If isCostOnly==1, this method only computes cost (for testing purposes).
 %
 % Thang Luong @ 2014, <lmthang@stanford.edu>
@@ -27,7 +28,7 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
     input_embs = model.W_emb(:, input);
     input_embs = gpuArray(input_embs); % load input embeddings onto GPUs
   end
-  [grad, zero_state, totalCost, emb] = initGrad(model, params, curBatchSize, numInputWords);
+  [grad, zero_state, costs, emb] = initGrad(model, params, curBatchSize, numInputWords);
 
   
   % global opt
@@ -152,7 +153,15 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
         %% cost
         tgtPredictedWords = tgtOutput(timeInfo{t}.unmaskedIds, t-srcMaxLen+1)'; % predict tgtOutput[t-srcMaxLen+1]
         scoreIndices = sub2ind([params.outVocabSize, curBatchSize], tgtPredictedWords, timeInfo{t}.unmaskedIds); % 1 * length(tgtPredictedWords)
-        totalCost = totalCost - (sum(scores(scoreIndices)) - sum(log(norms).*timeInfo{t}.mask));
+        cost = - sum(scores(scoreIndices)) + sum(log(norms).*timeInfo{t}.mask);
+        costs.total = costs.total + cost;
+        if params.posModel>0
+          if mod(t-srcMaxLen, 2)==0 % pos
+            costs.pos = costs.pos + cost;
+          else
+            costs.word = costs.word + cost;
+          end
+        end
 
         if isCostOnly==0 % compute grad
           probs(scoreIndices) = probs(scoreIndices) - 1; % minus one at predicted words
@@ -266,13 +275,18 @@ function [totalCost, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
     if params.embCPU
       grad.W_emb = double(gather(grad.W_emb));
     end
-    totalCost = gather(totalCost);
+    
+    % costs
+    costs.total = gather(costs.total);
+    if params.posModel>0
+      costs.pos = gather(costs.pos);
+      costs.word = gather(costs.word);
+    end
   end
 end
 
-function [grad, zero_state, totalCost, emb] = initGrad(model, params, curBatchSize, numInputWords)
+function [grad, zero_state, costs, emb] = initGrad(model, params, curBatchSize, numInputWords)
   zero_state = zeroMatrix([params.lstmSize, curBatchSize], params.isGPU, params.dataType);
-  totalCost = zeroMatrix([1, 1], params.isGPU, params.dataType);
   
   %% grad
   for ii=1:length(params.varsNoEmb)
@@ -288,6 +302,13 @@ function [grad, zero_state, totalCost, emb] = initGrad(model, params, curBatchSi
 
   % emb
   emb = zeroMatrix([params.lstmSize, numInputWords], params.isGPU, params.dataType);
+  
+  % costs
+  costs.total = zeroMatrix([1, 1], params.isGPU, params.dataType);
+  if params.posModel > 0
+    costs.pos = zeroMatrix([1, 1], params.isGPU, params.dataType);
+    costs.word = zeroMatrix([1, 1], params.isGPU, params.dataType);
+  end
 end
 
 %         if params.attnFunc==1 || params.attnFunc==2 % premultiply W_a

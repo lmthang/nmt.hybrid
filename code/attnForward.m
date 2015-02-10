@@ -11,7 +11,7 @@ function [attnHidVecs, attn_h_concat, alignWeights, alignScores, attnInput] = at
   % align scores
   if params.attnFunc==1 % s_t = W_a * attnInput
     alignScores = model.W_a*attnInput;
-  elseif params.attnFunc==2 % a_t softmax(tanh(W_a * attnInput))
+  elseif params.attnFunc==2 % s_t = tanh(W_a * attnInput)
     alignScores = params.nonlinear_f(model.W_a*attnInput);
   end
   
@@ -35,7 +35,7 @@ function [attnHidVecs, attn_h_concat, alignWeights, alignScores, attnInput] = at
     assert(size(attnVecs, 2)==curBatchSize);
   end
   
-  % attention hidden vectors: h_attn_t = f(W_ah*[attn_t; tgt_h_t])
+  % attention hidden vectors: attnHid = f(W_ah*[attn_t; tgt_h_t])
   attn_h_concat = [attnVecs; tgt_h_t];
   attnHidVecs = params.nonlinear_f(model.W_ah*attn_h_concat);
 end
