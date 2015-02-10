@@ -328,11 +328,11 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         if params.posModel>0 % positional model
           params.costTrainPos = trainCost.pos*2/totalWords;
           params.costTrainWord = trainCost.word*2/totalWords;
-          fprintf(2, '%d, %d, %.2fK, %g, %.2f (%.2f, %.2f), gN=%.2f norms%s, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, gradNorm, wInfo(indNorms, 1), datestr(now));
-          fprintf(params.logId, '%d, %d, %.2fK, %g, %.2f (%.2f, %.2f), gN=%.2f norms%s, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, gradNorm, wInfo(indNorms, 1), datestr(now));
+          fprintf(2, '%d, %d, %.2fK, %g, %.2f (%.2f, %.2f), gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
+          fprintf(params.logId, '%d, %d, %.2fK, %g, %.2f (%.2f, %.2f), gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
         else
-          fprintf(2, '%d, %d, %.2fK, %g, %.2f, gN=%.2f norms%s, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, wInfo(indNorms, 1), datestr(now));
-          fprintf(params.logId, '%d, %d, %.2fK, %g, %.2f, gN=%.2f norms%s, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, wInfo(indNorms, 1), datestr(now));
+          fprintf(2, '%d, %d, %.2fK, %g, %.2f, gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
+          fprintf(params.logId, '%d, %d, %.2fK, %g, %.2f, gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
         end
         
         % reset
@@ -441,12 +441,6 @@ function [model, params] = initLoadModel(params)
     params.epochBatchCount = oldParams.epochBatchCount;
     params.bestCostValid = oldParams.bestCostValid;
     params.testPerplexity = oldParams.testPerplexity;
-    if params.posModel>0 % positional model
-      params.bestCostValidPos = oldParams.bestCostValidPos;
-      params.bestCostValidWord = oldParams.bestCostValidWord;
-      params.testPerplexityPos = oldParams.testPerplexityPos;
-      params.testPerplexityWord = oldParams.testPerplexityWord;
-    end
     if isfield(oldParams, 'finetuneCount')
       params.finetuneCount = oldParams.finetuneCount;
     else
@@ -477,12 +471,6 @@ function [model, params] = initLoadModel(params)
     params.bestCostValid = 1e5;
     params.testPerplexity = 1e5;
     params.curTestPerplexity = 1e5;
-    if params.posModel>0 % positional model
-      params.bestCostValidPos = 1e5;
-      params.bestCostValidWord = 1e5;
-      params.testPerplexityPos = 1e5;
-      params.testPerplexityWord = 1e5;
-    end
     params.startIter = 0;
     params.iter = 0;  % number of batches we have processed
     params.epochBatchCount = 0;
