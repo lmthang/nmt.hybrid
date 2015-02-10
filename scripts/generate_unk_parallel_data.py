@@ -348,7 +348,10 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
         print('\naligned  unk: ' + ' '.join([tgt_unk_tokens[i] for i in tgt_pos_flags.keys()]))
       print('\nsrc   id: ' + ' '.join(src_indices))
       print('tgt   id: ' + ' '.join(tgt_indices))
-      print('\nsrc  unk: ' + ' '.join(text.to_text(src_indices, src_words, tgt_vocab_size)))
+      if is_separate_output:
+        print('\nsrc  unk: ' + ' '.join(text.to_text(src_indices, src_words)))
+      else:
+        print('\nsrc  unk: ' + ' '.join(text.to_text(src_indices, src_words, tgt_vocab_size)))
       print('tgt  unk: ' + ' '.join(text.to_text(tgt_indices, tgt_words)))
       debug = False
       print('--- End debug 1st sent ---\n')
