@@ -60,7 +60,7 @@ def load_entire_file(in_file, num_bins, max_len, min_len, is_filtered, unk_str):
   sents = []
   filter_flags = []
 
-  bin_len = max_len / (num_bins-1) # the first (num_bins-1) will have sentences with lens [1 max_len], the rest goes into the last bin
+  bin_len = (max_len-1) / num_bins + 1 
   sys.stderr.write('num_bins=%d, max_len=%d, min_len=%d, bin_len=%d\n' % (num_bins, max_len, min_len, bin_len))
   bin_lists = [] # bin_lists[i]: list of sentence ids in that bin
   for ii in xrange(num_bins):
@@ -84,9 +84,8 @@ def load_entire_file(in_file, num_bins, max_len, min_len, is_filtered, unk_str):
       filter_flags.append(filter_flag)
 
     bin_id = (sent_len-1)/bin_len
-    if bin_id >= num_bins:
-      bin_id = num_bins-1
-    bin_lists[bin_id].append(line_id)
+    if bin_id < num_bins:
+      bin_lists[bin_id].append(line_id)
     if sent_len > sent_max_len:
       sent_max_len = sent_len
     #sys.stderr.write('%d\t%d\t%s' % (sent_len, bin_id, line))
@@ -99,7 +98,7 @@ def load_entire_file(in_file, num_bins, max_len, min_len, is_filtered, unk_str):
   sys.stderr.write(' Done! Num lines = %d, num tokens = %d, sent max len = %d.\n' % (line_id, num_tokens, sent_max_len))
   inf.close()
 
-  return (sents, bin_lists, bin_len, sent_max_len, filter_flags) 
+  return (sents, bin_lists, bin_len, filter_flags) 
 
 def print_sent_pair(sents, tgt_sents, align_sents, ouf, id_ouf, tgt_ouf, align_ouf, filter_flags, is_parallel, is_align, is_filtered, max_len, min_len, unk_str, index, filter_count):
   # check if we want to skip a pair
@@ -148,7 +147,7 @@ def process_files(in_file, src_lang, tgt_lang, out_file, batch_size, num_bins, m
     is_parallel = True
 
     # src
-    (sents, bin_lists, bin_len, sent_max_len, filter_flags) = load_entire_file(in_file + '.' + src_lang, num_bins, max_len, min_len, is_filtered, unk_str)
+    (sents, bin_lists, bin_len, filter_flags) = load_entire_file(in_file + '.' + src_lang, num_bins, max_len, min_len, is_filtered, unk_str)
     ouf = codecs.open(out_file + '.' + src_lang, 'w', 'utf-8')
 
     # tgt
@@ -172,7 +171,7 @@ def process_files(in_file, src_lang, tgt_lang, out_file, batch_size, num_bins, m
       align_ouf = codecs.open(out_file + '.align', 'w', 'utf-8')
       is_align = True
   else:
-    (sents, bin_lists, bin_len, sent_max_len, filter_flags) = load_entire_file(in_file, num_bins, max_len, min_len, is_filtered, unk_str)
+    (sents, bin_lists, bin_len, filter_flags) = load_entire_file(in_file, num_bins, max_len, min_len, is_filtered, unk_str)
     ouf = codecs.open(out_file, 'w', 'utf-8')
     tgt_ouf = -1
     align_ouf = -1
@@ -189,7 +188,7 @@ def process_files(in_file, src_lang, tgt_lang, out_file, batch_size, num_bins, m
       start_len = ii*bin_len + 1
       end_len = (ii+1)*bin_len
       if ii==(num_bins-1):
-        end_len = sent_max_len
+        end_len = max_len 
       num_sents = len(bin_lists[ii])
 
       num_batchs = num_sents / batch_size

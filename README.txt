@@ -24,8 +24,8 @@ There's a script to run for train/valid/test files:
 run_prepare_data.sh trainFile validFile testFile vocabSize outDir [verbose]
 
 To speed up training time, you can also group sentences of similar lengths together:
-./scripts/sort_sents.py <in_file> <out_file>
-For parallel corpus: ./scripts/sort_sents.py --src_lang <src_lang> --tgt_lang <tgt_lang> <in_file> <out_file>
+./scripts/sort_sents_bin.py <in_file> <out_file>
+For parallel corpus: ./scripts/sort_sents_bin.py --src_lang <src_lang> --tgt_lang <tgt_lang> <in_file> <out_file>
 
 (b) Train an LSTM
 run.sh  Train LSTM models
@@ -56,27 +56,20 @@ For otherOptions, you can put things like
 /** Sample commands **/
 /*********************/
 (a) Prepare the data
-mkdir output
-./scripts/prepare_data.py --size 1000 ./data/train.10k.en ./output/train.10k.id.en 
-./scripts/prepare_data.py --vocab_file ./data/train.10k.en.vocab.1000 ./data/valid.3k.en ./output/valid.3k.id.en 
-./scripts/prepare_data.py --vocab_file ./data/train.10k.en.vocab.1000 ./data/test.3k.en ./output/test.3k.id.en 
-(or use run_prepare_data.sh trainFile validFile testFile vocabSize outDir [verbose])
-
-./scripts/prepare_data.py --size 1000 ./data/train.10k.de ./output/train.10k.id.de 
-./scripts/prepare_data.py --vocab_file ./data/train.10k.de.vocab.1000 ./data/valid.3k.de ./output/valid.3k.id.de 
-./scripts/prepare_data.py --vocab_file ./data/train.10k.de.vocab.1000 ./data/test.3k.de ./output/test.3k.id.de 
+./scripts/run_prepare_data.sh ./data/train.10k.en ./data/valid.100.en ./data/test.100.en 1000 ./data/id.1000
+./scripts/run_prepare_data.sh ./data/train.10k.de ./data/valid.100.de ./data/test.100.de 1000 ./data/id.1000
 
 * Sort sentences to train more efficiently
-./scripts/sort_sents.py --src_lang de --tgt_lang en --batch_size 128 output/train.10k.id output/train.10k.id.sorted
+./scripts/sort_sents_bin.py --filter --unk_str 0 --max_len 50 --num_bins 6 --src_lang de --tgt_lang en --batch_size 128 data/id.1000/train.10k data/id.1000/train.10k.sorted
 
 (b) Train a bilingual LSTM model
 export MATLAB=matlab
-./scripts/run.sh ../output/train.10k.id ../output/valid.3k.id ../output/test.3k.id de en ../data/train.10k.de.vocab.1000 ../data/train.10k.en.vocab.1000 ../output 0 100 0.1 5 0.1 128 10 1
+./scripts/run.sh ../data/id.1000/train.10k ../data/id.1000/valid.100 ../data/id.1000/test.100 de en ../data/train.10k.de.vocab.1000 ../data/train.10k.en.vocab.1000 ../output 0 100 0.1 5 0.1 128 10 1
 
 To run directly in Matlab, cd into code/ directory and run:
-trainLSTM('../output/train.10k.id', '../output/valid.3k.id', '../output/test.3k.id', 'de', 'en', '../data/train.10k.de.vocab.1000', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1)
+trainLSTM('../data/id.1000/train.10k', '../data/id.1000/valid.100', '../data/id.1000/test.100', 'de', 'en', '../data/train.10k.de.vocab.1000', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1)
 
-trainLSTM('../output/train.10k.id.sorted', '../output/valid.3k.id', '../output/test.3k.id', 'de', 'en', '../data/train.10k.de.vocab.1000', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1, 'numLayers', 2,'seed', 1)
+trainLSTM('../data/id.1000/train.10k.sorted', '../data/id.1000/valid.100', '../data/id.1000/test.100', 'de', 'en', '../data/train.10k.de.vocab.1000', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1, 'numLayers', 2,'seed', 1)
 
 (c) Grad check
 trainLSTM('', '', '', '', '', '', '', '', 0, 'isGradCheck', 1)
@@ -84,21 +77,18 @@ trainLSTM('', '', '', '', '', '', '', '', 0, 'isGradCheck', 1, 'numLayers', 2, '
 Note: the grad check works on CPU. For GPU, you will need to change this line "dataType = 'single';" into 'double' and remove the single conversion in the functions clipForward() and clipBackward().
 
 (d) Profiling
-trainLSTM('../output/train.10k.id', '../output/valid.3k.id', '../output/test.3k.id', 'de', 'en', '../data/train.10k.de.vocab.1000', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1, 'isProfile', 1)
+trainLSTM('../data/id.1000/train.10k', '../data/id.1000/valid.100', '../data/id.1000/test.100', 'de', 'en', '../data/train.10k.de.vocab.1000', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1, 'isProfile', 1)
 
-(e) Compare results
-The output of (c) on CPU should match content of the file data/gradCheck.output.
-The output of (d) on CPU should match the content of the file data/sample.output.
-
-(f) Run on full data
-trainLSTM('../data/merged_training.40k.id.sorted', '../data/tiny_tune.40k.id', '../data/p1r6_dev.40k.id', 'zh', 'en', '../data/merged_training.zh.vocab.40000', '../data/merged_training.en.vocab.40000', '../output', 0, 'logFreq', 1)
-
-(g) Train a monolingual LSTM model
+(e) Train a monolingual LSTM model
 export MATLAB=matlab
-./scripts/run.sh ../output/train.10k.id ../output/valid.3k.id ../output/test.3k.id "" en "" ../data/train.10k.en.vocab.1000 ../output 0 100 0.1 5 0.1 128 10 1
+./scripts/run.sh ../data/id.1000/train.10k ../data/id.1000/valid.100 ../data/id.1000/test.100 "" en "" ../data/train.10k.en.vocab.1000 ../output 0 100 0.1 5 0.1 128 10 1
 
 To run directly in Matlab, cd into code/ directory and run:
-trainLSTM('../output/train.10k.id', '../output/valid.3k.id', '../output/test.3k.id', '', 'en', '', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1)
+trainLSTM('../data/id.1000/train.10k', '../data/id.1000/valid.100', '../data/id.1000/test.100', '', 'en', '', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1)
 
-For PTB data:
+(f) Train on PTB data:
 trainLSTM('../data/ptb/id/ptb.train', '../data/ptb/id/ptb.valid', '../data/ptb/id/ptb.test', '', 'en', '', '../data/ptb/ptb.train.txt.vocab.10000', '../output', 0, 'logFreq', 10,'isBi',0,'lstmSize',200)
+
+(g) Train on posAll data:
+trainLSTM('../data/posAll/train.id','../data/posAll/valid.id','../data/posAll/test.id','en','de','../data/posAll/train.vocab.en','../data/posAll/train.vocab.de','../output',0,'logFreq',1,'isClip',0,'numLayers',1,'posModel',1)
+
