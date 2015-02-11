@@ -7,8 +7,9 @@ function [result] = randomMatrix(rangeSize, size, isGPU, type)
 % Thang Luong @ 2014, <lmthang@stanford.edu>: added GPU support.
 %
 %%%
-  if exist('isGPU', 'var') && isGPU==1
+  if isGPU
     result = 2*rangeSize * (rand(size, type, 'gpuArray') - 0.5);  
   else
     result = 2*rangeSize * (rand(size, type) - 0.5);
   end
+end

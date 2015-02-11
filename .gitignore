@@ -1,3 +1,4 @@
+*\.nfs*
 *.pyc
 code/html*
 code/profile_results*

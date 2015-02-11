@@ -9,15 +9,24 @@
 %  For the monolingual case, each src sent contains a single simple tgtSos,
 %   hence srcMaxLen = 1
 function [input, inputMask, tgtOutput, srcMaxLen, tgtMaxLen, numWords, srcLens] = prepareData(srcSents, tgtSents, params)
+  numSents = length(tgtSents);
   if params.isBi
     srcZeroId = params.tgtVocabSize + params.srcSos;
     srcLens = cellfun(@(x) length(x), srcSents);
+    if size(srcLens, 2)==1 % we want row vectors
+      srcLens = srcLens';
+    end
     srcMaxLen = max(srcLens);
+    
+    if params.attnFunc>0 && srcMaxLen > params.maxSentLen % attention model
+      fprintf(2, 'prepareData: change srcMaxLen from %d -> %d\n', srcMaxLen, params.maxSentLen);
+      srcMaxLen = params.maxSentLen;
+    end
   else
+    srcLens = ones(numSents, 1);
     srcZeroId = params.tgtSos;
     srcMaxLen = 1;
   end
-  numSents = length(tgtSents);
   tgtLens = cellfun(@(x) length(x), tgtSents);
   tgtMaxLen = max(tgtLens);
   input = [srcZeroId*ones(numSents, srcMaxLen) params.tgtEos*ones(numSents, tgtMaxLen-1)]; % size numSents * (srcMaxLen + tgtMaxLen - 1)
@@ -26,7 +35,10 @@ function [input, inputMask, tgtOutput, srcMaxLen, tgtMaxLen, numWords, srcLens] 
   for ii=1:numSents
     if params.isBi
       srcLen = srcLens(ii);
-      input(ii, srcMaxLen-srcLen+1:srcMaxLen) = srcSents{ii} + params.tgtVocabSize; % src part
+      if params.attnFunc>0 && srcLen>srcMaxLen % attention model
+        srcLen = srcMaxLen;
+      end
+      input(ii, srcMaxLen-srcLen+1:srcMaxLen) = srcSents{ii}(1:srcLen) + params.tgtVocabSize; % src part
     end
     
     tgtLen = tgtLens(ii);
