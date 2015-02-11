@@ -2,9 +2,9 @@ function [] = test()
   addpath(genpath(sprintf('%s/../../matlab', pwd)));
   addpath(genpath(sprintf('%s/..', pwd)));
   
-  load('/home/hyhieu/Code/lstm_matlab/output/model.mat');
-  params.isReverse = 0;
-  params.validPrefix = '/home/hyhieu/Code/lstm_matlab/output/valid';
+  load('/scr/nlp/deeplearning/lmthang/lstm/lstm.deen.50000.d1000.lr1.max5.d2.init0.1.noClip/modelRecent.mat');
+  % params.isReverse = 0;
+  % params.validPrefix = '../output/valid';
   [srcVocab] = params.vocab(params.tgtVocabSize+1:end);
   [tgtVocab] = params.vocab(1 : params.tgtVocabSize);
   validData  = loadPrepareData(params, params.validPrefix, srcVocab, tgtVocab);

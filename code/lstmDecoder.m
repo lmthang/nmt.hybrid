@@ -64,7 +64,7 @@ function [candidates, scores] = lstmDecoder(model, input, inputMask, srcMaxLen, 
   % start decoding
   candidates = cell(1);
   scores     = cell(1);
-  for currSent = 1:1
+  for currSent = 1:curBatchSize
     if mod(currSent, 20) == 0
       fprintf('Decoded %d sentences.\n', currSent);
     end
@@ -74,8 +74,8 @@ function [candidates, scores] = lstmDecoder(model, input, inputMask, srcMaxLen, 
       curr_lstm{ll}.c_t = lstm{ll}.c_t(:, currSent);
     end
 
-    [candidates{currSent}, scores{currSent}] = decode_one_sent(model, params, curr_lstm, sum(inputMask(currSent,:)), beamSize);
-    % floor(1.5*sum(inputMask(currSent,:)))
+    [candidates{currSent}, scores{currSent}] = decode_one_sent(model, params, curr_lstm, floor(1.5*sum(inputMask(currSent,:))), beamSize);
+    % 
   end
 end
 
@@ -116,12 +116,14 @@ function [candidates, scores] = decode_one_sent(model, params, lstm_start, max_l
     beam.lstms{bb} = lstm_start;
   end
 
-  show_beam(beam, beam_size, params);
+%   show_beam(beam, beam_size, params);
   for sent_pos = 1 : max_len
-    all_best_probs = zeros(beam_size*beam_size, 1);
-    all_best_words = zeros(beam_size*beam_size, 1);
+    all_best_probs = zeroMatrix([beam_size*beam_size, 1], params.isGPU, params.dataType);
+    all_best_words = zeroMatrix([beam_size*beam_size, 1], params.isGPU, params.dataType);
+    all_best_beams = zeroMatrix([beam_size*beam_size, 1], params.isGPU, params.dataType);
 
-    for bb = 1 : beam_size
+    for bb = 1 : min(beam_size, length(beam.probs))
+      all_best_beams(((bb-1)*beam_size+1) : (bb*beam_size)) = bb;
       if beam.probs{bb} == 0
         continue;
       end
@@ -155,18 +157,20 @@ function [candidates, scores] = decode_one_sent(model, params, lstm_start, max_l
     non_zeros = find(all_best_probs);
     all_best_probs = all_best_probs(non_zeros);
     all_best_words = all_best_words(non_zeros);
+    all_best_beams = all_best_beams(non_zeros);
 
     [sorted_best_probs, indices] = sort(all_best_probs, 'descend');
-    probs = sorted_best_probs(1 : beam_size);
-    words = all_best_words(indices(1 : beam_size));
+    remains = min(beam_size, length(indices));
+    probs = sorted_best_probs(1 : remains);
+    words = all_best_words(indices(1 : remains));
 
     % update beam
-    new_beam.probs = cell(beam_size, 1);
-    new_beam.hists = cell(beam_size, 1);
-    new_beam.lstms = cell(beam_size, 1);
+    new_beam.probs = cell(remains, 1);
+    new_beam.hists = cell(remains, 1);
+    new_beam.lstms = cell(remains, 1);
 
-    for bb = 1 : beam_size
-      last_beam_idx = floor((indices(bb)-1) / beam_size + 1e-9) + 1;
+    for bb = 1 : remains 
+      last_beam_idx = all_best_beams(bb);
       new_beam.probs{bb} = probs(bb);
       new_beam.hists{bb} = [beam.hists{last_beam_idx}, words(bb)];
       new_beam.lstms{bb} = beam.lstms{last_beam_idx};
@@ -180,13 +184,7 @@ function [candidates, scores] = decode_one_sent(model, params, lstm_start, max_l
     end
 
     beam = new_beam;
-    show_beam(beam, beam_size, params);
-  end
-
-  for bb = 1 : beam_size
-    num_decoded = num_decoded + 1;
-    candidates{num_decoded} = beam.hists{bb};
-    scores{num_decoded} = beam.probs{bb};
+%     show_beam(beam, beam_size, params);
   end
 end
 

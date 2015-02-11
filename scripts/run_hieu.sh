@@ -24,9 +24,9 @@ fi
 
 #MATLAB=/afs/cs/software/bin/matlab_r2013b
 MATLAB=matlab
-trainPrefix='/home/hyhieu/Code/lstm_matlab/output/train.10k.id'
-validPrefix='/home/hyhieu/Code/lstm_matlab/output/valid.3k.id'
-testPrefix='/home/hyhieu/Code/lstm_matlab/output/test.3k.id'
+trainPrefix='../output/train.10k.id'
+validPrefix='../output/valid.3k.id'
+testPrefix='../output/test.3k.id'
 srcLang='de'
 tgtLang='en'
 srcVocabFile='../data/train.10k.de.vocab.1000'
