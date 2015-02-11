@@ -142,18 +142,22 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
   if opt==1:
     num_unks = 0
     (src_words, src_vocab_map, src_vocab_size) = add_unks(src_words, src_vocab_map, src_vocab_size, num_unks)
-  
-    # add relative position words to tgt vocab
-    for i in xrange(window): 
-      pos_word = '<p_' + str(i+1) + '>'
-      (tgt_words, tgt_vocab_map, tgt_vocab_size) = text.add_word_to_vocab(pos_word, tgt_words, tgt_vocab_map, tgt_vocab_size)
-      pos_word = '<p_' + str(-i-1) + '>'
+ 
+    # relative position = tgt_pos - src_pos
+    # positions -window ... -1
+    for i in xrange(window, 0, -1): 
+      pos_word = '<p_' + str(-i) + '>'
       (tgt_words, tgt_vocab_map, tgt_vocab_size) = text.add_word_to_vocab(pos_word, tgt_words, tgt_vocab_map, tgt_vocab_size)
 
     # position 0
     pos_word = '<p_0>'
     (tgt_words, tgt_vocab_map, tgt_vocab_size) = text.add_word_to_vocab(pos_word, tgt_words, tgt_vocab_map, tgt_vocab_size)
- 
+    
+    # 1 ... window
+    for i in xrange(window): 
+      pos_word = '<p_' + str(i+1) + '>'
+      (tgt_words, tgt_vocab_map, tgt_vocab_size) = text.add_word_to_vocab(pos_word, tgt_words, tgt_vocab_map, tgt_vocab_size)
+
     # null alignment
     pos_null = '<p_n>'
     (tgt_words, tgt_vocab_map, tgt_vocab_size) = text.add_word_to_vocab(pos_null, tgt_words, tgt_vocab_map, tgt_vocab_size)

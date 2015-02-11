@@ -44,10 +44,13 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'dataType', 'single', @ischar); % Note: use double precision for grad check
   addOptional(p,'maxSentLen', 51, @isnumeric); % mostly apply to src, used in attention-based models. Usual length is 50 + 1 (for eos)
   addOptional(p,'dropout', 1, @isnumeric); % dropout prob: 1 no dropout, <1: dropout
-  % 0 no, 1: positional model (on the tgt side, produce pos, then word)
-  % 2: like 1, but use positional info to provide src input for the decoder
-  addOptional(p,'posModel', 0, @isnumeric);
-
+  % positional models: predict pos, then word, use a separate softmax for pos
+  % 1: separately print out pos/word perplexities
+  % 2: like 1 + feed in src hidden states, 3: like 1 + feed in src embeddings 
+  addOptional(p,'posModel', 0, @isnumeric); 
+  addOptional(p,'posSoftmax', 0, @isnumeric); % use with posModel. 0: same softmax for word/pos, 1: separate softmax for positions
+  addOptional(p,'wordVocabSize', 0, @isnumeric); % use with posModel. so that we identify indices representing positions
+  
   %% debugging options
   addOptional(p,'isGradCheck', 0, @isnumeric); % set 1 to check the gradient, no need input arguments as toy data is automatically generated.
   addOptional(p,'isProfile', 0, @isnumeric);

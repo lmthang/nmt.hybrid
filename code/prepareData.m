@@ -17,7 +17,8 @@ function [input, inputMask, tgtOutput, srcMaxLen, tgtMaxLen, numWords, srcLens] 
       srcLens = srcLens';
     end
     srcMaxLen = max(srcLens);
-    if params.attnFunc>0 && srcMaxLen > params.maxSentLen
+    
+    if params.attnFunc>0 && srcMaxLen > params.maxSentLen % attention model
       fprintf(2, 'prepareData: change srcMaxLen from %d -> %d\n', srcMaxLen, params.maxSentLen);
       srcMaxLen = params.maxSentLen;
     end
@@ -34,7 +35,7 @@ function [input, inputMask, tgtOutput, srcMaxLen, tgtMaxLen, numWords, srcLens] 
   for ii=1:numSents
     if params.isBi
       srcLen = srcLens(ii);
-      if srcLen>srcMaxLen
+      if params.attnFunc>0 && srcLen>srcMaxLen % attention model
         srcLen = srcMaxLen;
       end
       input(ii, srcMaxLen-srcLen+1:srcMaxLen) = srcSents{ii}(1:srcLen) + params.tgtVocabSize; % src part
