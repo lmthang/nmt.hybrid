@@ -1,4 +1,4 @@
-function [] = test(modelFile, beamSize, stackSize, batchSize, outputFile)
+function [] = test(modelFile, beamSize, stackSize, batchSize, outputFile, gpuDevice)
   addpath(genpath(sprintf('%s/../../matlab', pwd)));
   addpath(genpath(sprintf('%s/..', pwd)));
   
@@ -6,6 +6,21 @@ function [] = test(modelFile, beamSize, stackSize, batchSize, outputFile)
   params = savedData.params;
   model = savedData.model;
   
+  % check GPUs
+  params.isGPU = 0;
+  params.gpuDevice = gpuDevice;
+  if ismac==0 && params.onlyCPU==0
+    n = gpuDeviceCount;  
+    if n>0 % GPU exists
+      fprintf(2, '# %d GPUs exist. So, we will use GPUs.\n', n);
+      params.isGPU = 1;
+      gpuDevice(params.gpuDevice)
+    else
+      params.dataType = 'double';
+    end
+  else
+    params.dataType = 'double';
+  end
   printParams(2, params);
   
   % load test data
