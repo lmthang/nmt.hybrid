@@ -86,7 +86,7 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
   candScores = cell(batchSize, 1);
   for bb=1:batchSize
     candidates{bb} = cell(stackSize, 1);
-    candScores{bb} = zeros(stackSize, 1);
+    candScores{bb} = zeroMatrix([stackSize, 1], params.isGPU, params.dataType);
   end
   
   numDecoded = zeros(batchSize, 1);
@@ -147,7 +147,7 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
     new_beam.scores = sortedBestScores(1:beamSize, :);
     new_beam.hists = cell(beamSize, 1);
     for bb=1:beamSize
-      new_beam.hists{bb} = zeros(batchSize, sentPos+1);
+      new_beam.hists{bb} = zeroMatrix([batchSize, sentPos+1], params.isGPU, params.dataType);
       new_beam.lstms{bb} = cell(numLayers, 1);
       for ll=1:numLayers
         new_beam.lstms{bb}{ll}.h_t = zeroMatrix([params.lstmSize, batchSize], params.isGPU, params.dataType);

@@ -22,11 +22,6 @@ if [[ $# -lt 16 || $# -gt 17 ]]; then
   exit
 fi
 
-<<<<<<< HEAD
-#MATLAB=/afs/cs/software/bin/matlab_r2013b
-MATLAB=matlab
-=======
->>>>>>> dc9f087b97a3e643a24cc2a585c71dc43045155e
 trainPrefix=$1
 validPrefix=$2
 testPrefix=$3
