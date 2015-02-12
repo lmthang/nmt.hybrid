@@ -92,7 +92,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
         x_t = lstm{ll-1, t}.h_t;
       end
       
-      % masking
+      %% masking
       x_t(:, timeInfo{t}.maskedIds) = 0; 
       h_t_1(:, timeInfo{t}.maskedIds) = 0;
       c_t_1(:, timeInfo{t}.maskedIds) = 0;
@@ -122,7 +122,6 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
       
       %% attention mechanism: keep track of src hidden states at the top level
       if params.attnFunc>0 && ll==params.numLayers && (t<srcMaxLen)
-        %srcAlignStates(t, :, :) = lstm{ll, t}.h_t'; % H_src'
         srcAlignStates(:, 1:curBatchSize, t) = lstm{ll, t}.h_t;
       end
         
@@ -132,7 +131,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
         if params.softmaxDim>0 % f(W_h * h_t)
           softmax_h = params.nonlinear_f(model.W_h*lstm{ll, t}.h_t);
         else  
-          if params.attnFunc>0 % attention mechanism: f(W_ah*[attn_t; tgt_h_t])
+          if params.attnFunc>0 % attention mechanism
             [softmax_h, attn_h_concat, alignWeights, alignScores, attnInput] = attnForward(lstm{ll, t}.h_t, model, srcAlignStates, timeInfo{t}.mask, params, curBatchSize, srcLens);
           else % normal
             softmax_h = lstm{ll, t}.h_t;
