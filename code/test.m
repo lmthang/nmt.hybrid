@@ -1,9 +1,7 @@
-function [] = test(modelFile, beamSize)
-  % modelFile = '/scr/nlp/deeplearning/lmthang/lstm/lstm.deen.50000.d1000.lr1.max5.d2.init0.1.noClip/modelRecent.mat';
+function [] = test(modelFile, beamSize, stackSize, batchSize, outputFile)
   addpath(genpath(sprintf('%s/../../matlab', pwd)));
   addpath(genpath(sprintf('%s/..', pwd)));
   
-  % trainLSTM('../data/id.1000/train.10k.sorted', '../data/id.1000/valid.100', '../data/id.1000/test.100', 'de', 'en', '../data/train.10k.de.vocab.1000', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 10, 'numLayers', 2,'seed', 1, 'attnFunc', 0, 'isResume', 0)
   [savedData] = load(modelFile);
   params = savedData.params;
   model = savedData.model;
@@ -15,19 +13,54 @@ function [] = test(modelFile, beamSize)
   [tgtVocab] = params.vocab(1 : params.tgtVocabSize);
   testData  = loadPrepareData(params, params.testPrefix, srcVocab, tgtVocab);
   
-  [candidates, scores] = lstmDecoder(model, testData.input, testData.inputMask, testData.srcMaxLen, params, beamSize);
+  [allCandidates, allScores] = decode(model, testData, params, beamSize, stackSize, batchSize);
   
-  for i = 1:length(candidates)
-    mask = find(testData.inputMask(i,1:testData.srcMaxLen));
-    src = testData.input(i,mask(:));
-    printSent(src, params.vocab, 'source: ');
-    if isempty(candidates{i})
-      fprintf(2, 'no translations.\n');
-    else
-      for j = 1 : length(candidates{i})
-        printSent(candidates{i}{j}, params.vocab, 'candidate: ');
-      end
+  fid = fopen(outputFile, 'w');
+  for ii = 1:length(allCandidates)
+    [maxScore, bestId] = max(allScores{ii});
+    printSent(fid, allCandidates{ii}{bestId}(1:end-1), params.vocab, ''); % remove <t_eos>
+    printSrc(testData, ii, params);
+    printSent(2, allCandidates{ii}{bestId}, params.vocab, ['best ' num2str(maxScore) ': ']);
+    printTranslations(allCandidates{ii}, allScores{ii}, params);
+  end
+  fclose(fid);
+end
+
+function printTranslations(candidates, scores, params)
+  for jj = 1 : length(candidates)
+    printSent(2, candidates{jj}, params.vocab, ['cand ' num2str(jj) ', ' num2str(scores(jj)) ': ']);
+  end
+end
+
+function printSrc(testData, ii, params)
+  mask = find(testData.inputMask(ii,1:testData.srcMaxLen));
+  src = testData.input(ii,mask(:));
+  printSent(2, src, params.vocab, ['# source ' num2str(ii) ': ']);
+end
+
+function [allCandidates, allScores] = decode(model, data, params, beamSize, stackSize, batchSize)
+  numSents = size(data.input, 1);
+  numBatches = floor((numSents-1)/batchSize) + 1;
+  allCandidates = cell(numSents, 1); 
+  allScores = cell(numSents, 1);
+  
+  decodeData.srcMaxLen = data.srcMaxLen;
+  decodeData.tgtMaxLen = data.tgtMaxLen;
+  for batchId = 1 : numBatches
+    startId = (batchId-1)*batchSize+1;
+    endId = batchId*batchSize;
+    if endId > numSents
+      endId = numSents;
     end
-    fprintf(2, '=======================================\n');
+    
+    decodeData.input = data.input(startId:endId, :);
+    decodeData.inputMask = data.inputMask(startId:endId, :);
+    decodeData.tgtOutput = data.tgtOutput(startId:endId, :);
+    decodeData.srcLens = data.srcLens(startId:endId);
+    decodeData.sentIndices = startId:endId;
+    
+    [candidates, scores] = lstmDecoder(model, decodeData, params, beamSize, stackSize); 
+    allCandidates(startId:endId) = candidates;
+    allScores(startId:endId) = scores;
   end
 end

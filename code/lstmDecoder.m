@@ -1,33 +1,28 @@
-function [candidates, scores] = lstmDecoder(model, input, inputMask, srcMaxLen, params, beamSize)
+function [candidates, candScores] = lstmDecoder(model, data, params, beamSize, stackSize)
 %%%
 %
-% Decode from an LSTM model
+% Decode from an LSTM model.
+%   stackSize: the maximum number of translations we want to get.
 %
-% Thang Luong @ 2014, <lmthang@stanford.edu>
+% Thang Luong @ 2015, <lmthang@stanford.edu>
 % Hieu Pham @ 2015, <hyhieu@cs.stanford.edu>
 %
 %%%
+  input = data.input;
+  inputMask = data.inputMask; 
+  srcMaxLen = data.srcMaxLen;
   
-  %dataType = 'double'; % Note: use double precision for grad check
-  dataType = 'single';
-
+  %% init
   curBatchSize = size(input, 1);
-  
-  %lstm = cell(1, T); % each cell contains intermediate results for that timestep needed for backprop
-  input_embs = model.W_emb(:, input);
-  if params.isGPU % declare intermediate variables on GPU
-    zero_state = zeros([params.lstmSize, curBatchSize], dataType, 'gpuArray');
-    input_embs = gpuArray(input_embs); % load input embeddings onto GPUs
-  else
-    zero_state = zeros([params.lstmSize, curBatchSize]);
-  end
+  zeroState = zeroMatrix([params.lstmSize, curBatchSize], params.isGPU, params.dataType);
 
-  % encode
+  %%%%%%%%%%%%
+  %% encode %%
+  %%%%%%%%%%%%
   lstm = cell(params.numLayers, 1); % lstm can be over written, as we do not need to backprop
   for t=1:srcMaxLen % time
     % prepare mask
     mask = inputMask(:, t)'; % curBatchSize * 1
-    unmaskedIds = find(mask);
     maskedIds = find(~mask);
 
     for ll=1:params.numLayers % layer
@@ -36,8 +31,8 @@ function [candidates, scores] = lstmDecoder(model, input, inputMask, srcMaxLen, 
       
       %% previous-time input
       if t==1 % first time step
-        h_t_1 = zero_state;
-        c_t_1 = zero_state;
+        h_t_1 = zeroState;
+        c_t_1 = zeroState;
       else
         h_t_1 = lstm{ll}.h_t; 
         c_t_1 = lstm{ll}.c_t;
@@ -57,26 +52,11 @@ function [candidates, scores] = lstmDecoder(model, input, inputMask, srcMaxLen, 
       c_t_1(:, maskedIds) = 0;
 
       %% lstm cell
-      lstm{ll} = lstmUnit(W, x_t, h_t_1, c_t_1, params);
+      lstm{ll} = lstmUnit(W, x_t, h_t_1, c_t_1, params, 1);
     end
   end
   
-  % start decoding
-  candidates = cell(1);
-  scores     = cell(1);
-  for currSent = 1:curBatchSize
-    if mod(currSent, 20) == 0
-      fprintf('Decoded %d sentences.\n', currSent);
-    end
-    curr_lstm = cell(params.numLayers, 1);
-    for ll = 1:params.numLayers
-      curr_lstm{ll}.h_t = lstm{ll}.h_t(:, currSent);
-      curr_lstm{ll}.c_t = lstm{ll}.c_t(:, currSent);
-    end
-
-    [candidates{currSent}, scores{currSent}] = decode_one_sent(model, params, curr_lstm, floor(1.5*sum(inputMask(currSent,:))), beamSize);
-    % 
-  end
+  [candidates, candScores] = decodeBatch(model, params, lstm, srcMaxLen*2, beamSize, stackSize, data.sentIndices);
 end
 
 %%%
@@ -92,122 +72,164 @@ end
 %   - candidates: list of candidates
 %   - scores: score of the corresponding candidates
 %
-% Thang Luong @ 2014, <lmthang@stanford.edu>
+% Thang Luong @ 2015, <lmthang@stanford.edu>
 % Hieu Pham @ 2015, <hyhieu@cs.stanford.edu>
 %
 %%%
-function [candidates, scores] = decode_one_sent(model, params, lstm_start, max_len, beam_size)
+function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen, beamSize, stackSize, sentIndices)
   W_tgt = model.W_tgt;
   W_emb = model.W_emb;
-  num_layers = params.numLayers;
-
-  num_decoded = 0;
-  candidates = cell(0);
-  scores = cell(0);
-
-  beam.probs = cell(beam_size, 1);
-  beam.hists = cell(beam_size, 1);
-  beam.lstms = cell(beam_size, 1);
-
-  [best_probs, best_words] = next_beam_step(model, params, lstm_start{num_layers}.h_t, beam_size);
-  for bb = 1 : beam_size
-    beam.probs{bb} = best_probs(bb);
-    beam.hists{bb} = best_words(bb);
-    beam.lstms{bb} = lstm_start;
+  numLayers = params.numLayers;
+  batchSize = size(lstmStart{numLayers}.h_t, 2);
+  
+  candidates = cell(batchSize, 1);
+  candScores = cell(batchSize, 1);
+  for bb=1:batchSize
+    candidates{bb} = cell(stackSize, 1);
+    candScores{bb} = zeros(stackSize, 1);
   end
-
+  
+  numDecoded = zeros(batchSize, 1);
+  [beam.scores, words] = nextBeamStep(model, lstmStart{numLayers}.h_t, beamSize); % scores, words: beamSize * batchSize
+  beam.lstms = cell(beamSize, 1);
+  beam.hists = cell(beamSize, 1);
+  for bb=1:beamSize
+    beam.lstms{bb} = lstmStart; 
+    beam.hists{bb} = words(bb, :)'; % batchSize * sentPos, at the moment sentPos=1
+  end
+  
 %   show_beam(beam, beam_size, params);
-  for sent_pos = 1 : max_len
-    all_best_probs = zeroMatrix([beam_size*beam_size, 1], params.isGPU, params.dataType);
-    all_best_words = zeroMatrix([beam_size*beam_size, 1], params.isGPU, params.dataType);
-    all_best_beams = zeroMatrix([beam_size*beam_size, 1], params.isGPU, params.dataType);
+  decodeCompleteCount = 0; % count how many sentences we have completed collecting the translations
+  for sentPos = 1 : maxLen
+    fprintf(2, '%d ', sentPos);
+    allBestScores = zeroMatrix([beamSize*beamSize, batchSize], params.isGPU, params.dataType);
+    allBestWords = zeroMatrix([beamSize*beamSize, batchSize], params.isGPU, params.dataType);
+    allBestBeams = zeroMatrix([beamSize*beamSize, batchSize], params.isGPU, params.dataType);
 
-    for bb = 1 : min(beam_size, length(beam.probs))
-      all_best_beams(((bb-1)*beam_size+1) : (bb*beam_size)) = bb;
-      if beam.probs{bb} == 0
-        continue;
-      end
-
+    for bb = 1 : min(beamSize, length(beam.scores))
+      allBestBeams(((bb-1)*beamSize+1) : (bb*beamSize), :) = bb;
+      
       % accumulate the last word in history
       % to compute all lstm layers
-      last_word = beam.hists{bb}(end);
-      lstm = cell(num_layers, 1);
+      words = beam.hists{bb}(:, end);
+      lstmCur = cell(numLayers, 1);
 
-      for ll = 1 : num_layers
+      for ll = 1 : numLayers
+        % current input
         if ll == 1
-          x_t = W_emb(:, last_word);
+          x_t = W_emb(:, words);
         else
-          x_t = lstm{ll-1}.h_t;
+          x_t = lstmCur{ll-1}.h_t;
         end
-
-        h_t = beam.lstms{bb}{ll}.h_t;
-        c_t = beam.lstms{bb}{ll}.c_t;
-
-        lstm{ll} = lstmUnit(W_tgt{ll}, x_t, h_t, c_t, params);
+        % previous input
+        h_t_1 = beam.lstms{bb}{ll}.h_t;
+        c_t_1 = beam.lstms{bb}{ll}.c_t;
+      
+        lstmCur{ll} = lstmUnit(W_tgt{ll}, x_t, h_t_1, c_t_1, params, 1);
       end
 
-      beam.lstms{bb} = lstm;
+      beam.lstms{bb} = lstmCur;
 
       % predict the next word
-      [best_next_probs, best_next_words] = next_beam_step(model, params, lstm{num_layers}.h_t, beam_size);
-      all_best_probs(((bb-1)*beam_size+1) : (bb*beam_size)) = best_next_probs + beam.probs{bb};
-      all_best_words(((bb-1)*beam_size+1) : (bb*beam_size)) = best_next_words;
-    end
+      [bestNextScores, bestNextWords] = nextBeamStep(model, lstmCur{numLayers}.h_t, beamSize);
+      allBestScores(((bb-1)*beamSize+1) : (bb*beamSize), :) = bsxfun(@plus, bestNextScores, beam.scores(bb, :));
+      allBestWords(((bb-1)*beamSize+1) : (bb*beamSize), :) = bestNextWords;
+      
+    end % end for bb
 
-    non_zeros = find(all_best_probs);
-    all_best_probs = all_best_probs(non_zeros);
-    all_best_words = all_best_words(non_zeros);
-    all_best_beams = all_best_beams(non_zeros);
 
-    [sorted_best_probs, indices] = sort(all_best_probs, 'descend');
-    remains = min(beam_size, length(indices));
-    probs = sorted_best_probs(1 : remains);
-    words = all_best_words(indices(1 : remains));
-
-    % update beam
-    new_beam.probs = cell(remains, 1);
-    new_beam.hists = cell(remains, 1);
-    new_beam.lstms = cell(remains, 1);
-
-    for bb = 1 : remains 
-      last_beam_idx = all_best_beams(bb);
-      new_beam.probs{bb} = probs(bb);
-      new_beam.hists{bb} = [beam.hists{last_beam_idx}, words(bb)];
-      new_beam.lstms{bb} = beam.lstms{last_beam_idx};
-
-      if words(bb) == params.tgtEos
-        num_decoded = num_decoded + 1;
-        candidates{num_decoded} = new_beam.hists{bb};
-        scores{num_decoded} = new_beam.probs{bb};
-        new_beam.probs{bb} = 0;
+    %% update beam
+    [sortedBestScores, indices] = sort(allBestScores, 'descend');
+    bestIndices = indices(1:beamSize, :);
+    bestWords = allBestWords(bestIndices);
+    prevBeams = allBestBeams(bestIndices); % this tells us which beam each hypothesis originally comes from. beamSize * batchSize
+    % init new beam
+    new_beam.scores = sortedBestScores(1:beamSize, :);
+    new_beam.hists = cell(beamSize, 1);
+    for bb=1:beamSize
+      new_beam.hists{bb} = zeros(batchSize, sentPos+1);
+      new_beam.lstms{bb} = cell(numLayers, 1);
+      for ll=1:numLayers
+        new_beam.lstms{bb}{ll}.h_t = zeroMatrix([params.lstmSize, batchSize], params.isGPU, params.dataType);
+        new_beam.lstms{bb}{ll}.c_t = zeroMatrix([params.lstmSize, batchSize], params.isGPU, params.dataType);
       end
     end
-
+    % populate new beam
+    for jj=1:batchSize
+      for bb=1:beamSize
+        % combine beam.hists(beamIndices{bb, jj), jj} with bestWords(bb, jj)
+        prevBeam = prevBeams(bb, jj);
+        word = bestWords(bb, jj);
+        new_beam.hists{bb}(jj, :) = [beam.hists{prevBeam}(jj, :), word];
+        
+        % copy lstm state
+        for ll=1:numLayers
+          new_beam.lstms{bb}{ll}.h_t(:, jj) = beam.lstms{prevBeam}{ll}.h_t(:, jj);
+          new_beam.lstms{bb}{ll}.c_t(:, jj) = beam.lstms{prevBeam}{ll}.c_t(:, jj);
+        end
+        
+        % eos
+        if word == params.tgtEos && numDecoded(jj)<stackSize % haven't collected enough translations
+          numDecoded(jj) = numDecoded(jj) + 1;
+          candidates{jj}{numDecoded(jj)} = new_beam.hists{bb}(jj, :);
+          candScores{jj}(numDecoded(jj)) = new_beam.scores(bb, jj);
+          
+          if numDecoded(jj)==stackSize
+            decodeCompleteCount = decodeCompleteCount + 1;
+          end
+        end
+      end
+    end
+    
+    if decodeCompleteCount==batchSize % done decoding the entire batch
+      break;
+    end
+    
     beam = new_beam;
-%     show_beam(beam, beam_size, params);
+    %showBeam(beam, beamSize, batchSize, params);
+  end
+  fprintf(2, 'Done! decoding maxLen=%d\n', maxLen);
+  for jj=1:batchSize
+    if numDecoded(jj) == 0 % no translations found, output all we have in the beam
+      fprintf(2, '! Sent %d: no translations end in eos\n', sentIndices(jj));
+      for bb = 1:beamSize
+        numDecoded(jj) = numDecoded(jj) + 1;
+        candidates{jj}{numDecoded(jj)} = [beam.hists{bb}(jj, :) params.tgtEos];
+        candScores{jj}(numDecoded(jj)) = beam.scores(bb, jj);
+      end
+    end
+    candidates{jj}(numDecoded(jj)+1:end) = [];
+    candScores{jj}(numDecoded(jj)+1:end) = [];
   end
 end
 
-function [best_probs, best_words] = next_beam_step(model, params, h, beam_size)
-  [probs, ~, ~] = softmax(model.W_soft, h);
-  [sorted_probs, sorted_words] = sort(probs(:), 'descend');
-  best_words = sorted_words(1 : beam_size);
-  best_probs = log(sorted_probs(1 : beam_size));
+
+function [bestLogProbs, bestWords] = nextBeamStep(model, h, beamSize)
+  % return bestLogProbs, bestWords of sizes beamSize * curBatchSize
+  [logProbs] = softmaxDecode(model.W_soft*h);
+  [sortedLogProbs, sortedWords] = sort(logProbs, 'descend');
+  bestWords = sortedWords(1:beamSize, :);
+  bestLogProbs = sortedLogProbs(1:beamSize, :);
 end
 
-function [] = show_beam(beam, beam_size, params)
+function [logProbs] = softmaxDecode(scores)
+%% only compute logProbs
+  mx = max(scores);
+  scores = bsxfun(@minus, scores, mx); % subtract max elements 
+  logProbs = bsxfun(@minus, scores, log(sum(exp(scores))));
+end
+
+function [] = showBeam(beam, beam_size, batchSize, params)
   fprintf(2, 'current beam state:\n');
-  for bb = 1 : beam_size
-    fprintf(2, 'hypothesis: ');
-    for i = 1 : length(beam.hists{bb})
-      fprintf(2, '%s ', params.vocab{beam.hists{bb}(i)});
+  for bb=1:beam_size
+    for jj=1:batchSize
+      fprintf(2, 'hypothesis beam %d, example %d\n', bb, jj);
+      for ii=1:length(beam.hists{bb}(jj, :))
+        fprintf(2, '%s ', params.vocab{beam.hists{bb}(jj, ii)});
+      end
+      fprintf(2, ' -> %f\n', beam.scores(bb, jj));
+      fprintf(2, '===================\n');
     end
-    fprintf(2, ' -> %f\n', beam.probs{bb});
-    for ll = 1 : params.numLayers
-      [beam.lstms{bb}{ll}.h_t(1:10), beam.lstms{bb}{ll}.c_t(1:10)]'
-      fprintf(2, '------\n');
-    end
-    fprintf(2, '===================\n');
   end
   fprintf(2, 'end_beam ================================================== end_beam\n');
 end

@@ -1,9 +1,12 @@
-function printSent(sent, vocab, prefix)
-  fprintf(2, '%s', prefix);
+function printSent(fid, sent, vocab, prefix)
+  fprintf(fid, '%s', prefix);
   for ii=1:length(sent)
-    fprintf(2, ' %s', vocab{sent(ii)}); 
+    if ii<length(sent)
+      fprintf(fid, '%s ', vocab{sent(ii)}); 
+    else
+      fprintf(fid, '%s\n', vocab{sent(ii)}); 
+    end
   end
-  fprintf(2, '\n');
 end
 
 

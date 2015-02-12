@@ -1,4 +1,4 @@
-function [probs, scores, norms] = softmax(W_soft, h_t, varargin)
+function [probs, scores, norms] = softmax(scores, varargin)
 %%%
 %
 % Efficient (hopefully) softmax implementation.
@@ -10,7 +10,6 @@ function [probs, scores, norms] = softmax(W_soft, h_t, varargin)
 % Hieu Pham @ 2015, <hyhieu@cs.stanford.edu>
 %
 %%%
-  scores = W_soft * h_t;  % params.outVocabSize * curBatchSize
   mx = max(scores);
   scores = bsxfun(@minus, scores, mx); % subtract max elements 
   probs = exp(scores); % unnormalized probs 

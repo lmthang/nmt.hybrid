@@ -1,9 +1,9 @@
-function [costs, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
+function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
 %%%
 %
 % Compute cost/grad for LSTM. 
 % When params.posModel>0, returns costs.pos and costs.word
-% If isCostOnly==1, this method only computes cost (for testing purposes).
+% If isTest==1, this method only computes cost (for testing purposes).
 %
 % Thang Luong @ 2014, <lmthang@stanford.edu>
 %
@@ -28,7 +28,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
     input_embs = model.W_emb(:, input);
     input_embs = gpuArray(input_embs); % load input embeddings onto GPUs
   end
-  [grad, zero_state, costs, emb] = initGrad(model, params, curBatchSize, numInputWords);
+  [grad, zeroState, costs, emb] = initGrad(model, params, curBatchSize, numInputWords);
 
   
   % global opt
@@ -68,8 +68,8 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
       
       %% previous-time input
       if t==1 % first time step
-        h_t_1 = zero_state;
-        c_t_1 = zero_state;
+        h_t_1 = zeroState;
+        c_t_1 = zeroState;
       else
         h_t_1 = lstm{ll, t-1}.h_t; 
         c_t_1 = lstm{ll, t-1}.c_t;
@@ -99,7 +99,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
      
       
       %% dropout
-      if params.dropout<1 && isCostOnly==0
+      if params.dropout<1 && isTest==0
         if ~params.isGradCheck
           if params.isGPU
             dropoutMask = (rand(size(x_t), 'gpuArray')<params.dropout)/params.dropout;
@@ -113,10 +113,10 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
       end
       
       %% lstm cell
-      lstm{ll, t} = lstmUnit(W, x_t, h_t_1, c_t_1, params);
+      lstm{ll, t} = lstmUnit(W, x_t, h_t_1, c_t_1, params, isTest);
       
       % store dropout mask
-      if params.dropout<1 && isCostOnly==0
+      if params.dropout<1 && isTest==0
         lstm{ll, t}.dropoutMask = dropoutMask;
       end
       
@@ -138,7 +138,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
           end
         end
         
-        [probs, scores, norms] = softmax(model.W_soft, softmax_h, timeInfo{t}.mask);
+        [probs, scores, norms] = softmax(model.W_soft*softmax_h, timeInfo{t}.mask);
         
         % assert
         if params.assert
@@ -162,7 +162,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
           end
         end
 
-        if isCostOnly==0 % compute grad
+        if isTest==0 % compute grad
           probs(scoreIndices) = probs(scoreIndices) - 1; % minus one at predicted words
                       
           % grad_softmax_h
@@ -207,7 +207,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
     end
   end
   
-  if isCostOnly==1 % don't compute grad
+  if isTest==1 % don't compute grad
     return;
   end
   
@@ -218,8 +218,8 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
   dh = cell(params.numLayers, 1);
   dc = cell(params.numLayers, 1); 
   for ll=params.numLayers:-1:1 % layer
-    dh{ll} = zero_state;
-    dc{ll} = zero_state;
+    dh{ll} = zeroState;
+    dc{ll} = zeroState;
   end
   
   wordCount = 0;
@@ -238,7 +238,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isCostOnly)
       end
 
       %% cell backprop
-      [lstm_grad] = lstmUnitGrad(model, lstm, dc{ll}, dh{ll}, ll, t, srcMaxLen, zero_state, params);
+      [lstm_grad] = lstmUnitGrad(model, lstm, dc{ll}, dh{ll}, ll, t, srcMaxLen, zeroState, params);
       dc{ll} = lstm_grad.dc;
       dh{ll} = lstm_grad.d_xh(params.lstmSize+1:end, :);
 

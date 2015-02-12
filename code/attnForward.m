@@ -16,7 +16,7 @@ function [attnHidVecs, attn_h_concat, alignWeights, alignScores, attnInput] = at
   end
   
   % align weights a_t = softmax(s_t)
-  alignWeights = softmax_new(alignScores);
+  alignWeights = softmax(alignScores);
   
   % mask
   % alignWeights = bsxfun(@times, alignWeights, mask), then change alignWeights from maxSentLen*curBatchSize-> 1 * curBatchSize * maxSentLen

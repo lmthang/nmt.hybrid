@@ -172,15 +172,15 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     fprintf(2, '# Load train data srcFile "%s" and tgtFile "%s"\n', srcTrainFile, tgtTrainFile);
     srcID = fopen(srcTrainFile, 'r');
     [srcTrainSents] = loadBatchData(srcID, params.baseIndex, params.chunkSize, params.srcEos);
-    printSent(srcTrainSents{1}, srcVocab, '  src 1:');
-    printSent(srcTrainSents{end}, srcVocab, '  src end:');
+    printSent(2, srcTrainSents{1}, srcVocab, '  src 1:');
+    printSent(2, srcTrainSents{end}, srcVocab, '  src end:');
   else
     fprintf(2, '# Load train data tgtFile "%s"\n', tgtTrainFile);
   end
   tgtID = fopen(tgtTrainFile, 'r');
   [tgtTrainSents, numTrainSents] = loadBatchData(tgtID, params.baseIndex, params.chunkSize, params.tgtEos);
-  printSent(tgtTrainSents{1}, tgtVocab, '  tgt:');
-  printSent(tgtTrainSents{end}, tgtVocab, '  tgt end:');
+  printSent(2, tgtTrainSents{1}, tgtVocab, '  tgt:');
+  printSent(2, tgtTrainSents{end}, tgtVocab, '  tgt end:');
 
   %%%%%%%%%%%%%%
   %% Training %%
@@ -228,7 +228,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       tgtBatchSents = tgtTrainSents(startId:endId);
       [trainData] = prepareData(srcBatchSents, tgtBatchSents, params);
       %vocab = [tgtVocab srcVocab]
-      %printSent(trainData.input(1, :), vocab, '  input:');
+      %printSent(2, trainData.input(1, :), vocab, '  input:');
      
       %%%%%%%%%%%%%%%
       %% core part %%

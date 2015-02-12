@@ -98,3 +98,5 @@ trainLSTM('../data/ptb/id/ptb.train', '../data/ptb/id/ptb.valid', '../data/ptb/i
 * train
 trainLSTM('../data/posAll/train.id','../data/posAll/valid.id','../data/posAll/test.id','en','de','../data/posAll/train.vocab.en','../data/posAll/train.vocab.de','../output',0,'logFreq',1,'isClip',0,'numLayers',1,'posModel',1)
 
+(h) Decode:
+test('../output/modelRecent.mat', 3, 10, 10, '../output/translations.txt')

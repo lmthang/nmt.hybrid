@@ -26,6 +26,6 @@ function [sents, numSents] = loadMonoData(file, eos, numSents, baseIndex, vocab,
   fid = fopen(file, 'r');
   [sents, numSents] = loadBatchData(fid, baseIndex, numSents, eos);
   fclose(fid);
-  printSent(sents{1}, vocab, ['  ', label, ' 1:']);
-  printSent(sents{end}, vocab, ['  ', label, ' end:']);
+  printSent(2, sents{1}, vocab, ['  ', label, ' 1:']);
+  printSent(2, sents{end}, vocab, ['  ', label, ' end:']);
 end
