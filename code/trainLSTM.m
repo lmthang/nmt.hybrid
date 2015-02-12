@@ -134,44 +134,11 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   if params.attnFunc>0 && params.attnSize==0
     params.attnSize = params.lstmSize;
   end
+  assert(strcmp(outDir, '')==0);
+  params.logId = fopen([outDir '/log'], 'a');
   
   %% Load vocabs
-  srcVocab = {};
-  if params.isGradCheck
-    tgtVocab = {'a', 'b'};
-    if params.isBi
-      srcVocab = {'x', 'y'};
-    end
-  else
-    [tgtVocab] = loadVocab(params.tgtVocabFile);    
-    if params.isBi
-      [srcVocab] = loadVocab(params.srcVocabFile);
-    end
-  end
-  
-  % add special symbols to vocabs
-  if params.isBi
-    fprintf(2, '## Bilingual setting\n');
-    srcVocab{end+1} = '<s_eos>';
-    params.srcEos = length(srcVocab);
-    srcVocab{end+1} = '<s_sos>';
-    params.srcSos = length(srcVocab);
-    params.srcVocabSize = length(srcVocab);
-    % here we have src eos, so we don't need tgt sos.
-  else
-    fprintf(2, '## Monolingual setting\n');
-    srcVocab = {};
-    tgtVocab{end+1} = '<t_sos>';
-    params.tgtSos = length(tgtVocab);
-  end
-  tgtVocab{end+1} = '<t_eos>';
-  params.tgtEos = length(tgtVocab);
-  params.tgtVocabSize = length(tgtVocab);
-  params.vocab = [tgtVocab srcVocab];
-  
-  assert(strcmp(outDir, '')==0);
-    
-  params.logId = fopen([outDir '/log'], 'a');
+  [srcVocab, tgtVocab, params] = loadBiVocabs(params);
   
   %% Init / Load Model Parameters
   params.modelFile = [outDir '/model.mat']; % store those with the best valid perplexity
@@ -260,7 +227,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         srcBatchSents = {};
       end
       tgtBatchSents = tgtTrainSents(startId:endId);
-      [trainData.input, trainData.inputMask, trainData.tgtOutput, trainData.srcMaxLen, trainData.tgtMaxLen, trainData.numWords, trainData.srcLens] = prepareData(srcBatchSents, tgtBatchSents, params);
+      [trainData] = prepareData(srcBatchSents, tgtBatchSents, params);
       %vocab = [tgtVocab srcVocab]
       %printSent(trainData.input(1, :), vocab, '  input:');
      
@@ -429,6 +396,118 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   fclose(params.logId);
 end
 
+%% Init model parameters
+function [model, params] = initLSTM(params)
+  fprintf(2, '# Init LSTM parameters using dataType=%s, initRange=%g\n', params.dataType, params.initRange);
+  
+  % stack vocab:  tgt-vocab + src-vocab
+  if params.isBi
+    params.inVocabSize = params.tgtVocabSize + params.srcVocabSize;
+    model.W_src = cell(params.numLayers, 1);    
+    
+    for l=1:params.numLayers
+      model.W_src{l} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
+    end
+  else
+    params.inVocabSize = params.tgtVocabSize;
+  end
+  params.outVocabSize = params.tgtVocabSize;
+  
+  % W_tgt
+  model.W_tgt = cell(params.numLayers, 1);
+  for l=1:params.numLayers
+    model.W_tgt{l} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
+  end
+ 
+  % W_emb
+  if params.embCPU == 1
+    fprintf(2, '# W_emb is explicitly put on CPU\n');
+    model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize], 0, 'double');
+  else
+    model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize], params.isGPU, params.dataType);
+  end
+  % set parameters correspond to zero words
+  if params.isBi
+    model.W_emb(:, params.tgtVocabSize + params.srcSos) = zeros(params.lstmSize, 1);
+  end
+  model.W_emb(:, params.tgtEos) = zeros(params.lstmSize, 1);
+  
+  % attention mechanism
+  if params.attnFunc>0 
+    model.W_a = randomMatrix(params.initRange, [params.maxSentLen, params.lstmSize+1], params.isGPU, params.dataType);
+    % attn_t = H_src * a_t
+    % h_attn_t = f(W_ah * [attn_t; h_t])
+    model.W_ah = randomMatrix(params.initRange, [params.attnSize, 2*params.lstmSize], params.isGPU, params.dataType);
+  end
+  
+  % W_soft
+  if params.softmaxDim>0 % compress softmax
+    model.W_h = randomMatrix(params.initRange, [params.softmaxDim, params.lstmSize], params.isGPU, params.dataType);
+    model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.softmaxDim], params.isGPU, params.dataType);
+  else
+    if params.attnFunc>0 % attention
+      model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.attnSize], params.isGPU, params.dataType);
+    else
+      model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.lstmSize], params.isGPU, params.dataType);
+    end
+  end
+  
+  params.modelSize = modelSizes(model);
+end
+
+function [srcVocab, tgtVocab, params] = loadBiVocabs(params)
+  srcVocab = {};
+  if params.isGradCheck
+    tgtVocab = {'a', 'b'};
+    if params.isBi
+      srcVocab = {'x', 'y'};
+    end
+  else
+    [tgtVocab] = loadVocab(params.tgtVocabFile);    
+    if params.isBi
+      [srcVocab] = loadVocab(params.srcVocabFile);
+    end
+  end
+  
+  % add special symbols to vocabs
+  if params.isBi
+    fprintf(2, '## Bilingual setting\n');
+    % positional models
+    if params.posModel==2 || params.posModel==3 
+      window = 7;
+      vocabSize = length(srcVocab);
+      params.zeroPosId = vocabSize + window + 1;
+      params.nullPosId = vocabSize + 2*window + 2;
+      
+      % assertions
+      assert(length(tgtVocab) == params.nullPosId); % pos -window ... 0 ... window and null
+      assert(strcmp(tgtVocab{params.zeroPosId}, '<p_0>')==1);
+      assert(strcmp(tgtVocab{params.nullPosId}, '<p_n>')==1);
+      for ii=1:window
+        assert(strcmp(tgtVocab{params.zeroPosId-ii}, ['<p_-', num2str(ii), '>'])==1);
+        assert(strcmp(tgtVocab{params.zeroPosId+ii}, ['<p_', num2str(ii), '>'])==1);
+      end
+      fprintf(2, '# Positional model: zeroPosId=%d, nullPosId=%d\n', params.zeroPosId, params.nullPosId);
+      fprintf(params.logId, '# Positional model: zeroPosId=%d, nullPosId=%d\n', params.zeroPosId, params.nullPosId);
+    end
+    srcVocab{end+1} = '<s_eos>';
+    params.srcEos = length(srcVocab);
+    srcVocab{end+1} = '<s_sos>';
+    params.srcSos = length(srcVocab);
+    params.srcVocabSize = length(srcVocab);
+    % here we have src eos, so we don't need tgt sos.
+  else
+    fprintf(2, '## Monolingual setting\n');
+    srcVocab = {};
+    tgtVocab{end+1} = '<t_sos>';
+    params.tgtSos = length(tgtVocab);
+  end
+  tgtVocab{end+1} = '<t_eos>';
+  params.tgtEos = length(tgtVocab);
+  params.tgtVocabSize = length(tgtVocab);
+  params.vocab = [tgtVocab srcVocab];
+end
+
 function [model, params] = initLoadModel(params)
   if params.isGradCheck==0 && params.isResume && exist(params.modelRecentFile, 'file') % a model exists, resume training
     fprintf(2, '# Model file %s exists. Try loading ...\n', params.modelRecentFile);
@@ -559,65 +638,6 @@ function [evalCosts] = evalCost(model, data, params) %input, inputMask, tgtOutpu
   end
 end
 
-%% Init model parameters
-function [model, params] = initLSTM(params)
-  fprintf(2, '# Init LSTM parameters using dataType=%s, initRange=%g\n', params.dataType, params.initRange);
-  
-  % stack vocab:  tgt-vocab + src-vocab
-  if params.isBi
-    params.inVocabSize = params.tgtVocabSize + params.srcVocabSize;
-    model.W_src = cell(params.numLayers, 1);    
-    
-    for l=1:params.numLayers
-      model.W_src{l} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
-    end
-  else
-    params.inVocabSize = params.tgtVocabSize;
-  end
-  params.outVocabSize = params.tgtVocabSize;
-  
-  % W_tgt
-  model.W_tgt = cell(params.numLayers, 1);
-  for l=1:params.numLayers
-    model.W_tgt{l} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
-  end
- 
-  % W_emb
-  if params.embCPU == 1
-    fprintf(2, '# W_emb is explicitly put on CPU\n');
-    model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize], 0, 'double');
-  else
-    model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize], params.isGPU, params.dataType);
-  end
-  % set parameters correspond to zero words
-  if params.isBi
-    model.W_emb(:, params.tgtVocabSize + params.srcSos) = zeros(params.lstmSize, 1);
-  end
-  model.W_emb(:, params.tgtEos) = zeros(params.lstmSize, 1);
-  
-  % attention mechanism
-  if params.attnFunc>0 
-    model.W_a = randomMatrix(params.initRange, [params.maxSentLen, params.lstmSize+1], params.isGPU, params.dataType);
-    % attn_t = H_src * a_t
-    % h_attn_t = f(W_ah * [attn_t; h_t])
-    model.W_ah = randomMatrix(params.initRange, [params.attnSize, 2*params.lstmSize], params.isGPU, params.dataType);
-  end
-  
-  % W_soft
-  if params.softmaxDim>0 % compress softmax
-    model.W_h = randomMatrix(params.initRange, [params.softmaxDim, params.lstmSize], params.isGPU, params.dataType);
-    model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.softmaxDim], params.isGPU, params.dataType);
-  else
-    if params.attnFunc>0 % attention
-      model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.attnSize], params.isGPU, params.dataType);
-    else
-      model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.lstmSize], params.isGPU, params.dataType);
-    end
-  end
-  
-  params.modelSize = modelSizes(model);
-end
-
 function [params] = setupVars(model, params)
   params.vars = fields(model);
   
@@ -650,7 +670,7 @@ function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab)
   [tgtSents] = loadMonoData(tgtFile, params.tgtEos, -1, params.baseIndex, tgtVocab, 'tgt');
 
   % prepare
-  [data.input, data.inputMask, data.tgtOutput, data.srcMaxLen, data.tgtMaxLen, data.numWords, data.srcLens] = prepareData(srcSents, tgtSents, params);
+  [data] = prepareData(srcSents, tgtSents, params);
   
   fprintf(2, '  numWords=%d\n', data.numWords);
 end

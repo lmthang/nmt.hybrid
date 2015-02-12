@@ -43,6 +43,7 @@ def process_command_line():
 
   parser.add_argument('--freq', dest='freq', type=int, default=0, help='freq (default=5)')
   parser.add_argument('--separate_output', dest='is_separate_output', action='store_true', default=False, help='output src and tgt indices into separate files (default=False)')
+  parser.add_argument('--separate_pos', dest='is_separate_pos', action='store_true', default=False, help='output tgt words and positions into separate files (default=False)')
   parser.add_argument('--no_eos', dest='no_eos', action='store_true', default=False, help='no eos (default=False)')
   
   args = parser.parse_args()
@@ -93,7 +94,7 @@ def add_unks(words, vocab_map, vocab_size, num_unks):
     (words, vocab_map, vocab_size) = text.add_word_to_vocab(unk, words, vocab_map, vocab_size)
   return (words, vocab_map, vocab_size)
 
-def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_alignment, opt, dict_file, src_vocab_file, tgt_vocab_file, src_vocab_size, tgt_vocab_size, src_output_opt, is_separate_output, no_eos, eos = '</s>', delim='*', unk_symbol='<unk>'):
+def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_alignment, opt, dict_file, src_vocab_file, tgt_vocab_file, src_vocab_size, tgt_vocab_size, src_output_opt, is_separate_output, is_separate_pos, no_eos, eos = '</s>', delim='*', unk_symbol='<unk>'):
   """
   """
   
@@ -129,6 +130,9 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
     tgt_id_file = out_prefix + '.id.' + tgt_lang
     src_id_ouf = codecs.open(src_id_file, 'w', 'utf-8')
     tgt_id_ouf = codecs.open(tgt_id_file, 'w', 'utf-8')
+    if is_separate_pos:
+      tgt_pos_id_file = out_prefix + '.id.' + tgt_lang + '.pos'
+      tgt_pos_id_ouf = codecs.open(tgt_pos_id_file, 'w', 'utf-8')
   else:
     src_tgt_id_file = out_prefix + '.' + src_lang + '-' + tgt_lang + '.id'
     src_tgt_id_ouf = codecs.open(src_tgt_id_file, 'w', 'utf-8')
@@ -379,5 +383,5 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
 
 if __name__ == '__main__':
   args = process_command_line()
-  process_files(args.in_prefix, args.src_lang, args.tgt_lang, args.out_prefix, args.freq, args.is_reverse_alignment, args.opt, args.dict_file, args.src_vocab_file, args.tgt_vocab_file, args.src_vocab_size, args.tgt_vocab_size, args.src_output_opt, args.is_separate_output, args.no_eos)
+  process_files(args.in_prefix, args.src_lang, args.tgt_lang, args.out_prefix, args.freq, args.is_reverse_alignment, args.opt, args.dict_file, args.src_vocab_file, args.tgt_vocab_file, args.src_vocab_size, args.tgt_vocab_size, args.src_output_opt, args.is_separate_output, args.is_separate_pos, args.no_eos)
 

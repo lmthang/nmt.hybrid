@@ -8,7 +8,7 @@
 %   tgtMask  : numSents * tgtMaxLen, indicate where to ignore in the tgtOutput
 %  For the monolingual case, each src sent contains a single simple tgtSos,
 %   hence srcMaxLen = 1
-function [input, inputMask, tgtOutput, srcMaxLen, tgtMaxLen, numWords, srcLens] = prepareData(srcSents, tgtSents, params)
+function [data] = prepareData(srcSents, tgtSents, params)
   numSents = length(tgtSents);
   if params.isBi
     srcZeroId = params.tgtVocabSize + params.srcSos;
@@ -18,7 +18,8 @@ function [input, inputMask, tgtOutput, srcMaxLen, tgtMaxLen, numWords, srcLens] 
     end
     srcMaxLen = max(srcLens);
     
-    if params.attnFunc>0 && srcMaxLen > params.maxSentLen % attention model
+    % attention model
+    if params.attnFunc>0 && srcMaxLen > params.maxSentLen 
       fprintf(2, 'prepareData: change srcMaxLen from %d -> %d\n', srcMaxLen, params.maxSentLen);
       srcMaxLen = params.maxSentLen;
     end
@@ -32,7 +33,13 @@ function [input, inputMask, tgtOutput, srcMaxLen, tgtMaxLen, numWords, srcLens] 
   input = [srcZeroId*ones(numSents, srcMaxLen) params.tgtEos*ones(numSents, tgtMaxLen-1)]; % size numSents * (srcMaxLen + tgtMaxLen - 1)
   tgtOutput = params.tgtEos*ones(numSents, tgtMaxLen);
   
+  % positional models
+  if params.posModel==2 || params.posModel==3 
+    srcPos = params.tgtEos*ones(numSents, (tgtMaxLen+1)/2); % since tgt sent: pos1 word1 ... pos_n word_n <eos>. Later we want: pos1 ... pos_n pos_eos.
+  end
+  
   for ii=1:numSents
+    %% src
     if params.isBi
       srcLen = srcLens(ii);
       if params.attnFunc>0 && srcLen>srcMaxLen % attention model
@@ -41,9 +48,25 @@ function [input, inputMask, tgtOutput, srcMaxLen, tgtMaxLen, numWords, srcLens] 
       input(ii, srcMaxLen-srcLen+1:srcMaxLen) = srcSents{ii}(1:srcLen) + params.tgtVocabSize; % src part
     end
     
-    tgtLen = tgtLens(ii);
-    input(ii, srcMaxLen+1:srcMaxLen+tgtLen-1) = tgtSents{ii}(1:end-1); % tgt part
-    tgtOutput(ii, 1:tgtLen) = tgtSents{ii};
+    %% tgt
+    tgtSent = tgtSents{ii};
+    
+    % positional models
+    if params.posModel==2 || params.posModel==3 
+      % words
+      tgtSent(1:2:end-1) = []; % remove positions
+      tgtLens(ii) = length(tgtSent);
+      
+      % positions
+      positions = tgtSents{ii}(1:2:end-1);
+      srcPos(ii, 1:tgtLens(ii)-1) = (1:tgtLens(ii)-1) - (positions-params.zeroPosId); % src_pos = tgt_pos - relative_pos
+      srcPos(ii, tgtLens(ii)) = srcLen; % <eos>
+    else
+      
+    end
+    
+    input(ii, srcMaxLen+1:srcMaxLen+tgtLens(ii)-1) = tgtSent(1:end-1); % tgt part
+    tgtOutput(ii, 1:tgtLens(ii)) = tgtSent;
   end
   
   if params.isBi
@@ -67,4 +90,14 @@ function [input, inputMask, tgtOutput, srcMaxLen, tgtMaxLen, numWords, srcLens] 
     %printSent(input(1, :), params.vocab, ['  ', label, ' 1:']);
     %printSent(input(end, :), params.vocab, ['  ', label, ' end:']);
   end
+  
+  data.input = input;
+  data.inputMask = inputMask;
+  data.tgtOutput = tgtOutput;
+  data.srcMaxLen = srcMaxLen;
+  data.tgtMaxLen = tgtMaxLen;
+  data.numWords = numWords;
+  data.srcLens = srcLens;
+  srcPos(srcPos<0) = 0;
+  data.srcPos = srcPos;
 end
