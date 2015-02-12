@@ -49,7 +49,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   % 2: like 1 + feed in src hidden states, 3: like 1 + feed in src embeddings 
   addOptional(p,'posModel', 0, @isnumeric); 
   addOptional(p,'posSoftmax', 0, @isnumeric); % use with posModel. 0: same softmax for word/pos, 1: separate softmax for positions
-  addOptional(p,'wordVocabSize', 0, @isnumeric); % use with posModel. so that we identify indices representing positions
   
   %% debugging options
   addOptional(p,'isGradCheck', 0, @isnumeric); % set 1 to check the gradient, no need input arguments as toy data is automatically generated.
@@ -650,38 +649,6 @@ function [params] = setupVars(model, params)
       break;
     end
   end
-end
-
-function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab)
-  % src
-  if params.isBi
-    if params.isReverse
-      srcFile = sprintf('%s.reversed.%s', prefix, params.srcLang);
-    else
-      srcFile = sprintf('%s.%s', prefix, params.srcLang);
-    end
-    [srcSents] = loadMonoData(srcFile, params.srcEos, -1, params.baseIndex, srcVocab, 'src');
-  else
-    srcSents = {};
-  end
-  
-  % tgt
-  tgtFile = sprintf('%s.%s', prefix, params.tgtLang);
-  [tgtSents] = loadMonoData(tgtFile, params.tgtEos, -1, params.baseIndex, tgtVocab, 'tgt');
-
-  % prepare
-  [data] = prepareData(srcSents, tgtSents, params);
-  
-  fprintf(2, '  numWords=%d\n', data.numWords);
-end
-
-function [sents, numSents] = loadMonoData(file, eos, numSents, baseIndex, vocab, label)
-  fprintf(2, '# Loading data %s from file %s\n', label, file);
-  fid = fopen(file, 'r');
-  [sents, numSents] = loadBatchData(fid, baseIndex, numSents, eos);
-  fclose(fid);
-  printSent(sents{1}, vocab, ['  ', label, ' 1:']);
-  printSent(sents{end}, vocab, ['  ', label, ' end:']);
 end
 
 

@@ -98,6 +98,10 @@ function [data] = prepareData(srcSents, tgtSents, params)
   data.tgtMaxLen = tgtMaxLen;
   data.numWords = numWords;
   data.srcLens = srcLens;
-  srcPos(srcPos<0) = 0;
-  data.srcPos = srcPos;
+  
+  % positional models
+  if params.posModel==2 || params.posModel==3 
+    srcPos(srcPos<0) = 0;
+    data.srcPos = srcPos;
+  end
 end
