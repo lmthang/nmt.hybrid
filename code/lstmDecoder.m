@@ -145,11 +145,11 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
     
     %% update history
     % find out which beams these beamSize*batchSize derivations came from
-    rowIndices = indices(1:beamSize, :);
-    beamIndices = floor((rowIndices(:)'-1)/beamSize) + 1; 
+    rowIndices = indices(1:beamSize, :); % beamSize * batchSize
+    rowIndices = rowIndices(:)';
+    beamIndices = floor((rowIndices-1)/beamSize) + 1; 
     % figure out best next words
-    colIndices = repmat(1:batchSize, beamSize, 1);
-    nextWords = allBestWords(sub2ind(size(allBestWords), rowIndices(:), colIndices(:)))';
+    nextWords = allBestWords(sub2ind(size(allBestWords), rowIndices, sentIndices))';
     % overwrite previous history
     beamHistory(1:sentPos, :) = beamHistory(1:sentPos, beamIndices); 
     beamHistory(sentPos+1, :) = nextWords;
@@ -180,7 +180,6 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
         end
       end
     end
-
     
     if decodeCompleteCount==batchSize % done decoding the entire batch
       break;
