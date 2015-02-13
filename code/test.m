@@ -19,6 +19,7 @@ function [] = test(modelFile, beamSize, stackSize, batchSize, outputFile,varargi
   addpath(genpath(sprintf('%s/..', pwd)));
   printParams(2, decodeParams);
 
+  decodeParams.isGPU = 0;
   if ismac==0
     n = gpuDeviceCount;  
     if n>0 % GPU exists
@@ -92,7 +93,9 @@ function decode(model, data, params, beamSize, stackSize, batchSize) %[allCandid
     decodeData.srcLens = data.srcLens(startId:endId);
     decodeData.sentIndices = startId:endId;
     
+    
     [candidates, scores] = lstmDecoder(model, decodeData, params, beamSize, stackSize); 
+    
     %allCandidates(startId:endId) = candidates;
     %allScores(startId:endId) = scores;
     for ii = 1:length(candidates)

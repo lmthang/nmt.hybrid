@@ -61,12 +61,13 @@ end
 
 %%%
 %
-% Beam decoder from an LSTM model, works for only one sentence
+% Beam decoder from an LSTM model, works for multiple sentences
 %
 % Input:
-%   - encoded vector of the source sentence
+%   - encoded vector of the source sentences
 %   - maximum length willing to go
-%   - beam size
+%   - beamSize
+%   - stackSize: maximum number of translations collected for one example
 %
 % Output:
 %   - candidates: list of candidates
@@ -76,130 +77,132 @@ end
 % Hieu Pham @ 2015, <hyhieu@cs.stanford.edu>
 %
 %%%
-function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen, beamSize, stackSize, sentIndices)
+function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen, beamSize, stackSize, originalSentIndices)
+  startTime = clock;
   W_tgt = model.W_tgt;
-  W_emb = model.W_emb;
   numLayers = params.numLayers;
   batchSize = size(lstmStart{numLayers}.h_t, 2);
   
   candidates = cell(batchSize, 1);
   candScores = cell(batchSize, 1);
+  numDecoded = zeros(batchSize, 1);
   for bb=1:batchSize
     candidates{bb} = cell(stackSize, 1);
     candScores{bb} = zeroMatrix([stackSize, 1], params.isGPU, params.dataType);
   end
   
-  numDecoded = zeros(batchSize, 1);
-  [beam.scores, words] = nextBeamStep(model, lstmStart{numLayers}.h_t, beamSize); % scores, words: beamSize * batchSize
-  beam.lstms = cell(beamSize, 1);
-  beam.hists = cell(beamSize, 1);
-  for bb=1:beamSize
-    beam.lstms{bb} = lstmStart; 
-    beam.hists{bb} = words(bb, :)'; % batchSize * sentPos, at the moment sentPos=1
+  % first prediction
+  [scores, words] = nextBeamStep(model, lstmStart{numLayers}.h_t, beamSize); % scores, words: beamSize * batchSize
+  beamScores = scores(:)'; % 1 * (beamSize*batchSize)
+  beamHistory = zeroMatrix([maxLen, batchSize*beamSize], params.isGPU, params.dataType); % maxLen * (batchSize*beamSize) 
+  beamHistory(1, :) = words(:); % words for sent 1 go together, then sent 2, ...
+  beamStates = cell(numLayers, 1);
+  for ll=1:numLayers
+    % lstmSize * (batchSize*beamSize): h_t and c_t vectors of each sent are arranged near each other
+    beamStates{ll}.c_t = reshape(repmat(lstmStart{ll}.c_t, beamSize, 1),  params.lstmSize, batchSize*beamSize); 
+    beamStates{ll}.h_t = reshape(repmat(lstmStart{ll}.h_t, beamSize, 1),  params.lstmSize, batchSize*beamSize); 
   end
   
 %   show_beam(beam, beam_size, params);
   decodeCompleteCount = 0; % count how many sentences we have completed collecting the translations
+  sentIndices = repmat(1:batchSize, beamSize, 1);
+  sentIndices = sentIndices(:)'; % 1 ... 1, 2 ... 2, ...., batchSize ... batchSize . 1 * (beamSize*batchSize)
   for sentPos = 1 : maxLen
     fprintf(2, '%d ', sentPos);
-    allBestScores = zeroMatrix([beamSize*beamSize, batchSize], params.isGPU, params.dataType);
-    allBestWords = zeroMatrix([beamSize*beamSize, batchSize], params.isGPU, params.dataType);
-    allBestBeams = zeroMatrix([beamSize*beamSize, batchSize], params.isGPU, params.dataType);
 
-    for bb = 1 : min(beamSize, length(beam.scores))
-      allBestBeams(((bb-1)*beamSize+1) : (bb*beamSize), :) = bb;
-      
-      % accumulate the last word in history
-      % to compute all lstm layers
-      words = beam.hists{bb}(:, end);
-      lstmCur = cell(numLayers, 1);
-
-      for ll = 1 : numLayers
-        % current input
-        if ll == 1
-          x_t = W_emb(:, words);
-        else
-          x_t = lstmCur{ll-1}.h_t;
-        end
-        % previous input
-        h_t_1 = beam.lstms{bb}{ll}.h_t;
-        c_t_1 = beam.lstms{bb}{ll}.c_t;
-      
-        lstmCur{ll} = lstmUnit(W_tgt{ll}, x_t, h_t_1, c_t_1, params, 1);
+    % compute next lstm hidden states
+    words = beamHistory(sentPos, :);
+    lstmCur = cell(numLayers, 1);
+    for ll = 1 : numLayers
+      % current input
+      if ll == 1
+        x_t = model.W_emb(:, words);
+      else
+        x_t = lstmCur{ll-1}.h_t;
       end
+      % previous input
+      h_t_1 = beamStates{ll}.h_t;
+      c_t_1 = beamStates{ll}.c_t;
 
-      beam.lstms{bb} = lstmCur;
-
-      % predict the next word
-      [bestNextScores, bestNextWords] = nextBeamStep(model, lstmCur{numLayers}.h_t, beamSize);
-      allBestScores(((bb-1)*beamSize+1) : (bb*beamSize), :) = bsxfun(@plus, bestNextScores, beam.scores(bb, :));
-      allBestWords(((bb-1)*beamSize+1) : (bb*beamSize), :) = bestNextWords;
-      
-    end % end for bb
-
-
-    %% update beam
-    [sortedBestScores, indices] = sort(allBestScores, 'descend');
-    bestIndices = indices(1:beamSize, :);
-    bestWords = allBestWords(bestIndices);
-    prevBeams = allBestBeams(bestIndices); % this tells us which beam each hypothesis originally comes from. beamSize * batchSize
-    % init new beam
-    new_beam.scores = sortedBestScores(1:beamSize, :);
-    new_beam.hists = cell(beamSize, 1);
-    for bb=1:beamSize
-      new_beam.hists{bb} = zeroMatrix([batchSize, sentPos+1], params.isGPU, params.dataType);
-      new_beam.lstms{bb} = cell(numLayers, 1);
-      for ll=1:numLayers
-        new_beam.lstms{bb}{ll}.h_t = zeroMatrix([params.lstmSize, batchSize], params.isGPU, params.dataType);
-        new_beam.lstms{bb}{ll}.c_t = zeroMatrix([params.lstmSize, batchSize], params.isGPU, params.dataType);
-      end
+      lstmCur{ll} = lstmUnit(W_tgt{ll}, x_t, h_t_1, c_t_1, params, 1);
     end
-    % populate new beam
-    for jj=1:batchSize
-      for bb=1:beamSize
-        % combine beam.hists(beamIndices{bb, jj), jj} with bestWords(bb, jj)
-        prevBeam = prevBeams(bb, jj);
-        word = bestWords(bb, jj);
-        new_beam.hists{bb}(jj, :) = [beam.hists{prevBeam}(jj, :), word];
+    beamStates{bb} = lstmCur;
+    
+    % predict the next word
+    [allBestScores, allBestWords] = nextBeamStep(model, lstmCur{numLayers}.h_t, beamSize); % beamSize * (beamSize*batchSize)
+    
+    % use previous beamScores, 1 * (beamSize*batchSize), update along the first dimentions
+    allBestScores = bsxfun(@plus, allBestScores, beamScores);
+    allBestScores = reshape(allBestScores, [beamSize*beamSize, batchSize]);
+    allBestWords = reshape(allBestWords, [beamSize*beamSize, batchSize]);
+    
+    % for each sent, select the best beamSize candidates, out of beamSize^2 ones
+    [sortedBestScores, indices] = sort(allBestScores, 'descend'); % beamSize^2 * batchSize
+    
+    %% update scores
+    beamScores = sortedBestScores(1:beamSize, :);
+    beamScores = beamScores(:)';
+    
+    %% update history
+    % find out which beams these beamSize*batchSize derivations came from
+    rowIndices = indices(1:beamSize, :);
+    beamIndices = floor((rowIndices(:)'-1)/beamSize) + 1; 
+    % figure out best next words
+    colIndices = repmat(1:batchSize, beamSize, 1);
+    nextWords = allBestWords(sub2ind(size(allBestWords), rowIndices(:), colIndices(:)))';
+    % overwrite previous history
+    beamHistory(1:sentPos, :) = beamHistory(1:sentPos, beamIndices); 
+    beamHistory(sentPos+1, :) = nextWords;
+    
+    %% update lstm states
+    colIndices = (beamIndices-1)*beamSize + sentIndices;
+    for ll=1:numLayers
+      % lstmSize * (batchSize*beamSize): h_t and c_t vectors of each sent are arranged near each other
+      beamStates{ll}.c_t = beamStates{ll}.c_t(:, colIndices); 
+      beamStates{ll}.h_t = beamStates{ll}.h_t(:, colIndices);
+    end
+  
+    %% find out if some derivations reach eos
+    eosIndices = find(nextWords == params.tgtEos);
+    for ii=1:length(eosIndices)
+      eosIndex = eosIndices(ii);
+      sentId = sentIndices(eosIndex);
+      
+      if numDecoded(sentId)<stackSize % haven't collected enough translations
+        numDecoded(sentId) = numDecoded(sentId) + 1;
+        candidates{sentId}{numDecoded(sentId)} = beamHistory(1:sentPos+1, eosIndex);
+        candScores{sentId}(numDecoded(sentId)) = beamScores(eosIndex);
         
-        % copy lstm state
-        for ll=1:numLayers
-          new_beam.lstms{bb}{ll}.h_t(:, jj) = beam.lstms{prevBeam}{ll}.h_t(:, jj);
-          new_beam.lstms{bb}{ll}.c_t(:, jj) = beam.lstms{prevBeam}{ll}.c_t(:, jj);
-        end
-        
-        % eos
-        if word == params.tgtEos && numDecoded(jj)<stackSize % haven't collected enough translations
-          numDecoded(jj) = numDecoded(jj) + 1;
-          candidates{jj}{numDecoded(jj)} = new_beam.hists{bb}(jj, :);
-          candScores{jj}(numDecoded(jj)) = new_beam.scores(bb, jj);
-          
-          if numDecoded(jj)==stackSize
-            decodeCompleteCount = decodeCompleteCount + 1;
-          end
+        beamScores(eosIndex) = -1e10; % make the beam score small so that it won't make into the candidate list again
+
+        if numDecoded(sentId)==stackSize % done for sentId
+          decodeCompleteCount = decodeCompleteCount + 1;
         end
       end
     end
+
     
     if decodeCompleteCount==batchSize % done decoding the entire batch
       break;
     end
-    
-    beam = new_beam;
     %showBeam(beam, beamSize, batchSize, params);
   end
-  fprintf(2, 'Done! decoding maxLen=%d\n', maxLen);
-  for jj=1:batchSize
-    if numDecoded(jj) == 0 % no translations found, output all we have in the beam
-      fprintf(2, '! Sent %d: no translations end in eos\n', sentIndices(jj));
+  
+  endTime = clock;
+  timeElapsed = etime(endTime, startTime);
+  fprintf(2, '\nDone decoding %d sents, maxLen=%d, speed %f sents/s\n', batchSize, maxLen, batchSize/timeElapsed);
+  for sentId=1:batchSize
+    if numDecoded(sentId) == 0 % no translations found, output all we have in the beam
+      fprintf(2, '! Sent %d: no translations end in eos\n', originalSentIndices(sentId));
       for bb = 1:beamSize
-        numDecoded(jj) = numDecoded(jj) + 1;
-        candidates{jj}{numDecoded(jj)} = [beam.hists{bb}(jj, :) params.tgtEos];
-        candScores{jj}(numDecoded(jj)) = beam.scores(bb, jj);
+        eosIndex = (bb-1)*beamSize + sentId;
+        numDecoded(sentId) = numDecoded(sentId) + 1;
+        candidates{sentId}{numDecoded(sentId)} = [beamHistory(1:sentPos+1, eosIndex); params.tgtEos]; % append eos at the end
+        candScores{sentId}(numDecoded(sentId)) = beamScores(eosIndex);
       end
     end
-    candidates{jj}(numDecoded(jj)+1:end) = [];
-    candScores{jj}(numDecoded(jj)+1:end) = [];
+    candidates{sentId}(numDecoded(sentId)+1:end) = [];
+    candScores{sentId}(numDecoded(sentId)+1:end) = [];
   end
 end
 
