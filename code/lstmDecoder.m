@@ -79,7 +79,6 @@ end
 %%%
 function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen, beamSize, stackSize, originalSentIndices)
   startTime = clock;
-  W_tgt = model.W_tgt;
   numLayers = params.numLayers;
   batchSize = size(lstmStart{numLayers}.h_t, 2);
   
@@ -112,24 +111,22 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
 
     % compute next lstm hidden states
     words = beamHistory(sentPos, :);
-    lstmCur = cell(numLayers, 1);
     for ll = 1 : numLayers
       % current input
       if ll == 1
         x_t = model.W_emb(:, words);
       else
-        x_t = lstmCur{ll-1}.h_t;
+        x_t = beamStates{ll-1}.h_t;
       end
       % previous input
       h_t_1 = beamStates{ll}.h_t;
       c_t_1 = beamStates{ll}.c_t;
 
-      lstmCur{ll} = lstmUnit(W_tgt{ll}, x_t, h_t_1, c_t_1, params, 1);
+      beamStates{ll} = lstmUnit(model.W_tgt{ll}, x_t, h_t_1, c_t_1, params, 1);
     end
-    beamStates{bb} = lstmCur;
     
     % predict the next word
-    [allBestScores, allBestWords] = nextBeamStep(model, lstmCur{numLayers}.h_t, beamSize); % beamSize * (beamSize*batchSize)
+    [allBestScores, allBestWords] = nextBeamStep(model, beamStates{numLayers}.h_t, beamSize); % beamSize * (beamSize*batchSize)
     
     % use previous beamScores, 1 * (beamSize*batchSize), update along the first dimentions
     allBestScores = bsxfun(@plus, allBestScores, beamScores);
@@ -151,17 +148,17 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
     % figure out best next words
     nextWords = allBestWords(sub2ind(size(allBestWords), rowIndices, sentIndices))';
     % overwrite previous history
-    beamHistory(1:sentPos, :) = beamHistory(1:sentPos, beamIndices); 
+    colIndices = (sentIndices-1)*beamSize + beamIndices;
+    beamHistory(1:sentPos, :) = beamHistory(1:sentPos, colIndices); 
     beamHistory(sentPos+1, :) = nextWords;
     
     %% update lstm states
-    colIndices = (beamIndices-1)*beamSize + sentIndices;
     for ll=1:numLayers
       % lstmSize * (batchSize*beamSize): h_t and c_t vectors of each sent are arranged near each other
       beamStates{ll}.c_t = beamStates{ll}.c_t(:, colIndices); 
       beamStates{ll}.h_t = beamStates{ll}.h_t(:, colIndices);
     end
-  
+ 
     %% find out if some derivations reach eos
     eosIndices = find(nextWords == params.tgtEos);
     for ii=1:length(eosIndices)
