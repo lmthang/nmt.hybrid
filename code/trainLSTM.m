@@ -651,6 +651,11 @@ function [params] = setupVars(model, params)
   end
 end
 
+function [data, numSents] = loadPrepareData(params, prefix, srcVocab, tgtVocab)
+  [srcSents, tgtSents, numSents] = loadBiData(params, prefix, srcVocab, tgtVocab);
+  [data] = prepareData(srcSents, tgtSents, params);
+  fprintf(2, '  numSents=%d, numWords=%d\n', numSents, data.numWords);
+end
 
 %% Unused code %%
   % attnOpt=0: no attention.

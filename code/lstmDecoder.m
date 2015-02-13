@@ -3,6 +3,9 @@ function [candidates, candScores] = lstmDecoder(model, data, params, beamSize, s
 %
 % Decode from an LSTM model.
 %   stackSize: the maximum number of translations we want to get.
+% Output:
+%   - candidates: list of candidates
+%   - scores: score of the corresponding candidates
 %
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 % Hieu Pham @ 2015, <hyhieu@cs.stanford.edu>
@@ -68,13 +71,6 @@ end
 %   - maximum length willing to go
 %   - beamSize
 %   - stackSize: maximum number of translations collected for one example
-%
-% Output:
-%   - candidates: list of candidates
-%   - scores: score of the corresponding candidates
-%
-% Thang Luong @ 2015, <lmthang@stanford.edu>
-% Hieu Pham @ 2015, <hyhieu@cs.stanford.edu>
 %
 %%%
 function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen, beamSize, stackSize, originalSentIndices)

@@ -13,9 +13,9 @@ batchSize=$4
 outputFile=$5
 basicOpt="'$modelFile',$beamSize,$stackSize,$batchSize,'$outputFile'"
 if [ $# -eq 6 ]; then
-  matlabCommand="test($basicOpt,${6})"
+  matlabCommand="testLSTM($basicOpt,${6})"
 else
-  matlabCommand="test($basicOpt)"
+  matlabCommand="testLSTM($basicOpt)"
 fi
 echo "$matlabCommand"
 
