@@ -343,11 +343,12 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         fprintf(params.logId, '# Finetuning %f -> %f\n', params.lr, params.lr*params.finetuneRate);
         params.lr = params.lr*params.finetuneRate;
       end
+      
+      
+      if params.epoch==1
+        params.epochBatchCount = params.epochBatchCount + 1;
+      end
     end % end for batchId
-
-    if params.epoch==1
-      params.epochBatchCount = params.epochBatchCount + numBatches;
-    end
 
     % read more data
     [tgtTrainSents, numTrainSents] = loadBatchData(tgtID, params.baseIndex, params.chunkSize, params.tgtEos);
