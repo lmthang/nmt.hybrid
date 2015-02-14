@@ -1,4 +1,4 @@
-function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab)
+function [srcSents, tgtSents, numSents] = loadBiData(params, prefix, srcVocab, tgtVocab)
   % src
   if params.isBi
     if params.isReverse
@@ -13,12 +13,11 @@ function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab)
   
   % tgt
   tgtFile = sprintf('%s.%s', prefix, params.tgtLang);
-  [tgtSents] = loadMonoData(tgtFile, params.tgtEos, -1, params.baseIndex, tgtVocab, 'tgt');
+  [tgtSents, numSents] = loadMonoData(tgtFile, params.tgtEos, -1, params.baseIndex, tgtVocab, 'tgt');
 
   % prepare
-  [data] = prepareData(srcSents, tgtSents, params);
-  
-  fprintf(2, '  numWords=%d\n', data.numWords);
+  %[data] = prepareData(srcSents, tgtSents, params);
+  %fprintf(2, '  numWords=%d\n', data.numWords);
 end
 
 function [sents, numSents] = loadMonoData(file, eos, numSents, baseIndex, vocab, label)
