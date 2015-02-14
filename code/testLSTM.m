@@ -81,24 +81,27 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
     decodeData.sentIndices = startId:endId;
     
     % call lstmDecoder
-    [candidates, scores] = lstmDecoder(model, decodeData, params, beamSize, stackSize); 
+    [candidates, candScores] = lstmDecoder(model, decodeData, params, beamSize, stackSize); 
     
     % output translations
+    [maxScores, bestIndices] = max(candScores); % stackSize * batchSize
     for ii = 1:length(candidates)
-      [maxScore, bestId] = max(scores{ii});
+      bestId = bestIndices(ii);
       translation = candidates{ii}{bestId}(1:end-1); % remove <t_eos>
+      
+      assert(isempty(find(translation>params.tgtVocabSize, 1)));
       printSent(params.fid, translation, params.vocab, ''); 
       
       % log
       printSrc(params.logId, decodeData, ii, params);
       printRef(params.logId, decodeData, ii, params);
-      printSent(params.logId, translation, params.vocab, '');
+      printSent(params.logId, translation, params.vocab, ['best ' num2str(maxScores(ii)) ': ']);
       
       % print debug info
-      printSrc(2, decodeData, ii, params);
-      printRef(2, decodeData, ii, params);
-      printSent(2, candidates{ii}{bestId}, params.vocab, ['best ' num2str(maxScore) ': ']);
-      printTranslations(candidates{ii}, scores{ii}, params);
+      %printSrc(2, decodeData, ii, params);
+      %printRef(2, decodeData, ii, params);
+      %printSent(2, candidates{ii}{bestId}, params.vocab, ['best ' num2str(maxScores(ii)) ': ']);
+      %printTranslations(candidates{ii}, candScores(ii, :), params);
     end  
   end
 
@@ -121,6 +124,7 @@ end
 
 function printTranslations(candidates, scores, params)
   for jj = 1 : length(candidates)
+    assert(isempty(find(candidates{jj}>params.tgtVocabSize, 1)));
     printSent(2, candidates{jj}, params.vocab, ['cand ' num2str(jj) ', ' num2str(scores(jj)) ': ']);
   end
 end
