@@ -70,6 +70,9 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   params.logId = fopen([outputFile '.log'], 'w');
   numBatches = floor((numSents-1)/batchSize) + 1;
   
+  fprintf(2, '# Decoding %d sents, %s\n', numSents, datestr(now));
+  fprintf(params.logId, '# Decoding %d sents, %s\n', numSents, datestr(now));
+  startTime = clock;
   for batchId = 1 : numBatches
     % prepare batch data
     startId = (batchId-1)*batchSize+1;
@@ -85,7 +88,8 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
     
     % output translations
     [maxScores, bestIndices] = max(candScores); % stackSize * batchSize
-    for ii = 1:length(candidates)
+    curBatchSize = endId-startId+1;
+    for ii = 1:curBatchSize
       bestId = bestIndices(ii);
       translation = candidates{ii}{bestId}(1:end-1); % remove <t_eos>
       
@@ -93,33 +97,42 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
       printSent(params.fid, translation, params.vocab, ''); 
       
       % log
-      printSrc(params.logId, decodeData, ii, params);
-      printRef(params.logId, decodeData, ii, params);
-      printSent(params.logId, translation, params.vocab, ['best ' num2str(maxScores(ii)) ': ']);
+      printSrc(params.logId, decodeData, ii, params, startId+ii-1);
+      printRef(params.logId, decodeData, ii, params, startId+ii-1);
+      printSent(params.logId, translation, params.vocab, ['  tgt ' num2str(startId+ii-1) ': ']);
+      fprintf(params.logId, '  score %g\n', maxScores(ii));
       
-      % print debug info
-      %printSrc(2, decodeData, ii, params);
-      %printRef(2, decodeData, ii, params);
-      %printSent(2, candidates{ii}{bestId}, params.vocab, ['best ' num2str(maxScores(ii)) ': ']);
-      %printTranslations(candidates{ii}, candScores(ii, :), params);
+      % debug
+      if ii==curBatchSize
+        printSrc(2, decodeData, ii, params, startId+ii-1);
+        printRef(2, decodeData, ii, params, startId+ii-1);
+        printSent(2, translation, params.vocab, ['  tgt ' num2str(startId+ii-1) ': ']);
+        fprintf(2, '  score %g\n', maxScores(ii));
+        %printTranslations(candidates{ii}, candScores(ii, :), params);
+      end
     end  
   end
 
+  endTime = clock;
+  timeElapsed = etime(endTime, startTime);
+  fprintf(2, '# Complete decoding %d sents, time %.0fs, %s\n', numSents, timeElapsed, datestr(now));
+  fprintf(params.logId, '# Complete decoding %d sents, time %.0fs, %s\n', numSents, timeElapsed, datestr(now));
+  
   fclose(params.fid);
   fclose(params.logId);
 end
 
 
-function printSrc(fid, testData, ii, params)
+function printSrc(fid, testData, ii, params, sentId)
   mask = testData.inputMask(ii,1:testData.srcMaxLen);
   src = testData.input(ii,mask);
-  printSent(fid, src, params.vocab, ['# source ' num2str(ii) ': ']);
+  printSent(fid, src, params.vocab, ['# src ' num2str(sentId) ': ']);
 end
 
-function printRef(fid, testData, ii, params)
+function printRef(fid, testData, ii, params, sentId)
   mask = testData.inputMask(ii, testData.srcMaxLen:end);
   ref = testData.tgtOutput(ii,mask);
-  printSent(fid, ref, params.vocab, ['# ref ' num2str(ii) ': ']);
+  printSent(fid, ref, params.vocab, ['  ref ' num2str(sentId) ': ']);
 end
 
 function printTranslations(candidates, scores, params)
