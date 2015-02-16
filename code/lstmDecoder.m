@@ -14,7 +14,8 @@ function [candidates, candScores] = lstmDecoder(model, data, params, beamSize, s
   input = data.input;
   inputMask = data.inputMask; 
   srcMaxLen = data.srcMaxLen;
-  %printSent(2, input(1, 1:srcMaxLen), params.vocab, 'src 1: ');
+  printSent(2, input(1, 1:srcMaxLen), params.vocab, 'src 1: ');
+  printSent(2, input(1, srcMaxLen:end), params.vocab, 'tgt 1: ');
   %printSent(2, input(end, 1:srcMaxLen), params.vocab, 'src end: ');
   
   %% init
@@ -43,6 +44,7 @@ function [candidates, candScores] = lstmDecoder(model, data, params, beamSize, s
       % current-time input
       if ll==1 % first layer
         x_t = model.W_emb(:, input(:, t));
+        %params.vocab(input(:, t))
       else % subsequent layer, use the previous-layer hidden state
         x_t = lstm{ll-1}.h_t;
       end
@@ -61,7 +63,7 @@ function [candidates, candScores] = lstmDecoder(model, data, params, beamSize, s
   %% decode %%
   %%%%%%%%%%%%
   startTime = clock;
-  maxLen = srcMaxLen*2;
+  maxLen = floor(srcMaxLen*1.5);
   [candidates, candScores] = decodeBatch(model, params, lstm, maxLen, beamSize, stackSize, batchSize, data.sentIndices);
   endTime = clock;
   timeElapsed = etime(endTime, startTime);
@@ -91,7 +93,7 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
   end
   
   %% first prediction
-  [scores, words] = nextBeamStep(model, lstmStart{numLayers}.h_t, beamSize); % scores, words: beamSize * batchSize
+  [scores, words] = nextBeamStep(model, lstmStart{numLayers}.h_t, beamSize, params); % scores, words: beamSize * batchSize
   
   %% matrix dimension note
   % note that we order matrices in the following dimension: n * (batchSize*beamSize)
@@ -113,9 +115,9 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
   nextWords = zeroMatrix([1, batchSize*beamSize], params.isGPU, params.dataType);
   beamIndices = zeroMatrix([1, batchSize*beamSize], params.isGPU, params.dataType);
   for sentPos = 1 : maxLen
-    if mod(sentPos, 10)==0
-      fprintf(2, '  %d', sentPos);
-    end
+%     if mod(sentPos, 10)==0
+%       fprintf(2, '  %d', sentPos);
+%     end
 
     % compute next lstm hidden states
     words = beamHistory(sentPos, :);
@@ -134,8 +136,12 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
     end
     
     % predict the next word
-    [allBestScores, allBestWords] = nextBeamStep(model, beamStates{numLayers}.h_t, beamSize); % beamSize * (beamSize*batchSize)
+    [allBestScores, allBestWords] = nextBeamStep(model, beamStates{numLayers}.h_t, beamSize, params); % beamSize * (beamSize*batchSize)
     
+    %beamScores
+    %params.vocab(beamHistory(1:sentPos, :))
+    %params.vocab(allBestWords)
+
     % use previous beamScores, 1 * (beamSize*batchSize), update along the first dimentions
     allBestScores = bsxfun(@plus, allBestScores, beamScores);
     allBestScores = reshape(allBestScores, [beamSize*beamSize, batchSize]);
@@ -163,7 +169,7 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
       
       % store translations
       eosIndices = find(bestWords(1:nonEosIndices(end))==params.tgtEos); % get words that are eos and ranked before the last hypothesis in the next beam
-      if ~isempty(eosIndices)
+      if ~isempty(eosIndices) && sentPos>2 % we don't want to start recording very short translations
         numTranslations = length(eosIndices);
         eosBeamIndices = floor((rowIndices(eosIndices)-1)/beamSize) + 1;
         translations = beamHistory(1:sentPos, (sentId-1)*beamSize + eosBeamIndices);
@@ -171,9 +177,10 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
         for ii=1:numTranslations
           if numDecoded(sentId)<stackSize % haven't collected enough translations
             numDecoded(sentId) = numDecoded(sentId) + 1;
-            candidates{sentId}{numDecoded(sentId)} = translations(:, ii);
+            candidates{sentId}{numDecoded(sentId)} = [translations(:, ii); params.tgtEos];
             candScores(numDecoded(sentId), sentId) = transScores(ii);
 
+            %printSent(2, translations(:, ii), params.vocab, ['  trans sent ' num2str(originalSentIndices(sentId)) ', ' num2str(transScores(ii)), ': ']);
             if numDecoded(sentId)==stackSize % done for sentId
               decodeCompleteCount = decodeCompleteCount + 1;
               break;
@@ -196,12 +203,10 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
       beamStates{ll}.h_t = beamStates{ll}.h_t(:, colIndices);
     end
     
-    
     if decodeCompleteCount==batchSize % done decoding the entire batch
       break;
     end
   end
-  fprintf(2, '\n');
   
   for sentId=1:batchSize
     if numDecoded(sentId) == 0 % no translations found, output all we have in the beam
@@ -218,16 +223,22 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
 end
 
 
-function [bestLogProbs, bestWords] = nextBeamStep(model, h, beamSize)
+function [bestLogProbs, bestWords] = nextBeamStep(model, h, beamSize, params)
   % return bestLogProbs, bestWords of sizes beamSize * curBatchSize
   [logProbs] = softmaxDecode(model.W_soft*h);
   [sortedLogProbs, sortedWords] = sort(logProbs, 'descend');
   bestWords = sortedWords(1:beamSize, :);
   bestLogProbs = sortedLogProbs(1:beamSize, :);
   
-%   [probs, ~, ~] = softmax(model.W_soft*h);
-%   logProbs1 = log(probs);
-%   assert(sum(sum(abs(logProbs-logProbs1)))<1e-5);
+  % penalize unks
+  if params.unkPenalty>0 
+    bestLogProbs = bestLogProbs - params.unkPenalty*(bestWords==params.unkId);
+  end
+  
+  % length reward
+  if params.lengthReward>0
+    bestLogProbs = bestLogProbs + params.lengthReward;
+  end
 end
 
 function [logProbs] = softmaxDecode(scores)

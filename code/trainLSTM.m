@@ -48,6 +48,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   % 1: separately print out pos/word perplexities
   % 2: like 1 + feed in src hidden states, 3: like 1 + feed in src embeddings 
   addOptional(p,'posModel', 0, @isnumeric); 
+  addOptional(p,'posWin', 7, @isnumeric);
   addOptional(p,'posSoftmax', 0, @isnumeric); % use with posModel. 0: same softmax for word/pos, 1: separate softmax for positions
   
   %% debugging options
@@ -474,16 +475,15 @@ function [srcVocab, tgtVocab, params] = loadBiVocabs(params)
     fprintf(2, '## Bilingual setting\n');
     % positional models
     if params.posModel==2 || params.posModel==3 
-      window = 7;
       vocabSize = length(srcVocab);
-      params.zeroPosId = vocabSize + window + 1;
-      params.nullPosId = vocabSize + 2*window + 2;
+      params.zeroPosId = vocabSize + params.posWin + 1;
+      params.nullPosId = vocabSize + 2*params.posWin + 2;
       
       % assertions
-      assert(length(tgtVocab) == params.nullPosId); % pos -window ... 0 ... window and null
+      assert(length(tgtVocab) == params.nullPosId); % pos -params.posWin ... 0 ... params.posWin and null
       assert(strcmp(tgtVocab{params.zeroPosId}, '<p_0>')==1);
       assert(strcmp(tgtVocab{params.nullPosId}, '<p_n>')==1);
-      for ii=1:window
+      for ii=1:params.posWin
         assert(strcmp(tgtVocab{params.zeroPosId-ii}, ['<p_-', num2str(ii), '>'])==1);
         assert(strcmp(tgtVocab{params.zeroPosId+ii}, ['<p_', num2str(ii), '>'])==1);
       end

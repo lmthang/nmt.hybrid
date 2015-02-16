@@ -20,7 +20,10 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   addRequired(p,'outputFile',@ischar);
 
   % optional
+  addOptional(p,'unkPenalty', 1, @isnumeric); % in log domain unkPenalty=0.5 ~ scale prob unk by 1.6
+  addOptional(p,'unkId', 1, @isnumeric); % id of unk word
   addOptional(p,'gpuDevice', 1, @isnumeric); % choose the gpuDevice to use. 
+  addOptional(p,'lengthReward', 0.5, @isnumeric); % in log domain, promote longer sentences.
   p.KeepUnmatched = true;
   parse(p,modelFile,beamSize,stackSize,batchSize,outputFile,varargin{:})
   decodeParams = p.Results;
@@ -48,6 +51,10 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   params = savedData.params;
   params.posModel=0;
   model = savedData.model;
+  params.unkPenalty = decodeParams.unkPenalty;
+  params.unkId = decodeParams.unkId;
+  params.lengthReward = decodeParams.lengthReward;
+  assert(strcmp(params.vocab{params.unkId}, '<unk>')==1);
   model
   
   % check GPUs
@@ -77,6 +84,11 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
     % prepare batch data
     startId = (batchId-1)*batchSize+1;
     endId = batchId*batchSize;
+    
+%     if endId>10
+%       break;
+%     end
+    
     if endId > numSents
       endId = numSents;
     end
@@ -91,10 +103,10 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
     curBatchSize = endId-startId+1;
     for ii = 1:curBatchSize
       bestId = bestIndices(ii);
-      translation = candidates{ii}{bestId}(1:end-1); % remove <t_eos>
+      translation = candidates{ii}{bestId}; 
       
       assert(isempty(find(translation>params.tgtVocabSize, 1)));
-      printSent(params.fid, translation, params.vocab, ''); 
+      printSent(params.fid, translation(1:end-1), params.vocab, ''); % remove <t_eos>
       
       % log
       printSrc(params.logId, decodeData, ii, params, startId+ii-1);
@@ -111,6 +123,7 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
         %printTranslations(candidates{ii}, candScores(ii, :), params);
       end
     end  
+    
   end
 
   endTime = clock;
