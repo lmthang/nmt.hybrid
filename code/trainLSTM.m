@@ -442,19 +442,21 @@ function [model, params] = initLSTM(params)
     params.softmaxSize = params.lstmSize;
   end
   
-  % W_soft
-  if params.softmaxDim>0 % compress softmax
+  % compress softmax
+  if params.softmaxDim>0 
     model.W_h = randomMatrix(params.initRange, [params.softmaxDim, params.lstmSize], params.isGPU, params.dataType);
     params.softmaxSize = params.softmaxDim;
   end
   
+  % W_soft
   model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.softmaxSize], params.isGPU, params.dataType);
   
   % positional models
   if params.posModel==2 || params.posModel==3 
-    params.posSoftmaxSize = 2*params.posWin + 2;
-    
+    params.numPos = 2*params.posWin + 2;
+    model.W_softPos = randomMatrix(params.initRange, [params.numPos, params.softmaxSize], params.isGPU, params.dataType);
   end
+  
   params.modelSize = modelSizes(model);
 end
 
@@ -468,12 +470,12 @@ function [params] = evalSaveDecode(model, validData, testData, params, srcTrainS
   save(params.modelRecentFile, 'model', 'params');
 
   % decode
-  if length(srcTrainSents)>=2
-    [decodeData] = prepareData(srcTrainSents(1:2), tgtTrainSents(1:2), params);
-    decodeData.startId = 1;
-    [candidates, candScores] = lstmDecoder(model, decodeData, params);
-    printDecodeResults(decodeData, candidates, candScores, params, 0);
-  end
+  srcDecodeSents = [srcTrainSents(1); validData.srcSents(randi(validData.numSents)); testData.srcSents(randi(testData.numSents))];
+  tgtDecodeSents = [tgtTrainSents(1); validData.tgtSents(randi(validData.numSents)); testData.tgtSents(randi(testData.numSents))];
+  [decodeData] = prepareData(srcDecodeSents, tgtDecodeSents, params);
+  decodeData.startId = 1;
+  [candidates, candScores] = lstmDecoder(model, decodeData, params);
+  printDecodeResults(decodeData, candidates, candScores, params, 0);
 end
 
 function [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents] = loadTrainBatches(params)
@@ -649,10 +651,13 @@ function [srcVocab, tgtVocab, params] = loadBiVocabs(params)
   params.vocab = [tgtVocab srcVocab];
 end
 
-function [data, numSents] = loadPrepareData(params, prefix, srcVocab, tgtVocab)
+function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab)
   [srcSents, tgtSents, numSents] = loadBiData(params, prefix, srcVocab, tgtVocab);
   [data] = prepareData(srcSents, tgtSents, params);
   fprintf(2, '  numSents=%d, numWords=%d\n', numSents, data.numWords);
+  data.numSents = numSents;
+  data.srcSents = srcSents;
+  data.tgtSents = tgtSents;
 end
 
 %% Unused code %%
