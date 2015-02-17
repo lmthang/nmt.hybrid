@@ -37,9 +37,12 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
 %     accm_lstm{ll}.h_t = zeroState;
 %   end
 
+  W = model.W_src;
   for t=1:srcMaxLen % time
     maskedIds = find(~inputMask(:, t)); % curBatchSize * 1
-
+    if t==srcMaxLen % due to implementation in lstmCostGrad, we have to switch to W_tgt here. THIS IS VERY IMPORTANT!
+      W = model.W_tgt;
+    end
     for ll=1:params.numLayers % layer
       % previous-time input
       if t==1 % first time step
@@ -64,7 +67,7 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
       c_t_1(:, maskedIds) = 0;
 
       % lstm cell
-      lstm{ll} = lstmUnit(model.W_src{ll}, x_t, h_t_1, c_t_1, params, 1);
+      lstm{ll} = lstmUnit(W{ll}, x_t, h_t_1, c_t_1, params, 1);
 
       % accumulate
       if params.assert
