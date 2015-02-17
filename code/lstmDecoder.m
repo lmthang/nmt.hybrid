@@ -109,6 +109,8 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
   
   %% first prediction
   [scores, words] = nextBeamStep(model, lstmStart{numLayers}.h_t, beamSize, params); % scores, words: beamSize * batchSize
+  % TODO: by right, we should filter out words == params.tgtEos, but I
+  % think for good models, we don't have to worry :)
   
   %% matrix dimension note
   % note that we order matrices in the following dimension: n * (batchSize*beamSize)

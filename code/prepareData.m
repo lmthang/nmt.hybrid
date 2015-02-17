@@ -15,11 +15,6 @@ function [data] = prepareData(srcSents, tgtSents, params, varargin)
   else
     srcLens = cellfun(@(x) length(x), srcSents);
     tgtLens = cellfun(@(x) length(x), tgtSents);
-%     if params.isBi
-%       if size(srcLens, 2)==1 % we want row vectors
-%         srcLens = srcLens';
-%       end
-%     end
   end
   
   numSents = length(tgtSents);
@@ -113,3 +108,9 @@ function [data] = prepareData(srcSents, tgtSents, params, varargin)
     data.srcPos = srcPos;
   end
 end
+
+%     if params.isBi
+%       if size(srcLens, 2)==1 % we want row vectors
+%         srcLens = srcLens';
+%       end
+%     end
