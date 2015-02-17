@@ -1,4 +1,4 @@
-function [candidates, candScores] = lstmDecoder(model, data, params, beamSize, stackSize)
+function [candidates, candScores] = lstmDecoder(model, data, params)
 %%%
 %
 % Decode from an LSTM model.
@@ -11,11 +11,14 @@ function [candidates, candScores] = lstmDecoder(model, data, params, beamSize, s
 % Hieu Pham @ 2015, <hyhieu@cs.stanford.edu>
 %
 %%%
+  beamSize = params.beamSize;
+  stackSize = params.stackSize;
+  
   input = data.input;
   inputMask = data.inputMask; 
   srcMaxLen = data.srcMaxLen;
-  printSent(2, input(1, 1:srcMaxLen), params.vocab, 'src 1: ');
-  printSent(2, input(1, srcMaxLen:end), params.vocab, 'tgt 1: ');
+  %printSent(2, input(1, 1:srcMaxLen), params.vocab, 'src 1: ');
+  %printSent(2, input(1, srcMaxLen:end), params.vocab, 'tgt 1: ');
   %printSent(2, input(end, 1:srcMaxLen), params.vocab, 'src end: ');
   
   %% init
@@ -28,11 +31,11 @@ function [candidates, candScores] = lstmDecoder(model, data, params, beamSize, s
   %% encode %%
   %%%%%%%%%%%%
   lstm = cell(params.numLayers, 1); % lstm can be over written, as we do not need to backprop
-  accm_lstm = cell(params.numLayers, 1); % accumulate c_t and h_t over time
-  for ll=1:params.numLayers % layer
-    accm_lstm{ll}.c_t = zeroState;
-    accm_lstm{ll}.h_t = zeroState;
-  end
+%   accm_lstm = cell(params.numLayers, 1); % accumulate c_t and h_t over time
+%   for ll=1:params.numLayers % layer
+%     accm_lstm{ll}.c_t = zeroState;
+%     accm_lstm{ll}.h_t = zeroState;
+%   end
 
   for t=1:srcMaxLen % time
     maskedIds = find(~inputMask(:, t)); % curBatchSize * 1
@@ -64,10 +67,12 @@ function [candidates, candScores] = lstmDecoder(model, data, params, beamSize, s
       lstm{ll} = lstmUnit(model.W_src{ll}, x_t, h_t_1, c_t_1, params, 1);
 
       % accumulate
-      assert(gather(sum(sum(abs(lstm{ll}.c_t(:, maskedIds)))))<1e-5);
-      assert(gather(sum(sum(abs(lstm{ll}.h_t(:, maskedIds)))))<1e-5);
-      accm_lstm{ll}.c_t = accm_lstm{ll}.c_t + lstm{ll}.c_t;
-      accm_lstm{ll}.h_t = accm_lstm{ll}.h_t + lstm{ll}.h_t;
+      if params.assert
+        assert(gather(sum(sum(abs(lstm{ll}.c_t(:, maskedIds)))))<1e-5);
+        assert(gather(sum(sum(abs(lstm{ll}.h_t(:, maskedIds)))))<1e-5);
+      end
+%       accm_lstm{ll}.c_t = accm_lstm{ll}.c_t + lstm{ll}.c_t;
+%       accm_lstm{ll}.h_t = accm_lstm{ll}.h_t + lstm{ll}.h_t;
     end
   end
   
@@ -76,7 +81,8 @@ function [candidates, candScores] = lstmDecoder(model, data, params, beamSize, s
   %%%%%%%%%%%%
   startTime = clock;
   maxLen = floor(srcMaxLen*1.5);
-  [candidates, candScores] = decodeBatch(model, params, accm_lstm, maxLen, beamSize, stackSize, batchSize, data.sentIndices);
+  sentIndices = data.startId:(data.startId+batchSize-1);
+  [candidates, candScores] = decodeBatch(model, params, lstm, maxLen, beamSize, stackSize, batchSize, sentIndices);
   endTime = clock;
   timeElapsed = etime(endTime, startTime);
   fprintf(2, '  Done, maxLen=%d, speed %f sents/s, time %.0fs, %s\n', maxLen, batchSize/timeElapsed, timeElapsed, datestr(now));
@@ -127,10 +133,6 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
   nextWords = zeroMatrix([1, batchSize*beamSize], params.isGPU, params.dataType);
   beamIndices = zeroMatrix([1, batchSize*beamSize], params.isGPU, params.dataType);
   for sentPos = 1 : maxLen
-%     if mod(sentPos, 10)==0
-%       fprintf(2, '  %d', sentPos);
-%     end
-
     % compute next lstm hidden states
     words = beamHistory(sentPos, :);
     for ll = 1 : numLayers
@@ -150,9 +152,9 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
     % predict the next word
     [allBestScores, allBestWords] = nextBeamStep(model, beamStates{numLayers}.h_t, beamSize, params); % beamSize * (beamSize*batchSize)
     
-    %beamScores
-    %params.vocab(beamHistory(1:sentPos, :))
-    %params.vocab(allBestWords)
+%     beamScores
+%     params.vocab(beamHistory(1:sentPos, :))
+%     params.vocab(allBestWords)
 
     % use previous beamScores, 1 * (beamSize*batchSize), update along the first dimentions
     allBestScores = bsxfun(@plus, allBestScores, beamScores);
@@ -192,7 +194,7 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
             candidates{sentId}{numDecoded(sentId)} = [translations(:, ii); params.tgtEos];
             candScores(numDecoded(sentId), sentId) = transScores(ii);
 
-            printSent(2, translations(:, ii), params.vocab, ['  trans sent ' num2str(originalSentIndices(sentId)) ', ' num2str(transScores(ii)), ': ']);
+            %printSent(2, translations(:, ii), params.vocab, ['  trans sent ' num2str(originalSentIndices(sentId)) ', ' num2str(transScores(ii)), ': ']);
             if numDecoded(sentId)==stackSize % done for sentId
               decodeCompleteCount = decodeCompleteCount + 1;
               break;

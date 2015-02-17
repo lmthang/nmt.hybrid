@@ -20,7 +20,7 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   addRequired(p,'outputFile',@ischar);
 
   % optional
-  addOptional(p,'unkPenalty', 0, @isnumeric); % in log domain unkPenalty=0.5 ~ scale prob unk by 1.6
+  addOptional(p,'unkPenalty', 1, @isnumeric); % in log domain unkPenalty=0.5 ~ scale prob unk by 1.6
   addOptional(p,'unkId', 1, @isnumeric); % id of unk word
   addOptional(p,'gpuDevice', 1, @isnumeric); % choose the gpuDevice to use. 
   addOptional(p,'lengthReward', 0, @isnumeric); % in log domain, promote longer sentences.
@@ -51,29 +51,37 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   params = savedData.params;
   params.posModel=0;
   model = savedData.model;
-  params.unkPenalty = decodeParams.unkPenalty;
-  params.unkId = decodeParams.unkId;
-  params.lengthReward = decodeParams.lengthReward;
-  assert(strcmp(params.vocab{params.unkId}, '<unk>')==1);
   model
-  fieldNames = fields(params)
+ 
+  % convert absolute paths to local paths
+  fieldNames = fields(params);
   for ii=1:length(fieldNames)
     field = fieldNames{ii};
     if ischar(params.(field))
       if strfind(params.(field), '/afs/ir/users/l/m/lmthang') ==1
         params.(field) = strrep(params.(field), '/afs/ir/users/l/m/lmthang', '~');
       end
+      if strfind(params.(field), '/afs/cs.stanford.edu/u/lmthang') ==1
+        params.(field) = strrep(params.(field), '/afs/cs.stanford.edu/u/lmthang', '~');
+      end
     end
   end
-  % check GPUs
-  params.isGPU = decodeParams.isGPU;
-  params.dataType = decodeParams.dataType;
+  
+  % copy fields
+  fieldNames = fields(decodeParams);
+  for ii=1:length(fieldNames)
+    field = fieldNames{ii};
+    params.(field) = decodeParams.(field);
+  end
+  
+  assert(strcmp(params.vocab{params.unkId}, '<unk>')==1);
   printParams(2, params);
   
   % load test data
   [srcVocab] = params.vocab(params.tgtVocabSize+1:end);
   [tgtVocab] = params.vocab(1 : params.tgtVocabSize);
   [srcSents, tgtSents, numSents]  = loadBiData(params, params.testPrefix, srcVocab, tgtVocab);
+  %[srcSents, tgtSents, numSents]  = loadBiData(params, params.trainPrefix, srcVocab, tgtVocab, 10);
   if decodeParams.batchSize==-1 % decode all sents at once if no batchSize is specified
     decodeParams.batchSize = numSents;
   end
@@ -93,48 +101,17 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
     startId = (batchId-1)*batchSize+1;
     endId = batchId*batchSize;
     
-%     if endId>10
-%       break;
-%     end
-    
     if endId > numSents
       endId = numSents;
     end
     [decodeData] = prepareData(srcSents(startId:endId), tgtSents(startId:endId), params);
-    decodeData.sentIndices = startId:endId;
+    decodeData.startId = startId;
     
     % call lstmDecoder
-    [candidates, candScores] = lstmDecoder(model, decodeData, params, beamSize, stackSize); 
+    [candidates, candScores] = lstmDecoder(model, decodeData, params); 
     
-    % output translations
-    [maxScores, bestIndices] = max(candScores); % stackSize * batchSize
-    curBatchSize = endId-startId+1;
-    for ii = 1:curBatchSize
-      bestId = bestIndices(ii);
-      translation = candidates{ii}{bestId}; 
-      
-      assert(isempty(find(translation>params.tgtVocabSize, 1)));
-      printSent(params.fid, translation(1:end-1), params.vocab, ''); % remove <t_eos>
-      
-      % log
-      printSrc(params.logId, decodeData, ii, params, startId+ii-1);
-      printRef(params.logId, decodeData, ii, params, startId+ii-1);
-      printSent(params.logId, translation, params.vocab, ['  tgt ' num2str(startId+ii-1) ': ']);
-      fprintf(params.logId, '  score %g\n', maxScores(ii));
-      
-      % debug
-      if ii==curBatchSize
-        printSrc(2, decodeData, ii, params, startId+ii-1);
-        printRef(2, decodeData, ii, params, startId+ii-1);
-        printSent(2, translation, params.vocab, ['  tgt ' num2str(startId+ii-1) ': ']);
-        fprintf(2, '  score %g\n', maxScores(ii));
-        %printTranslations(candidates{ii}, candScores(ii, :), params);
-      end
-    end
-
-    %if endId>=2
-    %  break;  
-    %end
+    % print results
+    printDecodeResults(decodeData, candidates, candScores, params, 1);
   end
 
   endTime = clock;
@@ -144,26 +121,6 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   
   fclose(params.fid);
   fclose(params.logId);
-end
-
-
-function printSrc(fid, testData, ii, params, sentId)
-  mask = testData.inputMask(ii,1:testData.srcMaxLen);
-  src = testData.input(ii,mask);
-  printSent(fid, src, params.vocab, ['# src ' num2str(sentId) ': ']);
-end
-
-function printRef(fid, testData, ii, params, sentId)
-  mask = testData.inputMask(ii, testData.srcMaxLen:end);
-  ref = testData.tgtOutput(ii,mask);
-  printSent(fid, ref, params.vocab, ['  ref ' num2str(sentId) ': ']);
-end
-
-function printTranslations(candidates, scores, params)
-  for jj = 1 : length(candidates)
-    assert(isempty(find(candidates{jj}>params.tgtVocabSize, 1)));
-    printSent(2, candidates{jj}, params.vocab, ['cand ' num2str(jj) ', ' num2str(scores(jj)) ': ']);
-  end
 end
 
 

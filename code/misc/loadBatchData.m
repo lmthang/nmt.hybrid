@@ -1,4 +1,4 @@
-function [sents, numSents] = loadBatchData(fid, baseIndex, batchSize, suffix)
+function [sents, numSents, sentLens] = loadBatchData(fid, baseIndex, batchSize, varargin)
 %%%
 %
 % Load a number of sentences (integers per line) from a file.
@@ -7,12 +7,15 @@ function [sents, numSents] = loadBatchData(fid, baseIndex, batchSize, suffix)
 %
 % Thang Luong @ 2013, <lmthang@stanford.edu>
 %%%
-  
-  if ~exist('suffix', 'var')
+
+  if length(varargin)==1
+    suffix = varargin{1};
+  else
     suffix = [];
   end
   
   sents = cell(batchSize, 1);
+  sentLens = zeros(1, batchSize);
   numSents = 0;
   while ~feof(fid)
     indices = sscanf(fgetl(fid), '%d') + (1-baseIndex);
@@ -22,9 +25,13 @@ function [sents, numSents] = loadBatchData(fid, baseIndex, batchSize, suffix)
     
     numSents = numSents + 1;
     sents{numSents} = [indices' suffix];
+    sentLens(numSents) = length(sents{numSents});
     if numSents==batchSize
       break;
     end
   end
-  sents((numSents+1):end) = []; % delete empty cells
+  
+  % delete empty values
+  sents((numSents+1):end) = []; 
+  sentLens((numSents+1):end) = [];
 end

@@ -8,14 +8,23 @@
 %   tgtMask  : numSents * tgtMaxLen, indicate where to ignore in the tgtOutput
 %  For the monolingual case, each src sent contains a single simple tgtSos,
 %   hence srcMaxLen = 1
-function [data] = prepareData(srcSents, tgtSents, params)
+function [data] = prepareData(srcSents, tgtSents, params, varargin)
+  if length(varargin)==2
+    srcLens = varargin{1};
+    tgtLens = varargin{2};
+  else
+    srcLens = cellfun(@(x) length(x), srcSents);
+    tgtLens = cellfun(@(x) length(x), tgtSents);
+%     if params.isBi
+%       if size(srcLens, 2)==1 % we want row vectors
+%         srcLens = srcLens';
+%       end
+%     end
+  end
+  
   numSents = length(tgtSents);
   if params.isBi
     srcZeroId = params.tgtVocabSize + params.srcSos;
-    srcLens = cellfun(@(x) length(x), srcSents);
-    if size(srcLens, 2)==1 % we want row vectors
-      srcLens = srcLens';
-    end
     srcMaxLen = max(srcLens);
     
     % attention model
@@ -28,7 +37,6 @@ function [data] = prepareData(srcSents, tgtSents, params)
     srcZeroId = params.tgtSos;
     srcMaxLen = 1;
   end
-  tgtLens = cellfun(@(x) length(x), tgtSents);
   tgtMaxLen = max(tgtLens);
   input = [srcZeroId*ones(numSents, srcMaxLen) params.tgtEos*ones(numSents, tgtMaxLen-1)]; % size numSents * (srcMaxLen + tgtMaxLen - 1)
   tgtOutput = params.tgtEos*ones(numSents, tgtMaxLen);

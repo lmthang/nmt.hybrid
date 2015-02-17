@@ -43,13 +43,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'softmaxDim', 0, @isnumeric); % softmaxDim>0 convert hidden state into an intermediate representation of size softmaxDim before going through the softmax
   addOptional(p,'dataType', 'single', @ischar); % Note: use double precision for grad check
   addOptional(p,'maxSentLen', 51, @isnumeric); % mostly apply to src, used in attention-based models. Usual length is 50 + 1 (for eos)
-  addOptional(p,'dropout', 1, @isnumeric); % dropout prob: 1 no dropout, <1: dropout
-  % positional models: predict pos, then word, use a separate softmax for pos
-  % 1: separately print out pos/word perplexities
-  % 2: like 1 + feed in src hidden states, 3: like 1 + feed in src embeddings 
-  addOptional(p,'posModel', 0, @isnumeric); 
-  addOptional(p,'posWin', 7, @isnumeric);
-  addOptional(p,'posSoftmax', 0, @isnumeric); % use with posModel. 0: same softmax for word/pos, 1: separate softmax for positions
+  addOptional(p,'sortBatch', 0, @isnumeric); % 1: each time we read in 100 batches, we sort sentences by length.
+  addOptional(p,'shuffle', 0, @isnumeric); % 1: shuffle training batches
+  
   
   %% debugging options
   addOptional(p,'isGradCheck', 0, @isnumeric); % set 1 to check the gradient, no need input arguments as toy data is automatically generated.
@@ -67,9 +63,18 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'attnFunc', 0, @isnumeric);
   addOptional(p,'attnSize', 0, @isnumeric); % dim of the vector used to input to the final softmax, if 0, use lstmSize
   
+  addOptional(p,'dropout', 1, @isnumeric); % dropout prob: 1 no dropout, <1: dropout
+  
+  % positional models: predict pos, then word, use a separate softmax for pos
+  % 1: separately print out pos/word perplexities
+  % 2: like 1 + feed in src hidden states, 3: like 1 + feed in src embeddings 
+  addOptional(p,'posModel', 0, @isnumeric); 
+  addOptional(p,'posWin', 7, @isnumeric);
+  addOptional(p,'posSoftmax', 0, @isnumeric); % use with posModel. 0: same softmax for word/pos, 1: separate softmax for positions
+
   addOptional(p,'globalOpt', 0, @isnumeric); % globalOpt=0: no global model, 1: avg global model, 2: feedforward global model.
   addOptional(p,'f_bias', 0, @isnumeric); % bias added to the forget gate
-
+  
   %% system options
   addOptional(p,'embCPU', 0, @isnumeric); % 1: put W_emb on CPU even if GPUs exist
   addOptional(p,'onlyCPU', 0, @isnumeric); % 1: avoid using GPUs
@@ -94,6 +99,12 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.nonlinear_f = @tanh;
   params.nonlinear_f_prime = @tanhPrime;
  
+  % decode params
+  params.beamSize = 12;
+  params.stackSize = 100;
+  params.unkPenalty = 0;
+  params.lengthReward = 0;
+  
   % params assertions
   
   
@@ -163,23 +174,28 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   [testData] = loadPrepareData(params, params.testPrefix, srcVocab, tgtVocab);
   
   % train
-  tgtTrainFile = sprintf('%s.%s', params.trainPrefix, params.tgtLang);
+  params.tgtTrainFile = sprintf('%s.%s', params.trainPrefix, params.tgtLang);
   if params.isBi
     if params.isReverse
-      srcTrainFile = sprintf('%s.reversed.%s', params.trainPrefix, params.srcLang);
+      params.srcTrainFile = sprintf('%s.reversed.%s', params.trainPrefix, params.srcLang);
     else
-      srcTrainFile = sprintf('%s.%s', params.trainPrefix, params.srcLang);
+      params.srcTrainFile = sprintf('%s.%s', params.trainPrefix, params.srcLang);
     end
-    fprintf(2, '# Load train data srcFile "%s" and tgtFile "%s"\n', srcTrainFile, tgtTrainFile);
-    srcID = fopen(srcTrainFile, 'r');
-    [srcTrainSents] = loadBatchData(srcID, params.baseIndex, params.chunkSize, params.srcEos);
+    fprintf(2, '# Load train data srcFile "%s" and tgtFile "%s"\n', params.srcTrainFile, params.tgtTrainFile);
+    params.srcTrainId = fopen(params.srcTrainFile, 'r');
+  else
+    fprintf(2, '# Load train data tgtFile "%s"\n', params.tgtTrainFile);
+  end
+  params.tgtTrainId = fopen(params.tgtTrainFile, 'r');
+  
+  
+  [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents] = loadTrainBatches(params);
+  
+  % print
+  if params.isBi
     printSent(2, srcTrainSents{1}, srcVocab, '  src 1:');
     printSent(2, srcTrainSents{end}, srcVocab, '  src end:');
-  else
-    fprintf(2, '# Load train data tgtFile "%s"\n', tgtTrainFile);
   end
-  tgtID = fopen(tgtTrainFile, 'r');
-  [tgtTrainSents, numTrainSents] = loadBatchData(tgtID, params.baseIndex, params.chunkSize, params.tgtEos);
   printSent(2, tgtTrainSents{1}, tgtVocab, '  tgt:');
   printSent(2, tgtTrainSents{end}, tgtVocab, '  tgt end:');
 
@@ -206,34 +222,18 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   lastNanIter = -1;
   nanCount = 0;
   while(isRun)
-    assert(numTrainSents>0);
-    numBatches = floor((numTrainSents-1)/params.batchSize) + 1;
+    assert(numTrainSents>0 && numBatches>0);
     for batchId = 1 : numBatches
       params.iter = params.iter + 1;
       params.batchId = batchId;
-      if params.iter <= params.startIter
+      if params.iter <= params.startIter % skip until we readh the point to resume
         continue;
       end
-      startId = (batchId-1)*params.batchSize+1;
-      endId = batchId*params.batchSize;
-      if endId > numTrainSents
-        endId = numTrainSents;
-      end
       
-      % prepare data
-      if params.isBi
-        srcBatchSents = srcTrainSents(startId:endId);
-      else
-        srcBatchSents = {};
-      end
-      tgtBatchSents = tgtTrainSents(startId:endId);
-      [trainData] = prepareData(srcBatchSents, tgtBatchSents, params);
-      %vocab = [tgtVocab srcVocab]
-      %printSent(2, trainData.input(1, :), vocab, '  input:');
-     
       %%%%%%%%%%%%%%%
       %% core part %%
       %%%%%%%%%%%%%%%
+      trainData = trainBatches{batchId};
       [costs, grad] = lstmCostGrad(model, trainData, params, 0);
 
       %% handle nan/inf
@@ -258,7 +258,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       end
       
       %% grad clipping      
-      [gradNorm, indNorms] = computeGradNorm(grad, params.batchSize, params.varsNoEmb); % historical reason: we exclude W_emb
+      [gradNorm, ~] = computeGradNorm(grad, params.batchSize, params.varsNoEmb); % historical reason: we exclude W_emb % indNorms
       scale = 1.0/params.batchSize; % grad is divided by batchSize
       if gradNorm > params.maxGradNorm
         scale = scale*params.maxGradNorm/gradNorm;
@@ -328,13 +328,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
           return;
         end
         
-        % eval
-        [params] = evalValidTest(model, validData, testData, params);
-
-        % save
-        fprintf(2, '  save model cur test perplexity %.2f to %s\n', params.curTestPerplexity, params.modelRecentFile);
-        fprintf(params.logId, '  save model cur test perplexity %.2f to %s\n', params.curTestPerplexity, params.modelRecentFile);
-        save(params.modelRecentFile, 'model', 'params');
+        % eval, save, and decode
+        [params] = evalSaveDecode(model, validData, testData, params, srcTrainSents, tgtTrainSents);
+        
         startTime = clock;
       end
 
@@ -345,24 +341,26 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         params.lr = params.lr*params.finetuneRate;
       end
       
-      
       if params.epoch==1
         params.epochBatchCount = params.epochBatchCount + 1;
       end
     end % end for batchId
 
     % read more data
-    [tgtTrainSents, numTrainSents] = loadBatchData(tgtID, params.baseIndex, params.chunkSize, params.tgtEos);
-    if params.isBi
-      [srcTrainSents] = loadBatchData(srcID, params.baseIndex, params.chunkSize, params.srcEos);
-    end
+    [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents] = loadTrainBatches(params);
     
     % eof, end of an epoch
     if numTrainSents == 0 
-      fclose(tgtID);
+      % read again
       if params.isBi
-        fclose(srcID);
+        fseek(params.srcTrainId, 0, 'bof');
       end
+      fseek(params.tgtTrainId, 0, 'bof');
+
+      % read more data
+      [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents] = loadTrainBatches(params);
+        
+      % epoch stats
       if params.epoch==1
         params.finetuneCount = floor(params.epochFraction*params.epochBatchCount);
         fprintf(2, '# Num batches per epoch = %d, finetune count=%d\n', params.epochBatchCount, params.finetuneCount);
@@ -370,7 +368,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         if params.evalFreq > params.epochBatchCount
           fprintf(2, '! change evalFreq from %d -> %d\n', params.evalFreq, params.epochBatchCount);
           params.evalFreq = params.epochBatchCount;
-          [params] = evalValidTest(model, validData, testData, params);
+          
+          % eval, save, and decode
+          [params] = evalSaveDecode(model, validData, testData, params, srcTrainSents, tgtTrainSents);
         end
       end
       
@@ -379,16 +379,13 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       if params.epoch <= params.numEpoches % continue training
         fprintf(2, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
         fprintf(params.logId, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
-        
-        % reopen file
-        tgtID = fopen(tgtTrainFile, 'r');
-        [tgtTrainSents, numTrainSents] = loadBatchData(tgtID, params.baseIndex, params.chunkSize, params.tgtEos);
-        if params.isBi
-          srcID = fopen(srcTrainFile, 'r');
-          [srcTrainSents] = loadBatchData(srcID, params.baseIndex, params.chunkSize, params.srcEos);
-        end
       else % done training
         fprintf(2, '# Done training, %s\n', datestr(now));
+        % close files
+        if params.isBi
+          fclose(params.srcTrainId);
+        end
+        fclose(params.tgtTrainId);
         break; 
       end
     end
@@ -439,73 +436,96 @@ function [model, params] = initLSTM(params)
     % attn_t = H_src * a_t
     % h_attn_t = f(W_ah * [attn_t; h_t])
     model.W_ah = randomMatrix(params.initRange, [params.attnSize, 2*params.lstmSize], params.isGPU, params.dataType);
+    
+    params.softmaxSize = params.attnSize;
+  else
+    params.softmaxSize = params.lstmSize;
   end
   
   % W_soft
   if params.softmaxDim>0 % compress softmax
     model.W_h = randomMatrix(params.initRange, [params.softmaxDim, params.lstmSize], params.isGPU, params.dataType);
-    model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.softmaxDim], params.isGPU, params.dataType);
-  else
-    if params.attnFunc>0 % attention
-      model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.attnSize], params.isGPU, params.dataType);
-    else
-      model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.lstmSize], params.isGPU, params.dataType);
-    end
+    params.softmaxSize = params.softmaxDim;
   end
   
+  model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.softmaxSize], params.isGPU, params.dataType);
+  
+  % positional models
+  if params.posModel==2 || params.posModel==3 
+    params.posSoftmaxSize = 2*params.posWin + 2;
+    
+  end
   params.modelSize = modelSizes(model);
 end
 
-function [srcVocab, tgtVocab, params] = loadBiVocabs(params)
-  srcVocab = {};
-  if params.isGradCheck
-    tgtVocab = {'a', 'b'};
-    if params.isBi
-      srcVocab = {'x', 'y'};
-    end
+function [params] = evalSaveDecode(model, validData, testData, params, srcTrainSents, tgtTrainSents)
+  % eval
+  [params] = evalValidTest(model, validData, testData, params);
+
+  % save
+  fprintf(2, '  save model cur test perplexity %.2f to %s\n', params.curTestPerplexity, params.modelRecentFile);
+  fprintf(params.logId, '  save model cur test perplexity %.2f to %s\n', params.curTestPerplexity, params.modelRecentFile);
+  save(params.modelRecentFile, 'model', 'params');
+
+  % decode
+  if length(srcTrainSents)>=2
+    [decodeData] = prepareData(srcTrainSents(1:2), tgtTrainSents(1:2), params);
+    decodeData.startId = 1;
+    [candidates, candScores] = lstmDecoder(model, decodeData, params);
+    printDecodeResults(decodeData, candidates, candScores, params, 0);
+  end
+end
+
+function [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents] = loadTrainBatches(params)
+  if params.isBi
+    [srcTrainSents, ~, srcTrainLens] = loadBatchData(params.srcTrainId, params.baseIndex, params.chunkSize, params.srcEos);
   else
-    [tgtVocab] = loadVocab(params.tgtVocabFile);    
+    srcTrainSents = {};
+  end
+  [tgtTrainSents, numTrainSents, tgtTrainLens] = loadBatchData(params.tgtTrainId, params.baseIndex, params.chunkSize, params.tgtEos);
+  
+  % sorting
+  if params.sortBatch
+    [tgtTrainLens, sortIndices] = sort(tgtTrainLens);
+    tgtTrainSents = tgtTrainSents(sortIndices);
     if params.isBi
-      [srcVocab] = loadVocab(params.srcVocabFile);
+      srcTrainSents = srcTrainSents(sortIndices);
+      srcTrainLens = srcTrainLens(sortIndices);
     end
   end
   
-  % add special symbols to vocabs
-  if params.isBi
-    fprintf(2, '## Bilingual setting\n');
-    % positional models
-    if params.posModel==2 || params.posModel==3 
-      vocabSize = length(srcVocab);
-      params.zeroPosId = vocabSize + params.posWin + 1;
-      params.nullPosId = vocabSize + 2*params.posWin + 2;
-      
-      % assertions
-      assert(length(tgtVocab) == params.nullPosId); % pos -params.posWin ... 0 ... params.posWin and null
-      assert(strcmp(tgtVocab{params.zeroPosId}, '<p_0>')==1);
-      assert(strcmp(tgtVocab{params.nullPosId}, '<p_n>')==1);
-      for ii=1:params.posWin
-        assert(strcmp(tgtVocab{params.zeroPosId-ii}, ['<p_-', num2str(ii), '>'])==1);
-        assert(strcmp(tgtVocab{params.zeroPosId+ii}, ['<p_', num2str(ii), '>'])==1);
+  % split into batches
+  if numTrainSents>0
+    numBatches = floor((numTrainSents-1)/params.batchSize) + 1;
+    trainBatches = cell(numBatches, 1);
+    
+    srcBatchSents = {};
+    srcBatchLens = [];
+    for batchId = 1 : numBatches
+      startId = (batchId-1)*params.batchSize+1;
+      endId = batchId*params.batchSize;
+      if endId > numTrainSents
+        endId = numTrainSents;
       end
-      fprintf(2, '# Positional model: zeroPosId=%d, nullPosId=%d\n', params.zeroPosId, params.nullPosId);
-      fprintf(params.logId, '# Positional model: zeroPosId=%d, nullPosId=%d\n', params.zeroPosId, params.nullPosId);
+      
+      % prepare data
+      if params.isBi
+        srcBatchSents = srcTrainSents(startId:endId);
+        srcBatchLens = srcTrainLens(startId:endId);
+      end
+      tgtBatchSents = tgtTrainSents(startId:endId);
+      tgtBatchLens = tgtTrainLens(startId:endId);
+      trainBatches{batchId} = prepareData(srcBatchSents, tgtBatchSents, params, srcBatchLens, tgtBatchLens);
     end
-    srcVocab{end+1} = '<s_eos>';
-    params.srcEos = length(srcVocab);
-    srcVocab{end+1} = '<s_sos>';
-    params.srcSos = length(srcVocab);
-    params.srcVocabSize = length(srcVocab);
-    % here we have src eos, so we don't need tgt sos.
+    
+    % shuffle
+    if params.shuffle
+      trainBatches = trainBatches(randperm(numBatches));
+    end
   else
-    fprintf(2, '## Monolingual setting\n');
-    srcVocab = {};
-    tgtVocab{end+1} = '<t_sos>';
-    params.tgtSos = length(tgtVocab);
+    trainBatches = {};
+    numBatches = 0;
   end
-  tgtVocab{end+1} = '<t_eos>';
-  params.tgtEos = length(tgtVocab);
-  params.tgtVocabSize = length(tgtVocab);
-  params.vocab = [tgtVocab srcVocab];
 end
 
 function [model, params] = initLoadModel(params)
@@ -562,81 +582,6 @@ function [model, params] = initLoadModel(params)
   params = setupVars(model, params);
 end
 
-function [params] = evalValidTest(model, validData, testData, params)
-  startTime = clock;
-  [costValid] = evalCost(model, validData, params); % inputValid, inputValidMask, tgtValidOutput, tgtValidMask, srcValidMaxLen, tgtValidMaxLen, params);
-  [costTest] = evalCost(model, testData, params); %inputTest, inputTestMask, tgtTestOutput, tgtTestMask, srcTestMaxLen, tgtTestMaxLen, params);
-  
-  costValid.total = costValid.total/validData.numWords;
-  costTest.total = costTest.total/testData.numWords;
-  modelStr = wInfo(model);
-  endTime = clock;
-  timeElapsed = etime(endTime, startTime);
-  if params.posModel>0 % positional model
-    costValid.pos = costValid.pos*2/validData.numWords;
-    costValid.word = costValid.word*2/validData.numWords;
-    costTest.pos = costTest.pos*2/testData.numWords;
-    costTest.word = costTest.word*2/testData.numWords;
-    fprintf(2, '# eval %.2f (%.2f, %.2f), %d, %d, %.2fK, %.2f, train=%.4f (%.2f, %.2f), valid=%.4f (%.2f, %.2f), test=%.4f (%.2f, %.2f),%s, time=%.2fs\n', exp(costTest.total), exp(costTest.pos), exp(costTest.word), params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, costValid.total, costValid.pos, costValid.word, costTest.total, costTest.pos, costTest.word, modelStr, timeElapsed);
-    fprintf(params.logId, '# eval %.2f (%.2f, %.2f), %d, %d, %.2fK, %.2f, train=%.4f (%.2f, %.2f), valid=%.4f (%.2f, %.2f), test=%.4f (%.2f, %.2f),%s, time=%.2fs\n', exp(costTest.total), exp(costTest.pos), exp(costTest.word), params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, costValid.total, costValid.pos, costValid.word, costTest.total, costTest.pos, costTest.word, modelStr, timeElapsed);
-  else
-    fprintf(2, '# eval %.2f, %d, %d, %.2fK, %.2f, train=%.4f, valid=%.4f, test=%.4f, %s, time=%.2fs\n', exp(costTest.total), params.epoch, params.iter, params.speed, params.lr, params.costTrain, costValid.total, costTest.total, modelStr, timeElapsed);
-    fprintf(params.logId, '# eval %.2f, %d, %d, %.2fK, %.2f, train=%.4f, valid=%.4f, test=%.4f, %s, time=%.2fs\n', exp(costTest.total), params.epoch, params.iter, params.speed, params.lr, params.costTrain, costValid.total, costTest.total, modelStr, timeElapsed);
-  end
-    
-  params.curTestPerplexity = exp(costTest.total);
-  if params.posModel>0 % positional model
-    params.curTestPerplexityPos = exp(costTest.pos);
-    params.curTestPerplexityWord = exp(costTest.pos);
-  end
-  if costValid.total < params.bestCostValid
-    params.bestCostValid = costValid.total;
-    params.costTest = costTest.total;
-    params.testPerplexity = params.curTestPerplexity;
-    if params.posModel>0 % positional model
-      params.bestCostValidPos = costValid.pos;
-      params.bestCostValidWord = costValid.word;
-      params.testPerplexityPos = params.curTestPerplexityPos;
-      params.testPerplexityWord = params.curTestPerplexityWord;
-    end
-    fprintf(2, '  save model test perplexity %.2f to %s\n', params.testPerplexity, params.modelFile);
-    fprintf(params.logId, '  save model test perplexity %.2f to %s\n', params.testPerplexity, params.modelFile);
-    save(params.modelFile, 'model', 'params');
-  end
-end
-
-%% Eval
-function [evalCosts] = evalCost(model, data, params) %input, inputMask, tgtOutput, tgtMask, srcMaxLen, tgtMaxLen, params)
-  numSents = size(data.input, 1);
-  numBatches = floor((numSents-1)/params.batchSize) + 1;
-
-  evalCosts.total = 0;
-  if params.posModel>0 % positional model
-    evalCosts.pos = 0;
-    evalCosts.word = 0;
-  end
-  trainData.srcMaxLen = data.srcMaxLen;
-  trainData.tgtMaxLen = data.tgtMaxLen;
-  for batchId = 1 : numBatches
-    startId = (batchId-1)*params.batchSize+1;
-    endId = batchId*params.batchSize;
-    if endId > numSents
-      endId = numSents;
-    end
-    
-    trainData.input = data.input(startId:endId, :);
-    trainData.inputMask = data.inputMask(startId:endId, :);
-    trainData.tgtOutput = data.tgtOutput(startId:endId, :);
-    trainData.srcLens = data.srcLens(startId:endId);
-    costs = lstmCostGrad(model, trainData, params, 1);
-    evalCosts.total = evalCosts.total + costs.total;
-    if params.posModel>0 % positional model
-      evalCosts.pos = evalCosts.pos + costs.pos;
-      evalCosts.word = evalCosts.word + costs.word;
-    end
-    
-  end
-end
 
 function [params] = setupVars(model, params)
   params.vars = fields(model);
@@ -650,6 +595,58 @@ function [params] = setupVars(model, params)
       break;
     end
   end
+end
+
+function [srcVocab, tgtVocab, params] = loadBiVocabs(params)
+  srcVocab = {};
+  if params.isGradCheck
+    tgtVocab = {'a', 'b'};
+    if params.isBi
+      srcVocab = {'x', 'y'};
+    end
+  else
+    [tgtVocab] = loadVocab(params.tgtVocabFile);    
+    if params.isBi
+      [srcVocab] = loadVocab(params.srcVocabFile);
+    end
+  end
+  
+  % add special symbols to vocabs
+  if params.isBi
+    fprintf(2, '## Bilingual setting\n');
+    % positional models
+    if params.posModel==2 || params.posModel==3 
+      vocabSize = length(srcVocab);
+      params.zeroPosId = vocabSize + params.posWin + 1;
+      params.nullPosId = vocabSize + 2*params.posWin + 2;
+      
+      % assertions
+      assert(length(tgtVocab) == params.nullPosId); % pos -params.posWin ... 0 ... params.posWin and null
+      assert(strcmp(tgtVocab{params.zeroPosId}, '<p_0>')==1);
+      assert(strcmp(tgtVocab{params.nullPosId}, '<p_n>')==1);
+      for ii=1:params.posWin
+        assert(strcmp(tgtVocab{params.zeroPosId-ii}, ['<p_-', num2str(ii), '>'])==1);
+        assert(strcmp(tgtVocab{params.zeroPosId+ii}, ['<p_', num2str(ii), '>'])==1);
+      end
+      fprintf(2, '# Positional model: zeroPosId=%d, nullPosId=%d\n', params.zeroPosId, params.nullPosId);
+      fprintf(params.logId, '# Positional model: zeroPosId=%d, nullPosId=%d\n', params.zeroPosId, params.nullPosId);
+    end
+    srcVocab{end+1} = '<s_eos>';
+    params.srcEos = length(srcVocab);
+    srcVocab{end+1} = '<s_sos>';
+    params.srcSos = length(srcVocab);
+    params.srcVocabSize = length(srcVocab);
+    % here we have src eos, so we don't need tgt sos.
+  else
+    fprintf(2, '## Monolingual setting\n');
+    srcVocab = {};
+    tgtVocab{end+1} = '<t_sos>';
+    params.tgtSos = length(tgtVocab);
+  end
+  tgtVocab{end+1} = '<t_eos>';
+  params.tgtEos = length(tgtVocab);
+  params.tgtVocabSize = length(tgtVocab);
+  params.vocab = [tgtVocab srcVocab];
 end
 
 function [data, numSents] = loadPrepareData(params, prefix, srcVocab, tgtVocab)

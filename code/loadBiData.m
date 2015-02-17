@@ -1,4 +1,10 @@
-function [srcSents, tgtSents, numSents] = loadBiData(params, prefix, srcVocab, tgtVocab)
+function [srcSents, tgtSents, numSents] = loadBiData(params, prefix, srcVocab, tgtVocab, varargin)
+  if length(varargin) == 1
+    chunkSize = varargin{1};
+  else
+    chunkSize = -1;
+  end
+  
   % src
   if params.isBi
     if params.isReverse
@@ -6,14 +12,14 @@ function [srcSents, tgtSents, numSents] = loadBiData(params, prefix, srcVocab, t
     else
       srcFile = sprintf('%s.%s', prefix, params.srcLang);
     end
-    [srcSents] = loadMonoData(srcFile, params.srcEos, -1, params.baseIndex, srcVocab, 'src');
+    [srcSents] = loadMonoData(srcFile, params.srcEos, chunkSize, params.baseIndex, srcVocab, 'src');
   else
     srcSents = {};
   end
   
   % tgt
   tgtFile = sprintf('%s.%s', prefix, params.tgtLang);
-  [tgtSents, numSents] = loadMonoData(tgtFile, params.tgtEos, -1, params.baseIndex, tgtVocab, 'tgt');
+  [tgtSents, numSents] = loadMonoData(tgtFile, params.tgtEos, chunkSize, params.baseIndex, tgtVocab, 'tgt');
 
   % prepare
   %[data] = prepareData(srcSents, tgtSents, params);
