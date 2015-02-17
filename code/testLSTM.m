@@ -22,10 +22,13 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   addRequired(p,'outputFile',@ischar);
 
   % optional
-  addOptional(p,'unkPenalty', 0, @isnumeric); % in log domain unkPenalty=0.5 ~ scale prob unk by 1.6
-  addOptional(p,'unkId', 1, @isnumeric); % id of unk word
   addOptional(p,'gpuDevice', 1, @isnumeric); % choose the gpuDevice to use. 
-  addOptional(p,'lengthReward', 0, @isnumeric); % in log domain, promote longer sentences.
+  addOptional(p,'unkId', 1, @isnumeric); % id of unk word
+  
+%   addOptional(p,'accmLstm', 0, @isnumeric); % 1: accmulate h_t/c_t as we go over the src side.
+%   addOptional(p,'unkPenalty', 0, @isnumeric); % in log domain unkPenalty=0.5 ~ scale prob unk by 1.6
+%   addOptional(p,'lengthReward', 0, @isnumeric); % in log domain, promote longer sentences.
+
   p.KeepUnmatched = true;
   parse(p,modelFile,beamSize,stackSize,batchSize,outputFile,varargin{:})
   decodeParams = p.Results;

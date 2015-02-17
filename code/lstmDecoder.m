@@ -31,18 +31,14 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
   %% encode %%
   %%%%%%%%%%%%
   lstm = cell(params.numLayers, 1); % lstm can be over written, as we do not need to backprop
-%   accm_lstm = cell(params.numLayers, 1); % accumulate c_t and h_t over time
-%   for ll=1:params.numLayers % layer
-%     accm_lstm{ll}.c_t = zeroState;
-%     accm_lstm{ll}.h_t = zeroState;
-%   end
-
+  
   W = model.W_src;
   for t=1:srcMaxLen % time
     maskedIds = find(~inputMask(:, t)); % curBatchSize * 1
     if t==srcMaxLen % due to implementation in lstmCostGrad, we have to switch to W_tgt here. THIS IS VERY IMPORTANT!
-      W = model.W_tgt;
+      W = model.W_tgt;      
     end
+    
     for ll=1:params.numLayers % layer
       % previous-time input
       if t==1 % first time step
@@ -68,14 +64,12 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
 
       % lstm cell
       lstm{ll} = lstmUnit(W{ll}, x_t, h_t_1, c_t_1, params, 1);
-
-      % accumulate
+      
+      % assert
       if params.assert
         assert(gather(sum(sum(abs(lstm{ll}.c_t(:, maskedIds)))))<1e-5);
         assert(gather(sum(sum(abs(lstm{ll}.h_t(:, maskedIds)))))<1e-5);
       end
-%       accm_lstm{ll}.c_t = accm_lstm{ll}.c_t + lstm{ll}.c_t;
-%       accm_lstm{ll}.h_t = accm_lstm{ll}.h_t + lstm{ll}.h_t;
     end
   end
   
@@ -239,23 +233,12 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
   end
 end
 
-
 function [bestLogProbs, bestWords] = nextBeamStep(model, h, beamSize, params)
   % return bestLogProbs, bestWords of sizes beamSize * curBatchSize
   [logProbs] = softmaxDecode(model.W_soft*h);
   [sortedLogProbs, sortedWords] = sort(logProbs, 'descend');
   bestWords = sortedWords(1:beamSize, :);
   bestLogProbs = sortedLogProbs(1:beamSize, :);
-  
-  % penalize unks
-  if params.unkPenalty>0 
-    bestLogProbs = bestLogProbs - params.unkPenalty*(bestWords==params.unkId);
-  end
-  
-  % length reward
-  if params.lengthReward>0
-    bestLogProbs = bestLogProbs + params.lengthReward;
-  end
 end
 
 function [logProbs] = softmaxDecode(scores)
@@ -264,6 +247,40 @@ function [logProbs] = softmaxDecode(scores)
   scores = bsxfun(@minus, scores, mx); % subtract max elements 
   logProbs = bsxfun(@minus, scores, log(sum(exp(scores))));
 end
+
+
+%% Unused %%
+%   if params.accmLstm
+%     accmLstm = cell(params.numLayers, 1); % accumulate c_t and h_t over time
+%     for ll=1:params.numLayers % layer
+%       accmLstm{ll}.c_t = zeroState;
+%       accmLstm{ll}.h_t = zeroState;
+%     end
+%   end
+
+%       % use accumulate state from the source
+%       if params.accmLstm
+%         lstm = accmLstm;
+%       end
+
+%       % accumulate
+%       if params.accmLstm && t<srcMaxLen
+%         accmLstm{ll}.c_t = accmLstm{ll}.c_t + lstm{ll}.c_t;
+%         accmLstm{ll}.h_t = accmLstm{ll}.h_t + lstm{ll}.h_t;
+%       end
+
+
+% hacky stuff no longer needed
+%   % penalize unks
+%   if params.unkPenalty>0 
+%     bestLogProbs = bestLogProbs - params.unkPenalty*(bestWords==params.unkId);
+%   end
+%   
+%   % length reward
+%   if params.lengthReward>0
+%     bestLogProbs = bestLogProbs + params.lengthReward;
+%   end
+
 
 %  show_beam(beam, beam_size, params);
 % function [] = showBeam(beam, beam_size, batchSize, params)
