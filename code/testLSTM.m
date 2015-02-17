@@ -9,6 +9,8 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
 % Hieu Pham @ 2015, <hyhieu@cs.stanford.edu>
 %
 %%%
+  addpath(genpath(sprintf('%s/../../matlab', pwd)));
+  addpath(genpath(sprintf('%s/..', pwd)));
 
   %% Argument Parser
   p = inputParser;
@@ -20,17 +22,16 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   addRequired(p,'outputFile',@ischar);
 
   % optional
-  addOptional(p,'unkPenalty', 1, @isnumeric); % in log domain unkPenalty=0.5 ~ scale prob unk by 1.6
+  addOptional(p,'unkPenalty', 0, @isnumeric); % in log domain unkPenalty=0.5 ~ scale prob unk by 1.6
   addOptional(p,'unkId', 1, @isnumeric); % id of unk word
   addOptional(p,'gpuDevice', 1, @isnumeric); % choose the gpuDevice to use. 
   addOptional(p,'lengthReward', 0, @isnumeric); % in log domain, promote longer sentences.
   p.KeepUnmatched = true;
   parse(p,modelFile,beamSize,stackSize,batchSize,outputFile,varargin{:})
   decodeParams = p.Results;
-
-  addpath(genpath(sprintf('%s/../../matlab', pwd)));
-  addpath(genpath(sprintf('%s/..', pwd)));
-  printParams(2, decodeParams);
+  if decodeParams.batchSize==-1 % decode sents one by one
+    decodeParams.batchSize = 1;
+  end
 
   decodeParams.isGPU = 0;
   if ismac==0
@@ -46,6 +47,7 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   else
     decodeParams.dataType = 'double';
   end
+  printParams(2, decodeParams);
   
   [savedData] = load(decodeParams.modelFile);
   params = savedData.params;
@@ -75,6 +77,8 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   end
   
   assert(strcmp(params.vocab{params.unkId}, '<unk>')==1);
+  params.fid = fopen(params.outputFile, 'w');
+  params.logId = fopen([outputFile '.log'], 'w');
   printParams(2, params);
   
   % load test data
@@ -82,15 +86,10 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   [tgtVocab] = params.vocab(1 : params.tgtVocabSize);
   [srcSents, tgtSents, numSents]  = loadBiData(params, params.testPrefix, srcVocab, tgtVocab);
   %[srcSents, tgtSents, numSents]  = loadBiData(params, params.trainPrefix, srcVocab, tgtVocab, 10);
-  if decodeParams.batchSize==-1 % decode all sents at once if no batchSize is specified
-    decodeParams.batchSize = numSents;
-  end
   
   %%%%%%%%%%%%
   %% decode %%
   %%%%%%%%%%%%
-  params.fid = fopen(decodeParams.outputFile, 'w');
-  params.logId = fopen([outputFile '.log'], 'w');
   numBatches = floor((numSents-1)/batchSize) + 1;
   
   fprintf(2, '# Decoding %d sents, %s\n', numSents, datestr(now));

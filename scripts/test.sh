@@ -19,6 +19,7 @@ else
 fi
 echo "$matlabCommand"
 
+outDir=`dirname $outputFile`
 echo "mkdir -p $outDir"
 mkdir -p $outDir
 
