@@ -28,6 +28,12 @@ function [candidates, candScores] = lstmDecoder(model, data, params, beamSize, s
   %% encode %%
   %%%%%%%%%%%%
   lstm = cell(params.numLayers, 1); % lstm can be over written, as we do not need to backprop
+  accm_lstm = cell(params.numLayers, 1); % accumulate c_t and h_t over time
+  for ll=1:params.numLayers % layer
+    accm_lstm{ll}.c_t = zeroState;
+    accm_lstm{ll}.h_t = zeroState;
+  end
+
   for t=1:srcMaxLen % time
     maskedIds = find(~inputMask(:, t)); % curBatchSize * 1
 
@@ -56,6 +62,12 @@ function [candidates, candScores] = lstmDecoder(model, data, params, beamSize, s
 
       % lstm cell
       lstm{ll} = lstmUnit(model.W_src{ll}, x_t, h_t_1, c_t_1, params, 1);
+
+      % accumulate
+      assert(gather(sum(sum(abs(lstm{ll}.c_t(:, maskedIds)))))<1e-5);
+      assert(gather(sum(sum(abs(lstm{ll}.h_t(:, maskedIds)))))<1e-5);
+      accm_lstm{ll}.c_t = accm_lstm{ll}.c_t + lstm{ll}.c_t;
+      accm_lstm{ll}.h_t = accm_lstm{ll}.h_t + lstm{ll}.h_t;
     end
   end
   
@@ -64,7 +76,7 @@ function [candidates, candScores] = lstmDecoder(model, data, params, beamSize, s
   %%%%%%%%%%%%
   startTime = clock;
   maxLen = floor(srcMaxLen*1.5);
-  [candidates, candScores] = decodeBatch(model, params, lstm, maxLen, beamSize, stackSize, batchSize, data.sentIndices);
+  [candidates, candScores] = decodeBatch(model, params, accm_lstm, maxLen, beamSize, stackSize, batchSize, data.sentIndices);
   endTime = clock;
   timeElapsed = etime(endTime, startTime);
   fprintf(2, '  Done, maxLen=%d, speed %f sents/s, time %.0fs, %s\n', maxLen, batchSize/timeElapsed, timeElapsed, datestr(now));
@@ -180,7 +192,7 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
             candidates{sentId}{numDecoded(sentId)} = [translations(:, ii); params.tgtEos];
             candScores(numDecoded(sentId), sentId) = transScores(ii);
 
-            %printSent(2, translations(:, ii), params.vocab, ['  trans sent ' num2str(originalSentIndices(sentId)) ', ' num2str(transScores(ii)), ': ']);
+            printSent(2, translations(:, ii), params.vocab, ['  trans sent ' num2str(originalSentIndices(sentId)) ', ' num2str(transScores(ii)), ': ']);
             if numDecoded(sentId)==stackSize % done for sentId
               decodeCompleteCount = decodeCompleteCount + 1;
               break;

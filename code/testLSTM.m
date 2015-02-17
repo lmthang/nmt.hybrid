@@ -20,10 +20,10 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   addRequired(p,'outputFile',@ischar);
 
   % optional
-  addOptional(p,'unkPenalty', 1, @isnumeric); % in log domain unkPenalty=0.5 ~ scale prob unk by 1.6
+  addOptional(p,'unkPenalty', 0, @isnumeric); % in log domain unkPenalty=0.5 ~ scale prob unk by 1.6
   addOptional(p,'unkId', 1, @isnumeric); % id of unk word
   addOptional(p,'gpuDevice', 1, @isnumeric); % choose the gpuDevice to use. 
-  addOptional(p,'lengthReward', 0.5, @isnumeric); % in log domain, promote longer sentences.
+  addOptional(p,'lengthReward', 0, @isnumeric); % in log domain, promote longer sentences.
   p.KeepUnmatched = true;
   parse(p,modelFile,beamSize,stackSize,batchSize,outputFile,varargin{:})
   decodeParams = p.Results;
@@ -56,7 +56,15 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   params.lengthReward = decodeParams.lengthReward;
   assert(strcmp(params.vocab{params.unkId}, '<unk>')==1);
   model
-  
+  fieldNames = fields(params)
+  for ii=1:length(fieldNames)
+    field = fieldNames{ii};
+    if ischar(params.(field))
+      if strfind(params.(field), '/afs/ir/users/l/m/lmthang') ==1
+        params.(field) = strrep(params.(field), '/afs/ir/users/l/m/lmthang', '~');
+      end
+    end
+  end
   % check GPUs
   params.isGPU = decodeParams.isGPU;
   params.dataType = decodeParams.dataType;
@@ -122,8 +130,11 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
         fprintf(2, '  score %g\n', maxScores(ii));
         %printTranslations(candidates{ii}, candScores(ii, :), params);
       end
-    end  
-    
+    end
+
+    %if endId>=2
+    %  break;  
+    %end
   end
 
   endTime = clock;
