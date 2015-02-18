@@ -472,7 +472,7 @@ function [params] = evalSaveDecode(model, validData, testData, params, srcTrainS
   % decode
   srcDecodeSents = [srcTrainSents(1); validData.srcSents(randi(validData.numSents)); testData.srcSents(randi(testData.numSents))];
   tgtDecodeSents = [tgtTrainSents(1); validData.tgtSents(randi(validData.numSents)); testData.tgtSents(randi(testData.numSents))];
-  [decodeData] = prepareData(srcDecodeSents, tgtDecodeSents, params);
+  [decodeData] = prepareData(srcDecodeSents, tgtDecodeSents, 1, params);
   decodeData.startId = 1;
   [candidates, candScores] = lstmDecoder(model, decodeData, params);
   printDecodeResults(decodeData, candidates, candScores, params, 0);
@@ -517,7 +517,7 @@ function [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents]
       end
       tgtBatchSents = tgtTrainSents(startId:endId);
       tgtBatchLens = tgtTrainLens(startId:endId);
-      trainBatches{batchId} = prepareData(srcBatchSents, tgtBatchSents, params, srcBatchLens, tgtBatchLens);
+      trainBatches{batchId} = prepareData(srcBatchSents, tgtBatchSents, 0, params, srcBatchLens, tgtBatchLens);
     end
     
     % shuffle
@@ -653,7 +653,7 @@ end
 
 function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab)
   [srcSents, tgtSents, numSents] = loadBiData(params, prefix, srcVocab, tgtVocab);
-  [data] = prepareData(srcSents, tgtSents, params);
+  [data] = prepareData(srcSents, tgtSents, 1, params);
   fprintf(2, '  numSents=%d, numWords=%d\n', numSents, data.numWords);
   data.numSents = numSents;
   data.srcSents = srcSents;

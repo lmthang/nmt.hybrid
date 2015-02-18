@@ -30,7 +30,7 @@ function gradCheck(model, params)
   end
 
   % prepare data
-  [trainData.input, trainData.inputMask, trainData.tgtOutput, trainData.srcMaxLen, trainData.tgtMaxLen, trainData.numWords, trainData.srcLens] = prepareData(srcTrainSents, tgtTrainSents, params);
+  [trainData] = prepareData(srcTrainSents, tgtTrainSents, 0, params);
 
     
   % for gradient check purpose
@@ -45,7 +45,8 @@ function gradCheck(model, params)
   
   % analytic grad
   full_grad_W_emb = zeros(size(model.W_emb, 1), size(model.W_emb, 2));
-  [totalCost, grad] = lstmCostGrad(model, trainData, params, 0);
+  [costs, grad] = lstmCostGrad(model, trainData, params, 0);
+  totalCost = costs.total;
   if params.isGPU
     full_grad_W_emb(:, grad.indices) = gather(grad.W_emb);
   else
@@ -68,7 +69,8 @@ function gradCheck(model, params)
           modelNew = model;
           modelNew.(field){jj}(kk) = modelNew.(field){jj}(kk) + delta;
           
-          totalCost_new = lstmCostGrad(modelNew, trainData, params, 0);
+          costs_new = lstmCostGrad(modelNew, trainData, params, 0);
+          totalCost_new = costs_new.total;
           empGrad = (totalCost_new-totalCost)/delta;
           
           anaGrad = grad.(field){jj}(kk);
@@ -87,7 +89,8 @@ function gradCheck(model, params)
         modelNew = model;
         modelNew.(field)(kk) = modelNew.(field)(kk) + delta;
 
-        totalCost_new = lstmCostGrad(modelNew, trainData, params, 0);
+        costs_new = lstmCostGrad(modelNew, trainData, params, 0);
+        totalCost_new = costs_new.total;
         empGrad = (totalCost_new-totalCost)/delta;
 
         anaGrad = grad.(field)(kk);

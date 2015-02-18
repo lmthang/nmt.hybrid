@@ -20,10 +20,6 @@ function [srcSents, tgtSents, numSents] = loadBiData(params, prefix, srcVocab, t
   % tgt
   tgtFile = sprintf('%s.%s', prefix, params.tgtLang);
   [tgtSents, numSents] = loadMonoData(tgtFile, params.tgtEos, chunkSize, params.baseIndex, tgtVocab, 'tgt');
-
-  % prepare
-  %[data] = prepareData(srcSents, tgtSents, params);
-  %fprintf(2, '  numWords=%d\n', data.numWords);
 end
 
 function [sents, numSents] = loadMonoData(file, eos, numSents, baseIndex, vocab, label)
