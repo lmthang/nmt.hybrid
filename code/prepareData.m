@@ -13,8 +13,8 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
     srcLens = varargin{1};
     tgtLens = varargin{2};
   else
-    srcLens = cellfun(@(x) length(x), srcSents);
     tgtLens = cellfun(@(x) length(x), tgtSents);
+    srcLens = cellfun(@(x) length(x), srcSents);
   end
   
   % positional models
@@ -24,9 +24,13 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
     
   numSents = length(tgtSents);
   if params.isBi
+%     if size(srcLens, 2)==1 % we want row vectors
+%       srcLens = srcLens';
+%     end
+    
     srcZeroId = params.tgtVocabSize + params.srcSos;
     
-    if isTest==0
+    if isTest==0 || params.attnFunc>0
       srcLens(srcLens>params.maxSentLen) = params.maxSentLen; % limit sent lengths
       srcMaxLen = max(srcLens);
       assert(srcMaxLen<=params.maxSentLen);
@@ -133,9 +137,3 @@ end
 %       if params.attnFunc>0 && srcLen>srcMaxLen % attention model
 %         srcLen = srcMaxLen;
 %       end
-
-%     if params.isBi
-%       if size(srcLens, 2)==1 % we want row vectors
-%         srcLens = srcLens';
-%       end
-%     end

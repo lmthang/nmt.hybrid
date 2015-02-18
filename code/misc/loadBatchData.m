@@ -14,7 +14,7 @@ function [sents, numSents, sentLens] = loadBatchData(fid, baseIndex, batchSize, 
     suffix = [];
   end
   
-  sents = cell(batchSize, 1);
+  sents = cell(1, batchSize);
   sentLens = zeros(1, batchSize);
   numSents = 0;
   while ~feof(fid)
