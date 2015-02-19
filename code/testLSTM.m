@@ -106,7 +106,7 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
     if endId > numSents
       endId = numSents;
     end
-    [decodeData] = prepareData(srcSents(startId:endId), tgtSents(startId:endId), params);
+    [decodeData] = prepareData(srcSents(startId:endId), tgtSents(startId:endId), 1, params);
     decodeData.startId = startId;
     
     % call lstmDecoder

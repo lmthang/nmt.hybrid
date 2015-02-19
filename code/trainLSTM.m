@@ -114,6 +114,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   else
     s = RandStream('mt19937ar','Seed','shuffle');
   end
+  s
   RandStream.setGlobalStream(s);
   
   % check GPUs
