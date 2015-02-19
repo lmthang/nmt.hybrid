@@ -24,10 +24,6 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
     
   numSents = length(tgtSents);
   if params.isBi
-%     if size(srcLens, 2)==1 % we want row vectors
-%       srcLens = srcLens';
-%     end
-    
     srcZeroId = params.tgtVocabSize + params.srcSos;
     
     if isTest==0 || params.attnFunc>0
@@ -114,9 +110,6 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
     end
     
     assert(numWords == sum(tgtLens));
-    %label = 'input';
-    %printSent(input(1, :), params.vocab, ['  ', label, ' 1:']);
-    %printSent(input(end, :), params.vocab, ['  ', label, ' end:']);
   end
   
   data.input = input;
@@ -134,6 +127,14 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   end
 end
 
+    %label = 'input';
+    %printSent(input(1, :), params.vocab, ['  ', label, ' 1:']);
+    %printSent(input(end, :), params.vocab, ['  ', label, ' end:']);
+    
+%     if size(srcLens, 2)==1 % we want row vectors
+%       srcLens = srcLens';
+%     end
+    
 %       if params.attnFunc>0 && srcLen>srcMaxLen % attention model
 %         srcLen = srcMaxLen;
 %       end

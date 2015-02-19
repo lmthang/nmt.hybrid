@@ -471,12 +471,14 @@ function [params] = evalSaveDecode(model, validData, testData, params, srcTrainS
   save(params.modelRecentFile, 'model', 'params');
 
   % decode
-  srcDecodeSents = [srcTrainSents(1); validData.srcSents(randi(validData.numSents)); testData.srcSents(randi(testData.numSents))];
-  tgtDecodeSents = [tgtTrainSents(1); validData.tgtSents(randi(validData.numSents)); testData.tgtSents(randi(testData.numSents))];
-  [decodeData] = prepareData(srcDecodeSents, tgtDecodeSents, 1, params);
-  decodeData.startId = 1;
-  [candidates, candScores] = lstmDecoder(model, decodeData, params);
-  printDecodeResults(decodeData, candidates, candScores, params, 0);
+  if params.isBi
+    srcDecodeSents = [srcTrainSents(1); validData.srcSents(randi(validData.numSents)); testData.srcSents(randi(testData.numSents))];
+    tgtDecodeSents = [tgtTrainSents(1); validData.tgtSents(randi(validData.numSents)); testData.tgtSents(randi(testData.numSents))];
+    [decodeData] = prepareData(srcDecodeSents, tgtDecodeSents, 1, params);
+    decodeData.startId = 1;
+    [candidates, candScores] = lstmDecoder(model, decodeData, params);
+    printDecodeResults(decodeData, candidates, candScores, params, 0);
+  end
 end
 
 function [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents] = loadTrainBatches(params)
