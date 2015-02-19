@@ -128,16 +128,12 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       %% prediction at the top layer
       if ll==params.numLayers && (t>=srcMaxLen)
         %% softmax
-        if params.softmaxDim>0 % f(W_h * h_t)
-          softmax_h = params.nonlinear_f(model.W_h*lstm{ll, t}.h_t);
-        else  
-          if params.attnFunc>0 % attention mechanism
-            [softmax_h, attn_h_concat, alignWeights, alignScores, attnInput] = attnForward(lstm{ll, t}.h_t, model, srcAlignStates, timeInfo{t}.mask, params, curBatchSize, srcLens);
-          else % normal
-            softmax_h = lstm{ll, t}.h_t;
-          end
+        if params.attnFunc>0 % attention mechanism
+          [softmax_h, attn_h_concat, alignWeights, alignScores, attnInput] = lstm2softHid(lstm{ll, t}.h_t, params, model, srcAlignStates, timeInfo{t}.mask, curBatchSize, srcLens);
+        else
+          [softmax_h] = lstm2softHid(lstm{ll, t}.h_t, params, model);
         end
-        
+             
         [probs, scores, norms] = softmax(model.W_soft*softmax_h, timeInfo{t}.mask);
         
         % assert

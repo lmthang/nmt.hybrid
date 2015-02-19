@@ -79,6 +79,9 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
     params.(field) = decodeParams.(field);
   end
   
+  if ~isfield(params, 'softmaxDim')
+    params.softmaxDim = 0;
+  end
   assert(strcmp(params.vocab{params.unkId}, '<unk>')==1);
   params.fid = fopen(params.outputFile, 'w');
   params.logId = fopen([outputFile '.log'], 'w');

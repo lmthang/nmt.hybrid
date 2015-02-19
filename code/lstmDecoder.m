@@ -236,8 +236,17 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
 end
 
 function [bestLogProbs, bestWords] = nextBeamStep(model, h, beamSize, params)
-  % return bestLogProbs, bestWords of sizes beamSize * curBatchSize
-  [logProbs] = softmaxDecode(model.W_soft*h);
+% return bestLogProbs, bestWords of sizes beamSize * curBatchSize
+  
+  % softmax
+  if params.attnFunc>0 % attention mechanism
+    error('! Have not implemented decoder for attention mechanism\n');
+  else
+    [softmax_h] = lstm2softHid(h, params, model);
+  end
+  [logProbs] = softmaxDecode(model.W_soft*softmax_h);
+  
+  % sort
   [sortedLogProbs, sortedWords] = sort(logProbs, 'descend');
   bestWords = sortedWords(1:beamSize, :);
   bestLogProbs = sortedLogProbs(1:beamSize, :);
