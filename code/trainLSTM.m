@@ -73,7 +73,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'posSoftmax', 0, @isnumeric); % use with posModel. 0: same softmax for word/pos, 1: separate softmax for positions
 
   addOptional(p,'globalOpt', 0, @isnumeric); % globalOpt=0: no global model, 1: avg global model, 2: feedforward global model.
-  addOptional(p,'f_bias', 0, @isnumeric); % bias added to the forget gate
   
   %% system options
   addOptional(p,'embCPU', 0, @isnumeric); % 1: put W_emb on CPU even if GPUs exist
@@ -106,8 +105,14 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.lengthReward = 0;
   
   % params assertions
-  
-  
+  if params.posModel>0
+    assert(params.isBi==1);
+    assert(params.dropout==1);
+  end
+  if params.softmaxDim>0
+    assert(params.attnFunc==0 & params.posModel==0, '! Assert failed: softmaxDim %d > 0, so attnFunc %d and posModel %d have to be 0.\n', params.softmaxDim, params.attnFunc, params.posModel);
+  end
+
   % rand seed
   if params.isGradCheck || params.isProfile || params.seed
     s = RandStream('mt19937ar','Seed',params.seed);
@@ -200,6 +205,13 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   printSent(2, tgtTrainSents{1}, tgtVocab, '  tgt:');
   printSent(2, tgtTrainSents{end}, tgtVocab, '  tgt end:');
 
+  printSent(2, trainBatches{1}.input(1, :), params.vocab, '   input 1:');
+  printSent(2, trainBatches{1}.tgtOutput(1, :), params.vocab, '  output 1:');
+  % positional models
+  if params.posModel>0
+    printSent(2, trainBatches{1}.srcPos(1, :), params.vocab, '  srcPos 1:');
+  end
+  
   %%%%%%%%%%%%%%
   %% Training %%
   %%%%%%%%%%%%%%
@@ -352,7 +364,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     
     % eof, end of an epoch
     if numTrainSents == 0 
-      % read again
+      % seek to the beginning
       if params.isBi
         fseek(params.srcTrainId, 0, 'bof');
       end
@@ -404,8 +416,8 @@ function [model, params] = initLSTM(params)
     params.inVocabSize = params.tgtVocabSize + params.srcVocabSize;
     model.W_src = cell(params.numLayers, 1);    
     
-    for l=1:params.numLayers
-      model.W_src{l} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
+    for ll=1:params.numLayers
+      model.W_src{ll} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
     end
   else
     params.inVocabSize = params.tgtVocabSize;
@@ -414,8 +426,12 @@ function [model, params] = initLSTM(params)
   
   % W_tgt
   model.W_tgt = cell(params.numLayers, 1);
-  for l=1:params.numLayers
-    model.W_tgt{l} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
+  for ll=1:params.numLayers
+    if ll==1 && params.posModel>0 % W_tgt [x_t; h_t; s_t] where s_t is the source info hinted by the positional model
+      model.W_tgt{ll} = randomMatrix(params.initRange, [4*params.lstmSize, 3*params.lstmSize], params.isGPU, params.dataType);
+    else
+      model.W_tgt{ll} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
+    end
   end
  
   % W_emb
@@ -453,11 +469,11 @@ function [model, params] = initLSTM(params)
   model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.softmaxSize], params.isGPU, params.dataType);
   
   % positional models
-  if params.posModel==2 || params.posModel==3 
-    params.numPos = 2*params.posWin + 2;
-    model.W_softPos = randomMatrix(params.initRange, [params.numPos, params.softmaxSize], params.isGPU, params.dataType);
+  if params.posModel>0
+    model.W_softPos = randomMatrix(params.initRange, [params.posVocabSize, params.softmaxSize], params.isGPU, params.dataType);
   end
   
+  % compute model size
   params.modelSize = modelSizes(model);
 end
 
@@ -471,14 +487,16 @@ function [params] = evalSaveDecode(model, validData, testData, params, srcTrainS
   save(params.modelRecentFile, 'model', 'params');
 
   % decode
-  validId = randi(validData.numSents;
-  testId = randi(testData.numSents);
-  srcDecodeSents = [srcTrainSents(1); validData.srcSents(validId)); testData.srcSents(testId)];
-  tgtDecodeSents = [tgtTrainSents(1); validData.tgtSents(validId); testData.tgtSents(testId)];
-  [decodeData] = prepareData(srcDecodeSents, tgtDecodeSents, 1, params);
-  decodeData.startId = 1;
-  [candidates, candScores] = lstmDecoder(model, decodeData, params);
-  printDecodeResults(decodeData, candidates, candScores, params, 0);
+  if params.isBi && params.posModel==0
+    validId = randi(validData.numSents;
+    testId = randi(testData.numSents);
+    srcDecodeSents = [srcTrainSents(1); validData.srcSents(validId)); testData.srcSents(testId)];
+    tgtDecodeSents = [tgtTrainSents(1); validData.tgtSents(validId); testData.tgtSents(testId)];
+    [decodeData] = prepareData(srcDecodeSents, tgtDecodeSents, 1, params);
+    decodeData.startId = 1;
+    [candidates, candScores] = lstmDecoder(model, decodeData, params);
+    printDecodeResults(decodeData, candidates, candScores, params, 0);
+  end
 end
 
 function [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents] = loadTrainBatches(params)
@@ -605,7 +623,13 @@ end
 function [srcVocab, tgtVocab, params] = loadBiVocabs(params)
   srcVocab = {};
   if params.isGradCheck
-    tgtVocab = {'a', 'b'};
+    if params.posModel>0
+      params.posWin = 2;
+      tgtVocab = {'a', 'b', '<p_-2>', '<p_-1>', '<p_0>', '<p_1>', '<p_2>', '<p_n>'};
+    else
+      tgtVocab = {'a', 'b'};
+    end
+    
     if params.isBi
       srcVocab = {'x', 'y'};
     end
@@ -619,29 +643,37 @@ function [srcVocab, tgtVocab, params] = loadBiVocabs(params)
   % add special symbols to vocabs
   if params.isBi
     fprintf(2, '## Bilingual setting\n');
-    % positional models
-    if params.posModel==2 || params.posModel==3 
-      vocabSize = length(srcVocab);
-      params.zeroPosId = vocabSize + params.posWin + 1;
-      params.nullPosId = vocabSize + 2*params.posWin + 2;
+    
+    %% positional vocab
+    if params.posModel>0
+      params.posVocabSize = 2*params.posWin + 3; % for W_softPos, -posWin, ..., 0, posWin, p_n, p_eos
+      params.startPosId = length(tgtVocab) - 2*params.posWin - 1; % marks -posWin
+      params.zeroPosId = params.startPosId + params.posWin;
       
-      % assertions
-      assert(length(tgtVocab) == params.nullPosId); % pos -params.posWin ... 0 ... params.posWin and null
-      assert(strcmp(tgtVocab{params.zeroPosId}, '<p_0>')==1);
-      assert(strcmp(tgtVocab{params.nullPosId}, '<p_n>')==1);
-      for ii=1:params.posWin
-        assert(strcmp(tgtVocab{params.zeroPosId-ii}, ['<p_-', num2str(ii), '>'])==1);
-        assert(strcmp(tgtVocab{params.zeroPosId+ii}, ['<p_', num2str(ii), '>'])==1);
+      % assert: -posWin, ..., 0, posWin, p_n are those last words in the tgtVocab
+      assert(params.startPosId == (length(srcVocab)+1));
+      for ii=1:(2*params.posWin +1)
+        relPos = ii-params.posWin-1;
+        assert(strcmp(tgtVocab{params.startPosId + ii - 1}, ['<p_', num2str(relPos), '>'])==1);
       end
-      fprintf(2, '# Positional model: zeroPosId=%d, nullPosId=%d\n', params.zeroPosId, params.nullPosId);
-      fprintf(params.logId, '# Positional model: zeroPosId=%d, nullPosId=%d\n', params.zeroPosId, params.nullPosId);
+      % p_n
+      params.nullPosId = length(tgtVocab);
+      assert(strcmp(tgtVocab{params.nullPosId}, '<p_n>')==1);
+      % p_eos
+      tgtVocab{end+1} = '<p_eos>';
+      params.eosPosId = length(tgtVocab);
+      
+      fprintf(2, '# Positional model: zeroPosId %s=%d, nullPosId %s=%d, eosPosId %s=%d\n', tgtVocab{params.zeroPosId}, params.zeroPosId, tgtVocab{params.nullPosId}, params.nullPosId, tgtVocab{params.eosPosId}, params.eosPosId);
+      fprintf(params.logId, '# Positional model: zeroPosId %s=%d, nullPosId %s=%d, eosPosId %s=%d\n', tgtVocab{params.zeroPosId}, params.zeroPosId, tgtVocab{params.nullPosId}, params.nullPosId, tgtVocab{params.eosPosId}, params.eosPosId);
     end
+    
+    %% append src vocab
     srcVocab{end+1} = '<s_eos>';
     params.srcEos = length(srcVocab);
     srcVocab{end+1} = '<s_sos>';
     params.srcSos = length(srcVocab);
-    params.srcVocabSize = length(srcVocab);
     % here we have src eos, so we don't need tgt sos.
+    params.srcVocabSize = length(srcVocab);
   else
     fprintf(2, '## Monolingual setting\n');
     srcVocab = {};

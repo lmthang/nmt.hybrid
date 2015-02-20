@@ -10,10 +10,15 @@
 % Output:
 %   lstm struct
 %%
-function [lstmCell] = lstmUnit(W, x_t, h_t, c_t, params, isTest) %, f_bias)
+function [lstmCell] = lstmUnit(W, x_t, h_t, c_t, params, isTest, varargin)
   %% input, forget, output gates and input signals before applying non-linear functions
-  input_xh = [x_t; h_t];
-  ifoa_linear = W*input_xh;    
+  if params.posModel>0 && length(varargin)==1 % positional models
+    s_t = varargin{1}; % source info
+    input = [x_t; h_t; s_t]; 
+  else
+    input = [x_t; h_t];
+  end
+  ifoa_linear = W*input; 
 
   %% cell
   % GPU note: the below non-linear functions are fast, so no need to use arrayfun
@@ -44,7 +49,7 @@ function [lstmCell] = lstmUnit(W, x_t, h_t, c_t, params, isTest) %, f_bias)
   end
   
   if (isTest==0) % store intermediate results
-    lstmCell.input_xh = input_xh;
+    lstmCell.input = input;
     lstmCell.i_gate = i_gate;
     lstmCell.f_gate = f_gate;
     lstmCell.o_gate = o_gate;

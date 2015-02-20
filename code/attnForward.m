@@ -1,4 +1,4 @@
-function [attnHidVecs, attn_h_concat, alignWeights, alignScores, attnInput] = attnForward(tgt_h_t, model, srcAlignStates, mask, params, curBatchSize, srcLens)
+function [attnHidVecs, attn_h_concat, alignWeights, alignScores, attnInput] = attnForward(tgt_h_t, model, params, trainData)
 %%%
 %
 % Compute context vectors for attention-based models.
@@ -6,7 +6,7 @@ function [attnHidVecs, attn_h_concat, alignWeights, alignScores, attnInput] = at
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 %
 %%%
-  attnInput = [tgt_h_t; srcLens];
+  attnInput = [tgt_h_t; trainData.srcLens];
   
   % align scores
   if params.attnFunc==1 % s_t = W_a * attnInput
@@ -20,7 +20,7 @@ function [attnHidVecs, attn_h_concat, alignWeights, alignScores, attnInput] = at
   
   % mask
   % alignWeights = bsxfun(@times, alignWeights, mask), then change alignWeights from maxSentLen*curBatchSize-> 1 * curBatchSize * maxSentLen
-  alignWeights = permute(bsxfun(@times, alignWeights, mask), [3, 2, 1]);
+  alignWeights = permute(bsxfun(@times, alignWeights, trainData.mask), [3, 2, 1]);
   
   % % alignWeights: maxSentLen * curBatchSize
   % attnVecs = squeeze(sum(bsxfun(@times, srcAlignStates, alignWeights), 1))'; % lstmSize * curBatchSize
@@ -29,10 +29,10 @@ function [attnHidVecs, attn_h_concat, alignWeights, alignScores, attnInput] = at
   % alignWeights: 1 * curBatchSize * maxSentLen
   % attention vectors: attn_t = H_src* a_t (weighted average of src vectors)
   % sum over maxSentLen
-  attnVecs = squeeze(sum(bsxfun(@times, srcAlignStates, alignWeights), 3)); 
+  attnVecs = squeeze(sum(bsxfun(@times, trainData.srcAlignStates, alignWeights), 3)); 
   if params.assert % lstmSize x curBatchSize
     assert(size(attnVecs, 1)==params.lstmSize);
-    assert(size(attnVecs, 2)==curBatchSize);
+    assert(size(attnVecs, 2)==trainData.curBatchSize);
   end
   
   % attention hidden vectors: attnHid = f(W_ah*[attn_t; tgt_h_t])
