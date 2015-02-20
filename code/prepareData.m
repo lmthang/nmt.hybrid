@@ -53,7 +53,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   
   % positional models
   if params.posModel>0
-    srcPos = params.posEosId*ones(numSents, tgtMaxLen); % since tgt sent: pos1 word1 ... pos_n word_n <eos>. Later we want: pos1 ... pos_n pos_eos.
+    srcPos = params.eosPosId*ones(numSents, tgtMaxLen); % since tgt sent: pos1 word1 ... pos_n word_n <eos>. Later we want: pos1 ... pos_n pos_eos.
   end
   
   for ii=1:numSents
@@ -74,7 +74,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
       
       % positions
       srcPos(ii, 1:tgtLen-1) = tgtSents{ii}(1:2:2*tgtLen-2); % positions
-      % absPositions = (1:tgtLen-1) - (positions-params.tgtPosZeroId); % src_pos = tgt_pos - relative_pos
+      % absPositions = (1:tgtLen-1) - (positions-params.tgtzeroPosId); % src_pos = tgt_pos - relative_pos
     end
     
     input(ii, srcMaxLen+1:srcMaxLen+tgtLen-1) = tgtSent(1:tgtLen-1); % tgt part
@@ -110,7 +110,6 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   
   % positional models
   if params.posModel>0
-    srcPos(srcPos<0) = 0;
     data.srcPos = srcPos;
   end
 end

@@ -62,11 +62,12 @@ function [lstm_grad] = lstmUnitGrad(model, lstm, dc, dh, ll, t, srcMaxLen, zero_
     W = model.W_src{ll};
   end
   d_ifoa = [di; df; do; da];
-  lstm_grad.W = d_ifoa*lstm{ll, t}.input_xh';
-  
-  % dx, dh
-  lstm_grad.d_xh = W'*d_ifoa;
  
+  % dW
+  lstm_grad.W = d_ifoa*lstm{ll, t}.input';
+
+  % dx, dh
+  lstm_grad.input = W'*d_ifoa;
  
   % clip hidden/cell derivatives
   if params.isClip
