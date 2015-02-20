@@ -488,9 +488,9 @@ function [params] = evalSaveDecode(model, validData, testData, params, srcTrainS
 
   % decode
   if params.isBi && params.posModel==0
-    validId = randi(validData.numSents;
+    validId = randi(validData.numSents);
     testId = randi(testData.numSents);
-    srcDecodeSents = [srcTrainSents(1); validData.srcSents(validId)); testData.srcSents(testId)];
+    srcDecodeSents = [srcTrainSents(1); validData.srcSents(validId); testData.srcSents(testId)];
     tgtDecodeSents = [tgtTrainSents(1); validData.tgtSents(validId); testData.tgtSents(testId)];
     [decodeData] = prepareData(srcDecodeSents, tgtDecodeSents, 1, params);
     decodeData.startId = 1;
