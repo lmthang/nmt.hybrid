@@ -14,46 +14,51 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   %%%%%%%%%%%%
   input = trainData.input;
   inputMask = trainData.inputMask;
-  tgtOutput = trainData.tgtOutput;
   srcMaxLen = trainData.srcMaxLen;
   tgtMaxLen = trainData.tgtMaxLen;
-  srcLens = trainData.srcLens;
+  tgtOutput = trainData.tgtOutput;
+  curData.srcLens = trainData.srcLens;
+  curData.isTest = isTest;
+  
+  % positional models
+  if params.posModel>0
+    srcPos = curData.srcPos;
+  end
   
   T = srcMaxLen+tgtMaxLen-1;
-  curBatchSize = size(input, 1);
-  
-  numInputWords = sum(sum(inputMask));
-  indices = zeros(numInputWords, 1);
+  curData.curBatchSize = size(input, 1);
+  curData.numInputWords = sum(sum(inputMask));
+  indices = zeros(curData.numInputWords, 1);
   if params.embCPU && params.isGPU % only put part of the emb matrix onto GPU
     input_embs = model.W_emb(:, input);
     input_embs = gpuArray(input_embs); % load input embeddings onto GPUs
   end
-  [grad, zeroState, costs, emb] = initGrad(model, params, curBatchSize, numInputWords);
+  
+  [grad, zeroState, costs, emb] = initGrad(model, params, curData);
 
   
   % global opt
   %if params.globalOpt==1
-  %  srcSentEmbs = sum(reshape(input_embs(:, 1:curBatchSize*srcMaxLen), params.lstmSize*curBatchSize, srcMaxLen), 2); % sum
-  %  srcSentEmbs = bsxfun(@rdivide, reshape(srcSentEmbs, params.lstmSize, curBatchSize), trainData.srcLens');
+  %  srcSentEmbs = sum(reshape(input_embs(:, 1:curData.curBatchSize*srcMaxLen), params.lstmSize*curData.curBatchSize, srcMaxLen), 2); % sum
+  %  srcSentEmbs = bsxfun(@rdivide, reshape(srcSentEmbs, params.lstmSize, curData.curBatchSize), trainData.srcLens');
   %end
 
   %%%%%%%%%%%%%%%%%%%%
   %%% FORWARD PASS %%%
   %%%%%%%%%%%%%%%%%%%%
-  timeInfo = cell(T, 1);
   lstm = cell(params.numLayers, T); % each cell contains intermediate results for that timestep needed for backprop
   
   % attention mechanism
   if params.attnFunc==1 || params.attnFunc==2
     % arrange the tensor this way so as to use bsxfun for alignWeights later in which the last
     % dimension corresponds to a singleton dimension in alignWeights.
-    alignStateSize = [params.lstmSize, curBatchSize, params.maxSentLen]; %[params.maxSentLen, curBatchSize, params.lstmSize];
+    alignStateSize = [params.lstmSize, curData.curBatchSize, params.maxSentLen];
     if params.isGPU
-      srcAlignStates = zeros(alignStateSize, params.dataType, 'gpuArray');
-      grad_srcAlignStates = zeros(alignStateSize, params.dataType, 'gpuArray');
+      curData.srcAlignStates = zeros(alignStateSize, params.dataType, 'gpuArray');
+      grad.srcAlignStates = zeros(alignStateSize, params.dataType, 'gpuArray');
     else
-      srcAlignStates = zeros(alignStateSize);
-      grad_srcAlignStates = zeros(alignStateSize);
+      curData.srcAlignStates = zeros(alignStateSize);
+      grad.srcAlignStates = zeros(alignStateSize);
     end
   end
   
@@ -78,26 +83,27 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       %% current-time input
       if ll==1 % first layer
         if params.embCPU && params.isGPU
-          x_t = input_embs(:, ((t-1)*curBatchSize+1):t*curBatchSize);
+          x_t = input_embs(:, ((t-1)*curData.curBatchSize+1):t*curData.curBatchSize);
         else
           x_t = model.W_emb(:, input(:, t));
         end
 
         % prepare mask
-        timeInfo{t}.mask = inputMask(:, t)'; % curBatchSize * 1
-        timeInfo{t}.unmaskedIds = find(timeInfo{t}.mask);
-        timeInfo{t}.maskedIds = find(~timeInfo{t}.mask);
-        timeInfo{t}.numWords = length(timeInfo{t}.unmaskedIds);
+        mask = inputMask(:, t)'; % curBatchSize * 1
+        unmaskedIds = find(mask);
+        maskedIds = find(~mask);
+        curData.mask = mask;
+        curData.unmaskedIds = unmaskedIds;
+        curData.maskedIds = maskedIds;
       else % subsequent layer, use the previous-layer hidden state
         x_t = lstm{ll-1, t}.h_t;
       end
       
       %% masking
-      x_t(:, timeInfo{t}.maskedIds) = 0; 
-      h_t_1(:, timeInfo{t}.maskedIds) = 0;
-      c_t_1(:, timeInfo{t}.maskedIds) = 0;
+      x_t(:, maskedIds) = 0; 
+      h_t_1(:, maskedIds) = 0;
+      c_t_1(:, maskedIds) = 0;
      
-      
       %% dropout
       if params.dropout<1 && isTest==0
         if ~params.isGradCheck
@@ -122,82 +128,49 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       
       %% attention mechanism: keep track of src hidden states at the top level
       if params.attnFunc>0 && ll==params.numLayers && (t<srcMaxLen)
-        srcAlignStates(:, 1:curBatchSize, t) = lstm{ll, t}.h_t;
+        curData.srcAlignStates(:, 1:curData.curBatchSize, t) = lstm{ll, t}.h_t;
       end
         
       %% prediction at the top layer
-      if ll==params.numLayers && (t>=srcMaxLen)
-        %% softmax
-        if params.attnFunc>0 % attention mechanism
-          [softmax_h, attn_h_concat, alignWeights, alignScores, attnInput] = lstm2softHid(lstm{ll, t}.h_t, params, model, srcAlignStates, timeInfo{t}.mask, curBatchSize, srcLens);
-        else
-          [softmax_h] = lstm2softHid(lstm{ll, t}.h_t, params, model);
+      % for positional models, we start predict positions from (srcMaxLen-1)
+      if ll==params.numLayers && (t>=srcMaxLen || (t>=(srcMaxLen-1) && params.posModel>1)) 
+        % predict positions
+        if (params.posModel>0 && t<T)
+          [pos_cost, pos_softmaxGrad, pos_grad_ht] = softmaxCostGrad(model.W_softPos, lstm{ll, t}.h_t, srcPos(unmaskedIds, t-srcMaxLen+2)', model, params, curData);
+          costs.total = costs.total + pos_cost;
+          costs.pos = costs.pos + pos_cost;
         end
-             
-        [probs, scores, norms] = softmax(model.W_soft*softmax_h, timeInfo{t}.mask);
         
-        % assert
-        if params.assert
-          if params.isGPU
-            assert(gather(sum(sum(abs(scores(:, timeInfo{t}.maskedIds)))))==0);
-          else
-            assert(sum(sum(abs(scores(:, timeInfo{t}.maskedIds))))==0);
-          end
+        % predict words
+        if (t>=srcMaxLen)
+          [word_cost, word_softmaxGrad, word_grad_ht] = softmaxCostGrad(model.W_soft, lstm{ll, t}.h_t, tgtOutput(:, t-srcMaxLen+1)', model, params, curData);
+          
+          costs.total = costs.total + word_cost;
+          costs.word = costs.word + word_cost;
         end
 
-        %% cost
-        tgtPredictedWords = tgtOutput(timeInfo{t}.unmaskedIds, t-srcMaxLen+1)'; % predict tgtOutput[t-srcMaxLen+1]
-        scoreIndices = sub2ind([params.outVocabSize, curBatchSize], tgtPredictedWords, timeInfo{t}.unmaskedIds); % 1 * length(tgtPredictedWords)
-        cost = - sum(scores(scoreIndices)) + sum(log(norms).*timeInfo{t}.mask);
-        costs.total = costs.total + cost;
-        if params.posModel>0
-          if mod(t-srcMaxLen, 2)==0 % pos
-            costs.pos = costs.pos + cost;
-          else
-            costs.word = costs.word + cost;
+        % grad
+        if isTest==0
+          fields = fieldnames(word_softmaxGrad);
+          for ii=1:length(fields)
+            field = fields{ii};
+            grad.(field) = grad.(field) + word_softmaxGrad.(field);
           end
-        end
-
-        if isTest==0 % compute grad
-          probs(scoreIndices) = probs(scoreIndices) - 1; % minus one at predicted words
-                      
-          % grad_softmax_h
-          grad_softmax_h = model.W_soft'* probs;
           
-          % grad.W_soft
-          grad.W_soft = grad.W_soft + probs*softmax_h';
+          % grad_ht
+          lstm{ll, t}.grad_ht = word_grad_ht;
           
-          %% softmax compress or attention
-          if params.softmaxDim>0 || params.attnFunc>0 
-            if params.softmaxDim>0 % f(W_h * h_t)
-              % f'(softmax_h).*grad_softmax_h
-              tmpResult = params.nonlinear_f_prime(softmax_h).*grad_softmax_h;
-              
-              % grad.W_h
-              grad.W_h = grad.W_h + tmpResult*lstm{ll, t}.h_t';
-
-              % grad_ht
-              lstm{ll, t}.grad_ht = model.W_h'*tmpResult;
-            elseif params.attnFunc>0 % f(W_ah*[attn_t; tgt_h_t])
-              [attnGrad] = attnBackprop(model, srcAlignStates, softmax_h, grad_softmax_h, attn_h_concat, alignWeights, alignScores, attnInput, params, curBatchSize);
-              
-              % grad.W_ah
-              grad.W_ah = grad.W_ah + attnGrad.W_ah;
-
-              % grad_ht
-              lstm{ll, t}.grad_ht = attnGrad.ht;
-              
-              % grad_srcAlignStates
-              grad_srcAlignStates = grad_srcAlignStates + attnGrad.srcAlignStates;
-  
-              % grad.W_a
-              grad.W_a = grad.W_a + attnGrad.W_a;
+          % positional models
+          if (params.posModel>0 && t<T)
+            fields = fieldnames(pos_softmaxGrad);
+            for ii=1:length(fields)
+              field = fields{ii};
+              grad.(field) = grad.(field) + pos_softmaxGrad.(field);
             end
-          %% normal softmax
-          else 
+            
             % grad_ht
-            lstm{ll, t}.grad_ht = grad_softmax_h;
-          end          
+            lstm{ll, t}.grad_ht = lstm{ll, t}.grad_ht + pos_grad_ht;
+          end
         end
       end
     end
@@ -220,16 +193,16 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   
   wordCount = 0;
   for t=T:-1:1 % time
-    unmaskedIds = timeInfo{t}.unmaskedIds;
-    numWords = timeInfo{t}.numWords;
+    unmaskedIds = find(inputMask(:, t)');
+    numWords = length(unmaskedIds);
     
     for ll=params.numLayers:-1:1 % layer
       %% hidden state grad
       if ll==params.numLayers
         if (t>=srcMaxLen) % get signals from the softmax layer
           dh{ll} = dh{ll} + lstm{ll, t}.grad_ht;
-        elseif params.attnFunc>0 % attention model: get feedback from grad_srcAlignStates
-          dh{ll} = dh{ll} + grad_srcAlignStates(:,:,t);
+        elseif params.attnFunc>0 % attention model: get feedback from grad.srcAlignStates
+          dh{ll} = dh{ll} + grad.srcAlignStates(:,:,t);
         end
       end
 
@@ -266,6 +239,11 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
    
   % grad W_emb
   [grad.W_emb, grad.indices] = aggregateMatrix(emb, indices, params.isGPU, params.dataType);
+  
+  if params.attnFunc>0
+    grad = rmfield(grad, 'srcAlignStates');
+  end
+  
   if params.isGPU
     if params.embCPU
       grad.W_emb = double(gather(grad.W_emb));
@@ -280,8 +258,8 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   end
 end
 
-function [grad, zero_state, costs, emb] = initGrad(model, params, curBatchSize, numInputWords)
-  zero_state = zeroMatrix([params.lstmSize, curBatchSize], params.isGPU, params.dataType);
+function [grad, zero_state, costs, emb] = initGrad(model, params, curData)
+  zero_state = zeroMatrix([params.lstmSize, curData.curBatchSize], params.isGPU, params.dataType);
   
   %% grad
   for ii=1:length(params.varsNoEmb)
@@ -296,16 +274,56 @@ function [grad, zero_state, costs, emb] = initGrad(model, params, curBatchSize, 
   end
 
   % emb
-  emb = zeroMatrix([params.lstmSize, numInputWords], params.isGPU, params.dataType);
+  emb = zeroMatrix([params.lstmSize, curData.numInputWords], params.isGPU, params.dataType);
   
   % costs
   costs.total = zeroMatrix([1, 1], params.isGPU, params.dataType);
+  costs.word = zeroMatrix([1, 1], params.isGPU, params.dataType);
   if params.posModel > 0
     costs.pos = zeroMatrix([1, 1], params.isGPU, params.dataType);
-    costs.word = zeroMatrix([1, 1], params.isGPU, params.dataType);
   end
 end
 
+            
+%           probs(scoreIndices) = probs(scoreIndices) - 1; % minus one at predicted words
+%                       
+%           % grad_softmax_h
+%           grad_softmax_h = model.W_soft'* probs;
+%           
+%           % grad.W_soft
+%           grad.W_soft = grad.W_soft + probs*softmax_h';
+%           
+%           %% softmax compress or attention
+%           if params.softmaxDim>0 || params.attnFunc>0 
+%             if params.softmaxDim>0 % f(W_h * h_t)
+%               % f'(softmax_h).*grad_softmax_h
+%               tmpResult = params.nonlinear_f_prime(softmax_h).*grad_softmax_h;
+%               
+%               % grad.W_h
+%               grad.W_h = grad.W_h + tmpResult*lstm{ll, t}.h_t';
+% 
+%               % grad_ht
+%               lstm{ll, t}.grad_ht = model.W_h'*tmpResult;
+%             elseif params.attnFunc>0 % f(W_ah*[attn_t; tgt_h_t])
+%               [attnGrad] = attnBackprop(model, srcAlignStates, softmax_h, grad_softmax_h, attn_h_concat, alignWeights, alignScores, attnInput, params);
+%               
+%               % grad.W_ah
+%               grad.W_ah = grad.W_ah + attnGrad.W_ah;
+% 
+%               % grad_ht
+%               lstm{ll, t}.grad_ht = attnGrad.ht;
+%               
+%               % grad.srcAlignStates
+%               grad.srcAlignStates = grad.srcAlignStates + attnGrad.srcAlignStates;
+%   
+%               % grad.W_a
+%               grad.W_a = grad.W_a + attnGrad.W_a;
+%             end
+%           %% normal softmax
+%           else 
+%             % grad_ht
+%             lstm{ll, t}.grad_ht = grad_softmax_h;
+%           end          
 %         if params.attnFunc==1 || params.attnFunc==2 % premultiply W_a
 %           srcAlignStates(:, :, t) = model.W_a * lstm{ll, t}.h_t; % W_a * src_h
 %         elseif params.attnFunc==3  

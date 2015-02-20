@@ -1,4 +1,4 @@
-function [attnGrad] = attnBackprop(model, srcAlignStates, softmax_h, grad_softmax_h, attn_h_concat, alignWeights, alignScores, attnInput, params, curBatchSize)
+function [attnGrad, grad_ht] = attnBackprop(model, srcAlignStates, softmax_h, grad_softmax_h, attn_h_concat, alignWeights, alignScores, attnInput, params)
 %%%
 %
 % Compute grad for attention-based models.
@@ -18,7 +18,7 @@ function [attnGrad] = attnBackprop(model, srcAlignStates, softmax_h, grad_softma
   
   %% grad_ah -> grad_ht, grad_attn
   % grad_ht
-  attnGrad.ht = grad_ah(params.lstmSize+1:end, :);
+  grad_ht = grad_ah(params.lstmSize+1:end, :);
   % grad_attn
   grad_attn = permute(grad_ah(1:params.lstmSize, :), [1, 2, 3]); % change from lstmSize*curBatchSize -> lstmSize*curBatchSize*1
 
@@ -35,7 +35,7 @@ function [attnGrad] = attnBackprop(model, srcAlignStates, softmax_h, grad_softma
 
   if params.assert % maxSentLen x curBatchSize
     assert(size(grad_alignWeights, 1)==params.maxSentLen);
-    assert(size(grad_alignWeights, 2)==curBatchSize);
+    assert(size(grad_alignWeights, 2)==size(softmax_h, 2));
   end
 
   %% from grad_alignWeights -> grad_scores
@@ -61,5 +61,5 @@ function [attnGrad] = attnBackprop(model, srcAlignStates, softmax_h, grad_softma
   % grad_attn_input = W_a' * tmpResult
   grad_attn_input = model.W_a'*tmpResult;
   % since attnInput = [tgt_h_t; srcLens], accumulating grad_ht
-  attnGrad.ht = attnGrad.ht + grad_attn_input(1:end-1, :);
+  grad_ht = grad_ht + grad_attn_input(1:end-1, :);
 end

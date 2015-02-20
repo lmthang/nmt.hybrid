@@ -17,11 +17,6 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
     srcLens = cellfun(@(x) length(x), srcSents);
   end
   
-  % positional models
-  if params.posModel==2 || params.posModel==3 % lengths are doubled (pos, words)
-    error('prepare data does not handle posModel 2, 3 at the moment.\n');
-  end
-    
   numSents = length(tgtSents);
   if params.isBi
     srcZeroId = params.tgtVocabSize + params.srcSos;
@@ -33,12 +28,6 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
     else
       srcMaxLen = max(srcLens);
     end
-    
-%     % attention model
-%     if params.attnFunc>0 && srcMaxLen > params.maxSentLen 
-%       fprintf(2, 'prepareData: change srcMaxLen from %d -> %d\n', srcMaxLen, params.maxSentLen);
-%       srcMaxLen = params.maxSentLen;
-%     end
   else
     srcLens = ones(numSents, 1);
     srcZeroId = params.tgtSos;
@@ -46,7 +35,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   end
   
   % positional models, tgt sent: pos1 word1 ... pos_n word_n <eos>
-  if params.posModel==2 || params.posModel==3
+  if params.posModel>0
     tgtLens = (tgtLens+1)/2;
   end
   if isTest==0
@@ -63,8 +52,8 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   tgtOutput = params.tgtEos*ones(numSents, tgtMaxLen);
   
   % positional models
-  if params.posModel==2 || params.posModel==3 
-    srcPos = params.tgtEos*ones(numSents, (tgtMaxLen+1)/2); % since tgt sent: pos1 word1 ... pos_n word_n <eos>. Later we want: pos1 ... pos_n pos_eos.
+  if params.posModel>0
+    srcPos = params.posEosId*ones(numSents, tgtMaxLen); % since tgt sent: pos1 word1 ... pos_n word_n <eos>. Later we want: pos1 ... pos_n pos_eos.
   end
   
   for ii=1:numSents
@@ -79,14 +68,13 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
     tgtLen = tgtLens(ii);
     
     % positional models
-    if params.posModel==2 || params.posModel==3 
+    if params.posModel>0
       % words
       tgtSent(1:2:2*tgtLen-2) = []; % remove positions
       
       % positions
-      positions = tgtSents{ii}(1:2:2*tgtLen-2);
-      srcPos(ii, 1:tgtLen-1) = (1:tgtLen-1) - (positions-params.zeroPosId); % src_pos = tgt_pos - relative_pos
-      srcPos(ii, tgtLen) = srcLen; % <eos>
+      srcPos(ii, 1:tgtLen-1) = tgtSents{ii}(1:2:2*tgtLen-2); % positions
+      % absPositions = (1:tgtLen-1) - (positions-params.tgtPosZeroId); % src_pos = tgt_pos - relative_pos
     end
     
     input(ii, srcMaxLen+1:srcMaxLen+tgtLen-1) = tgtSent(1:tgtLen-1); % tgt part
@@ -121,7 +109,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   data.srcLens = srcLens;
   
   % positional models
-  if params.posModel==2 || params.posModel==3 
+  if params.posModel>0
     srcPos(srcPos<0) = 0;
     data.srcPos = srcPos;
   end
