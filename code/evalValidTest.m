@@ -70,7 +70,6 @@ function [evalCosts] = evalCost(model, data, params) %input, inputMask, tgtOutpu
     
     % eval
     costs = lstmCostGrad(model, trainData, params, 1);
-    costs
     evalCosts.total = evalCosts.total + costs.total;
     if params.posModel>0 % positional model
       evalCosts.pos = evalCosts.pos + costs.pos;
