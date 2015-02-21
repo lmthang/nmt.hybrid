@@ -262,9 +262,11 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   end % end for time
    
   % grad W_emb
-  trainData.numInputWords = wordCount;
-  emb(:, wordCount+1:end) = [];
-  indices(wordCount+1:end) = [];
+  if params.posModel>0
+    trainData.numInputWords = wordCount;
+    emb(:, wordCount+1:end) = [];
+    indices(wordCount+1:end) = [];
+  end
   [grad.W_emb, grad.indices] = aggregateMatrix(emb, indices, params.isGPU, params.dataType);
   
   if params.attnFunc>0
