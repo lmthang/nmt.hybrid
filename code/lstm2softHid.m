@@ -11,7 +11,8 @@ function [softmax_h, attn_h_concat, alignWeights, alignScores, attnInput] = lstm
   else  
     if params.attnFunc>0 % attention mechanism
       trainData = varargin{1};
-      [softmax_h, attn_h_concat, alignWeights, alignScores, attnInput] = attnForward(h_t, model, params, trainData);
+      curMask = varargin{2};
+      [softmax_h, attn_h_concat, alignWeights, alignScores, attnInput] = attnForward(h_t, model, params, trainData, curMask);
     else % normal
       softmax_h = h_t;
     end

@@ -59,6 +59,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
     grad.srcAlignStates = zeroMatrix([params.lstmSize, curBatchSize, params.maxSentLen], params.isGPU, params.dataType);
   end
   
+  maskInfo = cell(T, 1);
   for ll=1:params.numLayers % layer
     for t=1:T % time
       %% decide encoder/decoder
@@ -86,20 +87,17 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         end
 
         % prepare mask
-        mask = inputMask(:, t)'; % curBatchSize * 1
-        unmaskedIds = find(mask);
-        maskedIds = find(~mask);
-        trainData.mask = mask;
-        trainData.unmaskedIds = unmaskedIds;
-        trainData.maskedIds = maskedIds;
+        maskInfo{t}.mask = inputMask(:, t)'; % curBatchSize * 1
+        maskInfo{t}.unmaskedIds = find(maskInfo{t}.mask);
+        maskInfo{t}.maskedIds = find(~maskInfo{t}.mask);
       else % subsequent layer, use the previous-layer hidden state
         x_t = lstm{ll-1, t}.h_t;
       end
       
       %% masking
-      x_t(:, maskedIds) = 0; 
-      h_t_1(:, maskedIds) = 0;
-      c_t_1(:, maskedIds) = 0;
+      x_t(:, maskInfo{t}.maskedIds) = 0; 
+      h_t_1(:, maskInfo{t}.maskedIds) = 0;
+      c_t_1(:, maskInfo{t}.maskedIds) = 0;
      
       %% dropout
       if params.dropout<1 && isTest==0
@@ -117,7 +115,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       
       %% lstm cell
       if params.posModel>0 && t>=srcMaxLen && ll==1 % for positional models, at the first level, we use additional src information
-        [s_t, posIds, nullIds, eosIds, embIndices] = buildSrcPosVecs(t, model, params, trainData);
+        [s_t, posIds, nullIds, eosIds, embIndices] = buildSrcPosVecs(t, model, params, trainData, maskInfo{t});
         lstm{ll, t} = lstmUnit(W, x_t, h_t_1, c_t_1, params, isTest, s_t);
         
         lstm{ll, t}.posIds = posIds;
@@ -146,7 +144,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         % predict positions
         if (params.posModel>0 && t<T)
           predictedPositions = srcPos(:, t-srcMaxLen+2)'- (params.startPosId-1);
-          [pos_cost, pos_softmaxGrad, pos_grad_ht] = softmaxCostGrad('W_softPos', lstm{ll, t}.h_t, predictedPositions, model, params, trainData);
+          [pos_cost, pos_softmaxGrad, pos_grad_ht] = softmaxCostGrad('W_softPos', lstm{ll, t}.h_t, predictedPositions, model, params, trainData, maskInfo{t});
           costs.total = costs.total + pos_cost;
           costs.pos = costs.pos + pos_cost;
         end
@@ -154,7 +152,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         % predict words
         if (t>=srcMaxLen)
           predictedWords = tgtOutput(:, t-srcMaxLen+1)';
-          [word_cost, word_softmaxGrad, word_grad_ht] = softmaxCostGrad('W_soft', lstm{ll, t}.h_t, predictedWords, model, params, trainData);
+          [word_cost, word_softmaxGrad, word_grad_ht] = softmaxCostGrad('W_soft', lstm{ll, t}.h_t, predictedWords, model, params, trainData, maskInfo{t});
           costs.total = costs.total + word_cost;
           costs.word = costs.word + word_cost;
         end
@@ -210,7 +208,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   
   wordCount = 0;
   for t=T:-1:1 % time
-    unmaskedIds = find(inputMask(:, t)');
+    unmaskedIds = maskInfo{t}.unmaskedIds;
     numWords = length(unmaskedIds);
     
     for ll=params.numLayers:-1:1 % layer

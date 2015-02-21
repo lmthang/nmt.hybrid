@@ -1,4 +1,4 @@
-function [cost, softmaxGrad, grad_ht] = softmaxCostGrad(matrixName, h_t, tgtPredictedWords, model, params, trainData)
+function [cost, softmaxGrad, grad_ht] = softmaxCostGrad(matrixName, h_t, tgtPredictedWords, model, params, trainData, curMask)
 %%%
 %
 % Perform softmax prediction and backprop.
@@ -8,12 +8,12 @@ function [cost, softmaxGrad, grad_ht] = softmaxCostGrad(matrixName, h_t, tgtPred
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 %
 %%%
-  mask = trainData.mask;
-  unmaskedIds = trainData.unmaskedIds;
+  mask = curMask.mask;
+  unmaskedIds = curMask.unmaskedIds;
   
   % lstm hiddent state to softmax
   if params.attnFunc>0 % attention mechanism
-    [softmax_h, attn_h_concat, alignWeights, alignScores, attnInput] = lstm2softHid(h_t, params, model, trainData);
+    [softmax_h, attn_h_concat, alignWeights, alignScores, attnInput] = lstm2softHid(h_t, params, model, trainData, curMask);
   else
     [softmax_h] = lstm2softHid(h_t, params, model);
   end
@@ -23,9 +23,9 @@ function [cost, softmaxGrad, grad_ht] = softmaxCostGrad(matrixName, h_t, tgtPred
   % assert
   if params.assert
     if params.isGPU
-      assert(gather(sum(sum(abs(scores(:, trainData.maskedIds)))))==0);
+      assert(gather(sum(sum(abs(scores(:, curMask.maskedIds)))))==0);
     else
-      assert(sum(sum(abs(scores(:, trainData.maskedIds))))==0);
+      assert(sum(sum(abs(scores(:, curMask.maskedIds))))==0);
     end
   end
   
@@ -40,9 +40,6 @@ function [cost, softmaxGrad, grad_ht] = softmaxCostGrad(matrixName, h_t, tgtPred
 
     % softmax_h
     grad_softmax_h = model.(matrixName)'* probs;
-
-    % W_soft
-    softmaxGrad.(matrixName) = probs*softmax_h';
 
     % softmax -> h_t
     if params.softmaxDim>0 || params.attnFunc>0 % softmax compression or attention
@@ -61,6 +58,9 @@ function [cost, softmaxGrad, grad_ht] = softmaxCostGrad(matrixName, h_t, tgtPred
     else % normal softmax
       grad_ht = grad_softmax_h;
     end
+    
+    % W_soft
+    softmaxGrad.(matrixName) = probs*softmax_h';
   else
     softmaxGrad = [];
     grad_ht = [];

@@ -1,4 +1,4 @@
-function [attnHidVecs, attn_h_concat, alignWeights, alignScores, attnInput] = attnForward(tgt_h_t, model, params, trainData)
+function [attnHidVecs, attn_h_concat, alignWeights, alignScores, attnInput] = attnForward(tgt_h_t, model, params, trainData, curMask)
 %%%
 %
 % Compute context vectors for attention-based models.
@@ -20,7 +20,7 @@ function [attnHidVecs, attn_h_concat, alignWeights, alignScores, attnInput] = at
   
   % mask
   % alignWeights = bsxfun(@times, alignWeights, mask), then change alignWeights from maxSentLen*curBatchSize-> 1 * curBatchSize * maxSentLen
-  alignWeights = permute(bsxfun(@times, alignWeights, trainData.mask), [3, 2, 1]);
+  alignWeights = permute(bsxfun(@times, alignWeights, curMask.mask), [3, 2, 1]);
   
   % % alignWeights: maxSentLen * curBatchSize
   % attnVecs = squeeze(sum(bsxfun(@times, srcAlignStates, alignWeights), 1))'; % lstmSize * curBatchSize

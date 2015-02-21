@@ -1,4 +1,4 @@
-function [s_t, posIds, nullIds, eosIds, embIndices] = buildSrcPosVecs(t, model, params, trainData)
+function [s_t, posIds, nullIds, eosIds, embIndices] = buildSrcPosVecs(t, model, params, trainData, curMask)
 %%%
 %
 % For positional models, generate src vectors based on the predicted positions.
@@ -8,7 +8,7 @@ function [s_t, posIds, nullIds, eosIds, embIndices] = buildSrcPosVecs(t, model, 
 %%%
 
   srcMaxLen = trainData.srcMaxLen;
-  unmaskedIds = trainData.unmaskedIds;
+  unmaskedIds = curMask.unmaskedIds;
   srcPos = trainData.srcPos;
   srcLens = trainData.srcLens;
   input = trainData.input;
