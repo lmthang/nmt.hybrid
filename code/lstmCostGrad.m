@@ -260,8 +260,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
             % update embs of <p_n> and <p_eos>
             tmpIndices = [lstm{ll, t}.nullIds lstm{ll, t}.eosIds];
             numWords = length(tmpIndices);
-            embIndices = [params.nullPosId*ones(1, length(lstm{ll, t}.nullIds)) params.eosPosId*ones(1, length(lstm{ll, t}.eosIds))];
-            indices(wordCount+1:wordCount+numWords) = embIndices;
+            indices(wordCount+1:wordCount+numWords) = [params.nullPosId*ones(1, length(lstm{ll, t}.nullIds)) params.eosPosId*ones(1, length(lstm{ll, t}.eosIds))];
             emb(:, wordCount+1:wordCount+numWords) = lstm_grad.input(2*params.lstmSize+1:3*params.lstmSize, tmpIndices);
             wordCount = wordCount + numWords;
             

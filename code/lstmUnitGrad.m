@@ -72,10 +72,10 @@ function [lstm_grad] = lstmUnitGrad(model, lstm, dc, dh, ll, t, srcMaxLen, zero_
   % clip hidden/cell derivatives
   if params.isClip
     if params.isGPU
-     lstm_grad.d_xh = arrayfun(@clipBackward, lstm_grad.d_xh);
+     lstm_grad.input = arrayfun(@clipBackward, lstm_grad.input);
      lstm_grad.dc = arrayfun(@clipBackward, lstm_grad.dc);
     else
-     lstm_grad.d_xh(lstm_grad.d_xh>params.clipBackward) = params.clipBackward; lstm_grad.d_xh(lstm_grad.d_xh<-params.clipBackward) = -params.clipBackward;
+     lstm_grad.input(lstm_grad.input>params.clipBackward) = params.clipBackward; lstm_grad.input(lstm_grad.input<-params.clipBackward) = -params.clipBackward;
      lstm_grad.dc(lstm_grad.dc>params.clipBackward) = params.clipBackward; lstm_grad.dc(lstm_grad.dc<-params.clipBackward) = -params.clipBackward;
     end
   end
