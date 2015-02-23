@@ -1,4 +1,4 @@
-function [probs, scores, norms] = softmax(scores, varargin)
+function [probs, scores, norms] = softmax(raw, mask)
 %%%
 %
 % Efficient (hopefully) softmax implementation.
@@ -10,12 +10,11 @@ function [probs, scores, norms] = softmax(scores, varargin)
 % Hieu Pham @ 2015, <hyhieu@cs.stanford.edu>
 %
 %%%
-  mx = max(scores);
-  scores = bsxfun(@minus, scores, mx); % subtract max elements 
+  mx = max(raw);
+  scores = bsxfun(@minus, raw, mx); % subtract max elements 
   probs = exp(scores); % unnormalized probs 
-  norms = sum(probs); % normalization factors
-  if length(varargin) == 1
-    mask = varargin{1};
+  norms = sum(probs, 1); % normalization factors
+  if exist('mask', 'var')
     probs = bsxfun(@times, probs, mask./norms); % normalize and zero out at masked positions
   else
     probs = bsxfun(@rdivide, probs, norms); % normalized probs

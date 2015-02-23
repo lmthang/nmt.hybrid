@@ -1,5 +1,6 @@
 %% Train Long-Short Term Memory (LSTM).
 % Thang Luong @ 2014, <lmthang@stanford.edu>
+% Hieu Pham @ 2015, <hyhieu@cs.stanford.edu>
 %
 % Options:
 %
@@ -45,7 +46,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'maxSentLen', 51, @isnumeric); % mostly apply to src, used in attention-based models. Usual length is 50 + 1 (for eos)
   addOptional(p,'sortBatch', 0, @isnumeric); % 1: each time we read in 100 batches, we sort sentences by length.
   addOptional(p,'shuffle', 0, @isnumeric); % 1: shuffle training batches
-  
+
+  % class-based softmax
+  addOptional(p,'num_classes', 0, @isnumeric); % 0: use normal softmax; postiive values imply the number of classes used in class-based softmax
   
   %% debugging options
   addOptional(p,'isGradCheck', 0, @isnumeric); % set 1 to check the gradient, no need input arguments as toy data is automatically generated.
@@ -443,14 +446,23 @@ function [model, params] = initLSTM(params)
     params.softmaxSize = params.lstmSize;
   end
   
-  % compress softmax
-  if params.softmaxDim>0 
-    model.W_h = randomMatrix(params.initRange, [params.softmaxDim, params.lstmSize], params.isGPU, params.dataType);
-    params.softmaxSize = params.softmaxDim;
+  if params.num_classes == 0 % normal softmax
+    % compress softmax
+    if params.softmaxDim>0 
+      model.W_h = randomMatrix(params.initRange, [params.softmaxDim, params.lstmSize], params.isGPU, params.dataType);
+      params.softmaxSize = params.softmaxDim;
+    end
+    
+    % W_soft
+    model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.softmaxSize], params.isGPU, params.dataType);
+  else % class-based softmax
+    assert(mod(params.outVocabSize, params.num_classes) == 0, sprintf('outVocabSize (%d) must be divisible by num_classes (%d)', params.outVocabSize, params.num_classes));
+
+    params.class_size = params.outVocabSize / params.num_classes;
+
+    model.W_soft_class = randomMatrix(params.initRange, [params.num_classes, params.lstmSize], params.isGPU, params.dataType);
+    model.W_soft_inclass = randomMatrix(params.initRange, [params.num_classes, params.class_size, params.lstmSize], params.isGPU, params.dataType);
   end
-  
-  % W_soft
-  model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.softmaxSize], params.isGPU, params.dataType);
   
   % positional models
   if params.posModel==2 || params.posModel==3 
@@ -605,7 +617,7 @@ end
 function [srcVocab, tgtVocab, params] = loadBiVocabs(params)
   srcVocab = {};
   if params.isGradCheck
-    tgtVocab = {'a', 'b'};
+    tgtVocab = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'};
     if params.isBi
       srcVocab = {'x', 'y'};
     end

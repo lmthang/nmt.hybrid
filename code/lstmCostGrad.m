@@ -14,11 +14,16 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   %%%%%%%%%%%%
   input = trainData.input;
   inputMask = trainData.inputMask;
-  tgtOutput = trainData.tgtOutput;
+  if params.num_classes == 0 % if normal softmax, get tgtOutput
+    tgtOutput = trainData.tgtOutput;
+  else
+    output_class = mod(trainData.tgtOutput, params.num_classes) + 1;
+    output_in_class = floor((trainData.tgtOutput-1)/params.num_classes + 1e-9) + 1;
+  end
   srcMaxLen = trainData.srcMaxLen;
   tgtMaxLen = trainData.tgtMaxLen;
   srcLens = trainData.srcLens;
-  
+
   T = srcMaxLen+tgtMaxLen-1;
   curBatchSize = size(input, 1);
   
@@ -134,38 +139,75 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
           [softmax_h] = lstm2softHid(lstm{ll, t}.h_t, params, model);
         end
              
-        [probs, scores, norms] = softmax(model.W_soft*softmax_h, timeInfo{t}.mask);
-        
-        % assert
-        if params.assert
-          if params.isGPU
-            assert(gather(sum(sum(abs(scores(:, timeInfo{t}.maskedIds)))))==0);
-          else
-            assert(sum(sum(abs(scores(:, timeInfo{t}.maskedIds))))==0);
+        if params.num_classes == 0 % normal softmax
+          [probs, scores, norms] = softmax(model.W_soft*softmax_h, timeInfo{t}.mask);
+          
+          % assert
+          if params.assert
+            if params.isGPU
+              assert(gather(sum(sum(abs(scores(:, timeInfo{t}.maskedIds)))))==0);
+            else
+              assert(sum(sum(abs(scores(:, timeInfo{t}.maskedIds))))==0);
+            end
           end
-        end
+  
+          %% cost
+          tgtPredictedWords = tgtOutput(timeInfo{t}.unmaskedIds, t-srcMaxLen+1)'; % predict tgtOutput[t-srcMaxLen+1]
+          scoreIndices = sub2ind([params.outVocabSize, curBatchSize], tgtPredictedWords, timeInfo{t}.unmaskedIds); % 1 * length(tgtPredictedWords)
+          cost = - sum(scores(scoreIndices)) + sum(log(norms).*timeInfo{t}.mask);
+          costs.total = costs.total + cost;
+          if params.posModel>0
+            if mod(t-srcMaxLen, 2)==0 % pos
+              costs.pos = costs.pos + cost;
+            else
+              costs.word = costs.word + cost;
+            end
+          end
+        else % class-based softmax
+          % class loss
+          [class_probs, class_scores, class_norms] = softmax(model.W_soft_class*softmax_h, timeInfo{t}.mask);
 
-        %% cost
-        tgtPredictedWords = tgtOutput(timeInfo{t}.unmaskedIds, t-srcMaxLen+1)'; % predict tgtOutput[t-srcMaxLen+1]
-        scoreIndices = sub2ind([params.outVocabSize, curBatchSize], tgtPredictedWords, timeInfo{t}.unmaskedIds); % 1 * length(tgtPredictedWords)
-        cost = - sum(scores(scoreIndices)) + sum(log(norms).*timeInfo{t}.mask);
-        costs.total = costs.total + cost;
-        if params.posModel>0
-          if mod(t-srcMaxLen, 2)==0 % pos
-            costs.pos = costs.pos + cost;
-          else
-            costs.word = costs.word + cost;
-          end
+          tgt_predicted_classes = output_class(timeInfo{t}.unmaskedIds, t-srcMaxLen+1)'; % predict output class
+          class_score_indices = sub2ind([params.num_classes, curBatchSize], tgt_predicted_classes, timeInfo{t}.unmaskedIds);
+          class_cost = - sum(class_scores(class_score_indices)) + sum(log(class_norms).*timeInfo{t}.mask);
+          costs.total = costs.total + class_cost;
+
+          % in class loss
+          curr_class = output_class(:,t-srcMaxLen+1);
+          in_class_raws = sum(bsxfun(@times, model.W_soft_inclass(curr_class,:,:), permute(softmax_h, [2 3 1])), 3)';
+          [in_class_probs, in_class_scores, in_class_norms] = softmax(in_class_raws, timeInfo{t}.mask);
+ 
+          tgt_predicted_in_class = output_in_class(timeInfo{t}.unmaskedIds, t-srcMaxLen+1)'; % predict output in class
+          in_class_score_indices = sub2ind([params.class_size, curBatchSize], tgt_predicted_in_class, timeInfo{t}.unmaskedIds);
+          in_class_cost = - sum(in_class_scores(in_class_score_indices)) + sum(log(in_class_norms).*timeInfo{t}.mask);
+
+          costs.total = costs.total + in_class_cost;
         end
 
         if isTest==0 % compute grad
-          probs(scoreIndices) = probs(scoreIndices) - 1; % minus one at predicted words
-                      
-          % grad_softmax_h
-          grad_softmax_h = model.W_soft'* probs;
-          
-          % grad.W_soft
-          grad.W_soft = grad.W_soft + probs*softmax_h';
+          if params.num_classes == 0 % normal softmax
+            probs(scoreIndices) = probs(scoreIndices) - 1; % minus one at predicted words
+                        
+            % grad_softmax_h
+            grad_softmax_h = model.W_soft'* probs;
+            
+            % grad.W_soft
+            grad.W_soft = grad.W_soft + probs*softmax_h';
+          else % class-based softmax
+            class_probs(class_score_indices) = class_probs(class_score_indices) - 1;
+            in_class_probs(in_class_score_indices) = in_class_probs(in_class_score_indices) - 1;
+
+            % grad_softmax_h
+            grad_softmax_h = model.W_soft_class'*class_probs;
+            grad_softmax_h = grad_softmax_h + sum(bsxfun(@times, permute(model.W_soft_inclass(curr_class,:,:),[1 3 2]), permute(in_class_probs, [2 3 1])), 3)';
+
+            % grad.W_soft_class
+            grad.W_soft_class = grad.W_soft_class + class_probs*softmax_h';
+            add = bsxfun(@times, permute(in_class_probs,[2 1 3]), permute(softmax_h,[2 3 1]));
+            add = reshape(add, [size(add,1), size(add,2)*size(add,3)])';
+            [accum, idx] = aggregateMatrix(add, curr_class, params.isGPU, params.dataType);
+            grad.W_soft_inclass(idx,:) = grad.W_soft_inclass(idx,:) + accum';
+          end
           
           %% softmax compress or attention
           if params.softmaxDim>0 || params.attnFunc>0 

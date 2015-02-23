@@ -22,12 +22,12 @@ function [gradNorm, indNorms] = computeGradNorm(grad, batchSize, names)
     field = names{ii};
     if iscell(grad.(field)) % cell
       for jj=1:length(grad.(field))
-        indNorms.(field){jj} = double(sum(sum(grad.(field){jj}.^2)));
+        indNorms.(field){jj} = double(sum(grad.(field){jj}(:).^2));
         gradNorm = gradNorm + indNorms.(field){jj};
         indNorms.(field){jj} = sqrt(indNorms.(field){jj})/batchSize;
       end
     else
-      indNorms.(field) = double(sum(sum(grad.(field).^2)));
+      indNorms.(field) = double(sum(grad.(field)(:).^2));
       gradNorm = gradNorm + indNorms.(field);
       indNorms.(field) = sqrt(indNorms.(field))/batchSize;
     end
