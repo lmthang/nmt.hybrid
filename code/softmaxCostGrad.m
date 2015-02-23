@@ -53,7 +53,7 @@ function [cost, softmaxGrad, grad_ht] = softmaxCostGrad(matrixName, h_t, tgtPred
         % grad_ht
         grad_ht = model.W_h'*tmpResult;
       elseif params.attnFunc>0 % f(W_ah*[attn_t; tgt_h_t])
-        [softmaxGrad, grad_ht] = attnBackprop(model, trainData.srcAlignStates, softmax_h, grad_softmax_h, attn_h_concat, alignWeights, alignScores, attnInput, params);
+        [softmaxGrad, grad_ht] = attnBackprop(model, trainData.srcHidVecs, softmax_h, grad_softmax_h, attn_h_concat, alignWeights, alignScores, attnInput, params);
       end
     else % normal softmax
       grad_ht = grad_softmax_h;

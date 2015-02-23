@@ -20,7 +20,7 @@ function gradCheck(model, params)
   for ii=1:params.batchSize
     if params.isBi
       srcLen = randi([1, srcTrainMaxLen-1]);
-      srcTrainSents{ii} = randi([1, params.srcVocabSize-1], 1, srcLen); % non-eos words
+      srcTrainSents{ii} = randi([1, params.srcVocabSize-2], 1, srcLen); % exclude <s_eos> and  <s_sos>
       srcTrainSents{ii}(end+1) = params.srcEos;
     end
 
