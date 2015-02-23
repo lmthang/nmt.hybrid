@@ -216,7 +216,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
     for ll=params.numLayers:-1:1 % layer
       %% hidden state grad
       if ll==params.numLayers
-        if (t>=srcMaxLen) || (params.posModel>0 && t==(srcMaxLen-1)) % get signals from the softmax layer
+        if (t>=srcMaxLen) || (params.posModel>0 && t>=(srcMaxLen-1)) % get signals from the softmax layer
           dh{ll} = dh{ll} + lstm{ll, t}.grad_ht;
         end
         if t<srcMaxLen && (params.attnFunc>0 || params.posModel==2) % attention/pos models: get feedback from grad.srcHidVecs
@@ -294,7 +294,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   end
   [grad.W_emb, grad.indices] = aggregateMatrix(emb, indices, params.isGPU, params.dataType);
   
-  if params.attnFunc>0
+  if params.attnFunc>0 || params.posModel==2
     grad = rmfield(grad, 'srcHidVecs');
   end
   
