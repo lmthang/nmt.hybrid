@@ -21,7 +21,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   
   % positional models
   if params.posModel>0
-    srcPos = trainData.srcPos;
+    srcPositions = trainData.srcPos;
     s_t = zeroMatrix([params.lstmSize, curBatchSize], params.isGPU, params.dataType);
   end
   
@@ -52,12 +52,17 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   %%%%%%%%%%%%%%%%%%%%
   lstm = cell(params.numLayers, T); % each cell contains intermediate results for that timestep needed for backprop
   
-  % attention mechanism
-  if params.attnFunc>0 || params.posModel>0
-    % lstmSize * curBatchSize * srcMaxLen 
-    trainData.srcHidVecs = zeroMatrix([params.lstmSize, curBatchSize, srcMaxLen], params.isGPU, params.dataType);
-    grad.srcHidVecs = zeroMatrix([params.lstmSize, curBatchSize, srcMaxLen], params.isGPU, params.dataType);
+  % keep track of src hidden states
+  if params.attnFunc>0
+    numSrcHidVecs = params.maxSentLen;
+  elseif params.posModel==2 % add an extra <s_eos> to the src side
+    numSrcHidVecs = srcMaxLen-2;
+  else
+    numSrcHidVecs = 0;
   end
+  % lstmSize * curBatchSize * numSrcHidVecs 
+  trainData.srcHidVecs = zeroMatrix([params.lstmSize, curBatchSize, numSrcHidVecs], params.isGPU, params.dataType);
+  grad.srcHidVecs = zeroMatrix([params.lstmSize, curBatchSize, numSrcHidVecs], params.isGPU, params.dataType);
   
   maskInfo = cell(T, 1);
   for ll=1:params.numLayers % layer
@@ -114,7 +119,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       end
       
       %% lstm cell
-      if params.posModel>0 && t>=srcMaxLen && ll==1 % for positional models, at the first level, we use additional src information
+      if (params.posModel==1 || params.posModel==2) && t>=srcMaxLen && ll==1 % for positional models, at the first level, we use additional src information
         [s_t, posIds, nullIds, eosIds, colIndices, posEmbIndices] = buildSrcPosVecs(s_t, t, model, params, trainData, maskInfo{t});
         lstm{ll, t} = lstmUnit(W, x_t, h_t_1, c_t_1, params, isTest, s_t);
         
@@ -136,16 +141,16 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       end
       
       %% attention mechanism: keep track of src hidden states at the top level
-      if (params.attnFunc>0 || params.posModel>0) && ll==params.numLayers && (t<srcMaxLen)
+      if ll==params.numLayers && t<numSrcHidVecs
         trainData.srcHidVecs(:, 1:curBatchSize, t) = lstm{ll, t}.h_t;
       end
         
       %% prediction at the top layer
       % for positional models, we start predict positions from (srcMaxLen-1) and stop at (T-1)
-      if ll==params.numLayers && (t>=srcMaxLen || (t>=(srcMaxLen-1) && params.posModel>0)) 
+      if ll==params.numLayers && t>=(srcMaxLen-1)
         % predict positions
         if (params.posModel>0 && t<T)
-          predictedPositions = srcPos(:, t-srcMaxLen+2)'- (params.startPosId-1);
+          predictedPositions = srcPositions(:, t-srcMaxLen+2)'- (params.startPosId-1);
           [pos_cost, pos_softmaxGrad, pos_grad_ht] = softmaxCostGrad('W_softPos', lstm{ll, t}.h_t, predictedPositions, model, params, trainData, maskInfo{t});
           costs.total = costs.total + pos_cost;
           costs.pos = costs.pos + pos_cost;
@@ -168,8 +173,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
               field = fields{ii};
               grad.(field) = grad.(field) + word_softmaxGrad.(field);
             end
-
-            % grad_ht
+            
             lstm{ll, t}.grad_ht = word_grad_ht;
           end
           
@@ -180,8 +184,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
               field = fields{ii};
               grad.(field) = grad.(field) + pos_softmaxGrad.(field);
             end
-            
-            % grad_ht
+
             if t==(srcMaxLen-1)
               lstm{ll, t}.grad_ht = pos_grad_ht;
             else
@@ -216,10 +219,10 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
     for ll=params.numLayers:-1:1 % layer
       %% hidden state grad
       if ll==params.numLayers
-        if (t>=srcMaxLen) || (params.posModel>0 && t>=(srcMaxLen-1)) % get signals from the softmax layer
+        if (t>=srcMaxLen) || (params.posModel>0 && t==(srcMaxLen-1)) % get signals from the softmax layer
           dh{ll} = dh{ll} + lstm{ll, t}.grad_ht;
         end
-        if t<srcMaxLen && (params.attnFunc>0 || params.posModel==2) % attention/pos models: get feedback from grad.srcHidVecs
+        if t<numSrcHidVecs % attention/pos models: get feedback from grad.srcHidVecs
           dh{ll} = dh{ll} + grad.srcHidVecs(:,:,t);
         end
       end

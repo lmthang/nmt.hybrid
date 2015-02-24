@@ -62,4 +62,9 @@ function [srcVocab, tgtVocab, params] = loadBiVocabs(params)
   params.tgtEos = length(tgtVocab);
   params.tgtVocabSize = length(tgtVocab);
   params.vocab = [tgtVocab srcVocab];
+  
+  if params.isBi
+    params.srcSosVocabId = params.srcSos + params.tgtVocabSize;
+    params.srcEosVocabId = params.srcEos + params.tgtVocabSize;
+  end
 end

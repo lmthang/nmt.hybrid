@@ -19,7 +19,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   
   numSents = length(tgtSents);
   if params.isBi
-    srcZeroId = params.tgtVocabSize + params.srcSos;
+    srcZeroId = params.srcSosVocabId;
     
     if isTest==0 || params.attnFunc>0 % limit sent lengths for training or for attention model during both training/testing
       srcLens(srcLens>params.maxSentLen) = params.maxSentLen; 
@@ -27,6 +27,10 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
       assert(srcMaxLen<=params.maxSentLen);
     else
       srcMaxLen = max(srcLens);
+    end
+    
+    if params.posModel==1 || params.posModel==2 % add an extra <s_eos> to the src side
+      srcMaxLen = srcMaxLen+1;
     end
   else
     srcLens = ones(numSents, 1);
@@ -60,7 +64,12 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
     %% src
     if params.isBi
       srcLen = srcLens(ii);
-      input(ii, srcMaxLen-srcLen+1:srcMaxLen) = srcSents{ii}(1:srcLen) + params.tgtVocabSize; % src part
+      if params.posModel==1 || params.posModel==2 % add an extra <s_eos> to the src side
+        input(ii, srcMaxLen-srcLen:srcMaxLen-1) = srcSents{ii}(1:srcLen) + params.tgtVocabSize; % src part
+        input(ii, srcMaxLen) = params.srcEosVocabId;
+      else
+        input(ii, srcMaxLen-srcLen+1:srcMaxLen) = srcSents{ii}(1:srcLen) + params.tgtVocabSize; % src part
+      end
     end
     
     %% tgt

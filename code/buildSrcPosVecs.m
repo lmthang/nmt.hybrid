@@ -42,7 +42,11 @@ function [s_t, posIds, nullIds, eosIds, colIndices, embIndices] = buildSrcPosVec
 
   % in boundary
   if ~isempty(posIds)
-    colIndices = srcMaxLen-srcLens(posIds)+srcPositions;
+    if params.posModel==1 || params.posModel==2 % we had an extra <s_eos> on the src side
+      colIndices = srcMaxLen-1-srcLens(posIds)+srcPositions;
+    else
+      colIndices = srcMaxLen-srcLens(posIds)+srcPositions;
+    end
     if params.posModel==1 % use src embedding
       srcEmbIndices = input(sub2ind(size(input), posIds, colIndices));
       s_t(:, posIds) = model.W_emb(:, srcEmbIndices);

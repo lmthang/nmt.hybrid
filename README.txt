@@ -1,6 +1,6 @@
 Code to train Long-Short Term Memory (LSTM) models
 
-Thang Luong <lmthang@stanford.edu>, 2014
+Thang Luong <lmthang@stanford.edu>, 2014, 2015
 
 /***********/
 /** Files **/
@@ -22,10 +22,6 @@ We can reuse saved vocab file as follows:
 
 There's a script to run for train/valid/test files:
 run_prepare_data.sh trainFile validFile testFile vocabSize outDir [verbose]
-
-To speed up training time, you can also group sentences of similar lengths together:
-./scripts/sort_sents_bin.py <in_file> <out_file>
-For parallel corpus: ./scripts/sort_sents_bin.py --src_lang <src_lang> --tgt_lang <tgt_lang> <in_file> <out_file>
 
 (b) Train an LSTM
 run.sh  Train LSTM models
@@ -59,22 +55,17 @@ For otherOptions, you can put things like
 ./scripts/run_prepare_data.sh ./data/train.10k.en ./data/valid.100.en ./data/test.100.en 1000 ./data/id.1000
 ./scripts/run_prepare_data.sh ./data/train.10k.de ./data/valid.100.de ./data/test.100.de 1000 ./data/id.1000
 
-* Sort sentences to train more efficiently
-./scripts/sort_sents_bin.py --filter --unk_str 0 --max_len 50 --num_bins 6 --src_lang de --tgt_lang en --batch_size 128 data/id.1000/train.10k data/id.1000/train.10k.sorted
-
 (b) Train a bilingual LSTM model
 export MATLAB=matlab
 ./scripts/run.sh ../data/id.1000/train.10k ../data/id.1000/valid.100 ../data/id.1000/test.100 de en ../data/train.10k.de.vocab.1000 ../data/train.10k.en.vocab.1000 ../output 0 100 0.1 5 0.1 128 10 1
 
 To run directly in Matlab, cd into code/ directory and run:
 trainLSTM('../data/id.1000/train.10k', '../data/id.1000/valid.100', '../data/id.1000/test.100', 'de', 'en', '../data/train.10k.de.vocab.1000', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1)
-
-trainLSTM('../data/id.1000/train.10k.sorted', '../data/id.1000/valid.100', '../data/id.1000/test.100', 'de', 'en', '../data/train.10k.de.vocab.1000', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1, 'numLayers', 2,'seed', 1)
+trainLSTM('../data/id.1000/train.10k', '../data/id.1000/valid.100', '../data/id.1000/test.100', 'de', 'en', '../data/train.10k.de.vocab.1000', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1, 'sortBatch', 1, 'shuffle', 1, 'isResume', 0)
 
 (c) Grad check
 trainLSTM('', '', '', '', '', '', '', '', 0, 'isGradCheck', 1)
-trainLSTM('', '', '', '', '', '', '', '', 0, 'isGradCheck', 1, 'numLayers', 2, 'globalOpt', 0, 'lstmOpt', 0, 'initRange', 1.0)
-Note: the grad check works on CPU. For GPU, you will need to change this line "dataType = 'single';" into 'double' and remove the single conversion in the functions clipForward() and clipBackward().
+trainLSTM('', '', '', '', '', '', '', '../output', 0, 'isGradCheck', 1, 'numLayers', 2, 'lstmOpt', 0, 'initRange', 10.0, 'attnFunc', 0, 'assert', 1, 'softmaxDim', 0, 'posModel', 0)
 
 (d) Profiling
 trainLSTM('../data/id.1000/train.10k', '../data/id.1000/valid.100', '../data/id.1000/test.100', 'de', 'en', '../data/train.10k.de.vocab.1000', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1, 'isProfile', 1)
