@@ -458,6 +458,8 @@ function [model, params] = initLSTM(params)
   else % class-based softmax
     assert(mod(params.outVocabSize, params.num_classes) == 0, sprintf('outVocabSize (%d) must be divisible by num_classes (%d)', params.outVocabSize, params.num_classes));
 
+    fprintf(2, 'fuck==========================\n');
+
     params.class_size = params.outVocabSize / params.num_classes;
 
     model.W_soft_class = randomMatrix(params.initRange, [params.num_classes, params.lstmSize], params.isGPU, params.dataType);
