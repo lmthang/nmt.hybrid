@@ -21,8 +21,8 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   if params.isBi
     srcZeroId = params.tgtVocabSize + params.srcSos;
     
-    if isTest==0 || params.attnFunc>0
-      srcLens(srcLens>params.maxSentLen) = params.maxSentLen; % limit sent lengths
+    if isTest==0 || params.attnFunc>0 % limit sent lengths for training or for attention model during both training/testing
+      srcLens(srcLens>params.maxSentLen) = params.maxSentLen; 
       srcMaxLen = max(srcLens);
       assert(srcMaxLen<=params.maxSentLen);
     else

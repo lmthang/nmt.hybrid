@@ -54,9 +54,9 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   
   % attention mechanism
   if params.attnFunc>0 || params.posModel>0
-    % lstmSize * curBatchSize * maxSentLen
-    trainData.srcHidVecs = zeroMatrix([params.lstmSize, curBatchSize, params.maxSentLen], params.isGPU, params.dataType);
-    grad.srcHidVecs = zeroMatrix([params.lstmSize, curBatchSize, params.maxSentLen], params.isGPU, params.dataType);
+    % lstmSize * curBatchSize * srcMaxLen 
+    trainData.srcHidVecs = zeroMatrix([params.lstmSize, curBatchSize, srcMaxLen], params.isGPU, params.dataType);
+    grad.srcHidVecs = zeroMatrix([params.lstmSize, curBatchSize, srcMaxLen], params.isGPU, params.dataType);
   end
   
   maskInfo = cell(T, 1);
