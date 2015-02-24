@@ -29,7 +29,7 @@ function [srcVocab, tgtVocab, params] = loadBiVocabs(params)
       params.zeroPosId = params.startPosId + params.posWin;
       
       % assert: -posWin, ..., 0, posWin, p_n are those last words in the tgtVocab
-      assert(params.startPosId == (length(srcVocab)+1));
+      assert(params.startPosId == (length(srcVocab)+1), 'startPosId %d != srcVocab %d + 1\n', params.startPosId, length(srcVocab));
       for ii=1:(2*params.posWin +1)
         relPos = ii-params.posWin-1;
         assert(strcmp(tgtVocab{params.startPosId + ii - 1}, ['<p_', num2str(relPos), '>'])==1);
