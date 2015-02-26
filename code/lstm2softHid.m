@@ -10,11 +10,9 @@ function [softmax_h, attn_h_concat, alignWeights, alignScores, attnInput] = lstm
     softmax_h = params.nonlinear_f(model.W_h*h_t);
   else  
     if params.attnFunc>0 % attention mechanism
-      srcAlignStates = varargin{1};
-      mask = varargin{2};
-      curBatchSize = varargin{3};
-      srcLens = varargin{4};
-      [softmax_h, attn_h_concat, alignWeights, alignScores, attnInput] = attnForward(h_t, model, srcAlignStates, mask, params, curBatchSize, srcLens);
+      trainData = varargin{1};
+      curMask = varargin{2};
+      [softmax_h, attn_h_concat, alignWeights, alignScores, attnInput] = attnForward(h_t, model, params, trainData, curMask);
     else % normal
       softmax_h = h_t;
     end

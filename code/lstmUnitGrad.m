@@ -62,19 +62,20 @@ function [lstm_grad] = lstmUnitGrad(model, lstm, dc, dh, ll, t, srcMaxLen, zero_
     W = model.W_src{ll};
   end
   d_ifoa = [di; df; do; da];
-  lstm_grad.W = d_ifoa*lstm{ll, t}.input_xh';
-  
-  % dx, dh
-  lstm_grad.d_xh = W'*d_ifoa;
  
+  % dW
+  lstm_grad.W = d_ifoa*lstm{ll, t}.input';
+
+  % dx, dh
+  lstm_grad.input = W'*d_ifoa;
  
   % clip hidden/cell derivatives
   if params.isClip
     if params.isGPU
-     lstm_grad.d_xh = arrayfun(@clipBackward, lstm_grad.d_xh);
+     lstm_grad.input = arrayfun(@clipBackward, lstm_grad.input);
      lstm_grad.dc = arrayfun(@clipBackward, lstm_grad.dc);
     else
-     lstm_grad.d_xh(lstm_grad.d_xh>params.clipBackward) = params.clipBackward; lstm_grad.d_xh(lstm_grad.d_xh<-params.clipBackward) = -params.clipBackward;
+     lstm_grad.input(lstm_grad.input>params.clipBackward) = params.clipBackward; lstm_grad.input(lstm_grad.input<-params.clipBackward) = -params.clipBackward;
      lstm_grad.dc(lstm_grad.dc>params.clipBackward) = params.clipBackward; lstm_grad.dc(lstm_grad.dc<-params.clipBackward) = -params.clipBackward;
     end
   end

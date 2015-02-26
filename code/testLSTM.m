@@ -58,6 +58,9 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   model = savedData.model;
   model
  
+  [srcVocab, tgtVocab, params] = loadBiVocabs(params);
+  params.vocab = [tgtVocab srcVocab];
+  
   % convert absolute paths to local paths
   fieldNames = fields(params);
   for ii=1:length(fieldNames)
