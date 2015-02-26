@@ -1,5 +1,6 @@
 %% Train Long-Short Term Memory (LSTM).
 % Thang Luong @ 2014, <lmthang@stanford.edu>
+% Hieu Pham @ 2015, <hyhieu@cs.stanford.edu>
 %
 % Options:
 %
@@ -45,7 +46,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'maxSentLen', 51, @isnumeric); % mostly apply to src, used in attention-based models. Usual length is 50 + 1 (for eos)
   addOptional(p,'sortBatch', 0, @isnumeric); % 1: each time we read in 100 batches, we sort sentences by length.
   addOptional(p,'shuffle', 0, @isnumeric); % 1: shuffle training batches
-  
+
+  % class-based softmax
+  addOptional(p,'numClasses', 0, @isnumeric); % 0: use normal softmax; postiive values imply the number of classes used in class-based softmax
   
   %% debugging options
   addOptional(p,'isGradCheck', 0, @isnumeric); % set 1 to check the gradient, no need input arguments as toy data is automatically generated.
@@ -58,8 +61,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
   addOptional(p,'gradNormOpt', 0, @isnumeric); % gradOpt=0: basic, 1: add W_emb
   % attnFunc=0: no attention.
-  %          1: a_t = softmax(W_a * [tgt_h_t; srcLens]) 
-  %          2: a_t = softmax(tanh(W_a * [tgt_h_t; srcLens])) 
+  %          1: a_t = softmax(W_a * [tgt_h_t; srcLens])  
   addOptional(p,'attnFunc', 0, @isnumeric);
   addOptional(p,'attnSize', 0, @isnumeric); % dim of the vector used to input to the final softmax, if 0, use lstmSize
   
@@ -460,14 +462,23 @@ function [model, params] = initLSTM(params)
     params.softmaxSize = params.lstmSize;
   end
   
-  % compress softmax
-  if params.softmaxDim>0 
-    model.W_h = randomMatrix(params.initRange, [params.softmaxDim, params.lstmSize], params.isGPU, params.dataType);
-    params.softmaxSize = params.softmaxDim;
+  if params.numClasses == 0 % normal softmax
+    % compress softmax
+    if params.softmaxDim>0 
+      model.W_h = randomMatrix(params.initRange, [params.softmaxDim, params.lstmSize], params.isGPU, params.dataType);
+      params.softmaxSize = params.softmaxDim;
+    end
+    
+    % W_soft
+    model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.softmaxSize], params.isGPU, params.dataType);
+  else % class-based softmax
+    assert(mod(params.outVocabSize, params.numClasses) == 0, sprintf('outVocabSize (%d) must be divisible by numClasses (%d)', params.outVocabSize, params.numClasses));
+
+    params.class_size = params.outVocabSize / params.numClasses;
+
+    model.W_soft_class = randomMatrix(params.initRange, [params.numClasses, params.lstmSize], params.isGPU, params.dataType);
+    model.W_soft_inclass = randomMatrix(params.initRange, [params.numClasses, params.class_size, params.lstmSize], params.isGPU, params.dataType);
   end
-  
-  % W_soft
-  model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.softmaxSize], params.isGPU, params.dataType);
   
   % positional models
   if params.posModel>0
@@ -605,7 +616,6 @@ function [model, params] = initLoadModel(params)
 
   params = setupVars(model, params);
 end
-
 
 function [params] = setupVars(model, params)
   params.vars = fields(model);

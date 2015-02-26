@@ -14,9 +14,15 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   %%%%%%%%%%%%
   input = trainData.input;
   inputMask = trainData.inputMask;
+  tgtOutput = trainData.tgtOutput;
+  if params.numClasses == 0 % if normal softmax, get tgtOutput
+    
+  else % class softmax
+    trainData.output_class = mod(trainData.tgtOutput, params.numClasses) + 1;
+    trainData.output_in_class = floor((trainData.tgtOutput-1)/params.numClasses + 1e-9) + 1;
+  end
   srcMaxLen = trainData.srcMaxLen;
   tgtMaxLen = trainData.tgtMaxLen;
-  tgtOutput = trainData.tgtOutput;
   curBatchSize = size(input, 1);
   
   % positional models
@@ -151,7 +157,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         % predict positions
         if (params.posModel>0 && t<T)
           predictedPositions = srcPositions(:, t-srcMaxLen+2)'- (params.startPosId-1);
-          [pos_cost, pos_softmaxGrad, pos_grad_ht] = softmaxCostGrad('W_softPos', lstm{ll, t}.h_t, predictedPositions, model, params, trainData, maskInfo{t});
+          [pos_cost, pos_softmaxGrad, pos_grad_ht] = softmaxCostGrad('W_softPos', lstm{ll, t}.h_t, t, predictedPositions, model, params, trainData, maskInfo{t}, 0);
           costs.total = costs.total + pos_cost;
           costs.pos = costs.pos + pos_cost;
         end
@@ -159,7 +165,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         % predict words
         if (t>=srcMaxLen)
           predictedWords = tgtOutput(:, t-srcMaxLen+1)';
-          [word_cost, word_softmaxGrad, word_grad_ht] = softmaxCostGrad('W_soft', lstm{ll, t}.h_t, predictedWords, model, params, trainData, maskInfo{t});
+          [word_cost, word_softmaxGrad, word_grad_ht] = softmaxCostGrad('W_soft', lstm{ll, t}.h_t, t, predictedWords, model, params, trainData, maskInfo{t}, params.numClasses);
           costs.total = costs.total + word_cost;
           costs.word = costs.word + word_cost;
         end

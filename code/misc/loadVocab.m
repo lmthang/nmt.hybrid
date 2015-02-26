@@ -1,4 +1,4 @@
-function [vocab, freqs] = loadVocab(vocabFile)
+function [vocab, freqs, varargout] = loadVocab(vocabFile)
 %% 
 % Thang Luong @ 2012, <lmthang@stanford.edu>
 %%
@@ -26,6 +26,9 @@ function [vocab, freqs] = loadVocab(vocabFile)
         prevIndex = index;
       end
     elseif length(temp) == 1 % word
+      word = temp{1};
+      freq = 1;
+    elseif length(temp) == 1 % word class
       word = temp{1};
       freq = 1;
     else

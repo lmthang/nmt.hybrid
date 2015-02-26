@@ -5,7 +5,11 @@ function [srcVocab, tgtVocab, params] = loadBiVocabs(params)
       params.posWin = 2;
       tgtVocab = {'a', 'b', '<p_-2>', '<p_-1>', '<p_0>', '<p_1>', '<p_2>', '<p_n>'};
     else
-      tgtVocab = {'a', 'b'};
+      if params.numClasses>0
+        tgtVocab = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'};
+      else
+        tgtVocab = {'a', 'b'};
+      end
     end
     
     if params.isBi
