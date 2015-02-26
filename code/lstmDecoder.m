@@ -244,7 +244,42 @@ function [bestLogProbs, bestWords] = nextBeamStep(model, h, beamSize, params)
   else
     [softmax_h] = lstm2softHid(h, params, model);
   end
-  [logProbs] = softmaxDecode(model.W_soft*softmax_h);
+  if params.num_classes == 0 % normal softmax
+    [logProbs] = softmaxDecode(model.W_soft*softmax_h);
+  else
+    batch_size = size(softmax_h, 2);
+    [class_log_probs] = softmaxDecode(model.W_soft_class*softmax_h);
+%    sum(exp(class_log_probs))
+    assert(isempty( find( abs(sum(exp(class_log_probs))-1)>1e-8 ) ), 'sum of class_probs is not one')
+
+    in_class_raws = squeeze(sum(bsxfun(@times, permute(model.W_soft_inclass,[1 2 3 4]), permute(softmax_h,[3 4 1 2])), 3));
+    mx = max(in_class_raws, [], 2);
+    in_class_raws = bsxfun(@minus, in_class_raws, mx);
+    in_class_log_probs = bsxfun(@minus, in_class_raws, log(sum(exp(in_class_raws),2)));
+
+    total_log_probs = bsxfun(@plus, permute(class_log_probs,[1 3 2]), in_class_log_probs);
+    logProbs = reshape(permute(total_log_probs, [2 1 3]), [], batch_size);
+    correct_order = repmat(params.class_size*(0:(params.num_classes-1))', [1 params.class_size]);
+    correct_order = bsxfun(@plus, correct_order, 1:params.class_size);
+%    cls = randi(params.num_classes)
+%    sum(exp(bsxfun(@minus, logProbs((1:params.class_size)+(cls-1)*params.class_size,:), class_log_probs(cls,:))))
+    logProbs = logProbs(correct_order(:),:);
+
+    % test
+%    tmp = logProbs;
+%    tmp_sum = zeroMatrix([params.num_classes, batch_size], params.isGPU, params.dataType);
+%    assert(size(tmp,1) == params.tgtVocabSize, 'fuck\n');
+%%    sum(exp(tmp))
+%    for i = 1 : size(tmp,1)
+%      tmp(i,:) = tmp(i,:) - class_log_probs(mod(i,params.num_classes)+1,:);
+%    end
+%    tmp = exp(tmp);
+%%    sum(tmp)
+%    for i = 1 : size(tmp,1)
+%      tmp_sum(mod(i,params.num_classes)+1,:) = tmp_sum(mod(i,params.num_classes)+1,:) + tmp(i,:);
+%    end
+%%    tmp_sum
+  end
   
   % sort
   [sortedLogProbs, sortedWords] = sort(logProbs, 'descend');
