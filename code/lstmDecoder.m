@@ -249,8 +249,11 @@ function [bestLogProbs, bestWords] = nextBeamStep(model, h, beamSize, params)
   else
     batch_size = size(softmax_h, 2);
     [class_log_probs] = softmaxDecode(model.W_soft_class*softmax_h);
-%    sum(exp(class_log_probs))
-    assert(isempty( find( abs(sum(exp(class_log_probs))-1)>1e-8, 1 ) ), 'sum of class_probs is not one')
+
+    if params.assert
+      assert(isempty( find( abs(sum(exp(class_log_probs))-1)>1e-8, 1 ) ), 'sum of class_probs is not one\n');
+    end
+      
 
     in_class_raws = squeeze(sum(bsxfun(@times, permute(model.W_soft_inclass,[1 2 3 4]), permute(softmax_h,[3 4 1 2])), 3));
     mx = max(in_class_raws, [], 2);

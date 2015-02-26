@@ -165,7 +165,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         % predict words
         if (t>=srcMaxLen)
           predictedWords = tgtOutput(:, t-srcMaxLen+1)';
-          [word_cost, word_softmaxGrad, word_grad_ht] = softmaxCostGrad('W_soft', lstm{ll, t}.h_t, t, predictedWords, model, params, trainData, maskInfo{t}, params.numClasses);
+          [word_cost, word_softmaxGrad, word_grad_ht, classSoftmax] = softmaxCostGrad('W_soft', lstm{ll, t}.h_t, t, predictedWords, model, params, trainData, maskInfo{t}, params.numClasses);
           costs.total = costs.total + word_cost;
           costs.word = costs.word + word_cost;
         end
@@ -181,6 +181,10 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
             end
             
             lstm{ll, t}.grad_ht = word_grad_ht;
+            
+            if params.numClasses>=0 % class-based softmax
+              grad.W_soft_inclass(classSoftmax.indices, :, :) = grad.W_soft_inclass(classSoftmax.indices, :, :) + classSoftmax.W_soft_inclass;
+            end
           end
           
           % positions
