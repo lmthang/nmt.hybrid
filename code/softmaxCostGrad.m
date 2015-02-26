@@ -94,10 +94,11 @@ function [cost, softmaxGrad, grad_ht] = softmaxCostGrad(matrixName, h_t, t, tgtP
     if numClasses>0 % class-based softmax
       % grad.W_soft_class
       softmaxGrad.W_soft_class = class_probs*softmax_h';
+      softmaxGrad.W_soft_inclass = zeroMatrix([params.numClasses params.class_size params.lstmSize], params.isGPU, params.dataType);
       add = bsxfun(@times, permute(in_class_probs,[2 1 3]), permute(softmax_h,[2 3 1]));
       add = reshape(add, [size(add,1), size(add,2)*size(add,3)])';
       [accum, idx] = aggregateMatrix(add, curr_class, params.isGPU, params.dataType);
-      softmaxGrad.W_soft_inclass(idx,:) = accum';
+      softmaxGrad.W_soft_inclass(idx,:,:) = reshape(accum', [length(idx) params.class_size params.lstmSize]);
     else % normal softmax
       softmaxGrad.(matrixName) = probs*softmax_h';
     end
