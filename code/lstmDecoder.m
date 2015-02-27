@@ -63,7 +63,7 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
       c_t_1(:, maskedIds) = 0;
 
       % lstm cell
-      lstm{ll} = lstmUnit(W{ll}, x_t, h_t_1, c_t_1, params, 1);
+      lstm{ll} = lstmUnit(W{ll}, x_t, h_t_1, c_t_1, ll, t, srcMaxLen, params, 1);
       
       % assert
       if params.assert
@@ -79,7 +79,7 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
   startTime = clock;
   maxLen = floor(srcMaxLen*1.5);
   sentIndices = data.startId:(data.startId+batchSize-1);
-  [candidates, candScores] = decodeBatch(model, params, lstm, maxLen, beamSize, stackSize, batchSize, sentIndices);
+  [candidates, candScores] = decodeBatch(model, params, lstm, maxLen, beamSize, stackSize, batchSize, sentIndices, srcMaxLen);
   endTime = clock;
   timeElapsed = etime(endTime, startTime);
   fprintf(2, '  Done, maxLen=%d, speed %f sents/s, time %.0fs, %s\n', maxLen, batchSize/timeElapsed, timeElapsed, datestr(now));
@@ -97,7 +97,7 @@ end
 %   - stackSize: maximum number of translations collected for one example
 %
 %%%
-function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen, beamSize, stackSize, batchSize, originalSentIndices)
+function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen, beamSize, stackSize, batchSize, originalSentIndices, srcMaxLen)
   numLayers = params.numLayers;
   
   candidates = cell(batchSize, 1);
@@ -145,7 +145,7 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
       h_t_1 = beamStates{ll}.h_t;
       c_t_1 = beamStates{ll}.c_t;
 
-      beamStates{ll} = lstmUnit(model.W_tgt{ll}, x_t, h_t_1, c_t_1, params, 1);
+      beamStates{ll} = lstmUnit(model.W_tgt{ll}, x_t, h_t_1, c_t_1, ll, srcMaxLen+sentPos, srcMaxLen, params, 1);
     end
     
     % predict the next word

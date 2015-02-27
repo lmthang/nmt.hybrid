@@ -10,14 +10,28 @@
 % Output:
 %   lstm struct
 %%
-function [lstmCell] = lstmUnit(W, x_t, h_t, c_t, params, isTest, varargin)
-  %% input, forget, output gates and input signals before applying non-linear functions
-  if params.posModel>0 && length(varargin)==1 % positional models
-    s_t = varargin{1}; % source info
-    input = [x_t; h_t; s_t]; 
-  else
-    input = [x_t; h_t];
+function [lstmCell] = lstmUnit(W, x_t, h_t, c_t, ll, t, srcMaxLen, params, isTest)
+  %% dropout
+  if params.dropout<1 && isTest==0
+    if ~params.isGradCheck
+      if params.isGPU
+        dropoutMask = (rand(size(x_t), 'gpuArray')<params.dropout)/params.dropout;
+      else
+        dropoutMask = (rand(size(x_t))<params.dropout)/params.dropout;
+      end
+    else % for gradient check use the same mask
+      if t>=srcMaxLen && ll==1 && params.posModel>0
+        dropoutMask = params.dropoutMaskPos;
+      else
+        dropoutMask = params.dropoutMask;
+      end
+    end
+    
+    x_t = x_t.*dropoutMask;
   end
+  
+  %% input, forget, output gates and input signals before applying non-linear functions
+  input = [x_t; h_t];
   ifoa_linear = W*input; 
 
   %% cell
@@ -55,6 +69,14 @@ function [lstmCell] = lstmUnit(W, x_t, h_t, c_t, params, isTest, varargin)
     lstmCell.o_gate = o_gate;
     lstmCell.a_signal = a_signal;
     lstmCell.f_c_t = f_c_t;
+    
+    if params.dropout<1 % store dropout mask
+      if t>=srcMaxLen && ll==1 && params.posModel>0
+        lstmCell.dropoutMaskPos = dropoutMask;
+      else
+        lstmCell.dropoutMask = dropoutMask;
+      end
+    end
   end
 end
 

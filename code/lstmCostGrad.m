@@ -26,7 +26,6 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   % positional models
   if params.posModel>0
     srcPositions = trainData.srcPos;
-    s_t = zeroMatrix([params.lstmSize, curBatchSize], params.isGPU, params.dataType);
   end
   
   T = srcMaxLen+tgtMaxLen-1;
@@ -112,45 +111,30 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         x_t = lstm{ll-1, t}.h_t;
       end
       
+      %% positional models: get source info
+      if (params.posModel==1 || params.posModel==2) && t>=srcMaxLen && ll==1 % for positional models, at the first level, we use additional src information
+        [s_t, posIds, nullIds, eosIds, colIndices, posEmbIndices] = buildSrcPosVecs(t, model, params, trainData, maskInfo{t});
+        x_t = [x_t; s_t];
+      end
+      
       %% masking
       x_t(:, maskInfo{t}.maskedIds) = 0; 
       h_t_1(:, maskInfo{t}.maskedIds) = 0;
       c_t_1(:, maskInfo{t}.maskedIds) = 0;
-     
-      %% dropout
-      if params.dropout<1 && isTest==0
-        if ~params.isGradCheck
-          if params.isGPU
-            dropoutMask = (rand(size(x_t), 'gpuArray')<params.dropout)/params.dropout;
-          else
-            dropoutMask = (rand(size(x_t))<params.dropout)/params.dropout;
-          end
-        else % for gradient check use the same mask
-          dropoutMask = params.dropoutMask;
-        end
-        x_t = x_t.*dropoutMask;
-      end
       
-      %% lstm cell
-      if (params.posModel==1 || params.posModel==2) && t>=srcMaxLen && ll==1 % for positional models, at the first level, we use additional src information
-        [s_t, posIds, nullIds, eosIds, colIndices, posEmbIndices] = buildSrcPosVecs(s_t, t, model, params, trainData, maskInfo{t});
-        lstm{ll, t} = lstmUnit(W, x_t, h_t_1, c_t_1, params, isTest, s_t);
-        
+      %% Core LSTM
+      lstm{ll, t} = lstmUnit(W, x_t, h_t_1, c_t_1, ll, t, srcMaxLen, params, isTest);
+      
+      %% positional model: store info
+      if (params.posModel==1 || params.posModel==2) && t>=srcMaxLen && ll==1 % for positional models
         if params.posModel==1
           lstm{ll, t}.embIndices = posEmbIndices;
-        else
+        elseif params.posModel==2
           lstm{ll, t}.posIds = posIds;
           lstm{ll, t}.nullIds = nullIds;
           lstm{ll, t}.eosIds = eosIds;
           lstm{ll, t}.colIndices = colIndices;
         end
-      else % normal
-        lstm{ll, t} = lstmUnit(W, x_t, h_t_1, c_t_1, params, isTest);
-      end
-      
-      % store dropout mask
-      if params.dropout<1 && isTest==0
-        lstm{ll, t}.dropoutMask = dropoutMask;
       end
       
       %% attention mechanism: keep track of src hidden states at the top level
@@ -177,7 +161,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
             [cost, softmaxGrad, grad_ht, classSoftmax] = softmaxCostGrad('W_soft_class', lstm{ll, t}.h_t, predClasses, model, params, trainData, maskInfo{t}, predInClasses);
           else
             predWords = tgtOutput(:, t-srcMaxLen+1)';
-            [cost, softmaxGrad, grad_ht] = softmaxCostGrad('W_soft', lstm{ll, t}.h_t, t, predWords, model, params, trainData, maskInfo{t});
+            [cost, softmaxGrad, grad_ht] = softmaxCostGrad('W_soft', lstm{ll, t}.h_t, predWords, model, params, trainData, maskInfo{t});
           end
           costs.total = costs.total + cost;
           costs.word = costs.word + cost;
@@ -255,8 +239,9 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
 
       %% cell backprop
       [lstm_grad] = lstmUnitGrad(model, lstm, dc{ll}, dh{ll}, ll, t, srcMaxLen, zeroState, params);
+      % lstm_grad.input = [x_t; h_t] for normal models, = [x_t; s_t; h_t] for positional models
       dc{ll} = lstm_grad.dc;
-      dh{ll} = lstm_grad.input(params.lstmSize+1:2*params.lstmSize, :);
+      dh{ll} = lstm_grad.input(end-params.lstmSize+1:end, :);
 
       %% grad.W_src / grad.W_tgt
       if (t>=srcMaxLen)
@@ -264,33 +249,26 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       else
         grad.W_src{ll} = grad.W_src{ll} + lstm_grad.W;
       end
-
-      %% dropout
-      if params.dropout<1
-        embGrad = lstm_grad.input(1:params.lstmSize, :).*lstm{ll, t}.dropoutMask;
-        embGrad = embGrad(:, unmaskedIds);  
-      else
-        embGrad = lstm_grad.input(1:params.lstmSize, unmaskedIds);
-      end
-      
       
       %% input grad
+      embGrad = lstm_grad.input(1:params.lstmSize, unmaskedIds);
       if ll==1 % collect embedding grad
         allEmbIndices(wordCount+1:wordCount+numWords) = input(unmaskedIds, t);
         allEmbGrads(:, wordCount+1:wordCount+numWords) = embGrad;
         wordCount = wordCount + numWords;
 
         if params.posModel>0 && t>=srcMaxLen% positional models
+          posEmbGrad = lstm_grad.input(params.lstmSize+1:2*params.lstmSize, :);
           if params.posModel==1 % update embeddings
             allEmbIndices(wordCount+1:wordCount+numWords) = lstm{ll, t}.embIndices;
-            allEmbGrads(:, wordCount+1:wordCount+numWords) = lstm_grad.input(2*params.lstmSize+1:3*params.lstmSize, unmaskedIds);
+            allEmbGrads(:, wordCount+1:wordCount+numWords) = posEmbGrad(:, unmaskedIds);
             wordCount = wordCount + numWords;
           elseif params.posModel==2
             % update embs of <p_n> and <p_eos>
             tmpIndices = [lstm{ll, t}.nullIds lstm{ll, t}.eosIds];
             numWords = length(tmpIndices);
             allEmbIndices(wordCount+1:wordCount+numWords) = [params.nullPosId*ones(1, length(lstm{ll, t}.nullIds)) params.eosPosId*ones(1, length(lstm{ll, t}.eosIds))];
-            allEmbGrads(:, wordCount+1:wordCount+numWords) = lstm_grad.input(2*params.lstmSize+1:3*params.lstmSize, tmpIndices);
+            allEmbGrads(:, wordCount+1:wordCount+numWords) = posEmbGrad(:, tmpIndices);
             wordCount = wordCount + numWords;
             
             % update src hidden states
@@ -304,7 +282,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
               zIds = repmat(colIndices, params.lstmSize, 1);
               zIds = zIds(:)';
               linearIndices = sub2ind(size(trainData.srcHidVecs), xIds, yIds, zIds);
-              grad.srcHidVecs(linearIndices) = grad.srcHidVecs(linearIndices) + reshape(lstm_grad.input(2*params.lstmSize+1:3*params.lstmSize, posIds), 1, numPositions*params.lstmSize);
+              grad.srcHidVecs(linearIndices) = grad.srcHidVecs(linearIndices) + reshape(posEmbGrad(:, posIds), 1, numPositions*params.lstmSize);
             end
           end
         end

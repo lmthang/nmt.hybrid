@@ -69,6 +69,15 @@ function [lstm_grad] = lstmUnitGrad(model, lstm, dc, dh, ll, t, srcMaxLen, zero_
   % dx, dh
   lstm_grad.input = W'*d_ifoa;
  
+  % dropout
+  if params.dropout<1
+    if t>=srcMaxLen && ll==1 && params.posModel>0
+      lstm_grad.input(1:2*params.lstmSize, :) = lstm_grad.input(1:2*params.lstmSize, :).*lstm{ll, t}.dropoutMaskPos; % dropout x_t, s_t
+    else
+      lstm_grad.input(1:params.lstmSize, :) = lstm_grad.input(1:params.lstmSize, :).*lstm{ll, t}.dropoutMask; % dropout x_t
+    end
+  end
+  
   % clip hidden/cell derivatives
   if params.isClip
     if params.isGPU

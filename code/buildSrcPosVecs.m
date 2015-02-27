@@ -1,4 +1,4 @@
-function [s_t, posIds, nullIds, eosIds, colIndices, embIndices] = buildSrcPosVecs(s_t, t, model, params, trainData, curMask)
+function [s_t, posIds, nullIds, eosIds, colIndices, embIndices] = buildSrcPosVecs(t, model, params, trainData, curMask)
 %%%
 %
 % For positional models, generate src vectors based on the predicted positions.
@@ -13,8 +13,7 @@ function [s_t, posIds, nullIds, eosIds, colIndices, embIndices] = buildSrcPosVec
   srcLens = trainData.srcLens;
   input = trainData.input;
   
-  % zero out those that do not participate
-  s_t(:, curMask.maskedIds) = 0;
+  s_t = zeroMatrix([params.lstmSize, trainData.curBatchSize], params.isGPU, params.dataType);
   
   % get predicted positions
   tgtPos = t-srcMaxLen+1;

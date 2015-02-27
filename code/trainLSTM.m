@@ -109,7 +109,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   % params assertions
   if params.posModel>0
     assert(params.isBi==1);
-    assert(params.dropout==1);
     assert(params.attnFunc==0);
   end
   if params.softmaxDim>0
