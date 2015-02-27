@@ -10,7 +10,7 @@ function [probs, scores, norms] = softmax(raw, mask)
 % Hieu Pham @ 2015, <hyhieu@cs.stanford.edu>
 %
 %%%
-  mx = max(raw);
+  mx = max(raw, [], 1);
   scores = bsxfun(@minus, raw, mx); % subtract max elements 
   probs = exp(scores); % unnormalized probs 
   norms = sum(probs, 1); % normalization factors

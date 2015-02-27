@@ -55,15 +55,28 @@ function gradCheck(model, params)
   end
   
   % analytic grad
-  full_grad_W_emb = zeros(size(model.W_emb, 1), size(model.W_emb, 2));
   [costs, grad] = lstmCostGrad(model, trainData, params, 0);
   totalCost = costs.total;
+  
+  % W_emb
+  full_grad_W_emb = zeroMatrix(size(model.W_emb), params.isGPU, params.dataType);
   if params.isGPU
     full_grad_W_emb(:, grad.indices) = gather(grad.W_emb);
   else
     full_grad_W_emb(:, grad.indices) = grad.W_emb;
   end
   grad.W_emb = full_grad_W_emb;
+  
+  % W_soft_inclass
+  if params.numClasses>0
+    full_grad_W_soft_inclass = zeroMatrix(size(model.W_soft_inclass), params.isGPU, params.dataType);
+    if params.isGPU
+      full_grad_W_soft_inclass(:, :, grad.classIndices) = gather(grad.W_soft_inclass);
+    else
+      full_grad_W_soft_inclass(:, :, grad.classIndices) = grad.W_soft_inclass;
+    end
+    grad.W_soft_inclass = full_grad_W_soft_inclass;
+  end
   
   % empirical grad
   delta = 0.01;

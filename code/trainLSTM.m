@@ -274,7 +274,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       end
       
       %% grad clipping      
-      [gradNorm, ~] = computeGradNorm(grad, params.batchSize, params.varsNoEmb); % historical reason: we exclude W_emb % indNorms
+      [gradNorm, ~] = computeGradNorm(grad, params.batchSize, params.varsSelected); % historical reason: we exclude W_emb % indNorms
       scale = 1.0/params.batchSize; % grad is divided by batchSize
       if gradNorm > params.maxGradNorm
         scale = scale*params.maxGradNorm/gradNorm;
@@ -282,8 +282,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       scaleLr = params.lr*scale;
       
       %% update parameters
-      for ii=1:length(params.varsNoEmb)
-        field = params.varsNoEmb{ii};
+      for ii=1:length(params.varsSelected)
+        field = params.varsSelected{ii};
         if iscell(model.(field))
           for jj=1:length(model.(field)) % cell, like W_src, W_tgt
             model.(field){jj} = model.(field){jj} - scaleLr*grad.(field){jj};
@@ -297,6 +297,10 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - gather(scaleLr)*grad.W_emb;
       else
         model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - scaleLr*grad.W_emb;
+      end
+      if params.numClasses>0
+        % update W_soft_inclass separately
+        model.W_soft_inclass(grad.classIndices, :, :) = model.W_soft_inclass(grad.classIndices, :, :) - scaleLr*grad.W_soft_inclass;
       end
       
       %% log info
@@ -462,22 +466,26 @@ function [model, params] = initLSTM(params)
     params.softmaxSize = params.lstmSize;
   end
   
-  if params.numClasses == 0 % normal softmax
-    % compress softmax
-    if params.softmaxDim>0 
-      model.W_h = randomMatrix(params.initRange, [params.softmaxDim, params.lstmSize], params.isGPU, params.dataType);
-      params.softmaxSize = params.softmaxDim;
-    end
-    
+  % compress softmax
+  if params.softmaxDim>0 
+    model.W_h = randomMatrix(params.initRange, [params.softmaxDim, params.lstmSize], params.isGPU, params.dataType);
+    params.softmaxSize = params.softmaxDim;
+  end
+  
+  % softmax
+  if params.numClasses == 0 % normal
     % W_soft
     model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.softmaxSize], params.isGPU, params.dataType);
-  else % class-based softmax
+  else % class-based
     assert(mod(params.outVocabSize, params.numClasses) == 0, sprintf('outVocabSize (%d) must be divisible by numClasses (%d)', params.outVocabSize, params.numClasses));
 
-    params.class_size = params.outVocabSize / params.numClasses;
+    params.classSize = params.outVocabSize / params.numClasses;
 
-    model.W_soft_class = randomMatrix(params.initRange, [params.numClasses, params.lstmSize], params.isGPU, params.dataType);
-    model.W_soft_inclass = randomMatrix(params.initRange, [params.numClasses, params.class_size, params.lstmSize], params.isGPU, params.dataType);
+    % W_soft_class: numClasses * softmaxSize
+    model.W_soft_class = randomMatrix(params.initRange, [params.numClasses, params.softmaxSize], params.isGPU, params.dataType);
+    
+    % W_soft_inclass: classSize * softmaxSize * numClasses
+    model.W_soft_inclass = randomMatrix(params.initRange, [params.classSize, params.softmaxSize, params.numClasses], params.isGPU, params.dataType);
   end
   
   % positional models
@@ -620,13 +628,12 @@ end
 function [params] = setupVars(model, params)
   params.vars = fields(model);
   
-  % right now, we have been training models in which the gradNorm
-  % computation excludes W_emb, so we'll stick with that for now.
-  params.varsNoEmb = params.vars;
+  % exclude W_emb and W_soft_inclass (for class-based softmax). These are
+  % those matrices which we will update sparsely
+  params.varsSelected = {};
   for ii=1:length(params.vars)
-    if strcmp(params.vars{ii}, 'W_emb')
-      params.varsNoEmb(ii) = [];
-      break;
+    if strcmp(params.vars{ii}, 'W_emb')==0 && strcmp(params.vars{ii}, 'W_soft_inclass')==0
+      params.varsSelected{end+1} = params.vars{ii};
     end
   end
 end

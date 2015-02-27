@@ -16,13 +16,16 @@ function [accumX, uniqIndices] = aggregateMatrix(X, indices, isGPU, dataType)
   numUniqIndices = length(uniqIndices);
   numEmbGrads = length(indices);
 
-  if isGPU
-    sparseMatrix = zeros(numEmbGrads, numUniqIndices, dataType, 'gpuArray');
-    sparseIndices = sub2ind([numEmbGrads, numUniqIndices], 1:numEmbGrads, J'); 
-    sparseMatrix(sparseIndices) = ones(numEmbGrads, 1);
+  if numEmbGrads==1
+    accumX = X;
   else
-    sparseMatrix = sparse(1:numEmbGrads, J, ones(numEmbGrads,1), numEmbGrads, numUniqIndices);
+    if isGPU
+      sparseMatrix = zeros(numEmbGrads, numUniqIndices, dataType, 'gpuArray');
+      sparseIndices = sub2ind([numEmbGrads, numUniqIndices], 1:numEmbGrads, J'); 
+      sparseMatrix(sparseIndices) = ones(numEmbGrads, 1);
+    else
+      sparseMatrix = sparse(1:numEmbGrads, J, ones(numEmbGrads,1), numEmbGrads, numUniqIndices);
+    end
+    accumX = X*sparseMatrix;
   end
-
-  accumX = X*sparseMatrix;
 end

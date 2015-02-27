@@ -62,6 +62,13 @@ function [srcVocab, tgtVocab, params] = loadBiVocabs(params)
     tgtVocab{end+1} = '<t_sos>';
     params.tgtSos = length(tgtVocab);
   end
+  if params.numClasses>0 % make sure vocab size is divisible by numClasses
+    remain = params.numClasses - mod(length(tgtVocab)+1, params.numClasses); % imagine after adding <t_eos>, how many words do we still need?
+    for ii=1:remain
+      tgtVocab{end+1} = ['<dummy', num2str(ii), '>'];
+    end
+    fprintf('# Using class-based softmax, numClasses=%d, adding %d dummy words, tgt vocab size now = %d\n', params.numClasses, remain, length(tgtVocab)+1);
+  end
   tgtVocab{end+1} = '<t_eos>';
   params.tgtEos = length(tgtVocab);
   params.tgtVocabSize = length(tgtVocab);

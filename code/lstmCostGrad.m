@@ -15,11 +15,9 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   input = trainData.input;
   inputMask = trainData.inputMask;
   tgtOutput = trainData.tgtOutput;
-  if params.numClasses == 0 % if normal softmax, get tgtOutput
-    
-  else % class softmax
-    trainData.output_class = mod(trainData.tgtOutput, params.numClasses) + 1;
-    trainData.output_in_class = floor((trainData.tgtOutput-1)/params.numClasses + 1e-9) + 1;
+  if params.numClasses >0 % class-based softmax
+    outputClass = mod(trainData.tgtOutput, params.numClasses) + 1;
+    outputInClass = floor((trainData.tgtOutput-1)/params.numClasses + 1e-9) + 1;
   end
   srcMaxLen = trainData.srcMaxLen;
   tgtMaxLen = trainData.tgtMaxLen;
@@ -36,7 +34,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   if params.posModel==1 % positional models, include src embeddings
     trainData.numInputWords = trainData.numInputWords * 2;
   end
-  indices = zeros(trainData.numInputWords, 1);
+  
   if params.embCPU && params.isGPU % only put part of the emb matrix onto GPU
     input_embs = model.W_emb(:, input);
     input_embs = gpuArray(input_embs); % load input embeddings onto GPUs
@@ -44,8 +42,17 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   
   trainData.isTest = isTest;
   trainData.curBatchSize = curBatchSize;
-  [grad, zeroState, costs, emb] = initGrad(model, params, trainData);
+  [grad, zeroState, costs] = initGrad(model, params, trainData);
 
+  
+  % collect all emb grads and aggregate later
+  allEmbGrads = zeroMatrix([params.lstmSize, trainData.numInputWords], params.isGPU, params.dataType);
+  allEmbIndices = zeros(trainData.numInputWords, 1);
+  if params.numClasses>0 % this might cause memory problem. We can actually do aggregation as we go
+    allClassGrads = zeroMatrix([params.softmaxSize*params.classSize, trainData.numInputWords], params.isGPU, params.dataType);
+    allClassIndices = zeros(trainData.numInputWords, 1);
+    allClassCount = 0;
+  end
   
   % global opt
   %if params.globalOpt==1
@@ -151,39 +158,48 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         trainData.srcHidVecs(:, 1:curBatchSize, t) = lstm{ll, t}.h_t;
       end
         
-      %% prediction at the top layer
+      %% softmax at the top layer
       % for positional models, we start predict positions from (srcMaxLen-1) and stop at (T-1)
       if ll==params.numLayers && t>=(srcMaxLen-1)
         % predict positions
         if (params.posModel>0 && t<T)
-          predictedPositions = srcPositions(:, t-srcMaxLen+2)'- (params.startPosId-1);
-          [pos_cost, pos_softmaxGrad, pos_grad_ht] = softmaxCostGrad('W_softPos', lstm{ll, t}.h_t, t, predictedPositions, model, params, trainData, maskInfo{t}, 0);
+          predPositions = srcPositions(:, t-srcMaxLen+2)'- (params.startPosId-1);
+          [pos_cost, pos_softmaxGrad, pos_grad_ht] = softmaxCostGrad('W_softPos', lstm{ll, t}.h_t, predPositions, model, params, trainData, maskInfo{t}, 0);
           costs.total = costs.total + pos_cost;
           costs.pos = costs.pos + pos_cost;
         end
         
         % predict words
         if (t>=srcMaxLen)
-          predictedWords = tgtOutput(:, t-srcMaxLen+1)';
-          [word_cost, word_softmaxGrad, word_grad_ht, classSoftmax] = softmaxCostGrad('W_soft', lstm{ll, t}.h_t, t, predictedWords, model, params, trainData, maskInfo{t}, params.numClasses);
-          costs.total = costs.total + word_cost;
-          costs.word = costs.word + word_cost;
+          if params.numClasses>0
+            predClasses = outputClass(:, t-srcMaxLen+1)'; % predict output class
+            predInClasses = outputInClass(:, t-srcMaxLen+1)'; % predict output in class
+            [cost, softmaxGrad, grad_ht, classSoftmax] = softmaxCostGrad('W_soft_class', lstm{ll, t}.h_t, predClasses, model, params, trainData, maskInfo{t}, predInClasses);
+          else
+            predWords = tgtOutput(:, t-srcMaxLen+1)';
+            [cost, softmaxGrad, grad_ht] = softmaxCostGrad('W_soft', lstm{ll, t}.h_t, t, predWords, model, params, trainData, maskInfo{t});
+          end
+          costs.total = costs.total + cost;
+          costs.word = costs.word + cost;
         end
 
         % grad
         if isTest==0 % compute grads when we are not testing
           % words
           if (t>=srcMaxLen)
-            fields = fieldnames(word_softmaxGrad);
+            fields = fieldnames(softmaxGrad);
             for ii=1:length(fields)
               field = fields{ii};
-              grad.(field) = grad.(field) + word_softmaxGrad.(field);
+              grad.(field) = grad.(field) + softmaxGrad.(field);
             end
             
-            lstm{ll, t}.grad_ht = word_grad_ht;
+            lstm{ll, t}.grad_ht = grad_ht;
             
-            if params.numClasses>=0 % class-based softmax
-              grad.W_soft_inclass(classSoftmax.indices, :, :) = grad.W_soft_inclass(classSoftmax.indices, :, :) + classSoftmax.W_soft_inclass;
+            if params.numClasses>0 % class-based softmax
+              numClassIds = length(classSoftmax.indices);
+              allClassIndices(allClassCount+1:allClassCount+numClassIds) = classSoftmax.indices;
+              allClassGrads(:, allClassCount+1:allClassCount+numClassIds) = classSoftmax.W_soft_inclass;
+              allClassCount = allClassCount + numClassIds;
             end
           end
           
@@ -260,21 +276,21 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       
       %% input grad
       if ll==1 % collect embedding grad
-        indices(wordCount+1:wordCount+numWords) = input(unmaskedIds, t);
-        emb(:, wordCount+1:wordCount+numWords) = embGrad;
+        allEmbIndices(wordCount+1:wordCount+numWords) = input(unmaskedIds, t);
+        allEmbGrads(:, wordCount+1:wordCount+numWords) = embGrad;
         wordCount = wordCount + numWords;
 
         if params.posModel>0 && t>=srcMaxLen% positional models
           if params.posModel==1 % update embeddings
-            indices(wordCount+1:wordCount+numWords) = lstm{ll, t}.embIndices;
-            emb(:, wordCount+1:wordCount+numWords) = lstm_grad.input(2*params.lstmSize+1:3*params.lstmSize, unmaskedIds);
+            allEmbIndices(wordCount+1:wordCount+numWords) = lstm{ll, t}.embIndices;
+            allEmbGrads(:, wordCount+1:wordCount+numWords) = lstm_grad.input(2*params.lstmSize+1:3*params.lstmSize, unmaskedIds);
             wordCount = wordCount + numWords;
           elseif params.posModel==2
             % update embs of <p_n> and <p_eos>
             tmpIndices = [lstm{ll, t}.nullIds lstm{ll, t}.eosIds];
             numWords = length(tmpIndices);
-            indices(wordCount+1:wordCount+numWords) = [params.nullPosId*ones(1, length(lstm{ll, t}.nullIds)) params.eosPosId*ones(1, length(lstm{ll, t}.eosIds))];
-            emb(:, wordCount+1:wordCount+numWords) = lstm_grad.input(2*params.lstmSize+1:3*params.lstmSize, tmpIndices);
+            allEmbIndices(wordCount+1:wordCount+numWords) = [params.nullPosId*ones(1, length(lstm{ll, t}.nullIds)) params.eosPosId*ones(1, length(lstm{ll, t}.eosIds))];
+            allEmbGrads(:, wordCount+1:wordCount+numWords) = lstm_grad.input(2*params.lstmSize+1:3*params.lstmSize, tmpIndices);
             wordCount = wordCount + numWords;
             
             % update src hidden states
@@ -300,11 +316,24 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
    
   % grad W_emb
   if params.posModel>0
-    trainData.numInputWords = wordCount;
-    emb(:, wordCount+1:end) = [];
-    indices(wordCount+1:end) = [];
+    allEmbGrads(:, wordCount+1:end) = [];
+    allEmbIndices(wordCount+1:end) = [];
+  else
+    if params.assert
+      assert(wordCount == trainData.numInputWords);
+      if params.numClasses>0
+        assert(allClassCount <= trainData.numInputWords);
+      end
+    end
   end
-  [grad.W_emb, grad.indices] = aggregateMatrix(emb, indices, params.isGPU, params.dataType);
+  [grad.W_emb, grad.indices] = aggregateMatrix(allEmbGrads, allEmbIndices, params.isGPU, params.dataType);
+  
+  if params.numClasses>0 % class-based softmax
+    allClassGrads(:, allClassCount+1:end) = [];
+    allClassIndices(allClassCount+1:end) = [];
+    [grad.W_soft_inclass, grad.classIndices] = aggregateMatrix(allClassGrads, allClassIndices, params.isGPU, params.dataType);
+    grad.W_soft_inclass = reshape(grad.W_soft_inclass, [params.classSize params.softmaxSize length(grad.classIndices)]);
+  end
   
   if params.attnFunc>0 || params.posModel==2
     grad = rmfield(grad, 'srcHidVecs');
@@ -324,12 +353,12 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   end
 end
 
-function [grad, zero_state, costs, emb] = initGrad(model, params, trainData)
+function [grad, zero_state, costs] = initGrad(model, params, trainData)
   zero_state = zeroMatrix([params.lstmSize, trainData.curBatchSize], params.isGPU, params.dataType);
   
   %% grad
-  for ii=1:length(params.varsNoEmb)
-    field = params.varsNoEmb{ii};
+  for ii=1:length(params.varsSelected)
+    field = params.varsSelected{ii};
     if iscell(model.(field))
       for jj=1:length(model.(field)) % cell, like W_src, W_tgt
         grad.(field){jj} = zeroMatrix(size(model.(field){jj}), params.isGPU, params.dataType);
@@ -339,9 +368,6 @@ function [grad, zero_state, costs, emb] = initGrad(model, params, trainData)
     end
   end
 
-  % emb
-  emb = zeroMatrix([params.lstmSize, trainData.numInputWords], params.isGPU, params.dataType);
-  
   % costs
   costs.total = zeroMatrix([1, 1], params.isGPU, params.dataType);
   costs.word = zeroMatrix([1, 1], params.isGPU, params.dataType);

@@ -262,10 +262,10 @@ function [bestLogProbs, bestWords] = nextBeamStep(model, h, beamSize, params)
 
     total_log_probs = bsxfun(@plus, permute(class_log_probs,[1 3 2]), in_class_log_probs);
     logProbs = reshape(permute(total_log_probs, [2 1 3]), [], batch_size);
-    correct_order = repmat(params.class_size*(0:(params.numClasses-1))', [1 params.class_size]);
-    correct_order = bsxfun(@plus, correct_order, 1:params.class_size);
+    correct_order = repmat(params.classSize*(0:(params.numClasses-1))', [1 params.classSize]);
+    correct_order = bsxfun(@plus, correct_order, 1:params.classSize);
 %    cls = randi(params.numClasses)
-%    sum(exp(bsxfun(@minus, logProbs((1:params.class_size)+(cls-1)*params.class_size,:), class_log_probs(cls,:))))
+%    sum(exp(bsxfun(@minus, logProbs((1:params.classSize)+(cls-1)*params.classSize,:), class_log_probs(cls,:))))
     logProbs = logProbs(correct_order(:),:);
 
     % test
