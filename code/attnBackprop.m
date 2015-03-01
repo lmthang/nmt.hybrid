@@ -60,6 +60,10 @@ function [attnGrad, grad_ht] = attnBackprop(model, topHidVecs, softmax_h, grad_s
   attnGrad.W_a = tmpResult * attnInput';
   % grad_attn_input = W_a' * tmpResult
   grad_attn_input = model.W_a'*tmpResult;
-  % since attnInput = [tgt_h_t; srcLens], accumulating grad_ht
-  grad_ht = grad_ht + grad_attn_input(1:end-1, :);
+  
+  % alignScores = model.W_a*tgt_h_t;
+  grad_ht = grad_ht + grad_attn_input;   
 end
+
+%   % since attnInput = [tgt_h_t; srcLens], accumulating grad_ht
+%   grad_ht = grad_ht + grad_attn_input(1:end-1, :);

@@ -66,18 +66,7 @@ function gradCheck(model, params)
     full_grad_W_emb(:, grad.indices) = grad.W_emb;
   end
   grad.W_emb = full_grad_W_emb;
-  
-  % W_soft_inclass
-  if params.numClasses>0
-    full_grad_W_soft_inclass = zeroMatrix(size(model.W_soft_inclass), params.isGPU, params.dataType);
-    if params.isGPU
-      full_grad_W_soft_inclass(:, :, grad.classIndices) = gather(grad.W_soft_inclass);
-    else
-      full_grad_W_soft_inclass(:, :, grad.classIndices) = grad.W_soft_inclass;
-    end
-    grad.W_soft_inclass = full_grad_W_soft_inclass;
-  end
-  
+    
   % empirical grad
   delta = 0.01;
   total_abs_diff = 0;
@@ -131,116 +120,13 @@ function gradCheck(model, params)
   fprintf(2, '# Num params=%d, abs_diff=%g\n', numParams, total_abs_diff);
 end
 
-%   % theta
-%   [theta, decodeInfo] = struct2vec(model, params.vars);
-%   numParams = length(theta);
-%   fprintf(2, '# Num params=%d\n', numParams);
-  
-  
-%grad = struct2vec(grad, params.vars);
-%   empGrad = zeros(numParams, 1);
-%   numSrcParams = 0;
-%   for ii=1:length(model.W_src)
-%     numSrcParams = numSrcParams + numel(model.W_src{ii});
-%   end
-%   numTgtParams = 0;
-%   for ii=1:length(model.W_tgt)
-%     numTgtParams = numTgtParams + numel(model.W_tgt{ii});
-%   end
-%   for i=1:numParams
-%     thetaNew = theta;
-%     thetaNew(i) = thetaNew(i) + delta;
-%     [modelNew] = vec2struct(thetaNew, decodeInfo);
-%     totalCost_new = lstmCostGrad(modelNew, trainData, params, 0);
-%     empGrad(i) = (totalCost_new-totalCost)/delta;
-%     abs_diff = abs_diff + abs(empGrad(i)-anaGrad(i));
-%     local_abs_diff = local_abs_diff + abs(empGrad(i)-anaGrad(i));
-%     if params.isBi
-%       if i==1
-%         fprintf(2, '# W_src\n');
-%       end
-%       if i==numSrcParams + 1
-%         fprintf(2, '  local_diff=%g\n', local_abs_diff);
-%         local_abs_diff = 0;
-%         fprintf(2, '# W_tgt\n');
-%       end
+%   % W_soft_inclass
+%   if params.numClasses>0
+%     full_grad_W_soft_inclass = zeroMatrix(size(model.W_soft_inclass), params.isGPU, params.dataType);
+%     if params.isGPU
+%       full_grad_W_soft_inclass(:, :, grad.classIndices) = gather(grad.W_soft_inclass);
 %     else
-%       if i==1
-%         fprintf(2, '# W_tgt\n');
-%       end
+%       full_grad_W_soft_inclass(:, :, grad.classIndices) = grad.W_soft_inclass;
 %     end
-%     
-%     % W_soft
-%     if i==numSrcParams + numTgtParams + 1
-%       fprintf(2, '  local_diff=%g\n', local_abs_diff);
-%       local_abs_diff = 0;
-%       fprintf(2, '# W_soft [%d, %d]\n', size(model.W_soft, 1), size(model.W_soft, 2));
-%     end
-%     
-%     % W_emb
-%     if i==numSrcParams + numTgtParams + numel(model.W_soft) + 1
-%       fprintf(2, '  local_diff=%g\n', local_abs_diff);
-%       local_abs_diff = 0;
-%       fprintf(2, '# W_emb [%d, %d]\n', size(model.W_emb, 1), size(model.W_emb, 2));
-%     end
-%     
-%     % W_h
-%     if params.softmaxDim>0
-%       if i==numSrcParams + numTgtParams + numel(model.W_soft) + numel(model.W_emb) + 1
-%         fprintf(2, '  local_diff=%g\n', local_abs_diff);
-%         local_abs_diff = 0;
-%         fprintf(2, '# W_h [%d, %d]\n', size(model.W_h, 1), size(model.W_h, 2));
-%       end
-%     end
-
-%   if params.isBi
-%     if params.attnFunc==0
-%       if params.softmaxDim>0
-%         [theta, decodeInfo] = param2stack(model.W_src, model.W_tgt, model.W_soft, model.W_emb, model.W_h);
-%       else
-%         [theta, decodeInfo] = param2stack(model.W_src, model.W_tgt, model.W_soft, model.W_emb);
-%       end
-%       
-%     elseif params.attnFunc==1
-%       [theta, decodeInfo] = param2stack(model.W_src, model.W_tgt, model.W_soft, model.W_emb, model.W_a);
-%     elseif params.attnFunc==2
-%       [theta, decodeInfo] = param2stack(model.W_src, model.W_tgt, model.W_soft, model.W_emb, model.W_a, model.W_a_tgt, model.v_a);
-%     end
-%   else
-%     [theta, decodeInfo] = param2stack(model.W_tgt, model.W_soft, model.W_emb);
+%     grad.W_soft_inclass = full_grad_W_soft_inclass;
 %   end
-
-
-%   if params.isBi
-%     if params.attnFunc==0
-%       if params.softmaxDim>0
-%         anaGrad =  param2stack(grad.W_src, grad.W_tgt, grad.W_soft, grad.W_emb, grad.W_h);
-%       else
-%         anaGrad =  param2stack(grad.W_src, grad.W_tgt, grad.W_soft, grad.W_emb);
-%       end
-%     elseif params.attnFunc==1
-%       anaGrad =  param2stack(grad.W_src, grad.W_tgt, grad.W_soft, grad.W_emb, grad.W_a);
-%     elseif params.attnFunc==2
-%       anaGrad =  param2stack(grad.W_src, grad.W_tgt, grad.W_soft, grad.W_emb, grad.W_a, grad.W_a_tgt, grad.v_a);
-%     end
-%   else
-%     anaGrad =  param2stack(grad.W_tgt, grad.W_soft, grad.W_emb);
-%   end
-
-%     if params.isBi
-%       [modelNew.W_src, modelNew.W_tgt, modelNew.W_soft, modelNew.W_emb] = stack2param(thetaNew, decodeInfo);
-%       if params.attnFunc==0
-%         if params.softmaxDim>0
-%           [modelNew.W_src, modelNew.W_tgt, modelNew.W_soft, modelNew.W_emb, modelNew.W_h] = stack2param(thetaNew, decodeInfo);
-%         else
-%           [modelNew.W_src, modelNew.W_tgt, modelNew.W_soft, modelNew.W_emb] = stack2param(thetaNew, decodeInfo);
-%         end
-%       elseif params.attnFunc==1
-%         [modelNew.W_src, modelNew.W_tgt, modelNew.W_soft, modelNew.W_emb, modelNew.W_a] = stack2param(thetaNew, decodeInfo);
-%       elseif params.attnFunc==2
-%         [modelNew.W_src, modelNew.W_tgt, modelNew.W_soft, modelNew.W_emb, modelNew.W_a, modelNew.W_a_tgt, modelNew.v_a] = stack2param(thetaNew, decodeInfo);
-%       end
-%     else
-%       model.W_src = [];
-%       [modelNew.W_tgt, modelNew.W_soft, modelNew.W_emb] = stack2param(thetaNew, decodeInfo);
-%     end

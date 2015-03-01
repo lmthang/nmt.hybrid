@@ -1,13 +1,12 @@
 %% Train Long-Short Term Memory (LSTM).
-% Thang Luong @ 2014, <lmthang@stanford.edu>
-% Hieu Pham @ 2015, <hyhieu@cs.stanford.edu>
+% Thang Luong @ 2014, 2015, <lmthang@stanford.edu>
+% 
+% With contributions from:
+%   Hieu Pham: class-based softmax.
 %
 % Options:
-%
 %   srcLang, srcVocabFile: leave empty to train monolingual models.
-%
 %   baseIndex: of training data. Required to convert them to 1-indexed.
-%
 %%%
 function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFile,tgtVocabFile,outDir,baseIndex,varargin)  
   addpath(genpath(sprintf('%s/../../matlab', pwd)));
@@ -25,6 +24,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addRequired(p,'tgtVocabFile',@ischar);
   addRequired(p,'outDir',@ischar);
   addRequired(p,'baseIndex',@isnumeric);
+  
   % optional
   addOptional(p,'numLayers', 1, @isnumeric); % number of layers
   addOptional(p,'lstmSize', 100, @isnumeric);
@@ -42,6 +42,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'isReverse', 0, @isnumeric); % isReverse=1: src data = $prefix.reversed.$srcLang (instead of $prefix.$srcLang)
   addOptional(p,'isResume', 1, @isnumeric); % isResume=1: check if a model file exists, continue training from there.
   addOptional(p,'softmaxDim', 0, @isnumeric); % softmaxDim>0 convert hidden state into an intermediate representation of size softmaxDim before going through the softmax
+  addOptional(p,'softmaxStep', 1, @isnumeric); % do multiple softmax prediction at once
   addOptional(p,'dataType', 'single', @ischar); % Note: use double precision for grad check
   addOptional(p,'maxSentLen', 51, @isnumeric); % mostly apply to src, used in attention-based models. Usual length is 50 + 1 (for eos)
   addOptional(p,'sortBatch', 0, @isnumeric); % 1: each time we read in 100 batches, we sort sentences by length.
@@ -113,6 +114,10 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   end
   if params.softmaxDim>0 || params.numClasses>0
     assert(params.attnFunc==0 & params.posModel==0, '! Assert failed: softmaxDim %d > 0 || numClasses % d > 0, so attnFunc %d and posModel %d have to be 0.\n', params.softmaxDim, params.numClasses, params.attnFunc, params.posModel);
+  end
+  
+  if params.attnFunc>0
+    assert(params.softmaxStep==1);
   end
   
   % rand seed
@@ -453,33 +458,31 @@ function [model, params] = initLSTM(params)
   end
   model.W_emb(:, params.tgtEos) = zeros(params.lstmSize, 1);
   
-  % attention mechanism
-  if params.attnFunc>0 
-    model.W_a = randomMatrix(params.initRange, [params.maxSentLen, params.lstmSize+1], params.isGPU, params.dataType);
+  
+  %% softmax
+  %% h_t -> softmax input
+  if params.attnFunc>0 % attention mechanism
+    model.W_a = randomMatrix(params.initRange, [params.maxSentLen, params.lstmSize], params.isGPU, params.dataType);
     % attn_t = H_src * a_t
     % h_attn_t = f(W_ah * [attn_t; h_t])
     model.W_ah = randomMatrix(params.initRange, [params.attnSize, 2*params.lstmSize], params.isGPU, params.dataType);
     
     params.softmaxSize = params.attnSize;
-  else
+  elseif params.softmaxDim>0 % compress softmax
+    model.W_h = randomMatrix(params.initRange, [params.softmaxDim, params.lstmSize], params.isGPU, params.dataType);
+    params.softmaxSize = params.softmaxDim;
+  else % normal
     params.softmaxSize = params.lstmSize;
   end
   
-  % compress softmax
-  if params.softmaxDim>0 
-    model.W_h = randomMatrix(params.initRange, [params.softmaxDim, params.lstmSize], params.isGPU, params.dataType);
-    params.softmaxSize = params.softmaxDim;
-  end
-  
-  % softmax
+  %% softmax input -> predictions
   if params.numClasses == 0 % normal
     % W_soft
     model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.softmaxSize], params.isGPU, params.dataType);
   else % class-based
     assert(mod(params.outVocabSize, params.numClasses) == 0, sprintf('outVocabSize (%d) must be divisible by numClasses (%d)', params.outVocabSize, params.numClasses));
-
     params.classSize = params.outVocabSize / params.numClasses;
-
+    
     % W_soft_class: numClasses * softmaxSize
     model.W_soft_class = randomMatrix(params.initRange, [params.numClasses, params.softmaxSize], params.isGPU, params.dataType);
     
@@ -487,7 +490,7 @@ function [model, params] = initLSTM(params)
     model.W_soft_inclass = randomMatrix(params.initRange, [params.classSize, params.softmaxSize, params.numClasses], params.isGPU, params.dataType);
   end
   
-  % positional models
+  %% positional models
   if params.posModel>0
     model.W_softPos = randomMatrix(params.initRange, [params.posVocabSize, params.softmaxSize], params.isGPU, params.dataType);
   end
@@ -631,7 +634,7 @@ function [params] = setupVars(model, params)
   % those matrices which we will update sparsely
   params.varsSelected = {};
   for ii=1:length(params.vars)
-    if strcmp(params.vars{ii}, 'W_emb')==0 && strcmp(params.vars{ii}, 'W_soft_inclass')==0
+    if strcmp(params.vars{ii}, 'W_emb')==0 %&& strcmp(params.vars{ii}, 'W_soft_inclass')==0
       params.varsSelected{end+1} = params.vars{ii};
     end
   end

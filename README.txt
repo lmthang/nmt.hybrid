@@ -70,7 +70,7 @@ trainLSTM('../data/id.1000/train.10k', '../data/id.1000/valid.100', '../data/id.
 
 (c) Grad check
 trainLSTM('', '', '', '', '', '', '', '', 0, 'isGradCheck', 1)
-trainLSTM('', '', '', '', '', '', '', '../output', 0, 'isGradCheck', 1, 'numLayers', 2, 'lstmOpt', 0, 'initRange', 10.0, 'attnFunc', 0, 'assert', 1, 'softmaxDim', 0, 'posModel', 0, 'numClasses', 0)
+trainLSTM('', '', '', '', '', '', '', '../output', 0, 'isGradCheck', 1, 'assert', 1, 'numLayers', 2, 'initRange', 1.0, 'attnFunc', 0, 'softmaxDim', 0, 'posModel', 0, 'numClasses', 0, 'dropout', 1)
 
 (d) Profiling
 trainLSTM('../data/id.1000/train.10k', '../data/id.1000/valid.100', '../data/id.1000/test.100', 'de', 'en', '../data/train.10k.de.vocab.1000', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1, 'isProfile', 1)
