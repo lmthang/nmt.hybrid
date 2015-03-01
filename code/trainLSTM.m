@@ -299,7 +299,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       end
       if params.numClasses>0
         % update W_soft_inclass separately
-        model.W_soft_inclass(grad.classIndices, :, :) = model.W_soft_inclass(grad.classIndices, :, :) - scaleLr*grad.W_soft_inclass;
+        model.W_soft_inclass(:, :, grad.classIndices) = model.W_soft_inclass(:, :, grad.classIndices) - scaleLr*grad.W_soft_inclass;
       end
       
       %% log info
