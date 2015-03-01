@@ -10,7 +10,7 @@
 % Output:
 %   lstm struct
 %%
-function [lstmCell] = lstmUnit(W, x_t, h_t, c_t, ll, t, srcMaxLen, params, isTest)
+function [lstmCell, cell_h_t] = lstmUnit(W, x_t, h_t, c_t, ll, t, srcMaxLen, params, isTest)
   %% dropout
   if params.dropout<1 && isTest==0
     if ~params.isGradCheck
@@ -46,19 +46,19 @@ function [lstmCell] = lstmUnit(W, x_t, h_t, c_t, ll, t, srcMaxLen, params, isTes
   %% hidden
   if params.lstmOpt==0 % h_t = o_t * f(c_t)
     f_c_t = params.nonlinear_f(lstmCell.c_t);
-    lstmCell.h_t = o_gate.*f_c_t; 
+    cell_h_t = o_gate.*f_c_t; 
   elseif params.lstmOpt==1 % h_t = o_t * c_t
-    lstmCell.h_t = o_gate.*lstmCell.c_t; 
+    cell_h_t = o_gate.*lstmCell.c_t; 
   end
 
   %% clip
   if params.isClip
     if params.isGPU
      lstmCell.c_t = arrayfun(@clipForward, lstmCell.c_t);
-     lstmCell.h_t = arrayfun(@clipForward, lstmCell.h_t);
+     cell_h_t = arrayfun(@clipForward, cell_h_t);
     else
      lstmCell.c_t(lstmCell.c_t>params.clipForward) = params.clipForward; lstmCell.c_t(lstmCell.c_t<-params.clipForward) = -params.clipForward; % clip: keep memory small
-     lstmCell.h_t(lstmCell.h_t>params.clipForward) = params.clipForward; lstmCell.h_t(lstmCell.h_t<-params.clipForward) = -params.clipForward; % clip: keep hidden state small
+     cell_h_t(cell_h_t>params.clipForward) = params.clipForward; cell_h_t(cell_h_t<-params.clipForward) = -params.clipForward; % clip: keep hidden state small
     end
   end
   

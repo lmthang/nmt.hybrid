@@ -53,7 +53,7 @@ function [s_t, posIds, nullIds, eosIds, colIndices, embIndices] = buildSrcPosVec
       % params.vocab(input(sub2ind(size(input), posIds, colIndices)))
       % params.vocab(trainData.tgtOutput(posIds, tgtPos))
     elseif params.posModel==2 % use src hidden states
-      % srcHidVecs: lstmSize * curBatchSize * srcMaxLen
+      % topHidVecs: lstmSize * curBatchSize * T
       % posIds colIndices
       numPositions = length(posIds);
       xIds = repmat(1:params.lstmSize, 1, numPositions);
@@ -61,7 +61,7 @@ function [s_t, posIds, nullIds, eosIds, colIndices, embIndices] = buildSrcPosVec
       yIds = yIds(:)';
       zIds = repmat(colIndices, params.lstmSize, 1);
       zIds = zIds(:)';
-      s_t(:, posIds) = reshape(trainData.srcHidVecs(sub2ind(size(trainData.srcHidVecs), xIds, yIds, zIds)), params.lstmSize, numPositions); 
+      s_t(:, posIds) = reshape(trainData.topHidVecs(sub2ind(size(trainData.topHidVecs), xIds, yIds, zIds)), params.lstmSize, numPositions); 
     end
   else
     colIndices = [];
@@ -87,30 +87,4 @@ function [s_t, posIds, nullIds, eosIds, colIndices, embIndices] = buildSrcPosVec
     assert(sum(embIndices == (params.srcEos+params.tgtVocabSize))==0);
   end
 end
-
-%    if trainData.isTest==0
-%      srcMaxLen
-%      size(input)
-%      srcLens(posIds)
-%      srcPositions
-%      colIndices
-%    end
-%      if trainData.isTest==1
-%        size(s_t)
-%        size(trainData.srcHidVecs)
-%        size(posIds)
-%        size(xIds)
-%        size(yIds)
-%        size(zIds)
-%        min(xIds)
-%        max(xIds)
-%        min(yIds)
-%        max(yIds)
-%        min(zIds)
-%        max(zIds)
-%        posIds
-%        xIds
-%        yIds
-%        zIds
-%      end
 

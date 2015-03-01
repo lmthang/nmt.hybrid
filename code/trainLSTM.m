@@ -111,10 +111,10 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     assert(params.isBi==1);
     assert(params.attnFunc==0);
   end
-  if params.softmaxDim>0
-    assert(params.attnFunc==0 & params.posModel==0, '! Assert failed: softmaxDim %d > 0, so attnFunc %d and posModel %d have to be 0.\n', params.softmaxDim, params.attnFunc, params.posModel);
+  if params.softmaxDim>0 || params.numClasses>0
+    assert(params.attnFunc==0 & params.posModel==0, '! Assert failed: softmaxDim %d > 0 || numClasses % d > 0, so attnFunc %d and posModel %d have to be 0.\n', params.softmaxDim, params.numClasses, params.attnFunc, params.posModel);
   end
-
+  
   % rand seed
   if params.isGradCheck || params.isProfile || params.seed
     s = RandStream('mt19937ar','Seed',params.seed);

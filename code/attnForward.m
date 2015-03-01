@@ -22,14 +22,11 @@ function [attnHidVecs, attn_h_concat, alignWeights, alignScores, attnInput] = at
   % alignWeights = bsxfun(@times, alignWeights, mask), then change alignWeights from maxSentLen*curBatchSize-> 1 * curBatchSize * maxSentLen
   alignWeights = permute(bsxfun(@times, alignWeights, curMask.mask), [3, 2, 1]);
   
-  % % alignWeights: maxSentLen * curBatchSize
-  % attnVecs = squeeze(sum(bsxfun(@times, srcHidVecs, alignWeights), 1))'; % lstmSize * curBatchSize
-  
-  % srcHidVecs: lstmSize * curBatchSize * maxSentLen
+  % trainData.topHidVecs(:, :, 1:params.maxSentLen): lstmSize * curBatchSize * maxSentLen
   % alignWeights: 1 * curBatchSize * maxSentLen
   % attention vectors: attn_t = H_src* a_t (weighted average of src vectors)
   % sum over maxSentLen
-  attnVecs = squeeze(sum(bsxfun(@times, trainData.srcHidVecs, alignWeights), 3)); 
+  attnVecs = squeeze(sum(bsxfun(@times, trainData.topHidVecs(:, :, 1:params.maxSentLen), alignWeights), 3)); 
   if params.assert % lstmSize x curBatchSize
     assert(size(attnVecs, 1)==params.lstmSize);
     assert(size(attnVecs, 2)==trainData.curBatchSize);
