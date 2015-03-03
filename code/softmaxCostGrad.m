@@ -183,26 +183,22 @@ function [cost, softmaxGrad, grad_ht, otherGrads] = batchSoftmax(matrixName, h_t
   elseif params.posModel==3 % positional model
     [softmax_h, interSoftInput] = lstm2softHid(h_t, params, model, batchData.srcPosVecs, curMask);
   else
-    [softmax_h] = lstm2softHid(h_t, params, model);
-    if params.softmaxDim>0
-      interSoftInput = h_t;
-    end
+    [softmax_h, interSoftInput] = lstm2softHid(h_t, params, model);
   end
 
-  %% softmax
+  %% softmax_h -> predictions
   [probs, scores, norms] = softmax(model.(matrixName)*softmax_h, mask);
-
-  %% cost
+  % cost
   predLabels = origPredLabels(unmaskedIds);
   scoreIndices = sub2ind(size(scores), predLabels, unmaskedIds); % 1 * length(tgtPredictedWords)
   cost = - sum(scores(scoreIndices)) + sum(log(norms).*mask);
   
-  %% class-based softmax
+  % class-based softmax
   if params.numClasses > 0
     predInClass = varargin{1};
     predInClass = predInClass(unmaskedIds);
     
-    %% in class loss
+    % in class loss
     % model.W_soft_inclass(:,:,curClasses): classSize * softmaxSize * batchSize
     % softmax_h: softmaxSize * batchSize
     % inClassRaw: classSize * batchSize (sum across softmaxSize, dim 2)
@@ -217,7 +213,6 @@ function [cost, softmaxGrad, grad_ht, otherGrads] = batchSoftmax(matrixName, h_t
   end
   
   %% grad
-  classGrad = [];
   softmaxGrad = [];
   grad_ht = [];
   otherGrads = [];
@@ -267,7 +262,10 @@ function [cost, softmaxGrad, grad_ht, otherGrads] = batchSoftmax(matrixName, h_t
       grad_ht = grad_softmax_h;
     end
     
-    %% loss -> W_soft
+    %% loss -> W_soft. 
+    % Note: do not move this part up; otherwise, the case attnFunc>0 will
+    % fail because softmaxGrad is only created after calling attnBackprop,
+    % which means anything touches softmaxGrad before will be lost.
     softmaxGrad.(matrixName) = probs*softmax_h';
     
     if params.numClasses>0 % class-based softmax
@@ -281,8 +279,8 @@ function [cost, softmaxGrad, grad_ht, otherGrads] = batchSoftmax(matrixName, h_t
       W_soft_inclass_grads = reshape(W_soft_inclass_grads, [params.classSize*params.softmaxSize numWords]);
       
       % accumulate
-      [classGrad.W_soft_inclass, classGrad.indices] = aggregateMatrix(W_soft_inclass_grads, curClasses(unmaskedIds), params.isGPU, params.dataType);
-      classGrad.W_soft_inclass = reshape(classGrad.W_soft_inclass, [params.classSize params.softmaxSize length(classGrad.indices)]);
+      [otherGrads.W_soft_inclass, otherGrads.indices] = aggregateMatrix(W_soft_inclass_grads, curClasses(unmaskedIds), params.isGPU, params.dataType);
+      otherGrads.W_soft_inclass = reshape(otherGrads.W_soft_inclass, [params.classSize params.softmaxSize length(otherGrads.indices)]);
     end
   end % end isTest
   

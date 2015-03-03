@@ -7,6 +7,7 @@ function [softmax_h, input, attn_h_concat, alignWeights, alignScores] = lstm2sof
 %
 %%%
   if params.softmaxDim>0 % compression: f(W_h * h_t)
+    input = h_t;
     softmax_h = params.nonlinear_f(model.W_h*h_t);
   elseif params.attnFunc>0 % attention mechanism
     srcHidVecs = varargin{1};
@@ -17,6 +18,7 @@ function [softmax_h, input, attn_h_concat, alignWeights, alignScores] = lstm2sof
     input = [varargin{1}; h_t];
     softmax_h = params.nonlinear_f(model.W_h*input);
   else % normal
+    input = [];
     softmax_h = h_t;
   end
 end

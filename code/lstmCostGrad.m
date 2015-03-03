@@ -166,7 +166,6 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   
   for t=T:-1:1 % time
     unmaskedIds = maskInfo{t}.unmaskedIds;
-    numWords = length(unmaskedIds);
     tgtPos = t-srcMaxLen+1;
     
     for ll=params.numLayers:-1:1 % layer
@@ -194,36 +193,36 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       end
       
       %% input grad
-      embGrad = lstm_grad.input(1:params.lstmSize, unmaskedIds);
       if ll==1 % collect embedding grad
-        allEmbIndices(wordCount+1:wordCount+numWords) = input(unmaskedIds, t);
-        allEmbGrads(:, wordCount+1:wordCount+numWords) = embGrad;
-        wordCount = wordCount + numWords;
+        embIndices = input(unmaskedIds, t)';
+        embGrad = lstm_grad.input(1:params.lstmSize, unmaskedIds);
+          
+        if params.posModel>0 && t>=srcMaxLen
+          range = params.lstmSize+1:2*params.lstmSize;
+          if params.posModel==1 % pos model 1
+            embIndices = [embIndices trainData.srcPosData(tgtPos).embIndices];
+            embGrad = [embGrad lstm_grad.input(range, unmaskedIds)];
+          elseif params.posModel==2 % pos model 2
+            % include embs of <p_n> and <p_eos>
+            eosNullIndices = [params.nullPosId*ones(1, length(trainData.srcPosData(tgtPos).nullIds)) params.eosPosId*ones(1, length(trainData.srcPosData(tgtPos).eosIds))];
+            embIndices = [embIndices eosNullIndices];
+            eosNullIds = [trainData.srcPosData(tgtPos).nullIds trainData.srcPosData(tgtPos).eosIds];
+            embGrad = [embGrad lstm_grad.input(range, eosNullIds)];
 
-        % positional models 1, 2
-        if (params.posModel==1 || params.posModel==2) && t>=srcMaxLen
-          posEmbGrad = lstm_grad.input(params.lstmSize+1:2*params.lstmSize, :);
-          if params.posModel==1 % update embeddings
-            allEmbIndices(wordCount+1:wordCount+numWords) = trainData.srcPosData(tgtPos).embIndices;
-            allEmbGrads(:, wordCount+1:wordCount+numWords) = posEmbGrad(:, unmaskedIds);
-            wordCount = wordCount + numWords;
-          elseif params.posModel==2
-            % update embs of <p_n> and <p_eos>
-            tmpIndices = [trainData.srcPosData(tgtPos).nullIds trainData.srcPosData(tgtPos).eosIds];
-            numWords = length(tmpIndices);
-            allEmbIndices(wordCount+1:wordCount+numWords) = [params.nullPosId*ones(1, length(trainData.srcPosData(tgtPos).nullIds)) params.eosPosId*ones(1, length(trainData.srcPosData(tgtPos).eosIds))];
-            allEmbGrads(:, wordCount+1:wordCount+numWords) = posEmbGrad(:, tmpIndices);
-            wordCount = wordCount + numWords;
-            
             % update src hidden states
-            if ~isempty(trainData.srcPosData(tgtPos).posIds)
+            if params.posModel==2 && ~isempty(trainData.srcPosData(tgtPos).posIds)
               [linearIndices] = getTensorLinearIndices(trainData.srcHidVecs, trainData.srcPosData(tgtPos).posIds, trainData.srcPosData(tgtPos).colIndices);
-              grad.srcHidVecs(linearIndices) = grad.srcHidVecs(linearIndices) + reshape(posEmbGrad(:, trainData.srcPosData(tgtPos).posIds), 1, []);
+              grad.srcHidVecs(linearIndices) = grad.srcHidVecs(linearIndices) + reshape(lstm_grad.input(range, trainData.srcPosData(tgtPos).posIds), 1, []);
             end
           end
         end
+        
+        numWords = length(embIndices);
+        allEmbIndices(wordCount+1:wordCount+numWords) = embIndices;
+        allEmbGrads(:, wordCount+1:wordCount+numWords) = embGrad;
+        wordCount = wordCount + numWords;
       else % pass down hidden state grad to the below layer
-        dh{ll-1}(:, unmaskedIds) = dh{ll-1}(:, unmaskedIds) + embGrad;
+        dh{ll-1}(:, unmaskedIds) = dh{ll-1}(:, unmaskedIds) + lstm_grad.input(1:params.lstmSize, unmaskedIds);
       end
     end % end for layer
   end % end for time
