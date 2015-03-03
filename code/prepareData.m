@@ -1,6 +1,6 @@
 %% Prepare data
 %
-%  Thang Luong @ 2014, <lmthang@stanford.edu>
+%  Thang Luong @ 2014, 2015, <lmthang@stanford.edu>
 %
 %  organize data into matrix format and produce masks, add tgtVocabSize to srcSents:
 %   input:      numSents * (srcMaxLen+tgtMaxLen-1)
@@ -21,15 +21,14 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   if params.isBi
     srcZeroId = params.srcSosVocabId;
     
-    if isTest==0 || params.attnFunc>0 % limit sent lengths for training or for attention model during both training/testing
+    if isTest==0 || params.attnFunc==1 % limit sent lengths for training or for attention model during both training/testing
       srcLens(srcLens>params.maxSentLen) = params.maxSentLen; 
-      srcMaxLen = max(srcLens);
-      assert(srcMaxLen<=params.maxSentLen);
+      srcMaxLen = params.maxSentLen;
     else
       srcMaxLen = max(srcLens);
     end
     
-    if params.posModel==1 || params.posModel==2 % add an extra <s_eos> to the src side
+    if params.posModel>0 % add an extra <s_eos> to the src side
       srcMaxLen = srcMaxLen+1;
     end
   else
@@ -64,7 +63,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
     %% src
     if params.isBi
       srcLen = srcLens(ii);
-      if params.posModel==1 || params.posModel==2 % add an extra <s_eos> to the src side
+      if params.posModel>0 % add an extra <s_eos> to the src side
         input(ii, srcMaxLen-srcLen:srcMaxLen-1) = srcSents{ii}(1:srcLen) + params.tgtVocabSize; % src part
         input(ii, srcMaxLen) = params.srcEosVocabId;
       else
@@ -83,7 +82,6 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
       
       % positions
       srcPos(ii, 1:tgtLen-1) = tgtSents{ii}(1:2:2*tgtLen-2); % positions
-      % absPositions = (1:tgtLen-1) - (positions-params.tgtzeroPosId); % src_pos = tgt_pos - relative_pos
     end
     
     input(ii, srcMaxLen+1:srcMaxLen+tgtLen-1) = tgtSent(1:tgtLen-1); % tgt part
@@ -127,10 +125,3 @@ end
     %printSent(input(1, :), params.vocab, ['  ', label, ' 1:']);
     %printSent(input(end, :), params.vocab, ['  ', label, ' end:']);
     
-%     if size(srcLens, 2)==1 % we want row vectors
-%       srcLens = srcLens';
-%     end
-    
-%       if params.attnFunc>0 && srcLen>srcMaxLen % attention model
-%         srcLen = srcMaxLen;
-%       end

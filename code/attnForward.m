@@ -15,13 +15,13 @@ function [attnHidVecs, attn_h_concat, alignWeights, alignScores, attnInput] = at
   
   % mask
   % alignWeights = bsxfun(@times, alignWeights, mask)
-  % change alignWeights from maxSentLen*curBatchSize-> 1 * curBatchSize * maxSentLen
+  % change alignWeights from numSrcHidVecs*curBatchSize-> 1 * curBatchSize * numSrcHidVecs
   alignWeights = permute(bsxfun(@times, alignWeights, curMask.mask), [3, 2, 1]);
   
-  % srcHidVecs: lstmSize * curBatchSize * maxSentLen
-  % alignWeights: 1 * curBatchSize * maxSentLen
+  % srcHidVecs: lstmSize * curBatchSize * numSrcHidVecs
+  % alignWeights: 1 * curBatchSize * numSrcHidVecs
   % attention vectors: attn_t = H_src* a_t (weighted average of src vectors)
-  % sum over maxSentLen
+  % sum over numSrcHidVecs
   attnVecs = squeeze(sum(bsxfun(@times, srcHidVecs, alignWeights), 3)); 
   
   % attention hidden vectors: attnHid = f(W_ah*[attn_t; tgt_h_t])

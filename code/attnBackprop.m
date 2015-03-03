@@ -24,17 +24,17 @@ function [attnGrad, grad_ht] = attnBackprop(model, topHidVecs, softmax_h, grad_s
 
   %% from grad_attn -> grad_srcHidVecs, grad_alignWeights
   % attn_t = H_src* a_t
-  % topHidVecs(:, :, 1:params.maxSentLen): lstmSize * curBatchSize * maxSentLen
+  % topHidVecs(:, :, 1:params.numSrcHidVecs): lstmSize * curBatchSize * numSrcHidVecs
   % grad_attn: lstmSize * curBatchSize * 1
-  % alignWeights: 1 * curBatchSize * maxSentLen
+  % alignWeights: 1 * curBatchSize * numSrcHidVecs
   % grad_srcHidVecs = grad_attn * alignWeights'
   attnGrad.srcHidVecs = bsxfun(@times, grad_attn, alignWeights);
 
   % grad_alignWeights = H_src' * grad_attn (per example, to scale over multiple examples, i.e., curBatchSize, need to use bsxfun)
-  grad_alignWeights = squeeze(sum(bsxfun(@times, topHidVecs(:, :, 1:params.maxSentLen), grad_attn), 1))'; % bsxfun along maxSentLen, sum across lstmSize
+  grad_alignWeights = squeeze(sum(bsxfun(@times, topHidVecs(:, :, 1:params.numSrcHidVecs), grad_attn), 1))'; % bsxfun along numSrcHidVecs, sum across lstmSize
 
-  if params.assert % maxSentLen x curBatchSize
-    assert(size(grad_alignWeights, 1)==params.maxSentLen);
+  if params.assert % numSrcHidVecs x curBatchSize
+    assert(size(grad_alignWeights, 1)==params.numSrcHidVecs);
     assert(size(grad_alignWeights, 2)==size(softmax_h, 2));
   end
 
@@ -45,9 +45,9 @@ function [attnGrad, grad_ht] = attnBackprop(model, topHidVecs, softmax_h, grad_s
   %                            = a_i.*grad_a_i - a_i*alpha_i
   % multiple examples: alpha = sum(a.*grad_a, 1) % 1*curBatchSize
   %     grad_scores = a.*grad - bsxfun(@times, a, alpha)
-  % tmpResult = alignWeights.*grad_alignWeights; % maxSentLen * curBatchSize
-  alignWeights = squeeze(alignWeights)'; % alignWeights now: maxSentLen * curBatchSize
-  tmpResult = alignWeights.*grad_alignWeights; % maxSentLen * curBatchSize
+  % tmpResult = alignWeights.*grad_alignWeights; % numSrcHidVecs * curBatchSize
+  alignWeights = squeeze(alignWeights)'; % alignWeights now: numSrcHidVecs * curBatchSize
+  tmpResult = alignWeights.*grad_alignWeights; % numSrcHidVecs * curBatchSize
   grad_scores = tmpResult - bsxfun(@times, alignWeights, sum(tmpResult, 1));
 
   %% grad_scores -> grad.Wa, grad_ht

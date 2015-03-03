@@ -72,6 +72,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   % 1: separately print out pos/word perplexities
   % 2: like 1 + feed in src hidden states, 3: like 1 + feed in src embeddings 
   addOptional(p,'posModel', 0, @isnumeric); 
+  addOptional(p,'posSoftSize', 0, @isnumeric); % dim of the input to softmax, 0 set to lstmSize
   addOptional(p,'posWin', 7, @isnumeric);
   addOptional(p,'posSoftmax', 0, @isnumeric); % use with posModel. 0: same softmax for word/pos, 1: separate softmax for positions
 
@@ -117,7 +118,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   end
   
   if params.attnFunc>0
-    assert(params.softmaxStep==1);
+    assert(params.softmaxStep==1, '! For attnFunc %d, softmaxStep %d should be 1\n', params.attnFunc, params.softmaxStep);
   end
   
   % rand seed
@@ -157,6 +158,10 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   % attention
   if params.attnFunc>0 && params.attnSize==0
     params.attnSize = params.lstmSize;
+  end
+  % positional models
+  if params.posModel==3 && params.posSoftSize==0
+    params.posSoftSize = params.lstmSize;
   end
   assert(strcmp(outDir, '')==0);
   params.logId = fopen([outDir '/log'], 'a');
@@ -438,7 +443,7 @@ function [model, params] = initLSTM(params)
   % W_tgt
   model.W_tgt = cell(params.numLayers, 1);
   for ll=1:params.numLayers
-    if ll==1 && params.posModel>0 % W_tgt [x_t; h_t; s_t] where s_t is the source info hinted by the positional model
+    if ll==1 && (params.posModel==1 || params.posModel==2) % W_tgt [x_t; h_t; s_t] where s_t is the source info hinted by the positional model
       model.W_tgt{ll} = randomMatrix(params.initRange, [4*params.lstmSize, 3*params.lstmSize], params.isGPU, params.dataType);
     else
       model.W_tgt{ll} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
@@ -458,11 +463,10 @@ function [model, params] = initLSTM(params)
   end
   model.W_emb(:, params.tgtEos) = zeros(params.lstmSize, 1);
   
-  
   %% softmax
   %% h_t -> softmax input
   if params.attnFunc>0 % attention mechanism
-    model.W_a = randomMatrix(params.initRange, [params.maxSentLen, params.lstmSize], params.isGPU, params.dataType);
+    model.W_a = randomMatrix(params.initRange, [params.maxSentLen-1, params.lstmSize], params.isGPU, params.dataType);
     % attn_t = H_src * a_t
     % h_attn_t = f(W_ah * [attn_t; h_t])
     model.W_ah = randomMatrix(params.initRange, [params.attnSize, 2*params.lstmSize], params.isGPU, params.dataType);
@@ -473,6 +477,16 @@ function [model, params] = initLSTM(params)
     params.softmaxSize = params.softmaxDim;
   else % normal
     params.softmaxSize = params.lstmSize;
+  end
+  
+  %% positional models
+  if params.posModel==3
+    % h_pos_t = f(W_h * [src_pos_t; h_t])
+    model.W_h = randomMatrix(params.initRange, [params.posSoftSize, 2*params.lstmSize], params.isGPU, params.dataType);
+    params.softmaxSize = params.posSoftSize;
+  end
+  if params.posModel>0
+    model.W_softPos = randomMatrix(params.initRange, [params.posVocabSize, params.softmaxSize], params.isGPU, params.dataType);
   end
   
   %% softmax input -> predictions
@@ -488,11 +502,6 @@ function [model, params] = initLSTM(params)
     
     % W_soft_inclass: classSize * softmaxSize * numClasses
     model.W_soft_inclass = randomMatrix(params.initRange, [params.classSize, params.softmaxSize, params.numClasses], params.isGPU, params.dataType);
-  end
-  
-  %% positional models
-  if params.posModel>0
-    model.W_softPos = randomMatrix(params.initRange, [params.posVocabSize, params.softmaxSize], params.isGPU, params.dataType);
   end
   
   % compute model size

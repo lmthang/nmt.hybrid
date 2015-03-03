@@ -10,25 +10,31 @@
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 %
 %%%
-function [costs, softmaxGrad, topGradHt] = softmaxCostGrad(model, params, trainData)
+function [costs, softmaxGrad, otherGrads] = softmaxCostGrad(model, params, trainData)
   topHidVecs = trainData.topHidVecs;
-  curBatchSize = trainData.curBatchSize;
+  curBatchSize = params.curBatchSize;
   inputMask = trainData.inputMask;
   T = trainData.T;
   srcMaxLen = trainData.srcMaxLen;
   
   % init grads
   [softmaxGrad] = initSoftmaxGrad(params);
-  if params.attnFunc>0
+  if params.attnFunc>0 || params.posModel==3
     softmaxGrad.srcHidVecs = zeroMatrix([params.lstmSize, curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);
   end
-  topGradHt = zeroMatrix(size(topHidVecs), params.isGPU, params.dataType);
+  otherGrads.ht = zeroMatrix(size(topHidVecs), params.isGPU, params.dataType);
   
   % init costs
   costs.total = zeroMatrix([1, 1], params.isGPU, params.dataType);
   costs.word = zeroMatrix([1, 1], params.isGPU, params.dataType);
   if params.posModel>0
     costs.pos = zeroMatrix([1, 1], params.isGPU, params.dataType);
+  end
+  
+  if params.posModel==3
+    wordCount = 0;
+    otherGrads.allEmbGrads = zeroMatrix([params.lstmSize, trainData.numInputWords], params.isGPU, params.dataType);
+    otherGrads.allEmbIndices = zeros(trainData.numInputWords, 1);
   end
   
   %% predict words from srcMaxLen to T
@@ -40,14 +46,28 @@ function [costs, softmaxGrad, topGradHt] = softmaxCostGrad(model, params, trainD
     numTimeSteps = (endT-startT+1);
     numExamples = numTimeSteps*curBatchSize;
   
+    range = startT:endT;
+    tgtRange = (startT-srcMaxLen+1):(endT-srcMaxLen+1);
+    
     % h_t
-    h_t = reshape(topHidVecs(:, :, startT:endT), params.lstmSize, numExamples);
+    h_t = reshape(topHidVecs(:, :, range), params.lstmSize, numExamples);
+    
+    % positional model 3
+    if params.posModel==3
+      batchData.srcPosVecs = reshape(trainData.srcPosVecs(:, :, tgtRange), params.lstmSize, numExamples);
+      batchData.posIds = [trainData.srcPosData(tgtRange).posIds];
+      batchData.nullIds = [trainData.srcPosData(tgtRange).nullIds];
+      batchData.eosIds = [trainData.srcPosData(tgtRange).eosIds];
+      batchData.colIndices = [trainData.srcPosData(tgtRange).colIndices];
+    else
+      batchData = [];
+    end
     
     % predicted words
-    predWords = reshape(trainData.tgtOutput(:, (startT-srcMaxLen+1):(endT-srcMaxLen+1)), 1, numExamples);
+    predWords = reshape(trainData.tgtOutput(:, tgtRange), 1, numExamples);
     
     % prepare mask
-    curMask.mask = reshape(inputMask(:, startT:endT), 1, numExamples);
+    curMask.mask = reshape(inputMask(:, range), 1, numExamples);
     curMask.unmaskedIds = find(curMask.mask);
     curMask.maskedIds = find(~curMask.mask);
     
@@ -55,9 +75,9 @@ function [costs, softmaxGrad, topGradHt] = softmaxCostGrad(model, params, trainD
     if params.numClasses>0
       predClasses = mod(predWords, params.numClasses) + 1;
       predInClasses = floor((predWords-1)/params.numClasses + 1e-9) + 1;
-      [word_cost, word_softmaxGrad, word_ht_grad , classSoftmax] = batchSoftmax('W_soft_class', h_t, predClasses, model, params, trainData, curMask, predInClasses);
+      [word_cost, word_softmaxGrad, word_ht_grad , otherBatchGrads] = batchSoftmax('W_soft_class', h_t, predClasses, model, params, trainData, batchData, curMask, predInClasses);
     else
-      [word_cost, word_softmaxGrad, word_ht_grad] = batchSoftmax('W_soft', h_t, predWords, model, params, trainData, curMask);
+      [word_cost, word_softmaxGrad, word_ht_grad, otherBatchGrads] = batchSoftmax('W_soft', h_t, predWords, model, params, trainData, batchData, curMask);
     end
     costs.total = costs.total + word_cost;
     costs.word = costs.word + word_cost;
@@ -72,14 +92,34 @@ function [costs, softmaxGrad, topGradHt] = softmaxCostGrad(model, params, trainD
       
       % class-based softmax
       if params.numClasses>0 
-        softmaxGrad.W_soft_inclass(:, :, classSoftmax.indices) = softmaxGrad.W_soft_inclass(:, :, classSoftmax.indices) + classSoftmax.W_soft_inclass;
+        softmaxGrad.W_soft_inclass(:, :, otherBatchGrads.indices) = softmaxGrad.W_soft_inclass(:, :, otherBatchGrads.indices) + otherBatchGrads.W_soft_inclass;
       end
       
+      % positional model 3
+      if params.posModel==3
+        % update embs of <p_n> and <p_eos>
+        tmpIndices = [batchData.nullIds batchData.eosIds];
+        numWords = length(tmpIndices);
+        otherGrads.allEmbIndices(wordCount+1:wordCount+numWords) = [params.nullPosId*ones(1, length(batchData.nullIds)) params.eosPosId*ones(1, length(batchData.eosIds))];
+        otherGrads.allEmbGrads(:, wordCount+1:wordCount+numWords) = otherBatchGrads.srcPosVecs(:, tmpIndices);
+        wordCount = wordCount + numWords;
+        
+        if ~isempty(batchData.posIds)
+          [linearIndices] = getTensorLinearIndices(trainData.srcHidVecs, batchData.posIds, batchData.colIndices);
+          softmaxGrad.srcHidVecs(linearIndices) = softmaxGrad.srcHidVecs(linearIndices) + reshape(otherBatchGrads.srcPosVecs(:, batchData.posIds), 1, []);
+        end
+        
+      end
+            
       % grad_ht
-      topGradHt(:, :, startT:endT) = topGradHt(:, :, startT:endT) + reshape(word_ht_grad, [params.lstmSize, curBatchSize, numTimeSteps]);
+      otherGrads.ht(:, :, range) = otherGrads.ht(:, :, range) + reshape(word_ht_grad, [params.lstmSize, curBatchSize, numTimeSteps]);
     end
   end
   
+  if params.posModel==3
+    otherGrads.allEmbGrads(:, wordCount+1:end) = [];
+    otherGrads.allEmbIndices(wordCount+1:end) = [];
+  end
   
   %% predict positions from (srcMaxLen-1) to (T-1)
   if params.posModel>0
@@ -90,19 +130,20 @@ function [costs, softmaxGrad, topGradHt] = softmaxCostGrad(model, params, trainD
       end
       numTimeSteps = (endT-startT+1);
       numExamples = numTimeSteps*curBatchSize;
+      range = startT:endT;
 
       % predicted positions
       predPositions = reshape(trainData.srcPos(:, (startT-srcMaxLen+2):(endT-srcMaxLen+2)), 1, numExamples) - (params.startPosId-1);
     
       % h_t
-      h_t = reshape(topHidVecs(:, :, startT:endT), params.lstmSize, numExamples);
+      h_t = reshape(topHidVecs(:, :, range), params.lstmSize, numExamples);
 
       % prepare mask
-      curMask.mask = reshape(inputMask(:, startT:endT), 1, numExamples);
+      curMask.mask = reshape(inputMask(:, range), 1, numExamples);
       curMask.unmaskedIds = find(curMask.mask);
       curMask.maskedIds = find(~curMask.mask);
 
-      [pos_cost, pos_softmaxGrad, pos_ht_grad] = batchSoftmax('W_softPos', h_t, predPositions, model, params, trainData, curMask, 0);
+      [pos_cost, pos_softmaxGrad, pos_ht_grad] = batchSoftmax('W_softPos', h_t, predPositions, model, params, trainData, batchData, curMask);
       costs.total = costs.total + pos_cost;
       costs.pos = costs.pos + pos_cost;
       
@@ -115,13 +156,13 @@ function [costs, softmaxGrad, topGradHt] = softmaxCostGrad(model, params, trainD
         end
         
         % grad_ht
-        topGradHt(:, :, startT:endT) = topGradHt(:, :, startT:endT) + reshape(pos_ht_grad, [params.lstmSize, curBatchSize, numTimeSteps]);
+        otherGrads.ht(:, :, range) = otherGrads.ht(:, :, range) + reshape(pos_ht_grad, [params.lstmSize, curBatchSize, numTimeSteps]);
       end
     end
   end
 end
 
-function [cost, softmaxGrad, grad_ht, classGrad] = batchSoftmax(matrixName, h_t, origPredLabels, model, params, trainData, curMask, varargin)
+function [cost, softmaxGrad, grad_ht, otherGrads] = batchSoftmax(matrixName, h_t, origPredLabels, model, params, trainData, batchData, curMask, varargin)
 %%%
 %
 % Perform softmax prediction and backprop.
@@ -138,9 +179,14 @@ function [cost, softmaxGrad, grad_ht, classGrad] = batchSoftmax(matrixName, h_t,
   
   %% h_t -> softmax_h
   if params.attnFunc>0 % attention mechanism
-    [softmax_h, attn_h_concat, alignWeights, alignScores, attnInput] = lstm2softHid(h_t, params, model, trainData.topHidVecs(:, :, 1:params.maxSentLen), curMask);
+    [softmax_h, attnInput, attn_h_concat, alignWeights, alignScores] = lstm2softHid(h_t, params, model, trainData.srcHidVecs, curMask);
+  elseif params.posModel==3 % positional model
+    [softmax_h, interSoftInput] = lstm2softHid(h_t, params, model, batchData.srcPosVecs, curMask);
   else
     [softmax_h] = lstm2softHid(h_t, params, model);
+    if params.softmaxDim>0
+      interSoftInput = h_t;
+    end
   end
 
   %% softmax
@@ -161,7 +207,7 @@ function [cost, softmaxGrad, grad_ht, classGrad] = batchSoftmax(matrixName, h_t,
     % softmax_h: softmaxSize * batchSize
     % inClassRaw: classSize * batchSize (sum across softmaxSize, dim 2)
     curClasses = origPredLabels;
-    inClassRaw = reshape(sum(bsxfun(@times, model.W_soft_inclass(:,:,curClasses), permute(softmax_h, [3 1 2])), 2), params.classSize, trainData.curBatchSize);
+    inClassRaw = reshape(sum(bsxfun(@times, model.W_soft_inclass(:,:,curClasses), permute(softmax_h, [3 1 2])), 2), params.classSize, params.curBatchSize);
     [inClassProbs, inClassScores, inClassNorms] = softmax(inClassRaw, mask);
     
     inClassScoreIndices = sub2ind(size(inClassScores), predInClass, unmaskedIds);
@@ -174,6 +220,7 @@ function [cost, softmaxGrad, grad_ht, classGrad] = batchSoftmax(matrixName, h_t,
   classGrad = [];
   softmaxGrad = [];
   grad_ht = [];
+  otherGrads = [];
   if trainData.isTest==0 % compute grad
     %% loss -> grad_softmax_h
     probs(scoreIndices) = probs(scoreIndices) - 1; % minus one at predicted words
@@ -192,16 +239,27 @@ function [cost, softmaxGrad, grad_ht, classGrad] = batchSoftmax(matrixName, h_t,
     end
 
     %% grad_softmax_h -> h_t
-    if params.softmaxDim>0 || params.attnFunc>0 % softmax compression or attention
-      if params.softmaxDim>0 % f(W_h * h_t)
+    if params.softmaxDim>0 || params.attnFunc>0 || params.posModel==3 % softmax compression or attention
+      if params.softmaxDim>0 || params.posModel==3 % f(W_h * interSoftInput)
         % f'(softmax_h).*grad_softmax_h
         tmpResult = params.nonlinear_f_prime(softmax_h).*grad_softmax_h;
 
         % grad.W_h
-        softmaxGrad.W_h = tmpResult*h_t';
+        softmaxGrad.W_h = tmpResult*interSoftInput';
 
-        % grad_ht
-        grad_ht = model.W_h'*tmpResult;
+        if params.softmaxDim>0
+          % grad_ht
+          grad_ht = model.W_h'*tmpResult;
+        else
+          % grad_srcPosH: [srcPosVecs; h_t]
+          grad_srcPosH = model.W_h'*tmpResult;
+          
+          % grad_ht
+          grad_ht = grad_srcPosH(params.lstmSize+1:end, :);
+          
+          % grad srcPosVecs
+          otherGrads.srcPosVecs = grad_srcPosH(1:params.lstmSize, :);
+        end
       elseif params.attnFunc>0 % f(W_ah*[attn_t; tgt_h_t])
         [softmaxGrad, grad_ht] = attnBackprop(model, trainData.topHidVecs, softmax_h, grad_softmax_h, attn_h_concat, alignWeights, alignScores, attnInput, params);
       end
@@ -250,12 +308,17 @@ end
 function [softmaxGrad] = initSoftmaxGrad(params)
   %% h_t -> softmax input
   if params.attnFunc>0 % attention mechanism
-    softmaxGrad.W_a = zeroMatrix([params.maxSentLen, params.lstmSize], params.isGPU, params.dataType);
+    softmaxGrad.W_a = zeroMatrix([params.numSrcHidVecs, params.lstmSize], params.isGPU, params.dataType);
     % attn_t = H_src * a_t
     % h_attn_t = f(W_ah * [attn_t; h_t])
     softmaxGrad.W_ah = zeroMatrix([params.attnSize, 2*params.lstmSize], params.isGPU, params.dataType);
   elseif params.softmaxDim>0 % compress softmax
     softmaxGrad.W_h = zeroMatrix([params.softmaxDim, params.lstmSize], params.isGPU, params.dataType);
+  end
+  
+  if params.posModel==3
+    % h_pos_t = f(W_h * [src_pos_t; h_t])
+    softmaxGrad.W_h = zeroMatrix([params.posSoftSize, 2*params.lstmSize], params.isGPU, params.dataType);
   end
   
   % Note that softmaxSize has been set in initLSTM(), file trainLSTM.m

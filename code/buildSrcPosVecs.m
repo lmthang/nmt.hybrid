@@ -1,4 +1,4 @@
-function [s_t, posIds, nullIds, eosIds, colIndices, embIndices] = buildSrcPosVecs(t, model, params, trainData, curMask)
+function [s_t, srcPosData] = buildSrcPosVecs(t, model, params, trainData, curMask)
 %%%
 %
 % For positional models, generate src vectors based on the predicted positions.
@@ -13,7 +13,7 @@ function [s_t, posIds, nullIds, eosIds, colIndices, embIndices] = buildSrcPosVec
   srcLens = trainData.srcLens;
   input = trainData.input;
   
-  s_t = zeroMatrix([params.lstmSize, trainData.curBatchSize], params.isGPU, params.dataType);
+  s_t = zeroMatrix([params.lstmSize, params.curBatchSize], params.isGPU, params.dataType);
   
   % get predicted positions
   tgtPos = t-srcMaxLen+1;
@@ -41,27 +41,20 @@ function [s_t, posIds, nullIds, eosIds, colIndices, embIndices] = buildSrcPosVec
 
   % in boundary
   if ~isempty(posIds)
-    if params.posModel==1 || params.posModel==2 % we had an extra <s_eos> on the src side
-      colIndices = srcMaxLen-1-srcLens(posIds)+srcPositions;
-    else
-      colIndices = srcMaxLen-srcLens(posIds)+srcPositions;
-    end
+    % we had an extra <s_eos> on the src side. but srcLens doesn't count that additional <s_eos>
+    colIndices = srcMaxLen-1-srcLens(posIds)+srcPositions;
+    
+    % use the below two lines to verify if you get the alignments correctly
+    % params.vocab(input(sub2ind(size(input), posIds, colIndices)))
+    % params.vocab(trainData.tgtOutput(posIds, tgtPos))
+    
     if params.posModel==1 % use src embedding
       srcEmbIndices = input(sub2ind(size(input), posIds, colIndices));
       s_t(:, posIds) = model.W_emb(:, srcEmbIndices);
-      % use the below two lines to verify if you get the alignments correctly
-      % params.vocab(input(sub2ind(size(input), posIds, colIndices)))
-      % params.vocab(trainData.tgtOutput(posIds, tgtPos))
-    elseif params.posModel==2 % use src hidden states
+    elseif params.posModel==2 || params.posModel==3 % use src hidden states
       % topHidVecs: lstmSize * curBatchSize * T
-      % posIds colIndices
-      numPositions = length(posIds);
-      xIds = repmat(1:params.lstmSize, 1, numPositions);
-      yIds = repmat(posIds, params.lstmSize, 1);
-      yIds = yIds(:)';
-      zIds = repmat(colIndices, params.lstmSize, 1);
-      zIds = zIds(:)';
-      s_t(:, posIds) = reshape(trainData.topHidVecs(sub2ind(size(trainData.topHidVecs), xIds, yIds, zIds)), params.lstmSize, numPositions); 
+      [linearIndices] = getTensorLinearIndices(trainData.srcHidVecs, posIds, colIndices);
+      s_t(:, posIds) = reshape(trainData.srcHidVecs(linearIndices), params.lstmSize, length(posIds)); 
     end
   else
     colIndices = [];
@@ -69,7 +62,7 @@ function [s_t, posIds, nullIds, eosIds, colIndices, embIndices] = buildSrcPosVec
   end
   
   if params.posModel==1 % use src embeddings
-    embIndices = zeros(1, trainData.curBatchSize);
+    embIndices = zeros(1, params.curBatchSize);
     embIndices(posIds) = srcEmbIndices;
     embIndices(nullIds) = params.nullPosId;
     embIndices(eosIds) = params.eosPosId;
@@ -78,6 +71,13 @@ function [s_t, posIds, nullIds, eosIds, colIndices, embIndices] = buildSrcPosVec
     embIndices = [];
   end
   
+  % store in structure
+  srcPosData.eosIds = eosIds;
+  srcPosData.nullIds = nullIds;
+  srcPosData.posIds = posIds;
+  srcPosData.colIndices = colIndices;
+  srcPosData.embIndices = embIndices;
+  
   % assert
   if params.assert
     assert(isempty(find(colIndices>=srcMaxLen, 1)));
@@ -85,6 +85,6 @@ function [s_t, posIds, nullIds, eosIds, colIndices, embIndices] = buildSrcPosVec
     assert(length(unmaskedIds) == length([posIds, nullIds, eosIds]));
     assert(sum(sum(s_t(:, curMask.maskedIds)))==0);
     assert(sum(embIndices == (params.srcEos+params.tgtVocabSize))==0);
-  end
+  end  
 end
 
