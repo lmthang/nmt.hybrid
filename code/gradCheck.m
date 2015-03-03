@@ -67,6 +67,17 @@ function gradCheck(model, params)
   end
   grad.W_emb = full_grad_W_emb;
     
+  % W_soft_inclass
+  if params.numClasses>0
+    full_grad_W_soft_inclass = zeroMatrix(size(model.W_soft_inclass), params.isGPU, params.dataType);
+    if params.isGPU
+      full_grad_W_soft_inclass(:, :, grad.classIndices) = gather(grad.W_soft_inclass);
+    else
+      full_grad_W_soft_inclass(:, :, grad.classIndices) = grad.W_soft_inclass;
+    end
+    grad.W_soft_inclass = full_grad_W_soft_inclass;
+  end
+  
   % empirical grad
   delta = 0.01;
   total_abs_diff = 0;
@@ -119,14 +130,3 @@ function gradCheck(model, params)
   
   fprintf(2, '# Num params=%d, abs_diff=%g\n', numParams, total_abs_diff);
 end
-
-%   % W_soft_inclass
-%   if params.numClasses>0
-%     full_grad_W_soft_inclass = zeroMatrix(size(model.W_soft_inclass), params.isGPU, params.dataType);
-%     if params.isGPU
-%       full_grad_W_soft_inclass(:, :, grad.classIndices) = gather(grad.W_soft_inclass);
-%     else
-%       full_grad_W_soft_inclass(:, :, grad.classIndices) = grad.W_soft_inclass;
-%     end
-%     grad.W_soft_inclass = full_grad_W_soft_inclass;
-%   end

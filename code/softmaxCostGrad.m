@@ -18,7 +18,7 @@ function [costs, softmaxGrad, otherGrads] = softmaxCostGrad(model, params, train
   srcMaxLen = trainData.srcMaxLen;
   
   % init grads
-  [softmaxGrad] = initSoftmaxGrad(params);
+  [softmaxGrad, otherGrads] = initSoftmaxGrad(params);
   if params.attnFunc>0 || params.posModel==3
     softmaxGrad.srcHidVecs = zeroMatrix([params.lstmSize, curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);
   end
@@ -92,7 +92,8 @@ function [costs, softmaxGrad, otherGrads] = softmaxCostGrad(model, params, train
       
       % class-based softmax
       if params.numClasses>0 
-        softmaxGrad.W_soft_inclass(:, :, otherBatchGrads.indices) = softmaxGrad.W_soft_inclass(:, :, otherBatchGrads.indices) + otherBatchGrads.W_soft_inclass;
+        otherGrads.W_soft_inclass(:, :, otherBatchGrads.indices) = otherGrads.W_soft_inclass(:, :, otherBatchGrads.indices) + otherBatchGrads.W_soft_inclass;
+        otherGrads.classIndices = unique([otherGrads.classIndices otherBatchGrads.indices]);
       end
       
       % positional model 3
@@ -162,7 +163,7 @@ function [costs, softmaxGrad, otherGrads] = softmaxCostGrad(model, params, train
   end
 end
 
-function [cost, softmaxGrad, grad_ht, otherGrads] = batchSoftmax(matrixName, h_t, origPredLabels, model, params, trainData, batchData, curMask, varargin)
+function [cost, softmaxGrad, grad_ht, otherBatchGrads] = batchSoftmax(matrixName, h_t, origPredLabels, model, params, trainData, batchData, curMask, varargin)
 %%%
 %
 % Perform softmax prediction and backprop.
@@ -215,7 +216,7 @@ function [cost, softmaxGrad, grad_ht, otherGrads] = batchSoftmax(matrixName, h_t
   %% grad
   softmaxGrad = [];
   grad_ht = [];
-  otherGrads = [];
+  otherBatchGrads = [];
   if trainData.isTest==0 % compute grad
     %% loss -> grad_softmax_h
     probs(scoreIndices) = probs(scoreIndices) - 1; % minus one at predicted words
@@ -253,7 +254,7 @@ function [cost, softmaxGrad, grad_ht, otherGrads] = batchSoftmax(matrixName, h_t
           grad_ht = grad_srcPosH(params.lstmSize+1:end, :);
           
           % grad srcPosVecs
-          otherGrads.srcPosVecs = grad_srcPosH(1:params.lstmSize, :);
+          otherBatchGrads.srcPosVecs = grad_srcPosH(1:params.lstmSize, :);
         end
       elseif params.attnFunc>0 % f(W_ah*[attn_t; tgt_h_t])
         [softmaxGrad, grad_ht] = attnBackprop(model, trainData.topHidVecs, softmax_h, grad_softmax_h, attn_h_concat, alignWeights, alignScores, attnInput, params);
@@ -279,8 +280,8 @@ function [cost, softmaxGrad, grad_ht, otherGrads] = batchSoftmax(matrixName, h_t
       W_soft_inclass_grads = reshape(W_soft_inclass_grads, [params.classSize*params.softmaxSize numWords]);
       
       % accumulate
-      [otherGrads.W_soft_inclass, otherGrads.indices] = aggregateMatrix(W_soft_inclass_grads, curClasses(unmaskedIds), params.isGPU, params.dataType);
-      otherGrads.W_soft_inclass = reshape(otherGrads.W_soft_inclass, [params.classSize params.softmaxSize length(otherGrads.indices)]);
+      [otherBatchGrads.W_soft_inclass, otherBatchGrads.indices] = aggregateMatrix(W_soft_inclass_grads, curClasses(unmaskedIds), params.isGPU, params.dataType);
+      otherBatchGrads.W_soft_inclass = reshape(otherBatchGrads.W_soft_inclass, [params.classSize params.softmaxSize length(otherBatchGrads.indices)]);
     end
   end % end isTest
   
@@ -303,7 +304,7 @@ function [cost, softmaxGrad, grad_ht, otherGrads] = batchSoftmax(matrixName, h_t
   end
 end
 
-function [softmaxGrad] = initSoftmaxGrad(params)
+function [softmaxGrad, otherGrads] = initSoftmaxGrad(params)
   %% h_t -> softmax input
   if params.attnFunc>0 % attention mechanism
     softmaxGrad.W_a = zeroMatrix([params.numSrcHidVecs, params.lstmSize], params.isGPU, params.dataType);
@@ -326,12 +327,14 @@ function [softmaxGrad] = initSoftmaxGrad(params)
   if params.numClasses == 0 % normal
     % W_soft
     softmaxGrad.W_soft = zeroMatrix([params.outVocabSize, params.softmaxSize], params.isGPU, params.dataType);
+    otherGrads = [];
   else % class-based
     % W_soft_class: numClasses * softmaxSize
     softmaxGrad.W_soft_class = zeroMatrix([params.numClasses, params.softmaxSize], params.isGPU, params.dataType);
     
     % W_soft_inclass: classSize * softmaxSize * numClasses
-    softmaxGrad.W_soft_inclass = zeroMatrix([params.classSize, params.softmaxSize, params.numClasses], params.isGPU, params.dataType);
+    otherGrads.W_soft_inclass = zeroMatrix([params.classSize, params.softmaxSize, params.numClasses], params.isGPU, params.dataType);
+    otherGrads.classIndices = [];
   end
   
   % positional models

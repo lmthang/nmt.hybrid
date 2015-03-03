@@ -647,7 +647,7 @@ function [params] = setupVars(model, params)
   % those matrices which we will update sparsely
   params.varsSelected = {};
   for ii=1:length(params.vars)
-    if strcmp(params.vars{ii}, 'W_emb')==0 %&& strcmp(params.vars{ii}, 'W_soft_inclass')==0
+    if strcmp(params.vars{ii}, 'W_emb')==0 && strcmp(params.vars{ii}, 'W_soft_inclass')==0
       params.varsSelected{end+1} = params.vars{ii};
     end
   end

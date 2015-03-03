@@ -227,6 +227,12 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
     end % end for layer
   end % end for time
    
+  % grad W_soft_inclass
+  if params.numClasses>0
+    grad.classIndices = otherSoftmaxGrads.classIndices;
+    grad.W_soft_inclass = otherSoftmaxGrads.W_soft_inclass(:, :, grad.classIndices);
+  end
+  
   % grad W_emb
   if params.posModel>0
     % update embs of <p_n> and <p_eos>

@@ -256,34 +256,24 @@ function [bestLogProbs, bestWords] = nextBeamStep(model, h, beamSize, params)
       assert(isempty( find( abs(sum(exp(class_log_probs))-1)>1e-8, 1 ) ), 'sum of class_probs is not one\n');
     end
       
-
-    in_class_raws = squeeze(sum(bsxfun(@times, permute(model.W_soft_inclass,[1 2 3 4]), permute(softmax_h,[3 4 1 2])), 3));
-    mx = max(in_class_raws, [], 2);
+    % W_soft_inclass: classSize * lstmSize * numClasses
+    % softmax_h: lstmSize * batchSize
+    % build classSize * lstmSize * numClasses * batchSize, 
+    % then sum across lstmSize (dim 2)
+    % in_class_raws: classSize * numClasses * batchSize, 
+    in_class_raws = squeeze(sum(bsxfun(@times, permute(model.W_soft_inclass,[1 2 3 4]), permute(softmax_h,[3 1 4 2])), 2));
+    mx = max(in_class_raws, [], 1); % max along classSize (dim 1)
     in_class_raws = bsxfun(@minus, in_class_raws, mx);
-    in_class_log_probs = bsxfun(@minus, in_class_raws, log(sum(exp(in_class_raws),2)));
+    in_class_log_probs = bsxfun(@minus, in_class_raws, log(sum(exp(in_class_raws),1))); % sum along classSize (dim 1)
 
-    total_log_probs = bsxfun(@plus, permute(class_log_probs,[1 3 2]), in_class_log_probs);
-    logProbs = reshape(permute(total_log_probs, [2 1 3]), [], batch_size);
+    % class_log_probs: numClasses * batchSize
+    % in_class_log_probs, total_log_probs: classSize * numClasses * batchSize
+    total_log_probs = bsxfun(@plus, permute(class_log_probs,[3 1 2]), in_class_log_probs);
+    logProbs = reshape(total_log_probs, params.classSize*params.numClasses, batch_size);
     correct_order = repmat(params.classSize*(0:(params.numClasses-1))', [1 params.classSize]);
     correct_order = bsxfun(@plus, correct_order, 1:params.classSize);
-%    cls = randi(params.numClasses)
-%    sum(exp(bsxfun(@minus, logProbs((1:params.classSize)+(cls-1)*params.classSize,:), class_log_probs(cls,:))))
-    logProbs = logProbs(correct_order(:),:);
 
-    % test
-%    tmp = logProbs;
-%    tmp_sum = zeroMatrix([params.numClasses, batch_size], params.isGPU, params.dataType);
-%    assert(size(tmp,1) == params.tgtVocabSize, 'fuck\n');
-%%    sum(exp(tmp))
-%    for i = 1 : size(tmp,1)
-%      tmp(i,:) = tmp(i,:) - class_log_probs(mod(i,params.numClasses)+1,:);
-%    end
-%    tmp = exp(tmp);
-%%    sum(tmp)
-%    for i = 1 : size(tmp,1)
-%      tmp_sum(mod(i,params.numClasses)+1,:) = tmp_sum(mod(i,params.numClasses)+1,:) + tmp(i,:);
-%    end
-%%    tmp_sum
+    logProbs = logProbs(correct_order(:),:);
   end
   
   % sort
@@ -301,6 +291,23 @@ end
 
 
 %% Unused %%
+%    cls = randi(params.numClasses)
+%    sum(exp(bsxfun(@minus, logProbs((1:params.classSize)+(cls-1)*params.classSize,:), class_log_probs(cls,:))))
+    % test
+%    tmp = logProbs;
+%    tmp_sum = zeroMatrix([params.numClasses, batch_size], params.isGPU, params.dataType);
+%    assert(size(tmp,1) == params.tgtVocabSize, 'fuck\n');
+%%    sum(exp(tmp))
+%    for i = 1 : size(tmp,1)
+%      tmp(i,:) = tmp(i,:) - class_log_probs(mod(i,params.numClasses)+1,:);
+%    end
+%    tmp = exp(tmp);
+%%    sum(tmp)
+%    for i = 1 : size(tmp,1)
+%      tmp_sum(mod(i,params.numClasses)+1,:) = tmp_sum(mod(i,params.numClasses)+1,:) + tmp(i,:);
+%    end
+%%    tmp_sum
+
 %   if params.accmLstm
 %     accmLstm = cell(params.numLayers, 1); % accumulate c_t and h_t over time
 %     for ll=1:params.numLayers % layer
