@@ -424,21 +424,16 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
 end
 
 %% Init model parameters
-function [model, params] = initLSTM(params)
+function [model] = initLSTM(params)
   fprintf(2, '# Init LSTM parameters using dataType=%s, initRange=%g\n', params.dataType, params.initRange);
   
-  % stack vocab:  tgt-vocab + src-vocab
+  % W_src
   if params.isBi
-    params.inVocabSize = params.tgtVocabSize + params.srcVocabSize;
     model.W_src = cell(params.numLayers, 1);    
-    
     for ll=1:params.numLayers
       model.W_src{ll} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
     end
-  else
-    params.inVocabSize = params.tgtVocabSize;
   end
-  params.outVocabSize = params.tgtVocabSize;
   
   % W_tgt
   model.W_tgt = cell(params.numLayers, 1);
@@ -467,23 +462,18 @@ function [model, params] = initLSTM(params)
   %% h_t -> softmax input
   if params.attnFunc>0 % attention mechanism
     model.W_a = randomMatrix(params.initRange, [params.maxSentLen-1, params.lstmSize], params.isGPU, params.dataType);
+    
     % attn_t = H_src * a_t
     % h_attn_t = f(W_ah * [attn_t; h_t])
     model.W_ah = randomMatrix(params.initRange, [params.attnSize, 2*params.lstmSize], params.isGPU, params.dataType);
-    
-    params.softmaxSize = params.attnSize;
   elseif params.softmaxDim>0 % compress softmax
     model.W_h = randomMatrix(params.initRange, [params.softmaxDim, params.lstmSize], params.isGPU, params.dataType);
-    params.softmaxSize = params.softmaxDim;
-  else % normal
-    params.softmaxSize = params.lstmSize;
   end
   
   %% positional models
   if params.posModel==3
     % h_pos_t = f(W_h * [src_pos_t; h_t])
     model.W_h = randomMatrix(params.initRange, [params.posSoftSize, 2*params.lstmSize], params.isGPU, params.dataType);
-    params.softmaxSize = params.posSoftSize;
   end
   if params.posModel>0
     model.W_softPos = randomMatrix(params.initRange, [params.posVocabSize, params.softmaxSize], params.isGPU, params.dataType);
@@ -495,7 +485,6 @@ function [model, params] = initLSTM(params)
     model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.softmaxSize], params.isGPU, params.dataType);
   else % class-based
     assert(mod(params.outVocabSize, params.numClasses) == 0, sprintf('outVocabSize (%d) must be divisible by numClasses (%d)', params.outVocabSize, params.numClasses));
-    params.classSize = params.outVocabSize / params.numClasses;
     
     % W_soft_class: numClasses * softmaxSize
     model.W_soft_class = randomMatrix(params.initRange, [params.numClasses, params.softmaxSize], params.isGPU, params.dataType);
@@ -503,9 +492,6 @@ function [model, params] = initLSTM(params)
     % W_soft_inclass: classSize * softmaxSize * numClasses
     model.W_soft_inclass = randomMatrix(params.initRange, [params.classSize, params.softmaxSize, params.numClasses], params.isGPU, params.dataType);
   end
-  
-  % compute model size
-  params.modelSize = modelSizes(model);
 end
 
 function [params] = evalSaveDecode(model, validData, testData, params, srcTrainSents, tgtTrainSents)
@@ -583,15 +569,30 @@ function [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents]
 end
 
 function [model, params] = initLoadModel(params)
-  if params.isGradCheck==0 && params.isResume && exist(params.modelRecentFile, 'file') % a model exists, resume training
+  % softmaxSize
+  if params.attnFunc>0 % attention mechanism    
+    params.softmaxSize = params.attnSize;
+  elseif params.softmaxDim>0 % compress softmax
+    params.softmaxSize = params.softmaxDim;
+  elseif params.posModel==3
+    params.softmaxSize = params.posSoftSize;
+  else % normal
+    params.softmaxSize = params.lstmSize;
+  end
+  
+  % class-based softmax
+  if params.numClasses>0
+    params.classSize = params.outVocabSize / params.numClasses;
+  end
+  
+  % a model exists, resume training
+  if params.isGradCheck==0 && params.isResume && exist(params.modelRecentFile, 'file') 
     fprintf(2, '# Model file %s exists. Try loading ...\n', params.modelRecentFile);
     fprintf(params.logId, '# Model file %s exists. Try loading ...\n', params.modelRecentFile);
     savedData = load(params.modelRecentFile);
     
     % params
     oldParams = savedData.params;
-    params.inVocabSize = oldParams.inVocabSize;
-    params.outVocabSize = oldParams.outVocabSize;
     params.lr = oldParams.lr;
     params.epoch = oldParams.epoch;
     params.epochBatchCount = oldParams.epochBatchCount;
@@ -621,7 +622,7 @@ function [model, params] = initLoadModel(params)
     fprintf(2, '  loaded! lr=%g, epoch=%d, iter=%d, bestCostValid=%g, testPerplexity=%g\n', params.lr, params.epoch, params.startIter, params.bestCostValid, params.testPerplexity);
     fprintf(params.logId, '  loaded! lr=%g, epoch=%d, iter=%d, bestCostValid=%g, testPerplexity=%g\n', params.lr, params.epoch, params.startIter, params.bestCostValid, params.testPerplexity);
   else % start from scratch
-    [model, params] = initLSTM(params);
+    [model] = initLSTM(params);
     params.lr = params.learningRate;
     params.epoch = 1;
     params.bestCostValid = 1e5;
@@ -633,6 +634,9 @@ function [model, params] = initLoadModel(params)
     params.finetuneCount = 0;
   end
 
+  % compute model size
+  params.modelSize = modelSizes(model);
+  
   params = setupVars(model, params);
 end
 
