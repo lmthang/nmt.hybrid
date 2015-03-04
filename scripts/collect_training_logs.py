@@ -73,12 +73,15 @@ def process_files(in_file, out_dir):
   sys.stderr.write('# Processing file %s ...\n' % (in_file))
   pattern = re.compile('save model test perplexity ([\d\.]+) ')
   eval_pattern = re.compile('# eval (.+), train')
+  err_pattern = re.compile('(JOB \d+ CANCELLED AT .+)')
   results = []
   for file_name in inf:
     file_name = clean_line(file_name)
+    
+    # log
     log_file = os.path.expanduser(file_name + '/log')
     best_ppl = ''
-    eval_stats = ''
+    eval_stat = ''
     prev_line = ''
     if os.path.exists(log_file):
       log_inf = codecs.open(log_file, 'r', 'utf-8')
@@ -90,13 +93,25 @@ def process_files(in_file, out_dir):
           # eval stats
           eval_m = re.search(eval_pattern, prev_line)
           assert eval_m != None
-          eval_stats = eval_m.group(1)
+          eval_stat = eval_m.group(1)
 
         prev_line = line
       log_inf.close()
     
-    results.append(eval_stats)
-    sys.stderr.write('%s  %s\n' % (eval_stats, file_name))
+    # stderr
+    stderr_file = os.path.expanduser(file_name + '/stderr')
+    err_stat = ''
+    if os.path.exists(stderr_file):
+      stderr_inf = codecs.open(stderr_file, 'r', 'utf-8')
+      for line in stderr_inf: 
+        m = re.search(err_pattern, line)
+        if m != None:
+          err_stat = m.group(1)
+
+      stderr_inf.close()
+    
+    results.append(eval_stat)
+    sys.stderr.write('%s %s %s\n' % (eval_stat, file_name, err_stat))
   
   sys.stderr.write('%s\n' % '\n'.join(results))
   inf.close()
