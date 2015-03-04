@@ -504,7 +504,7 @@ function [params] = evalSaveDecode(model, validData, testData, params, srcTrainS
   save(params.modelRecentFile, 'model', 'params');
 
   % decode
-  if params.isBi && params.attnFunc==0 && params.posModel==0
+  if params.isBi && params.attnFunc==0 && params.posModel==0 && params.numClasses==0
     validId = randi(validData.numSents);
     testId = randi(testData.numSents);
     srcDecodeSents = [srcTrainSents(1); validData.srcSents(validId); testData.srcSents(testId)];
