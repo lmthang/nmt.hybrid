@@ -77,7 +77,7 @@ def process_files(in_file, out_dir):
   results = []
   for file_name in inf:
     file_name = clean_line(file_name)
-    
+
     # log
     log_file = os.path.expanduser(file_name + '/log')
     best_ppl = ''
@@ -86,18 +86,13 @@ def process_files(in_file, out_dir):
     if os.path.exists(log_file):
       log_inf = codecs.open(log_file, 'r', 'utf-8')
       for line in log_inf: 
-        m = re.search(pattern, line)
-        if m != None:
-          best_ppl = m.group(1)
-
-          # eval stats
-          eval_m = re.search(eval_pattern, prev_line)
-          assert eval_m != None
+        eval_m = re.search(eval_pattern, prev_line)
+        if eval_m != None:
           eval_stat = eval_m.group(1)
 
         prev_line = line
       log_inf.close()
-    
+
     # stderr
     stderr_file = os.path.expanduser(file_name + '/stderr')
     err_stat = ''
