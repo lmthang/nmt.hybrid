@@ -53,13 +53,18 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   printParams(2, decodeParams);
   
   [savedData] = load(decodeParams.modelFile);
-  params = savedData.params;
+  params = savedData.params;  
   params.posModel=0;
   model = savedData.model;
   model
  
-  [srcVocab, tgtVocab, params] = loadBiVocabs(params);
-  params.vocab = [tgtVocab srcVocab];
+  % for backward compatibility
+  if ~isfield(params, 'numClasses')
+    params.numClasses = 0;
+  end
+  if ~isfield(params, 'dropout')
+    params.dropout = 1;
+  end
   
   % convert absolute paths to local paths
   fieldNames = fields(params);
@@ -74,6 +79,9 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
       end
     end
   end
+  
+  [srcVocab, tgtVocab, params] = loadBiVocabs(params);
+  params.vocab = [tgtVocab srcVocab];
   
   % copy fields
   fieldNames = fields(decodeParams);
