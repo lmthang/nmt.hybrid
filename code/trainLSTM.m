@@ -233,7 +233,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     trainCost.word = 0;
   end
   params.evalFreq = params.logFreq*10;
-  %params.saveFreq = params.evalFreq;
 
   % profile
   if params.isProfile
@@ -244,8 +243,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   fprintf(2, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
   fprintf(params.logId, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
   isRun = 1;
-  lastNanIter = -1;
-  nanCount = 0;
   while(isRun)
     assert(numTrainSents>0 && numBatches>0);
     for batchId = 1 : numBatches
@@ -263,21 +260,14 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
 
       %% handle nan/inf
       if isnan(costs.total) || isinf(costs.total)
-        modelStr = wInfo(model);
-        gradStr = wInfo(grad);
-        fprintf(2, 'epoch=%d, iter=%d, nan/inf cost=%g, gradStr=%s, modelStr=%s\n', params.epoch, params.iter, costs.total, gradStr, modelStr);
-        fprintf(params.logId, 'epoch=%d, iter=%d, nan/inf cost=%g, gradStr=%s, modelStr=%s\n', params.epoch, params.iter, costs.total, gradStr, modelStr);
-        if lastNanIter == (params.iter-1) % consecutive nan
-          nanCount = nanCount + 1;
-        else
-          nanCount = 1;
-        end
-        lastNanIter = params.iter;
-
-        if nanCount==10 % enough patience, stop!
+        if params.isClip==1
+          fprintf(2, 'epoch=%d, iter=%d, nan/inf even with grad clipping ... No hope!\n', params.epoch, params.iter);
           isRun = 0;
           break;
         else
+          fprintf(2, 'epoch=%d, iter=%d, nan/inf. Let us, restart and do grad clipping!\n', params.epoch, params.iter);
+          [model] = initLoadModel(params);
+          params.isClip = 1;
           continue;
         end
       end
@@ -312,115 +302,129 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         model.W_soft_inclass(:, :, grad.classIndices) = model.W_soft_inclass(:, :, grad.classIndices) - scaleLr*grad.W_soft_inclass;
       end
       
-      %% log info
-      totalWords = totalWords + trainData.numWords;
-      trainCost.total = trainCost.total + costs.total;
-      if params.posModel>0 % positional model
-        trainCost.pos = trainCost.pos + costs.pos;
-        trainCost.word = trainCost.word + costs.word;
-      end
-      if mod(params.iter, params.logFreq) == 0
-        endTime = clock;
-        timeElapsed = etime(endTime, startTime);
-        params.costTrain = trainCost.total/totalWords;
-        params.speed = totalWords*0.001/timeElapsed;
-        if params.posModel>0 % positional model
-          params.costTrainPos = trainCost.pos*2/totalWords;
-          params.costTrainWord = trainCost.word*2/totalWords;
-          fprintf(2, '%d, %d, %.2fK, %g, %.2f (%.2f, %.2f), gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
-          fprintf(params.logId, '%d, %d, %.2fK, %g, %.2f (%.2f, %.2f), gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
-        else
-          fprintf(2, '%d, %d, %.2fK, %g, %.2f, gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
-          fprintf(params.logId, '%d, %d, %.2fK, %g, %.2f, gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
-        end
-        
-        % reset
-        totalWords = 0;
-        trainCost.total = 0;
-        if params.posModel>0 % positional model
-          trainCost.pos = 0;
-          trainCost.word = 0;
-        end
-        startTime = clock;
-      end
-
-      %% eval
-      if mod(params.iter, params.evalFreq) == 0    
-        % profile
-        if params.isProfile
-          if ismac
-            profile viewer;
-          else
-            profile off;
-            profsave(profile('info'), 'profile_results');
-          end
-          return;
-        end
-        
-        % eval, save, and decode
-        [params] = evalSaveDecode(model, validData, testData, params, srcTrainSents, tgtTrainSents);
-        
-        startTime = clock;
-      end
-
-      % finetuning
-      if params.epoch > params.finetuneEpoch && mod(params.iter, params.finetuneCount)==0
-        fprintf(2, '# Finetuning %f -> %f\n', params.lr, params.lr*params.finetuneRate);
-        fprintf(params.logId, '# Finetuning %f -> %f\n', params.lr, params.lr*params.finetuneRate);
-        params.lr = params.lr*params.finetuneRate;
-      end
-      
-      if params.epoch==1
-        params.epochBatchCount = params.epochBatchCount + 1;
-      end
+      %% logging, eval, save, decode, fine-tuning, etc.
+      [totalWords, trainCost, params, startTime] = postTrainIter(model, costs, gradNorm, trainData, validData, testData, totalWords, trainCost, params, startTime, srcTrainSents, tgtTrainSents);
     end % end for batchId
 
-    % read more data
+    %% read more data
     [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents] = loadTrainBatches(params);
     
-    % eof, end of an epoch
+    %% end of an epoch
     if numTrainSents == 0 
-      % seek to the beginning
-      if params.isBi
-        fseek(params.srcTrainId, 0, 'bof');
-      end
-      fseek(params.tgtTrainId, 0, 'bof');
-
-      % read more data
-      [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents] = loadTrainBatches(params);
-        
-      % epoch stats
-      if params.epoch==1
-        params.finetuneCount = floor(params.epochFraction*params.epochBatchCount);
-        fprintf(2, '# Num batches per epoch = %d, finetune count=%d\n', params.epochBatchCount, params.finetuneCount);
-        fprintf(params.logId, '# Num batches per epoch = %d, finetune count=%d\n', params.epochBatchCount, params.finetuneCount);
-        if params.evalFreq > params.epochBatchCount
-          fprintf(2, '! change evalFreq from %d -> %d\n', params.evalFreq, params.epochBatchCount);
-          params.evalFreq = params.epochBatchCount;
-          
-          % eval, save, and decode
-          [params] = evalSaveDecode(model, validData, testData, params, srcTrainSents, tgtTrainSents);
-        end
-      end
+      [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents, params] = postTrainEpoch(model, validData, testData, params);
       
-      % new epoch
-      params.epoch = params.epoch + 1;
-      if params.epoch <= params.numEpoches % continue training
-        fprintf(2, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
-        fprintf(params.logId, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
-      else % done training
-        fprintf(2, '# Done training, %s\n', datestr(now));
-        % close files
-        if params.isBi
-          fclose(params.srcTrainId);
-        end
-        fclose(params.tgtTrainId);
+      if params.epoch > params.numEpoches
         break; 
       end
     end
   end % end for while(1)
   
   fclose(params.logId);
+end
+
+%% Things to do after each training iteration %%
+function [totalWords, trainCost, params, startTime] = postTrainIter(model, costs, gradNorm, trainData, validData, testData, totalWords, trainCost, params, startTime, srcTrainSents, tgtTrainSents)
+  %% log info
+  totalWords = totalWords + trainData.numWords;
+  trainCost.total = trainCost.total + costs.total;
+  if params.posModel>0 % positional model
+    trainCost.pos = trainCost.pos + costs.pos;
+    trainCost.word = trainCost.word + costs.word;
+  end
+  if mod(params.iter, params.logFreq) == 0
+    endTime = clock;
+    timeElapsed = etime(endTime, startTime);
+    params.costTrain = trainCost.total/totalWords;
+    params.speed = totalWords*0.001/timeElapsed;
+    if params.posModel>0 % positional model
+      params.costTrainPos = trainCost.pos*2/totalWords;
+      params.costTrainWord = trainCost.word*2/totalWords;
+      fprintf(2, '%d, %d, %.2fK, %g, %.2f (%.2f, %.2f), gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
+      fprintf(params.logId, '%d, %d, %.2fK, %g, %.2f (%.2f, %.2f), gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
+    else
+      fprintf(2, '%d, %d, %.2fK, %g, %.2f, gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
+      fprintf(params.logId, '%d, %d, %.2fK, %g, %.2f, gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
+    end
+
+    % reset
+    totalWords = 0;
+    trainCost.total = 0;
+    if params.posModel>0 % positional model
+      trainCost.pos = 0;
+      trainCost.word = 0;
+    end
+    startTime = clock;
+  end
+
+  %% eval
+  if mod(params.iter, params.evalFreq) == 0    
+    % profile
+    if params.isProfile
+      if ismac
+        profile viewer;
+      else
+        profile off;
+        profsave(profile('info'), 'profile_results');
+      end
+      return;
+    end
+
+    % eval, save, and decode
+    [params] = evalSaveDecode(model, validData, testData, params, srcTrainSents, tgtTrainSents);
+
+    startTime = clock;
+  end
+
+  % finetuning
+  if params.epoch > params.finetuneEpoch && mod(params.iter, params.finetuneCount)==0
+    fprintf(2, '# Finetuning %f -> %f\n', params.lr, params.lr*params.finetuneRate);
+    fprintf(params.logId, '# Finetuning %f -> %f\n', params.lr, params.lr*params.finetuneRate);
+    params.lr = params.lr*params.finetuneRate;
+  end
+
+  if params.epoch==1
+    params.epochBatchCount = params.epochBatchCount + 1;
+  end
+end
+
+%% Things to do at the end of each training epoch %%
+function [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents, params] = postTrainEpoch(model, validData, testData, params)
+  % seek to the beginning
+  if params.isBi
+    fseek(params.srcTrainId, 0, 'bof');
+  end
+  fseek(params.tgtTrainId, 0, 'bof');
+
+  % read more data
+  [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents] = loadTrainBatches(params);
+
+  % epoch stats
+  if params.epoch==1
+    params.finetuneCount = floor(params.epochFraction*params.epochBatchCount);
+    fprintf(2, '# Num batches per epoch = %d, finetune count=%d\n', params.epochBatchCount, params.finetuneCount);
+    fprintf(params.logId, '# Num batches per epoch = %d, finetune count=%d\n', params.epochBatchCount, params.finetuneCount);
+    if params.evalFreq > params.epochBatchCount
+      fprintf(2, '! change evalFreq from %d -> %d\n', params.evalFreq, params.epochBatchCount);
+      params.evalFreq = params.epochBatchCount;
+
+      % eval, save, and decode
+      [params] = evalSaveDecode(model, validData, testData, params, srcTrainSents, tgtTrainSents);
+    end
+  end
+
+  % new epoch
+  params.epoch = params.epoch + 1;
+  if params.epoch <= params.numEpoches % continue training
+    fprintf(2, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
+    fprintf(params.logId, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
+  else % done training
+    fprintf(2, '# Done training, %s\n', datestr(now));
+    % close files
+    if params.isBi
+      fclose(params.srcTrainId);
+    end
+    fclose(params.tgtTrainId);
+  end
 end
 
 %% Init model parameters
@@ -663,6 +667,27 @@ function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab)
 end
 
 %% Unused code %%
+%   lastNanIter = -1;
+%   nanCount = 0;
+
+%         modelStr = wInfo(model);
+%         gradStr = wInfo(grad);
+%         fprintf(2, 'epoch=%d, iter=%d, nan/inf cost=%g, gradStr=%s, modelStr=%s\n', params.epoch, params.iter, costs.total, gradStr, modelStr);
+%         fprintf(params.logId, 'epoch=%d, iter=%d, nan/inf cost=%g, gradStr=%s, modelStr=%s\n', params.epoch, params.iter, costs.total, gradStr, modelStr);
+%         if lastNanIter == (params.iter-1) % consecutive nan
+%           nanCount = nanCount + 1;
+%         else
+%           nanCount = 1;
+%         end
+%         lastNanIter = params.iter;
+% 
+%         if nanCount==10 % enough patience, stop!
+%           isRun = 0;
+%           break;
+%         else
+%           continue;
+%         end
+
   % attnOpt=0: no attention.
   %         1: bilingual embedding attention.
   %         2: same as Bengio. NOT IMPLEMENTED.
