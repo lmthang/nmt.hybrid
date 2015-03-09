@@ -22,6 +22,7 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   addRequired(p,'outputFile',@ischar);
 
   % optional
+  addOptional(p,'testPrefix', '', @ischar); % to specify a different file for decoding
   addOptional(p,'gpuDevice', 1, @isnumeric); % choose the gpuDevice to use. 
   addOptional(p,'unkId', 1, @isnumeric); % id of unk word
   
@@ -87,6 +88,11 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   fieldNames = fields(decodeParams);
   for ii=1:length(fieldNames)
     field = fieldNames{ii};
+    if strcmp(field, 'testPrefix')==1 && strcmp(decodeParams.(field), '')==1 % skip empty testPrefix
+      continue;
+    else
+      fprintf(2, '# Decode a different test file %s\n', decodeParams.(field));
+    end
     params.(field) = decodeParams.(field);
   end
   
@@ -101,8 +107,9 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   % load test data
   [srcVocab] = params.vocab(params.tgtVocabSize+1:end);
   [tgtVocab] = params.vocab(1 : params.tgtVocabSize);
-  [srcSents, tgtSents, numSents]  = loadBiData(params, params.testPrefix, srcVocab, tgtVocab);
-  %[srcSents, tgtSents, numSents]  = loadBiData(params, params.trainPrefix, srcVocab, tgtVocab, 10);
+  isDecode = 1;
+  [srcSents, tgtSents, numSents]  = loadBiData(params, params.testPrefix, srcVocab, tgtVocab, isDecode);
+  %[srcSents, tgtSents, numSents]  = loadBiData(params, params.trainPrefix, srcVocab, tgtVocab, isDecode, 10);
   
   %%%%%%%%%%%%
   %% decode %%
