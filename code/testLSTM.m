@@ -90,7 +90,7 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
     field = fieldNames{ii};
     if strcmp(field, 'testPrefix')==1 && strcmp(decodeParams.(field), '')==1 % skip empty testPrefix
       continue;
-    else
+    elseif strcmp(field, 'testPrefix')==1
       fprintf(2, '# Decode a different test file %s\n', decodeParams.(field));
     end
     params.(field) = decodeParams.(field);
@@ -108,8 +108,8 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   [srcVocab] = params.vocab(params.tgtVocabSize+1:end);
   [tgtVocab] = params.vocab(1 : params.tgtVocabSize);
   isDecode = 1;
-  [srcSents, tgtSents, numSents]  = loadBiData(params, params.testPrefix, srcVocab, tgtVocab, isDecode);
-  %[srcSents, tgtSents, numSents]  = loadBiData(params, params.trainPrefix, srcVocab, tgtVocab, isDecode, 10);
+  [srcSents, tgtSents, numSents]  = loadBiData(params, params.testPrefix, srcVocab, tgtVocab);
+  %[srcSents, tgtSents, numSents]  = loadBiData(params, params.trainPrefix, srcVocab, tgtVocab, 10);
   
   %%%%%%%%%%%%
   %% decode %%

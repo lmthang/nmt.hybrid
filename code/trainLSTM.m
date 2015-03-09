@@ -659,7 +659,7 @@ end
 
 function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab)
   isDecode = 0;
-  [srcSents, tgtSents, numSents] = loadBiData(params, prefix, srcVocab, tgtVocab, isDecode);
+  [srcSents, tgtSents, numSents] = loadBiData(params, prefix, srcVocab, tgtVocab); % , isDecode
   [data] = prepareData(srcSents, tgtSents, 1, params);
   fprintf(2, '  numSents=%d, numWords=%d\n', numSents, data.numWords);
   data.numSents = numSents;

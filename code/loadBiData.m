@@ -1,4 +1,4 @@
-function [srcSents, tgtSents, numSents] = loadBiData(params, prefix, srcVocab, tgtVocab, isDecode, varargin)
+function [srcSents, tgtSents, numSents] = loadBiData(params, prefix, srcVocab, tgtVocab, varargin) % , isDecode
   if length(varargin) == 1
     chunkSize = varargin{1};
   else
@@ -18,13 +18,13 @@ function [srcSents, tgtSents, numSents] = loadBiData(params, prefix, srcVocab, t
   end
   
   % tgt
-  if (isDecode==0)
-    tgtFile = sprintf('%s.%s', prefix, params.tgtLang);
-    [tgtSents, numSents] = loadMonoData(tgtFile, params.tgtEos, chunkSize, params.baseIndex, tgtVocab, 'tgt');
-  else
-    tgtSents = {};
-    numSents = 0;
-  end
+  tgtFile = sprintf('%s.%s', prefix, params.tgtLang);
+  [tgtSents, numSents] = loadMonoData(tgtFile, params.tgtEos, chunkSize, params.baseIndex, tgtVocab, 'tgt');
+%   if (isDecode==0)
+%   else
+%     numSents = length(srcSents);
+%     tgtSents = cell(numSents, 1);
+%   end
 end
 
 function [sents, numSents] = loadMonoData(file, eos, numSents, baseIndex, vocab, label)
