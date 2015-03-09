@@ -73,7 +73,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   % 2: like 1 + feed in src hidden states, 3: like 1 + feed in src embeddings 
   addOptional(p,'posModel', 0, @isnumeric); 
   addOptional(p,'posSoftSize', 0, @isnumeric); % dim of the input to softmax, 0 set to lstmSize
-  addOptional(p,'posWin', 7, @isnumeric);
+  addOptional(p,'posWin', 20, @isnumeric);
   addOptional(p,'posSoftmax', 0, @isnumeric); % use with posModel. 0: same softmax for word/pos, 1: separate softmax for positions
 
   addOptional(p,'globalOpt', 0, @isnumeric); % globalOpt=0: no global model, 1: avg global model, 2: feedforward global model.
