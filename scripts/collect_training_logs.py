@@ -92,6 +92,8 @@ def process_files(in_file, out_dir):
 
         prev_line = line
       log_inf.close()
+    #else:
+    #  sys.stderr.write('! File %s doesn\'t exist.\n' % log_file)
 
     # stderr
     stderr_file = os.path.expanduser(file_name + '/stderr')
@@ -104,6 +106,9 @@ def process_files(in_file, out_dir):
           err_stat = m.group(1)
 
       stderr_inf.close()
+    #else:
+    #  sys.stderr.write('! File %s doesn\'t exist.\n' % stderr_file)
+
     
     results.append(eval_stat)
     sys.stderr.write('%s %s %s\n' % (eval_stat, file_name, err_stat))
