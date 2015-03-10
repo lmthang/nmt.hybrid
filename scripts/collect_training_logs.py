@@ -74,6 +74,7 @@ def process_files(in_file, out_dir):
   pattern = re.compile('save model test perplexity ([\d\.]+) ')
   eval_pattern = re.compile('# eval (.+), train')
   err_pattern = re.compile('(JOB \d+ CANCELLED AT .+)')
+  save_pattern = re.compile('save model test perplexity ')
   results = []
   for file_name in inf:
     file_name = clean_line(file_name)
@@ -85,10 +86,12 @@ def process_files(in_file, out_dir):
     prev_line = ''
     if os.path.exists(log_file):
       log_inf = codecs.open(log_file, 'r', 'utf-8')
-      for line in log_inf: 
-        eval_m = re.search(eval_pattern, prev_line)
-        if eval_m != None:
-          eval_stat = eval_m.group(1)
+      for line in log_inf:
+        save_m = re.search(save_pattern, line)
+        if save_m != None:
+          eval_m = re.search(eval_pattern, prev_line)
+          if eval_m != None:
+            eval_stat = eval_m.group(1)
 
         prev_line = line
       log_inf.close()
