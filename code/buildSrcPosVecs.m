@@ -18,11 +18,10 @@ function [s_t, srcPosData] = buildSrcPosVecs(t, model, params, trainData, curMas
   % get predicted positions
   tgtPos = t-srcMaxLen+1;
   predPositions = allSrcPos(unmaskedIds, tgtPos)';
-
+  
   % eos
   eosIds = unmaskedIds(predPositions == params.eosPosId);
   s_t(:, eosIds) = repmat(model.W_emb(:, params.eosPosId), 1, length(eosIds));
-
   % pos
   posIds = unmaskedIds(predPositions ~= params.nullPosId & predPositions ~= params.eosPosId);
   if ~isempty(posIds)

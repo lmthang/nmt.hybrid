@@ -40,11 +40,6 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   [grad, params] = initGrad(model, params);
   zeroState = zeroMatrix([params.lstmSize, params.curBatchSize], params.isGPU, params.dataType);
   
-  if params.posModel==3
-    % srcPosVecs: src hidden states at specific positions
-    trainData.srcPosVecs = zeroMatrix([params.lstmSize, curBatchSize, T-srcMaxLen+1], params.isGPU, params.dataType);
-  end
-  
   % topHidVecs: lstmSize * curBatchSize * T 
   trainData.topHidVecs = zeroMatrix([params.lstmSize, curBatchSize, T], params.isGPU, params.dataType);
   
@@ -53,7 +48,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   %%% FORWARD PASS %%%
   %%%%%%%%%%%%%%%%%%%%
   lstm = cell(params.numLayers, T); % each cell contains intermediate results for that timestep needed for backprop
-  maskInfo = cell(T, 1);
+  trainData.maskInfo = cell(T, 1);
   
   % Note: IMPORTANT. For attention-based models or positional models, it it
   % important to build the top hidden states first before moving to the
@@ -92,28 +87,23 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         end
 
         % prepare mask
-        maskInfo{t}.mask = inputMask(:, t)'; % curBatchSize * 1
-        maskInfo{t}.unmaskedIds = find(maskInfo{t}.mask);
-        maskInfo{t}.maskedIds = find(~maskInfo{t}.mask);
+        trainData.maskInfo{t}.mask = inputMask(:, t)'; % curBatchSize * 1
+        trainData.maskInfo{t}.unmaskedIds = find(trainData.maskInfo{t}.mask);
+        trainData.maskInfo{t}.maskedIds = find(~trainData.maskInfo{t}.mask);
       else % subsequent layer, use the previous-layer hidden state
         x_t = lstm{ll-1, t}.h_t;
       end
       
-      %% positional models: get source info
-      if (params.posModel>0) && t>=srcMaxLen && ll==1 % for positional models, at the first level, we use additional src information
-        [s_t, trainData.srcPosData(tgtPos)] = buildSrcPosVecs(t, model, params, trainData, maskInfo{t});
-        
-        if params.posModel==1 || params.posModel==2
-          x_t = [x_t; s_t];
-        elseif params.posModel==3
-          trainData.srcPosVecs(:, :, tgtPos) = s_t;
-        end
+      %% positioanl models 1,2: at the first level, we use additional src information
+      if (params.posModel==1 || params.posModel==2) && t>=srcMaxLen && ll==1 
+        [s_t, trainData.srcPosData(tgtPos)] = buildSrcPosVecs(t, model, params, trainData, trainData.maskInfo{t});
+        x_t = [x_t; s_t];
       end
       
       %% masking
-      x_t(:, maskInfo{t}.maskedIds) = 0; 
-      h_t_1(:, maskInfo{t}.maskedIds) = 0;
-      c_t_1(:, maskInfo{t}.maskedIds) = 0;
+      x_t(:, trainData.maskInfo{t}.maskedIds) = 0; 
+      h_t_1(:, trainData.maskInfo{t}.maskedIds) = 0;
+      c_t_1(:, trainData.maskInfo{t}.maskedIds) = 0;
       
       %% Core LSTM
       [lstm{ll, t}, top_h_t] = lstmUnit(W, x_t, h_t_1, c_t_1, ll, t, srcMaxLen, params, isTest);      
@@ -165,7 +155,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   end
   
   for t=T:-1:1 % time
-    unmaskedIds = maskInfo{t}.unmaskedIds;
+    unmaskedIds = trainData.maskInfo{t}.unmaskedIds;
     tgtPos = t-srcMaxLen+1;
     
     for ll=params.numLayers:-1:1 % layer
@@ -197,7 +187,8 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         embIndices = input(unmaskedIds, t)';
         embGrad = lstm_grad.input(1:params.lstmSize, unmaskedIds);
           
-        if params.posModel>0 && t>=srcMaxLen
+        % pos model 1, 2
+        if (params.posModel==1 || params.posModel==2) && t>=srcMaxLen
           range = params.lstmSize+1:2*params.lstmSize;
           if params.posModel==1 % pos model 1
             embIndices = [embIndices trainData.srcPosData(tgtPos).embIndices];
@@ -210,7 +201,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
             embGrad = [embGrad lstm_grad.input(range, eosNullIds)];
 
             % update src hidden states
-            if params.posModel==2 && ~isempty(trainData.srcPosData(tgtPos).posIds)
+            if ~isempty(trainData.srcPosData(tgtPos).posIds)
               [linearIndices] = getTensorLinearIndices(trainData.srcHidVecs, trainData.srcPosData(tgtPos).posIds, trainData.srcPosData(tgtPos).colIndices);
               grad.srcHidVecs(linearIndices) = grad.srcHidVecs(linearIndices) + reshape(lstm_grad.input(range, trainData.srcPosData(tgtPos).posIds), 1, []);
             end
@@ -286,10 +277,8 @@ function [grad, params] = initGrad(model, params)
   if params.attnFunc>0 || params.posModel==2 || params.posModel==3
     if params.attnFunc>0
       params.numSrcHidVecs = params.maxSentLen-1;
-    elseif params.posModel==2 % add an extra <s_eos> to the src side
+    elseif params.posModel==2 || params.posModel==3% add an extra <s_eos> to the src side
       params.numSrcHidVecs = params.srcMaxLen-2;
-    elseif params.posModel==3
-      params.numSrcHidVecs = params.srcMaxLen-1;
     end
     assert(params.numSrcHidVecs<=params.T);
     

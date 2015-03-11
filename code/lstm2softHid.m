@@ -15,8 +15,15 @@ function [softmax_h, input, attn_h_concat, alignWeights, alignScores] = lstm2sof
 
     [softmax_h, attn_h_concat, alignWeights, alignScores, input] = attnForward(h_t, model, params, srcHidVecs, curMask);
   elseif params.posModel==3 % positional model: f(W_h * [srcPosVecs; h_t])
-    input = [varargin{1}; h_t];
-    softmax_h = params.nonlinear_f(model.W_h*input);
+    isPredictPos = varargin{1};
+    if isPredictPos==0
+      srcPosVecs = varargin{2};
+      input = [srcPosVecs; h_t];
+      softmax_h = params.nonlinear_f(model.W_h*input);
+    else
+      input = [];
+      softmax_h = h_t;
+    end
   else % normal
     input = [];
     softmax_h = h_t;

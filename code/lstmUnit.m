@@ -20,7 +20,7 @@ function [lstmCell, cell_h_t] = lstmUnit(W, x_t, h_t, c_t, ll, t, srcMaxLen, par
         dropoutMask = (rand(size(x_t))<params.dropout)/params.dropout;
       end
     else % for gradient check use the same mask
-      if t>=srcMaxLen && ll==1 && params.posModel>0
+      if t>=srcMaxLen && ll==1 && (params.posModel==1 || params.posModel==2)
         dropoutMask = params.dropoutMaskPos;
       else
         dropoutMask = params.dropoutMask;
@@ -71,7 +71,7 @@ function [lstmCell, cell_h_t] = lstmUnit(W, x_t, h_t, c_t, ll, t, srcMaxLen, par
     lstmCell.f_c_t = f_c_t;
     
     if params.dropout<1 % store dropout mask
-      if t>=srcMaxLen && ll==1 && params.posModel>0
+      if t>=srcMaxLen && ll==1 && (params.posModel==1 || params.posModel==2)
         lstmCell.dropoutMaskPos = dropoutMask;
       else
         lstmCell.dropoutMask = dropoutMask;

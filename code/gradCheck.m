@@ -39,6 +39,8 @@ function gradCheck(model, params)
   [trainData] = prepareData(srcTrainSents, tgtTrainSents, 0, params);
   printSent(2, trainData.input(1, :), params.vocab, '   input 1:');
   printSent(2, trainData.tgtOutput(1, :), params.vocab, '  output 1:');
+  fprintf(2, 'input mask: %s\n', num2str(trainData.inputMask(1, :)));
+  
   % positional models
   if params.posModel>0
     printSent(2, trainData.srcPos(1, :), params.vocab, '  srcPos 1:');

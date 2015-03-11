@@ -117,7 +117,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     assert(params.attnFunc==0 & params.posModel==0, '! Assert failed: softmaxDim %d > 0 || numClasses % d > 0, so attnFunc %d and posModel %d have to be 0.\n', params.softmaxDim, params.numClasses, params.attnFunc, params.posModel);
   end
   
-  if params.attnFunc>0
+  if params.attnFunc>0 || params.posModel==3
     assert(params.softmaxStep==1, '! For attnFunc %d, softmaxStep %d should be 1\n', params.attnFunc, params.softmaxStep);
   end
   
@@ -478,6 +478,7 @@ function [model] = initLSTM(params)
   if params.posModel==3
     % h_pos_t = f(W_h * [src_pos_t; h_t])
     model.W_h = randomMatrix(params.initRange, [params.posSoftSize, 2*params.lstmSize], params.isGPU, params.dataType);
+  %elseif params.posModel==1 || params.posModel==2
   end
   if params.posModel>0
     model.W_softPos = randomMatrix(params.initRange, [params.posVocabSize, params.softmaxSize], params.isGPU, params.dataType);
