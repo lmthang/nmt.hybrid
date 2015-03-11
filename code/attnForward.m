@@ -10,18 +10,16 @@ function [attnHidVecs, attn_h_concat, alignWeights, alignScores, attnInput] = at
   alignScores = model.W_a*attnInput;
   
   
-  % align weights a_t = softmax(s_t)
+  % align weights a_t = softmax(s_t): numAttnPositions*curBatchSize
   alignWeights = softmax(alignScores);
   
-  % mask
-  % alignWeights = bsxfun(@times, alignWeights, mask)
-  % change alignWeights from numSrcHidVecs*curBatchSize-> 1 * curBatchSize * numSrcHidVecs
+  % mask &change alignWeights to 1 * curBatchSize * numAttnPositions
   alignWeights = permute(bsxfun(@times, alignWeights, curMask.mask), [3, 2, 1]);
   
-  % srcHidVecs: lstmSize * curBatchSize * numSrcHidVecs
-  % alignWeights: 1 * curBatchSize * numSrcHidVecs
+  % srcHidVecs: lstmSize * curBatchSize * numAttnPositions
+  % alignWeights: 1 * curBatchSize * numAttnPositions
   % attention vectors: attn_t = H_src* a_t (weighted average of src vectors)
-  % sum over numSrcHidVecs
+  % sum over numAttnPositions
   attnVecs = squeeze(sum(bsxfun(@times, srcHidVecs, alignWeights), 3)); 
   
   % attention hidden vectors: attnHid = f(W_ah*[attn_t; tgt_h_t])

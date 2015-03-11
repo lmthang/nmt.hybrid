@@ -41,15 +41,14 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'isClip', 0, @isnumeric); % isClip=1: clip forward 50, clip backward 1000.
   addOptional(p,'isReverse', 0, @isnumeric); % isReverse=1: src data = $prefix.reversed.$srcLang (instead of $prefix.$srcLang)
   addOptional(p,'isResume', 1, @isnumeric); % isResume=1: check if a model file exists, continue training from there.
-  addOptional(p,'softmaxDim', 0, @isnumeric); % softmaxDim>0 convert hidden state into an intermediate representation of size softmaxDim before going through the softmax
-  addOptional(p,'softmaxStep', 1, @isnumeric); % do multiple softmax prediction at once
   addOptional(p,'dataType', 'single', @ischar); % Note: use double precision for grad check
   addOptional(p,'maxSentLen', 51, @isnumeric); % mostly apply to src, used in attention-based models. Usual length is 50 + 1 (for eos)
   addOptional(p,'sortBatch', 0, @isnumeric); % 1: each time we read in 100 batches, we sort sentences by length.
   addOptional(p,'shuffle', 0, @isnumeric); % 1: shuffle training batches
 
-  % class-based softmax
-  addOptional(p,'numClasses', 0, @isnumeric); % 0: use normal softmax; postiive values imply the number of classes used in class-based softmax
+  %% advanced (working) features
+  addOptional(p,'dropout', 1, @isnumeric); % dropout prob: 1 no dropout, <1: dropout
+  addOptional(p,'softmaxDim', 0, @isnumeric); % softmaxDim>0 convert hidden state into an intermediate representation of size softmaxDim before going through the softmax
   
   %% debugging options
   addOptional(p,'isGradCheck', 0, @isnumeric); % set 1 to check the gradient, no need input arguments as toy data is automatically generated.
@@ -61,12 +60,14 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   %% research options
   addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
   addOptional(p,'gradNormOpt', 0, @isnumeric); % gradOpt=0: basic, 1: add W_emb
+  addOptional(p,'numClasses', 0, @isnumeric); % >0: class-based softmax
+  addOptional(p,'softmaxStep', 1, @isnumeric); % do multiple softmax prediction at once
   % attnFunc=0: no attention.
-  %          1: a_t = softmax(W_a * [tgt_h_t; srcLens])  
+  %          >0: a_t = softmax(W_a * [tgt_h_t; srcLens])  
+  %           1: absolute positions
+  %           2: relative positions
   addOptional(p,'attnFunc', 0, @isnumeric);
   addOptional(p,'attnSize', 0, @isnumeric); % dim of the vector used to input to the final softmax, if 0, use lstmSize
-  
-  addOptional(p,'dropout', 1, @isnumeric); % dropout prob: 1 no dropout, <1: dropout
   
   % positional models: predict pos, then word, use a separate softmax for pos
   % 1: separately print out pos/word perplexities
@@ -152,17 +153,28 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     params.batchSize = 10;
     params.batchId = 1;
     params.maxSentLen = 5;
-    %params.initRange = 10;
+    params.posWin = 1;
   end
   
+  %% set more params
   % attention
-  if params.attnFunc>0 && params.attnSize==0
-    params.attnSize = params.lstmSize;
+  if params.attnFunc>0
+    if params.attnSize==0
+      params.attnSize = params.lstmSize;
+    end
+    
+    if params.attnFunc==1 % absolute positions
+      params.numAttnPositions = params.maxSentLen-1;
+    elseif params.attnFunc==2 % absolute positions
+      params.numAttnPositions = 2*params.posWin + 1;
+    end
   end
   % positional models
   if params.posModel==3 && params.posSoftSize==0
     params.posSoftSize = params.lstmSize;
   end
+  
+  
   assert(strcmp(outDir, '')==0);
   params.logId = fopen([outDir '/log'], 'a');
   
@@ -462,10 +474,9 @@ function [model] = initLSTM(params)
   end
   model.W_emb(:, params.tgtEos) = zeros(params.lstmSize, 1);
   
-  %% softmax
   %% h_t -> softmax input
   if params.attnFunc>0 % attention mechanism
-    model.W_a = randomMatrix(params.initRange, [params.maxSentLen-1, params.lstmSize], params.isGPU, params.dataType);
+    model.W_a = randomMatrix(params.initRange, [params.numAttnPositions, params.lstmSize], params.isGPU, params.dataType);
     
     % attn_t = H_src * a_t
     % h_attn_t = f(W_ah * [attn_t; h_t])
@@ -475,12 +486,12 @@ function [model] = initLSTM(params)
   end
   
   %% positional models
-  if params.posModel==3
-    % h_pos_t = f(W_h * [src_pos_t; h_t])
-    model.W_h = randomMatrix(params.initRange, [params.posSoftSize, 2*params.lstmSize], params.isGPU, params.dataType);
-  %elseif params.posModel==1 || params.posModel==2
-  end
   if params.posModel>0
+    if params.posModel==3
+      % h_pos_t = f(W_h * [src_pos_t; h_t])
+      model.W_h = randomMatrix(params.initRange, [params.posSoftSize, 2*params.lstmSize], params.isGPU, params.dataType);
+    end
+    
     model.W_softPos = randomMatrix(params.initRange, [params.posVocabSize, params.softmaxSize], params.isGPU, params.dataType);
   end
   
@@ -659,8 +670,7 @@ function [params] = setupVars(model, params)
 end
 
 function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab)
-  isDecode = 0;
-  [srcSents, tgtSents, numSents] = loadBiData(params, prefix, srcVocab, tgtVocab); % , isDecode
+  [srcSents, tgtSents, numSents] = loadBiData(params, prefix, srcVocab, tgtVocab);
   [data] = prepareData(srcSents, tgtSents, 1, params);
   fprintf(2, '  numSents=%d, numWords=%d\n', numSents, data.numWords);
   data.numSents = numSents;
