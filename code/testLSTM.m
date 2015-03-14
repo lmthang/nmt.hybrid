@@ -22,8 +22,8 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   addRequired(p,'outputFile',@ischar);
 
   % optional
-  addOptional(p,'testPrefix', '', @ischar); % to specify a different file for decoding
   addOptional(p,'gpuDevice', 1, @isnumeric); % choose the gpuDevice to use. 
+  addOptional(p,'testPrefix', '', @ischar); % to specify a different file for decoding
   addOptional(p,'unkId', 1, @isnumeric); % id of unk word
   
 %   addOptional(p,'accmLstm', 0, @isnumeric); % 1: accmulate h_t/c_t as we go over the src side.
