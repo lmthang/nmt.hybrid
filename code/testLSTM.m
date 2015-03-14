@@ -23,8 +23,10 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
 
   % optional
   addOptional(p,'gpuDevice', 1, @isnumeric); % choose the gpuDevice to use. 
-  addOptional(p,'testPrefix', '', @ischar); % to specify a different file for decoding
+  addOptional(p,'decodeLenRatio', 1.5, @isnumeric); % decodeLen = srcMaxLen
+  addOptional(p,'permute', 0, @isnumeric); % 1: try to enforce a permutation
   addOptional(p,'unkId', 1, @isnumeric); % id of unk word
+  addOptional(p,'testPrefix', '', @ischar); % to specify a different file for decoding
   
 %   addOptional(p,'accmLstm', 0, @isnumeric); % 1: accmulate h_t/c_t as we go over the src side.
 %   addOptional(p,'unkPenalty', 0, @isnumeric); % in log domain unkPenalty=0.5 ~ scale prob unk by 1.6
@@ -36,7 +38,10 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   if decodeParams.batchSize==-1 % decode sents one by one
     decodeParams.batchSize = 1;
   end
-
+  if decodeParams.permute
+    decodeParams.decodeLenRatio = 1;
+  end
+  
   decodeParams.isGPU = 0;
   if ismac==0
     n = gpuDeviceCount;  
