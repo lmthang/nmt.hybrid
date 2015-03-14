@@ -13,7 +13,9 @@ function [attnHidVecs, attn_h_concat, alignWeights, alignScores, attnInput] = at
   % align weights a_t = softmax(s_t): numAttnPositions*curBatchSize
   alignWeights = softmax(alignScores);
   
-  % mask &change alignWeights to 1 * curBatchSize * numAttnPositions
+  % alignWeights: numAttnPositions*curBatchSize
+  % mask: 1 * curBatchSize
+  % -> alignWeights: 1 * curBatchSize * numAttnPositions
   alignWeights = permute(bsxfun(@times, alignWeights, curMask.mask), [3, 2, 1]);
   
   % srcHidVecs: lstmSize * curBatchSize * numAttnPositions

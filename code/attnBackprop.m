@@ -1,4 +1,4 @@
-function [attnGrad, grad_ht] = attnBackprop(model, topHidVecs, softmax_h, grad_softmax_h, attn_h_concat, alignWeights, alignScores, attnInput, params)
+function [attnGrad, grad_ht] = attnBackprop(model, batchData, softmax_h, grad_softmax_h, attn_h_concat, alignWeights, alignScores, attnInput, params)
 %%%
 %
 % Compute grad for attention-based models.
@@ -23,19 +23,24 @@ function [attnGrad, grad_ht] = attnBackprop(model, topHidVecs, softmax_h, grad_s
   grad_attn = permute(grad_ah(1:params.lstmSize, :), [1, 2, 3]); % change from lstmSize*curBatchSize -> lstmSize*curBatchSize*1
 
   %% from grad_attn -> grad_srcHidVecs, grad_alignWeights
-  % attn_t = H_src* a_t
-  % topHidVecs(:, :, 1:params.numSrcHidVecs): lstmSize * curBatchSize * numSrcHidVecs
-  % grad_attn: lstmSize * curBatchSize * 1
-  % alignWeights: 1 * curBatchSize * numSrcHidVecs
-  % grad_srcHidVecs = grad_attn * alignWeights'
-  attnGrad.srcHidVecs = bsxfun(@times, grad_attn, alignWeights);
+  % Grad formulae:
+  %   attn_t = H_src* a_t
+  %   grad_srcHidVecs: grad_attn * alignWeights'
+  %   grad_alignWeights = H_src' * grad_attn (per example, to scale over multiple examples, i.e., curBatchSize, need to use bsxfun)
+  
+  % Sizes:
+  %   batchData.srcHidVecs: lstmSize * curBatchSize * numAttnPositions
+  %   grad_attn: lstmSize * curBatchSize * 1
+  %   alignWeights: 1 * curBatchSize * numAttnPositions
+  %   attnGrad.srcHidVecs: lstmSize * curBatchSize * numAttnPositions
+  %   grad_alignWeights: numAttnPositions * curBatchSize
 
-  % grad_alignWeights = H_src' * grad_attn (per example, to scale over multiple examples, i.e., curBatchSize, need to use bsxfun)
-  grad_alignWeights = squeeze(sum(bsxfun(@times, topHidVecs(:, :, 1:params.numSrcHidVecs), grad_attn), 1))'; % bsxfun along numSrcHidVecs, sum across lstmSize
+  attnGrad.srcHidVecs = bsxfun(@times, grad_attn, alignWeights);  
+  grad_alignWeights = squeeze(sum(bsxfun(@times, batchData.srcHidVecs, grad_attn), 1))'; % bsxfun along numAttnPositions, sum across lstmSize
 
-  if params.assert % numSrcHidVecs x curBatchSize
-    assert(size(grad_alignWeights, 1)==params.numSrcHidVecs);
-    assert(size(grad_alignWeights, 2)==size(softmax_h, 2));
+  if params.assert % numAttnPositions x curBatchSize
+    assert(size(grad_alignWeights, 1)==params.numAttnPositions);
+    assert(size(grad_alignWeights, 2)==params.curBatchSize);
   end
 
   %% from grad_alignWeights -> grad_scores
@@ -45,9 +50,9 @@ function [attnGrad, grad_ht] = attnBackprop(model, topHidVecs, softmax_h, grad_s
   %                            = a_i.*grad_a_i - a_i*alpha_i
   % multiple examples: alpha = sum(a.*grad_a, 1) % 1*curBatchSize
   %     grad_scores = a.*grad - bsxfun(@times, a, alpha)
-  % tmpResult = alignWeights.*grad_alignWeights; % numSrcHidVecs * curBatchSize
-  alignWeights = squeeze(alignWeights)'; % alignWeights now: numSrcHidVecs * curBatchSize
-  tmpResult = alignWeights.*grad_alignWeights; % numSrcHidVecs * curBatchSize
+  % tmpResult = alignWeights.*grad_alignWeights; % numAttnPositions * curBatchSize
+  alignWeights = squeeze(alignWeights)'; % alignWeights now: numAttnPositions * curBatchSize
+  tmpResult = alignWeights.*grad_alignWeights; % numAttnPositions * curBatchSize
   grad_scores = tmpResult - bsxfun(@times, alignWeights, sum(tmpResult, 1));
 
   %% grad_scores -> grad.Wa, grad_ht

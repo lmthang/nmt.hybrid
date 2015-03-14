@@ -79,6 +79,11 @@ function [costs, softmaxGrad, otherGrads] = softmaxCostGrad(model, params, train
       batchData.srcHidVecs(:, :, startHidId:endHidId) = trainData.srcHidVecs(:, :, startAttnId:endAttnId);
       batchData.srcHidVecs(:, :, 1:startHidId-1) = 0;
       batchData.srcHidVecs(:, :, endHidId+1:end) = 0;
+      
+%       batchData.startAttnId = startAttnId;
+%       batchData.endAttnId = endAttnId;
+%       batchData.startHidId = startHidId;
+%       batchData.endHidId = endHidId;
     end
     
     %% positional model 3: use hidden state info
@@ -120,7 +125,20 @@ function [costs, softmaxGrad, otherGrads] = softmaxCostGrad(model, params, train
       fields = fieldnames(word_softmaxGrad);
       for ii=1:length(fields)
         field = fields{ii};
-        softmaxGrad.(field) = softmaxGrad.(field) + word_softmaxGrad.(field);
+        if params.attnFunc==2 && strcmp(field, 'srcHidVecs') % only update the relevant portion
+          % mask: 1 * curBatchSize
+          % srcHidVecs: lstmSize * curBatchSize * numAttnPoints
+          % mask out grad before accumulating
+          if params.assert
+            if (sum(sum(sum(abs(word_softmaxGrad.srcHidVecs(:, curMask.maskedIds, startHidId:endHidId)))))>0)
+              sum(sum(sum(abs(word_softmaxGrad.srcHidVecs(:, curMask.maskedIds, startHidId:endHidId)))))
+            end
+            assert(sum(sum(sum(abs(word_softmaxGrad.srcHidVecs(:, curMask.maskedIds, startHidId:endHidId)))))==0);
+          end
+          softmaxGrad.srcHidVecs(:, :, startAttnId:endAttnId) = softmaxGrad.srcHidVecs(:, :, startAttnId:endAttnId) + word_softmaxGrad.srcHidVecs(:, :, startHidId:endHidId); %bsxfun(@times, , permute(curMask.mask, [1, 2, 3]));
+        else
+          softmaxGrad.(field) = softmaxGrad.(field) + word_softmaxGrad.(field);
+        end
       end
       
       % class-based softmax
@@ -297,7 +315,7 @@ function [cost, softmaxGrad, grad_ht, otherBatchGrads] = batchSoftmax(matrixName
           otherBatchGrads.srcPosVecs = grad_srcPosH(1:params.lstmSize, :);
         end
       elseif params.attnFunc>0 % f(W_ah*[attn_t; tgt_h_t])
-        [softmaxGrad, grad_ht] = attnBackprop(model, trainData.topHidVecs, softmax_h, grad_softmax_h, attn_h_concat, alignWeights, alignScores, attnInput, params);
+        [softmaxGrad, grad_ht] = attnBackprop(model, batchData, softmax_h, grad_softmax_h, attn_h_concat, alignWeights, alignScores, attnInput, params);
       end
     else % normal softmax
       grad_ht = grad_softmax_h;

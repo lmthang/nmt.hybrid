@@ -278,7 +278,7 @@ function [grad, params] = initGrad(model, params)
   %% backprop to src hidden states for attention and positional models
   if params.attnFunc>0 || params.posModel==2 || params.posModel==3
     if params.attnFunc>0
-      params.numSrcHidVecs = params.maxSentLen-1;
+      params.numSrcHidVecs = params.numAttnPositions;
     elseif params.posModel==2 || params.posModel==3% add an extra <s_eos> to the src side
       params.numSrcHidVecs = params.srcMaxLen-2;
     end
