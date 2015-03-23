@@ -1,4 +1,4 @@
-function [attnGrad, grad_ht] = attnBackprop(model, batchData, softmax_h, grad_softmax_h, attn_h_concat, alignWeights, alignScores, attnInput, params)
+function [attnGrad, grad_ht, grad_srcHidVecs] = attnBackprop(model, batchData, softmax_h, grad_softmax_h, attn_h_concat, alignWeights, attnInput, params, curMask)
 %%%
 %
 % Compute grad for attention-based models.
@@ -35,19 +35,32 @@ function [attnGrad, grad_ht] = attnBackprop(model, batchData, softmax_h, grad_so
   %   attnGrad.srcHidVecs: lstmSize * curBatchSize * numAttnPositions
   %   grad_alignWeights: numAttnPositions * curBatchSize
 
-  attnGrad.srcHidVecs = bsxfun(@times, grad_attn, alignWeights);  
+  grad_srcHidVecs = bsxfun(@times, grad_attn, alignWeights);  
   grad_alignWeights = squeeze(sum(bsxfun(@times, batchData.srcHidVecs, grad_attn), 1))'; % bsxfun along numAttnPositions, sum across lstmSize
 
   if params.assert % numAttnPositions x curBatchSize
     assert(size(grad_alignWeights, 1)==params.numAttnPositions);
     assert(size(grad_alignWeights, 2)==params.curBatchSize);
+    
+    % compute grad_srcHidVec in a different way
+    grad_srcHidVecs1 = zeroMatrix(size(grad_srcHidVecs), params.isGPU, params.dataType);
+    for ii=1:params.curBatchSize
+      grad_srcHidVecs1(:, ii, :) = grad_attn(:, ii, 1) * squeeze(alignWeights(1, ii, :))';
+    end
+    assert(sum(sum(sum(abs(grad_srcHidVecs1-grad_srcHidVecs))))==0);
   end
 
   %% from grad_alignWeights -> grad_scores
   % alignWeights a = softmax(scores)
-  % single example i: grad_score_i = (diag(a_i) - a_i*a_i')*grad_a_i 
-  %                            = a_i.*grad_a_i - a_i*(a_i'*grad_a_i)
-  %                            = a_i.*grad_a_i - a_i*alpha_i
+  % Let's derive per indices grad align weight w.r.t scores
+  %   der a_i / der s_j = der exp(s_i) / sum_k (exp(s_k)) / der s_j =
+  %     (1/sum) * (der exp(s_i) / der s_j) - (exp(s_i)/sum^2)*exp(s_j) =
+  %      a_i*I{i==j} - a_i*_a_j
+  %
+  % Now let's try to optimize the vector grad for a single example i: 
+  %   grad_score_i = (diag(a_i) - a_i*a_i')*grad_a_i 
+  %                = a_i.*grad_a_i - a_i*(a_i'*grad_a_i)
+  %                = a_i.*grad_a_i - a_i*alpha_i
   % multiple examples: alpha = sum(a.*grad_a, 1) % 1*curBatchSize
   %     grad_scores = a.*grad - bsxfun(@times, a, alpha)
   % tmpResult = alignWeights.*grad_alignWeights; % numAttnPositions * curBatchSize
@@ -55,16 +68,25 @@ function [attnGrad, grad_ht] = attnBackprop(model, batchData, softmax_h, grad_so
   tmpResult = alignWeights.*grad_alignWeights; % numAttnPositions * curBatchSize
   grad_scores = tmpResult - bsxfun(@times, alignWeights, sum(tmpResult, 1));
 
-  %% grad_scores -> grad.Wa, grad_ht
-  if params.attnFunc==1 % s_t = W_a * attnInput
-    tmpResult = grad_scores;
-  elseif params.attnFunc==2 % s_t = f(W_a * attnInput)
-    tmpResult = params.nonlinear_f_prime(alignScores).*grad_scores;
+  if params.assert
+    assert(sum(sum(abs(attnInput(:, curMask.maskedIds))))==0);
+    
+    % compute grad_scores in a different way
+    grad_scores1 = zeroMatrix(size(grad_scores), params.isGPU, params.dataType);
+    for ii=1:params.curBatchSize
+      grad_scores1(:, ii) = (diag(alignWeights(:, ii))-alignWeights(:, ii)*alignWeights(:, ii)')*grad_alignWeights(:, ii);
+    end
+    assert(sum(sum(abs(grad_scores-grad_scores1)))<1e-10);
   end
-  % grad.W_a = tmpResult * attnInput'
-  attnGrad.W_a = tmpResult * attnInput';
-  % grad_attn_input = W_a' * tmpResult
-  grad_attn_input = model.W_a'*tmpResult;
+  
+  %% grad_scores -> grad.Wa, grad_ht
+  % s_t = W_a * attnInput
+  % here attnInput = h_t
+  
+  % grad.W_a = grad_scores * attnInput'
+  attnGrad.W_a = grad_scores * attnInput';
+  % grad_attn_input = W_a' * grad_scores
+  grad_attn_input = model.W_a'*grad_scores;
   
   % alignScores = model.W_a*tgt_h_t;
   grad_ht = grad_ht + grad_attn_input;   

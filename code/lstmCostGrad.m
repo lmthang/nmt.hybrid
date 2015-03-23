@@ -140,7 +140,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
     fields = fieldnames(softmaxGrad);
     for ii=1:length(fields)
       field = fields{ii};
-      grad.(field) = grad.(field) + softmaxGrad.(field);
+      grad.(field) = softmaxGrad.(field); %grad.(field) + softmaxGrad.(field);
     end
     
     % update embs of <p_n> and <p_eos>
@@ -170,12 +170,17 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
     for ll=params.numLayers:-1:1 % layer
       %% hidden state grad
       if ll==params.numLayers
-        if params.assert && params.posModel==3 && t==(srcMaxLen-1)
-          assert(sum(sum(abs(otherSoftmaxGrads.ht(:, :, t))))==0);
+        if params.assert
+          assert(params.numSrcHidVecs<srcMaxLen);
+          if params.posModel==3 && t==(srcMaxLen-1)
+            assert(sum(sum(abs(otherSoftmaxGrads.ht(:, :, t))))==0);
+          end
         end
+        
         if (t>=srcMaxLen) || ((params.posModel==1 || params.posModel==2) && t==(srcMaxLen-1)) % get signals from the softmax layer
           dh{ll} = dh{ll} + otherSoftmaxGrads.ht(:, :, t);
         end
+
         if t<=params.numSrcHidVecs % attention/pos models: get feedback from grad.srcHidVecs
           dh{ll} = dh{ll} + grad.srcHidVecs(:,:,t);
         end
@@ -277,8 +282,10 @@ function [grad, params] = initGrad(model, params)
   
   %% backprop to src hidden states for attention and positional models
   if params.attnFunc>0 || params.posModel==2 || params.posModel==3
-    if params.attnFunc>0
-      params.numSrcHidVecs = params.numAttnPositions;
+    if params.attnFunc==1
+      params.numSrcHidVecs = params.maxSentLen-1;
+    elseif params.attnFunc==2
+      params.numSrcHidVecs = params.srcMaxLen-1;
     elseif params.posModel==2 || params.posModel==3% add an extra <s_eos> to the src side
       params.numSrcHidVecs = params.srcMaxLen-2;
     end

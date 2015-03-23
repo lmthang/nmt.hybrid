@@ -483,10 +483,7 @@ function [model] = initLSTM(params)
     model.W_ah = randomMatrix(params.initRange, [params.attnSize, 2*params.lstmSize], params.isGPU, params.dataType);
   elseif params.softmaxDim>0 % compress softmax
     model.W_h = randomMatrix(params.initRange, [params.softmaxDim, params.lstmSize], params.isGPU, params.dataType);
-  end
-  
-  %% positional models
-  if params.posModel>0
+  elseif params.posModel>0 % positional models
     if params.posModel==3
       % h_pos_t = f(W_h * [src_pos_t; h_t])
       model.W_h = randomMatrix(params.initRange, [params.posSoftSize, 2*params.lstmSize], params.isGPU, params.dataType);
@@ -667,6 +664,28 @@ function [params] = setupVars(model, params)
       params.varsSelected{end+1} = params.vars{ii};
     end
   end
+  
+  % setup softmax vars
+  if params.attnFunc>0
+    softmaxVars = {'W_a', 'W_ah'};
+  elseif params.softmaxDim>0
+    softmaxVars = {'W_h'};
+  elseif params.posModel>0
+    if params.posModel==3
+      softmaxVars = {'W_h', 'W_softPos'};
+    else
+      softmaxVars = {'W_softPos'};
+    end
+  else
+    softmaxVars = {};
+  end
+  if params.numClasses == 0
+    softmaxVars{end+1} = 'W_soft';
+  else
+    softmaxVars{end+1} = 'W_soft_class';
+  end
+  params.softmaxVars = softmaxVars;
+  
 end
 
 function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab)

@@ -1,4 +1,4 @@
-function [softmax_h, input, attn_h_concat, alignWeights, alignScores] = lstm2softHid(h_t, params, model, varargin)
+function [softmax_h, input, attn_h_concat, alignWeights] = lstm2softHid(h_t, params, model, varargin)
 %%%
 %
 % From lstm hidden state to softmax hidden state.
@@ -13,7 +13,8 @@ function [softmax_h, input, attn_h_concat, alignWeights, alignScores] = lstm2sof
     srcHidVecs = varargin{1};
     curMask = varargin{2};
 
-    [softmax_h, attn_h_concat, alignWeights, alignScores, input] = attnForward(h_t, model, params, srcHidVecs, curMask);
+    [softmax_h, attn_h_concat, alignWeights] = attnForward(h_t, model, params, srcHidVecs, curMask);
+    input = h_t;
   elseif params.posModel==3 % positional model: f(W_h * [srcPosVecs; h_t])
     isPredictPos = varargin{1};
     if isPredictPos==0
