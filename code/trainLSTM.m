@@ -524,6 +524,8 @@ function [params] = evalSaveDecode(model, validData, testData, params, srcTrainS
     tgtDecodeSents = [tgtTrainSents(1); validData.tgtSents(validId); testData.tgtSents(testId)];
     [decodeData] = prepareData(srcDecodeSents, tgtDecodeSents, 1, params);
     decodeData.startId = 1;
+    params.permute = 0;
+    params.decodeLenRatio = 1.5;
     [candidates, candScores] = lstmDecoder(model, decodeData, params);
     printDecodeResults(decodeData, candidates, candScores, params, 0);
   end
@@ -599,10 +601,23 @@ function [model, params] = initLoadModel(params)
   end
   
   % a model exists, resume training
-  if params.isGradCheck==0 && params.isResume && exist(params.modelRecentFile, 'file') 
-    fprintf(2, '# Model file %s exists. Try loading ...\n', params.modelRecentFile);
-    fprintf(params.logId, '# Model file %s exists. Try loading ...\n', params.modelRecentFile);
-    savedData = load(params.modelRecentFile);
+  if params.isGradCheck==0 && params.isResume && (exist(params.modelRecentFile, 'file') || exist(params.modelFile, 'file'))
+    loaded = 0;
+    if exist(params.modelRecentFile, 'file')
+      fprintf(2, '# Model file %s exists. Try loading ...\n', params.modelRecentFile);
+      fprintf(params.logId, '# Model file %s exists. Try loading ...\n', params.modelRecentFile);
+      try
+        savedData = load(params.modelRecentFile);
+        loaded = 1;
+      catch ME
+        fprintf(2, '! Exception: identifier=%s, name=%s\n', ME.identifier, ME.message);
+      end
+    end
+    if loaded == 0 && exist(params.modelFile, 'file')
+      fprintf(2, '# Model file %s exists. Try loading ...\n', params.modelFile);
+      fprintf(params.logId, '# Model file %s exists. Try loading ...\n', params.modelFile);
+      savedData = load(params.modelFile);
+    end
     
     % params
     oldParams = savedData.params;
@@ -630,6 +645,7 @@ function [model, params] = initLoadModel(params)
     
     % model
     model = savedData.model;
+    model
     clear savedData;
     
     fprintf(2, '  loaded! lr=%g, epoch=%d, iter=%d, bestCostValid=%g, testPerplexity=%g\n', params.lr, params.epoch, params.startIter, params.bestCostValid, params.testPerplexity);
