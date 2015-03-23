@@ -12,8 +12,7 @@ function [linearIndices] = getTensorLinearIndices(matrix, yIds, zIds)
   numData = length(yIds);
   numElements = numData * xDim;
   
-  %xIds = repmat(1:xDim, 1, numData);
-  xIds = kron(ones(1, numData), 1:xDim);
+  xIds = repmat(1:xDim, 1, numData);
   yIds = reshape(repmat(yIds, xDim, 1), 1, numElements);
   zIds = reshape(repmat(zIds, xDim, 1), 1, numElements);
   linearIndices = sub2ind(size(matrix), xIds, yIds, zIds);
