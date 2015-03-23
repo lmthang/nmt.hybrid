@@ -79,6 +79,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
 
   addOptional(p,'globalOpt', 0, @isnumeric); % globalOpt=0: no global model, 1: avg global model, 2: feedforward global model.
   
+  addOptional(p,'inputFormat', 0, @isnumeric); % 0: right-aligned encoder, 1: left-aligned encoder
+  
   %% system options
   addOptional(p,'embCPU', 0, @isnumeric); % 1: put W_emb on CPU even if GPUs exist
   addOptional(p,'onlyCPU', 0, @isnumeric); % 1: avoid using GPUs
@@ -470,7 +472,7 @@ function [model] = initLSTM(params)
   end
   % set parameters correspond to zero words
   if params.isBi
-    model.W_emb(:, params.tgtVocabSize + params.srcSos) = zeros(params.lstmSize, 1);
+    model.W_emb(:, params.srcZero) = zeros(params.lstmSize, 1);
   end
   model.W_emb(:, params.tgtEos) = zeros(params.lstmSize, 1);
   
@@ -533,11 +535,11 @@ end
 
 function [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents] = loadTrainBatches(params)
   if params.isBi
-    [srcTrainSents, ~, srcTrainLens] = loadBatchData(params.srcTrainId, params.baseIndex, params.chunkSize, params.srcEos);
+    [srcTrainSents, ~, srcTrainLens] = loadBatchData(params.srcTrainId, params.baseIndex, params.chunkSize);
   else
     srcTrainSents = {};
   end
-  [tgtTrainSents, numTrainSents, tgtTrainLens] = loadBatchData(params.tgtTrainId, params.baseIndex, params.chunkSize, params.tgtEos);
+  [tgtTrainSents, numTrainSents, tgtTrainLens] = loadBatchData(params.tgtTrainId, params.baseIndex, params.chunkSize);
   
   % sorting
   if params.sortBatch
@@ -780,13 +782,6 @@ end
 %       end
 %       gradNorm = sqrt(gradNorm) / params.batchSize;
       
-%% Load parallel sentences %%
-% function [srcSents, tgtSents, srcNumSents] = loadParallelData(srcFile, tgtFile, srcEos, tgtEos, numSents, baseIndex)
-%   [srcSents, srcNumSents] = loadMonoData(srcFile, srcEos, numSents, baseIndex);
-%   [tgtSents, tgtNumSents] = loadMonoData(tgtFile, tgtEos, numSents, baseIndex);
-%   assert(srcNumSents==tgtNumSents);
-% end
-
       %if params.isGPU
       %  emb_gpu = gpuArray(full(grad.W_emb(:, grad.indices)));
       %  model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - scaleLr*emb_gpu;

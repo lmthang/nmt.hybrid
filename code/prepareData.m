@@ -9,6 +9,7 @@
 %  For the monolingual case, each src sent contains a single simple tgtSos,
 %   hence srcMaxLen = 1
 function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
+  % sent lens
   if length(varargin)==2
     srcLens = varargin{1};
     tgtLens = varargin{2};
@@ -19,8 +20,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   
   numSents = length(tgtSents);
   if params.isBi
-    srcZeroId = params.srcSosVocabId;
-    
+    srcLens = srcLens + 1; % add eos
     if isTest==0 || params.attnFunc==1 % limit sent lengths for training or for attention model during both training/testing
       srcLens(srcLens>params.maxSentLen) = params.maxSentLen; 
       srcMaxLen = params.maxSentLen;
@@ -28,19 +28,18 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
       srcMaxLen = max(srcLens);
     end
     
-    if params.posModel>0 % add an extra <s_eos> to the src side
-      srcMaxLen = srcMaxLen+1;
-    end
-  else
-    srcLens = ones(numSents, 1);
-    srcZeroId = params.tgtSos;
-    srcMaxLen = 1;
+%     if params.posModel>0 % add an extra <s_eos> to the src side
+%       srcMaxLen = srcMaxLen+1;
+%     end
   end
   
-  % positional models, tgt sent: pos1 word1 ... pos_n word_n <eos>
-  if params.posModel>0
-    tgtLens = (tgtLens+1)/2;
-  end
+  tgtLens = tgtLens + 1; % add eos
+  
+%   % positional models, tgt sent: pos1 word1 ... pos_n word_n <eos>
+%   if params.posModel>0
+%     tgtLens = (tgtLens+1)/2;
+%   end
+
   if isTest==0
     tgtLens(tgtLens>params.maxSentLen) = params.maxSentLen; % limit sent lengths
     tgtMaxLen = max(tgtLens);
@@ -51,74 +50,90 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
 
   
   %% input / output
-  input = [srcZeroId*ones(numSents, srcMaxLen) params.tgtEos*ones(numSents, tgtMaxLen-1)]; % size numSents * (srcMaxLen + tgtMaxLen - 1)
+  if params.isBi
+    srcInput = params.srcZero*ones(numSents, srcMaxLen);
+  end
+  tgtInput = [params.tgtSos*ones(numSents, 1) params.tgtEos*ones(numSents, tgtMaxLen-1)];
   tgtOutput = params.tgtEos*ones(numSents, tgtMaxLen);
   
-  % positional models
-  if params.posModel>0
-    srcPos = params.eosPosId*ones(numSents, tgtMaxLen); % since tgt sent: pos1 word1 ... pos_n word_n <eos>. Later we want: pos1 ... pos_n pos_eos.
-  end
+%   % positional models
+%   if params.posModel>0
+%     srcPos = params.eosPosId*ones(numSents, tgtMaxLen); % since tgt sent: pos1 word1 ... pos_n word_n <eos>. Later we want: pos1 ... pos_n pos_eos.
+%   end
   
   for ii=1:numSents
     %% src
     if params.isBi
       srcLen = srcLens(ii);
-      if params.posModel>0 % add an extra <s_eos> to the src side
-        input(ii, srcMaxLen-srcLen:srcMaxLen-1) = srcSents{ii}(1:srcLen) + params.tgtVocabSize; % src part
-        input(ii, srcMaxLen) = params.srcEosVocabId;
+      
+      if params.inputFormat==1 % left-aligned
+        srcInput(ii, 1:srcLen-1) = srcSents{ii}(1:srcLen-1) + params.tgtVocabSize;
+        srcInput(ii, srcLen) = params.srcEos;
       else
-        input(ii, srcMaxLen-srcLen+1:srcMaxLen) = srcSents{ii}(1:srcLen) + params.tgtVocabSize; % src part
+        srcInput(ii, srcMaxLen-srcLen+1:srcMaxLen-1) = srcSents{ii}(1:srcLen-1) + params.tgtVocabSize;
+        srcInput(ii, srcMaxLen) = params.srcEos;
       end
+      
+%       if params.posModel>0 % add an extra <s_eos> to the src side
+%         input(ii, srcMaxLen-srcLen:srcMaxLen-1) = srcSents{ii}(1:srcLen) + params.tgtVocabSize; % src part
+%         input(ii, srcMaxLen) = params.srcEosVocabId;
+%       else
+%         input(ii, srcMaxLen-srcLen+1:srcMaxLen) = srcSents{ii}(1:srcLen) + params.tgtVocabSize; % src part
+%       end
     end
     
     %% tgt
     tgtSent = tgtSents{ii};
     tgtLen = tgtLens(ii);
     
-    % positional models
-    if params.posModel>0
-      % words
-      tgtSent(1:2:2*tgtLen-2) = []; % remove positions
-      
-      % positions
-      srcPos(ii, 1:tgtLen-1) = tgtSents{ii}(1:2:2*tgtLen-2); % positions
-    end
+%     % positional models
+%     if params.posModel>0
+%       % words
+%       tgtSent(1:2:2*tgtLen-2) = []; % remove positions
+%       
+%       % positions
+%       srcPos(ii, 1:tgtLen-1) = tgtSents{ii}(1:2:2*tgtLen-2); % positions
+%     end
     
-    input(ii, srcMaxLen+1:srcMaxLen+tgtLen-1) = tgtSent(1:tgtLen-1); % tgt part
-    tgtOutput(ii, 1:tgtLen) = tgtSent(1:tgtLen);
+    % tgtEos has been prefilled
+    tgtInput(ii, 2:tgtLen) = tgtSent(1:tgtLen-1);
+    tgtOutput(ii, 1:tgtLen-1) = tgtSent(1:tgtLen-1);
   end
   
   if params.isBi
-    inputMask = (input~=srcZeroId & input~=params.tgtEos);
-  else % for mono case, we still learn parameters for the srcZeroId which is tgtSos.
-    inputMask = (input~=params.tgtEos);
+    srcMask = srcInput~=params.srcZero;
   end
-  numWords = sum(sum(inputMask(:, srcMaxLen:end))); 
+  tgtMask = tgtInput~=params.tgtEos;
+  numWords = sum(tgtMask(:)); 
   
   % sanity check
   if params.assert
     % the last src symbol needs to be eos for all sentences
-    if params.isBi
-      assert(length(unique(input(:, srcMaxLen)))==1); 
-      srcEos = srcSents{1}(end) + params.tgtVocabSize;
-      assert(input(1, srcMaxLen)==srcEos);
+    if params.isBi && params.inputFormat==0 % right-aligned
+      assert(length(unique(srcInput(:, srcMaxLen)))==1); 
+      assert(srcInput(1, srcMaxLen)==params.srcEos);
     end
     
     assert(numWords == sum(tgtLens));
   end
   
-  data.input = input;
-  data.inputMask = inputMask;
+  if params.isBi
+    data.srcInput = srcInput;
+    data.srcMask = srcMask;
+  end
+  data.tgtInput = tgtInput;
   data.tgtOutput = tgtOutput;
+  data.tgtMask = tgtMask;
+  
   data.srcMaxLen = srcMaxLen;
   data.tgtMaxLen = tgtMaxLen;
   data.numWords = numWords;
   data.srcLens = srcLens;
   
-  % positional models
-  if params.posModel>0
-    data.srcPos = srcPos;
-  end
+%   % positional models
+%   if params.posModel>0
+%     data.srcPos = srcPos;
+%   end
 end
 
     %label = 'input';

@@ -83,7 +83,7 @@ function [s_t, srcPosData] = buildSrcPosVecs(t, model, params, trainData, curMas
     assert(isempty(setdiff(unmaskedIds, [posIds, nullIds, eosIds])));
     assert(length(unmaskedIds) == length([posIds, nullIds, eosIds]));
     assert(sum(sum(s_t(:, curMask.maskedIds)))==0);
-    assert(sum(embIndices == (params.srcEos+params.tgtVocabSize))==0);
+    assert(sum(embIndices == params.srcEos)==0);
   end  
 end
 

@@ -12,26 +12,31 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   %%%%%%%%%%%%
   %%% INIT %%%
   %%%%%%%%%%%%
-  input = trainData.input;
-  inputMask = trainData.inputMask;
-  
-  srcMaxLen = trainData.srcMaxLen;
   tgtMaxLen = trainData.tgtMaxLen;
-  curBatchSize = size(input, 1);
-  
-  T = srcMaxLen+tgtMaxLen-1;
+  curBatchSize = size(trainData.tgtInput, 1);
+  if params.isBi
+    input = [trainData.srcInput trainData.tgtInput(:, 2:end)];
+    inputMask = [trainData.srcMask trainData.tgtMask(:, 2:end)];
+    srcMaxLen = trainData.srcMaxLen;
+    T = srcMaxLen+tgtMaxLen-1;
+  else
+    input = trainData.tgtInput;
+    inputMask = trainData.tgtMask;
+    srcMaxLen = 1;
+    T = tgtMaxLen;
+  end
+  trainData.inputMask = inputMask;
   trainData.numInputWords = sum(sum(inputMask));
-  if params.posModel>0 % positional models, include more src embeddings
-    trainData.numInputWords = floor(trainData.numInputWords * 1.5);
-  end
+%   if params.posModel>0 % positional models, include more src embeddings
+%     trainData.numInputWords = floor(trainData.numInputWords * 1.5);
+%   end
   
-  if params.embCPU && params.isGPU % only put part of the emb matrix onto GPU
-    input_embs = model.W_emb(:, input);
-    input_embs = gpuArray(input_embs); % load input embeddings onto GPUs
-  end
+%   if params.embCPU && params.isGPU % only put part of the emb matrix onto GPU
+%     input_embs = model.W_emb(:, input);
+%     input_embs = gpuArray(input_embs); % load input embeddings onto GPUs
+%   end
   
   trainData.isTest = isTest;
-  %trainData.curBatchSize = curBatchSize;
   trainData.T = T;
   
   params.curBatchSize = curBatchSize;
