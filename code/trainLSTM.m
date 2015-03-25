@@ -70,9 +70,10 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'attnSize', 0, @isnumeric); % dim of the vector used to input to the final softmax, if 0, use lstmSize
   
   % positional models: predict pos, then word, use a separate softmax for pos
-  % 1: separately print out pos/word perplexities
+  % 0: separately print out pos/word perplexities
+  % 1: predict pos/word
   % 2: like 1 + feed in src hidden states, 3: like 1 + feed in src embeddings 
-  addOptional(p,'posModel', 0, @isnumeric); 
+  addOptional(p,'posModel', -1, @isnumeric); 
   addOptional(p,'posSoftSize', 0, @isnumeric); % dim of the input to softmax, 0 set to lstmSize
   addOptional(p,'posWin', 20, @isnumeric);
   addOptional(p,'posSoftmax', 0, @isnumeric); % use with posModel. 0: same softmax for word/pos, 1: separate softmax for positions
@@ -115,6 +116,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   if params.posModel>0
     assert(params.isBi==1);
     assert(params.attnFunc==0);
+  end
+  if params.posModel==0 % print out pos/word perplexities
+    assert(params.softmaxStep==1);
   end
   if params.softmaxDim>0 || params.numClasses>0
     assert(params.attnFunc==0 & params.posModel==0, '! Assert failed: softmaxDim %d > 0 || numClasses % d > 0, so attnFunc %d and posModel %d have to be 0.\n', params.softmaxDim, params.numClasses, params.attnFunc, params.posModel);
@@ -236,15 +240,15 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   printSent(2, trainBatches{1}.tgtInput(1, :), params.vocab, '   tgt input 1:');
   printSent(2, trainBatches{1}.tgtOutput(1, :), params.vocab, '  tgt output 1:');
   % positional models
-  if params.posModel>0
-    printSent(2, trainBatches{1}.srcPos(1, :), params.vocab, '  srcPos 1:');
-  end
+%   if params.posModel>0
+%     printSent(2, trainBatches{1}.srcPos(1, :), params.vocab, '  srcPos 1:');
+%   end
   
   %%%%%%%%%%%%%%
   %% Training %%
   %%%%%%%%%%%%%%
   trainCost.total = 0; totalWords = 0;
-  if params.posModel>0 % positional model
+  if params.posModel>=0 % positional model
     trainCost.pos = 0;
     trainCost.word = 0;
   end
@@ -343,7 +347,7 @@ function [totalWords, trainCost, params, startTime] = postTrainIter(model, costs
   %% log info
   totalWords = totalWords + trainData.numWords;
   trainCost.total = trainCost.total + costs.total;
-  if params.posModel>0 % positional model
+  if params.posModel>=0 % positional model
     trainCost.pos = trainCost.pos + costs.pos;
     trainCost.word = trainCost.word + costs.word;
   end
@@ -352,7 +356,7 @@ function [totalWords, trainCost, params, startTime] = postTrainIter(model, costs
     timeElapsed = etime(endTime, startTime);
     params.costTrain = trainCost.total/totalWords;
     params.speed = totalWords*0.001/timeElapsed;
-    if params.posModel>0 % positional model
+    if params.posModel>=0 % positional model
       params.costTrainPos = trainCost.pos*2/totalWords;
       params.costTrainWord = trainCost.word*2/totalWords;
       fprintf(2, '%d, %d, %.2fK, %g, %.2f (%.2f, %.2f), gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
@@ -365,7 +369,7 @@ function [totalWords, trainCost, params, startTime] = postTrainIter(model, costs
     % reset
     totalWords = 0;
     trainCost.total = 0;
-    if params.posModel>0 % positional model
+    if params.posModel>=0 % positional model
       trainCost.pos = 0;
       trainCost.word = 0;
     end
@@ -521,7 +525,7 @@ function [params] = evalSaveDecode(model, validData, testData, params, srcTrainS
   save(params.modelRecentFile, 'model', 'params');
 
   % decode
-  if params.isBi && params.attnFunc==0 && params.posModel==0 && params.numClasses==0
+  if params.isBi && params.attnFunc==0 && params.posModel<=0 && params.numClasses==0
     validId = randi(validData.numSents);
     testId = randi(testData.numSents);
     srcDecodeSents = [srcTrainSents(1); validData.srcSents(validId); testData.srcSents(testId)];

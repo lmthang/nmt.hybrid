@@ -70,8 +70,8 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
       
       % assert
       if params.assert
-        assert(gather(sum(sum(abs(lstm{ll}.c_t(:, maskedIds)))))<1e-5);
-        assert(gather(sum(sum(abs(lstm{ll}.h_t(:, maskedIds)))))<1e-5);
+        assert(sum(sum(abs(lstm{ll}.c_t(:, maskedIds))))<1e-5);
+        assert(sum(sum(abs(lstm{ll}.h_t(:, maskedIds))))<1e-5);
       end
     end
   end

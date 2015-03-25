@@ -8,7 +8,7 @@ function [params] = evalValidTest(model, validData, testData, params)
   modelStr = wInfo(model);
   endTime = clock;
   timeElapsed = etime(endTime, startTime);
-  if params.posModel>0 % positional model
+  if params.posModel>=0 % positional model
     costValid.pos = costValid.pos*2/validData.numWords;
     costValid.word = costValid.word*2/validData.numWords;
     costTest.pos = costTest.pos*2/testData.numWords;
@@ -47,7 +47,7 @@ function [evalCosts] = evalCost(model, data, params) %input, inputMask, tgtOutpu
   numBatches = floor((numSents-1)/params.batchSize) + 1;
 
   evalCosts.total = 0;
-  if params.posModel>0 % positional model
+  if params.posModel>=0 % positional model
     evalCosts.pos = 0;
     evalCosts.word = 0;
   end
@@ -72,7 +72,7 @@ function [evalCosts] = evalCost(model, data, params) %input, inputMask, tgtOutpu
     % eval
     costs = lstmCostGrad(model, trainData, params, 1);
     evalCosts.total = evalCosts.total + costs.total;
-    if params.posModel>0 % positional model
+    if params.posModel>=0 % positional model
       evalCosts.pos = evalCosts.pos + costs.pos;
       evalCosts.word = evalCosts.word + costs.word;
     end

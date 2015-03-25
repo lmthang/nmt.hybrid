@@ -27,18 +27,9 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
     else
       srcMaxLen = max(srcLens);
     end
-    
-%     if params.posModel>0 % add an extra <s_eos> to the src side
-%       srcMaxLen = srcMaxLen+1;
-%     end
   end
   
   tgtLens = tgtLens + 1; % add eos
-  
-%   % positional models, tgt sent: pos1 word1 ... pos_n word_n <eos>
-%   if params.posModel>0
-%     tgtLens = (tgtLens+1)/2;
-%   end
 
   if isTest==0
     tgtLens(tgtLens>params.maxSentLen) = params.maxSentLen; % limit sent lengths
@@ -56,38 +47,17 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   tgtInput = [params.tgtSos*ones(numSents, 1) params.tgtEos*ones(numSents, tgtMaxLen-1)];
   tgtOutput = params.tgtEos*ones(numSents, tgtMaxLen);
   
-%   % positional models
-%   if params.posModel>0
-%     srcPos = params.eosPosId*ones(numSents, tgtMaxLen); % since tgt sent: pos1 word1 ... pos_n word_n <eos>. Later we want: pos1 ... pos_n pos_eos.
-%   end
-  
   for ii=1:numSents
     %% src
     if params.isBi
       srcLen = srcLens(ii);
       srcInput(ii, srcMaxLen-srcLen+1:srcMaxLen-1) = srcSents{ii}(1:srcLen-1) + params.tgtVocabSize;
       srcInput(ii, srcMaxLen) = params.srcEos;
-      
-%       if params.posModel>0 % add an extra <s_eos> to the src side
-%         input(ii, srcMaxLen-srcLen:srcMaxLen-1) = srcSents{ii}(1:srcLen) + params.tgtVocabSize; % src part
-%         input(ii, srcMaxLen) = params.srcEosVocabId;
-%       else
-%         input(ii, srcMaxLen-srcLen+1:srcMaxLen) = srcSents{ii}(1:srcLen) + params.tgtVocabSize; % src part
-%       end
     end
     
     %% tgt
     tgtSent = tgtSents{ii};
     tgtLen = tgtLens(ii);
-    
-%     % positional models
-%     if params.posModel>0
-%       % words
-%       tgtSent(1:2:2*tgtLen-2) = []; % remove positions
-%       
-%       % positions
-%       srcPos(ii, 1:tgtLen-1) = tgtSents{ii}(1:2:2*tgtLen-2); % positions
-%     end
     
     % tgtEos has been prefilled
     tgtInput(ii, 2:tgtLen) = tgtSent(1:tgtLen-1);
@@ -103,7 +73,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   % sanity check
   if params.assert
     % the last src symbol needs to be eos for all sentences
-    if params.isBi && params.inputFormat==0 % right-aligned
+    if params.isBi
       assert(length(unique(srcInput(:, srcMaxLen)))==1); 
       assert(srcInput(1, srcMaxLen)==params.srcEos);
     end
@@ -130,12 +100,44 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   data.tgtMaxLen = tgtMaxLen;
   data.numWords = numWords;
   data.srcLens = srcLens;
-  
+end
+
+    
+%     if params.posModel>0 % add an extra <s_eos> to the src side
+%       srcMaxLen = srcMaxLen+1;
+%     end
+
+%   % positional models, tgt sent: pos1 word1 ... pos_n word_n <eos>
+%   if params.posModel>0
+%     tgtLens = (tgtLens+1)/2;
+%   end
+
+%       if params.posModel>0 % add an extra <s_eos> to the src side
+%         input(ii, srcMaxLen-srcLen:srcMaxLen-1) = srcSents{ii}(1:srcLen) + params.tgtVocabSize; % src part
+%         input(ii, srcMaxLen) = params.srcEosVocabId;
+%       else
+%         input(ii, srcMaxLen-srcLen+1:srcMaxLen) = srcSents{ii}(1:srcLen) + params.tgtVocabSize; % src part
+%       end
+
+%   % positional models
+%   if params.posModel>0
+%     srcPos = params.eosPosId*ones(numSents, tgtMaxLen); % since tgt sent: pos1 word1 ... pos_n word_n <eos>. Later we want: pos1 ... pos_n pos_eos.
+%   end
+    
+%     % positional models
+%     if params.posModel>0
+%       % words
+%       tgtSent(1:2:2*tgtLen-2) = []; % remove positions
+%       
+%       % positions
+%       srcPos(ii, 1:tgtLen-1) = tgtSents{ii}(1:2:2*tgtLen-2); % positions
+%     end
+
 %   % positional models
 %   if params.posModel>0
 %     data.srcPos = srcPos;
 %   end
-end
+
 
 %       if params.inputFormat==1 % left-aligned
 %         srcInput(ii, 1:srcLen-1) = srcSents{ii}(1:srcLen-1) + params.tgtVocabSize;
