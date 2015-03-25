@@ -357,6 +357,7 @@ function [totalWords, trainCost, params, startTime] = postTrainIter(model, costs
     params.costTrain = trainCost.total/totalWords;
     params.speed = totalWords*0.001/timeElapsed;
     if params.posModel>=0 % positional model
+      params.speed = params.speed/2;
       params.costTrainPos = trainCost.pos*2/totalWords;
       params.costTrainWord = trainCost.word*2/totalWords;
       fprintf(2, '%d, %d, %.2fK, %g, %.2f (%.2f, %.2f), gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
