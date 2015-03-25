@@ -42,7 +42,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'isReverse', 0, @isnumeric); % isReverse=1: src data = $prefix.reversed.$srcLang (instead of $prefix.$srcLang)
   addOptional(p,'isResume', 1, @isnumeric); % isResume=1: check if a model file exists, continue training from there.
   addOptional(p,'dataType', 'single', @ischar); % Note: use double precision for grad check
-  addOptional(p,'maxSentLen', 51, @isnumeric); % mostly apply to src, used in attention-based models. Usual length is 50 + 1 (for eos)
+  addOptional(p,'maxSentLen', -1, @isnumeric); % mostly apply to src, used in attention-based models. Default: 50 + 1 (eos). For positional models, we automatically set maxSentLen = (maxSentLen-1)*2+1
   addOptional(p,'sortBatch', 0, @isnumeric); % 1: each time we read in 100 batches, we sort sentences by length.
   addOptional(p,'shuffle', 0, @isnumeric); % 1: shuffle training batches
 
@@ -74,13 +74,10 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   % 1: predict pos/word
   % 2: like 1 + feed in src hidden states, 3: like 1 + feed in src embeddings 
   addOptional(p,'posModel', -1, @isnumeric); 
-  addOptional(p,'posSoftSize', 0, @isnumeric); % dim of the input to softmax, 0 set to lstmSize
-  addOptional(p,'posWin', 20, @isnumeric);
-  addOptional(p,'posSoftmax', 0, @isnumeric); % use with posModel. 0: same softmax for word/pos, 1: separate softmax for positions
-
-  addOptional(p,'globalOpt', 0, @isnumeric); % globalOpt=0: no global model, 1: avg global model, 2: feedforward global model.
+  addOptional(p,'posWin', 20, @isnumeric); % also used in attention-based models
   
-  % addOptional(p,'inputFormat', 0, @isnumeric); % 0: right-aligned encoder, 1: left-aligned encoder
+  %addOptional(p,'posSoftmax', 0, @isnumeric); % use with posModel. 0: same softmax for word/pos, 1: separate softmax for positions
+  %addOptional(p,'globalOpt', 0, @isnumeric); % globalOpt=0: no global model, 1: avg global model, 2: feedforward global model.
   
   %% system options
   addOptional(p,'embCPU', 0, @isnumeric); % 1: put W_emb on CPU even if GPUs exist
@@ -111,6 +108,11 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.stackSize = 100;
   params.unkPenalty = 0;
   params.lengthReward = 0;
+  
+  % maxSentLen
+  if params.maxSentLen==-1
+    params.maxSentLen = 51;
+  end
   
   % params assertions
   if params.posModel>0
@@ -164,23 +166,23 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   end
   
   %% set more params
-  % attention
-  if params.attnFunc>0
+  if params.attnFunc>0 || params.posModel>0
     if params.attnSize==0
       params.attnSize = params.lstmSize;
     end
     
+    % attention models
     if params.attnFunc==2 % relative positions
       params.numAttnPositions = 2*params.posWin + 1;
-    else % absolute positions
+    elseif params.attnFunc==1 % absolute positions
       params.numAttnPositions = params.maxSentLen-1;
     end
+    
+    % positional models
+    if params.posModel>0
+      params.maxSentLen = (params.maxSentLen-1)*2 + 1;
+    end
   end
-  % positional models
-  if params.posModel==3 && params.posSoftSize==0
-    params.posSoftSize = params.lstmSize;
-  end
-  
   
   assert(strcmp(outDir, '')==0);
   params.logId = fopen([outDir '/log'], 'a');
@@ -495,10 +497,10 @@ function [model] = initLSTM(params)
   elseif params.posModel>0 % positional models
     if params.posModel==3
       % h_pos_t = f(W_h * [src_pos_t; h_t])
-      model.W_h = randomMatrix(params.initRange, [params.posSoftSize, 2*params.lstmSize], params.isGPU, params.dataType);
+      model.W_h = randomMatrix(params.initRange, [params.attnSize, 2*params.lstmSize], params.isGPU, params.dataType);
     end
     
-    model.W_softPos = randomMatrix(params.initRange, [params.posVocabSize, params.softmaxSize], params.isGPU, params.dataType);
+    %model.W_softPos = randomMatrix(params.initRange, [params.posVocabSize, params.softmaxSize], params.isGPU, params.dataType);
   end
   
   %% softmax input -> predictions
@@ -594,12 +596,10 @@ end
 
 function [model, params] = initLoadModel(params)
   % softmaxSize
-  if params.attnFunc>0 % attention mechanism    
+  if params.attnFunc>0 || params.posModel>0 % attention/positional mechanism    
     params.softmaxSize = params.attnSize;
   elseif params.softmaxDim>0 % compress softmax
     params.softmaxSize = params.softmaxDim;
-  elseif params.posModel==3
-    params.softmaxSize = params.posSoftSize;
   else % normal
     params.softmaxSize = params.lstmSize;
   end
