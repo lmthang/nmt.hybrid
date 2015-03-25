@@ -65,14 +65,8 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
     %% src
     if params.isBi
       srcLen = srcLens(ii);
-      
-      if params.inputFormat==1 % left-aligned
-        srcInput(ii, 1:srcLen-1) = srcSents{ii}(1:srcLen-1) + params.tgtVocabSize;
-        srcInput(ii, srcLen) = params.srcEos;
-      else
-        srcInput(ii, srcMaxLen-srcLen+1:srcMaxLen-1) = srcSents{ii}(1:srcLen-1) + params.tgtVocabSize;
-        srcInput(ii, srcMaxLen) = params.srcEos;
-      end
+      srcInput(ii, srcMaxLen-srcLen+1:srcMaxLen-1) = srcSents{ii}(1:srcLen-1) + params.tgtVocabSize;
+      srcInput(ii, srcMaxLen) = params.srcEos;
       
 %       if params.posModel>0 % add an extra <s_eos> to the src side
 %         input(ii, srcMaxLen-srcLen:srcMaxLen-1) = srcSents{ii}(1:srcLen) + params.tgtVocabSize; % src part
@@ -142,6 +136,13 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
 %     data.srcPos = srcPos;
 %   end
 end
+
+%       if params.inputFormat==1 % left-aligned
+%         srcInput(ii, 1:srcLen-1) = srcSents{ii}(1:srcLen-1) + params.tgtVocabSize;
+%         srcInput(ii, srcLen) = params.srcEos;
+%       else
+%         
+%       end
 
     %label = 'input';
     %printSent(input(1, :), params.vocab, ['  ', label, ' 1:']);

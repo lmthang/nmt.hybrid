@@ -45,16 +45,16 @@ function [costs, softmaxGrad, otherGrads] = softmaxCostGrad(model, params, train
   %srcHidVecMask = permute(trainData.srcMask(:, 1:params.numSrcHidVecs), [3, 1, 2]);
   %srcHidVecMask = trainData.srcMask(:, 1:params.numSrcHidVecs)';
     
-%   if params.attnFunc==2
-%     batch_srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
-%   elseif params.attnFunc > 0
-%     batch_srcHidVecs = srcHidVecs;
-%     startAttnId = 1;
-%     endAttnId = params.numAttnPositions;
-%     startHidId = 1;
-%     endHidId = params.numAttnPositions;
-  if params.attnFunc>0
+  if params.attnFunc > 0
     batch_srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
+    if params.attnFunc==1
+      % note that src sentences are reversed.
+      batch_srcHidVecs(:, :, params.numAttnPositions-params.numSrcHidVecs+1:params.numAttnPositions) = srcHidVecs; 
+      startAttnId = 1;
+      endAttnId = params.numSrcHidVecs;
+      startHidId = params.numAttnPositions-params.numSrcHidVecs+1;
+      endHidId = params.numAttnPositions;
+    end
   else
     batch_srcHidVecs = [];
   end
@@ -81,15 +81,10 @@ function [costs, softmaxGrad, otherGrads] = softmaxCostGrad(model, params, train
     h_t = [topHidVecs{:, range}]; %reshape(topHidVecs(:, :, range), params.lstmSize, numExamples);
     
     %% attention model 2: relative positions, we assume softmaxStep=1
-    if params.attnFunc>0
-      if params.attnFunc==2
-        tgtPos = (startT-srcMaxLen+1);
-        startAttnId = (srcMaxLen-tgtPos)-params.posWin;
-        endAttnId = (srcMaxLen-tgtPos) + params.posWin;
-      else
-        startAttnId = 1;
-        endAttnId = params.numAttnPositions;
-      end
+    if params.attnFunc==2
+      tgtPos = (startT-srcMaxLen+1);
+      startAttnId = (srcMaxLen-tgtPos)-params.posWin;
+      endAttnId = (srcMaxLen-tgtPos) + params.posWin;
       
       startHidId = 1;
       endHidId = params.numAttnPositions;
@@ -107,53 +102,6 @@ function [costs, softmaxGrad, otherGrads] = softmaxCostGrad(model, params, train
       % zero out the rest
       batch_srcHidVecs(:, :, 1:startHidId-1) = 0;
       batch_srcHidVecs(:, :, endHidId+1:end) = 0;
-      
-%       batchData.startAttnId = startAttnId;
-%       batchData.endAttnId = endAttnId;
-%       batchData.startHidId = startHidId;
-%       batchData.endHidId = endHidId;
-
-%       % srcMaxLen-(srcLens(i)-1) -> srcMaxLen-1
-%       srcPositions = params.numSrcHidVecs + 1 - srcLens(curMask.unmaskedIds) + tgtPos; %srcMaxLen - srcLens + tgtPos - 1;
-%       startAttnIds = srcPositions-params.posWin;
-%       endAttnIds = srcPositions + params.posWin;
-%       startHidIds = ones(1, curMask.count);
-%       endHidIds = params.numAttnPositions * ones(1, curMask.count);
-%       
-%       % start < 1
-%       flagIndices = find(startAttnIds<1);
-%       startHidIds(flagIndices) = startHidIds(flagIndices) - (startAttnIds(flagIndices)-1);
-%       startAttnIds(flagIndices) = 1; % Note: don't swap these two lines
-%        
-%       % > numSrcHidVecs
-%       flagIndices = find(endAttnIds>params.numSrcHidVecs);
-%       endHidIds(flagIndices) = endHidIds(flagIndices) - (endAttnIds(flagIndices)-params.numSrcHidVecs);
-%       endAttnIds(flagIndices) = params.numSrcHidVecs; % Note: don't swap these two lines
-%         
-%       % populate srcHidVecs: have to use for loop.
-%       batch_srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
-%       yIds = zeros(1, params.curBatchSize*params.numAttnPositions);
-%       batch_zIds = zeros(1, params.curBatchSize*params.numAttnPositions);
-%       train_zIds = zeros(1, params.curBatchSize*params.numAttnPositions);
-%       numHidVecs = 0;
-%       
-%       for ii=1:curMask.count
-%         count = endHidIds(ii) - startHidIds(ii) + 1;
-%         if count<=0
-%           continue;
-%         end
-%         yIds(numHidVecs+1:numHidVecs+count) = curMask.unmaskedIds(ii)*ones(1, count);
-%         batch_zIds(numHidVecs+1:numHidVecs+count) = startHidIds(ii):endHidIds(ii);
-%         train_zIds(numHidVecs+1:numHidVecs+count) = startAttnIds(ii):endAttnIds(ii);
-%         numHidVecs = numHidVecs + count;
-%         % batchData.srcHidVecs(:, ii, startHidIds(ii):endHidIds(ii)) = trainData.srcHidVecs(:, ii, startAttnIds(ii):endAttnIds(ii));
-%       end
-%       yIds(numHidVecs+1:end) = [];
-%       batch_zIds(numHidVecs+1:end) = [];
-%       train_zIds(numHidVecs+1:end) = [];
-%       batchData.batchLinearIndices = getTensorLinearIndices(batch_srcHidVecs, yIds, batch_zIds);
-%       batchData.trainLinearIndices = getTensorLinearIndices(srcHidVecs, yIds, train_zIds);
-%       batch_srcHidVecs(batchData.batchLinearIndices) = srcHidVecs(batchData.trainLinearIndices);
     end
     
 %     %% positional model 3: use hidden state info
@@ -295,10 +243,6 @@ function [costs, softmaxGrad, otherGrads] = softmaxCostGrad(model, params, train
 %     end
 %   end
 
-  %% IMPORTANT: we need to mask here
-%   if params.attnFunc==1
-%     softmaxGrad.srcHidVecs = bsxfun(@times, softmaxGrad.srcHidVecs, srcHidVecMask);
-%   end
 end
 
 function [cost, softmaxGrad, grad_ht, otherBatchGrads] = batchSoftmax(matrixName, h_t, origPredLabels, model, params, trainData, batch_srcHidVecs, curMask, isPredictPos, varargin)
@@ -462,3 +406,50 @@ function [softmaxGrad, otherGrads] = initSoftmaxGrad(model, params)
     otherGrads.classIndices = [];
   end
 end
+
+%       batchData.startAttnId = startAttnId;
+%       batchData.endAttnId = endAttnId;
+%       batchData.startHidId = startHidId;
+%       batchData.endHidId = endHidId;
+
+%       % srcMaxLen-(srcLens(i)-1) -> srcMaxLen-1
+%       srcPositions = params.numSrcHidVecs + 1 - srcLens(curMask.unmaskedIds) + tgtPos; %srcMaxLen - srcLens + tgtPos - 1;
+%       startAttnIds = srcPositions-params.posWin;
+%       endAttnIds = srcPositions + params.posWin;
+%       startHidIds = ones(1, curMask.count);
+%       endHidIds = params.numAttnPositions * ones(1, curMask.count);
+%       
+%       % start < 1
+%       flagIndices = find(startAttnIds<1);
+%       startHidIds(flagIndices) = startHidIds(flagIndices) - (startAttnIds(flagIndices)-1);
+%       startAttnIds(flagIndices) = 1; % Note: don't swap these two lines
+%        
+%       % > numSrcHidVecs
+%       flagIndices = find(endAttnIds>params.numSrcHidVecs);
+%       endHidIds(flagIndices) = endHidIds(flagIndices) - (endAttnIds(flagIndices)-params.numSrcHidVecs);
+%       endAttnIds(flagIndices) = params.numSrcHidVecs; % Note: don't swap these two lines
+%         
+%       % populate srcHidVecs: have to use for loop.
+%       batch_srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
+%       yIds = zeros(1, params.curBatchSize*params.numAttnPositions);
+%       batch_zIds = zeros(1, params.curBatchSize*params.numAttnPositions);
+%       train_zIds = zeros(1, params.curBatchSize*params.numAttnPositions);
+%       numHidVecs = 0;
+%       
+%       for ii=1:curMask.count
+%         count = endHidIds(ii) - startHidIds(ii) + 1;
+%         if count<=0
+%           continue;
+%         end
+%         yIds(numHidVecs+1:numHidVecs+count) = curMask.unmaskedIds(ii)*ones(1, count);
+%         batch_zIds(numHidVecs+1:numHidVecs+count) = startHidIds(ii):endHidIds(ii);
+%         train_zIds(numHidVecs+1:numHidVecs+count) = startAttnIds(ii):endAttnIds(ii);
+%         numHidVecs = numHidVecs + count;
+%         % batchData.srcHidVecs(:, ii, startHidIds(ii):endHidIds(ii)) = trainData.srcHidVecs(:, ii, startAttnIds(ii):endAttnIds(ii));
+%       end
+%       yIds(numHidVecs+1:end) = [];
+%       batch_zIds(numHidVecs+1:end) = [];
+%       train_zIds(numHidVecs+1:end) = [];
+%       batchData.batchLinearIndices = getTensorLinearIndices(batch_srcHidVecs, yIds, batch_zIds);
+%       batchData.trainLinearIndices = getTensorLinearIndices(srcHidVecs, yIds, train_zIds);
+%       batch_srcHidVecs(batchData.batchLinearIndices) = srcHidVecs(batchData.trainLinearIndices);

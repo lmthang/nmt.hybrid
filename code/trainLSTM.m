@@ -79,7 +79,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
 
   addOptional(p,'globalOpt', 0, @isnumeric); % globalOpt=0: no global model, 1: avg global model, 2: feedforward global model.
   
-  addOptional(p,'inputFormat', 0, @isnumeric); % 0: right-aligned encoder, 1: left-aligned encoder
+  % addOptional(p,'inputFormat', 0, @isnumeric); % 0: right-aligned encoder, 1: left-aligned encoder
   
   %% system options
   addOptional(p,'embCPU', 0, @isnumeric); % 1: put W_emb on CPU even if GPUs exist
@@ -122,10 +122,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   
   if params.attnFunc>0 || params.posModel==3
     assert(params.softmaxStep==1, '! For attnFunc %d, softmaxStep %d should be 1\n', params.attnFunc, params.softmaxStep);
-    
-    if params.attnFunc==2
-      assert(params.isReverse==1);
-    end
+    assert(params.isReverse==1);
   end
   
   % rand seed
