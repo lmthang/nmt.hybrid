@@ -122,6 +122,10 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   
   if params.attnFunc>0 || params.posModel==3
     assert(params.softmaxStep==1, '! For attnFunc %d, softmaxStep %d should be 1\n', params.attnFunc, params.softmaxStep);
+    
+    if params.attnFunc==2
+      assert(params.isReverse==1);
+    end
   end
   
   % rand seed
@@ -165,10 +169,10 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       params.attnSize = params.lstmSize;
     end
     
-    if params.attnFunc==1 % absolute positions
-      params.numAttnPositions = params.maxSentLen-1;
-    elseif params.attnFunc==2 % absolute positions
+    if params.attnFunc==2 % relative positions
       params.numAttnPositions = 2*params.posWin + 1;
+    else % absolute positions
+      params.numAttnPositions = params.maxSentLen-1;
     end
   end
   % positional models
@@ -231,8 +235,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   printSent(2, tgtTrainSents{1}, tgtVocab, '  tgt:');
   printSent(2, tgtTrainSents{end}, tgtVocab, '  tgt end:');
 
-  printSent(2, trainBatches{1}.input(1, :), params.vocab, '   input 1:');
-  printSent(2, trainBatches{1}.tgtOutput(1, :), params.vocab, '  output 1:');
+  printSent(2, trainBatches{1}.srcInput(1, :), params.vocab, '   src input 1:');
+  printSent(2, trainBatches{1}.tgtInput(1, :), params.vocab, '   tgt input 1:');
+  printSent(2, trainBatches{1}.tgtOutput(1, :), params.vocab, '  tgt output 1:');
   % positional models
   if params.posModel>0
     printSent(2, trainBatches{1}.srcPos(1, :), params.vocab, '  srcPos 1:');

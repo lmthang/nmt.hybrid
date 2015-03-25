@@ -120,7 +120,14 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   if params.isBi
     data.srcInput = srcInput;
     data.srcMask = srcMask;
+    
+    data.input = [srcInput tgtInput(:, 2:end)];
+    data.inputMask = [srcMask tgtMask(:, 2:end)];
+  else
+    data.input = trainData.tgtInput;
+    data.inputMask = trainData.tgtMask;
   end
+  
   data.tgtInput = tgtInput;
   data.tgtOutput = tgtOutput;
   data.tgtMask = tgtMask;
