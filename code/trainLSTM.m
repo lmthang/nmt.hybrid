@@ -177,11 +177,11 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     elseif params.attnFunc==1 % absolute positions
       params.numAttnPositions = params.maxSentLen-1;
     end
-    
-    % positional models
-    if params.posModel>0
-      params.maxSentLen = (params.maxSentLen-1)*2 + 1;
-    end
+  end
+
+  % positional models
+  if params.posModel>=0
+    params.maxSentLen = (params.maxSentLen-1)*2 + 1;
   end
   
   assert(strcmp(outDir, '')==0);
