@@ -75,6 +75,7 @@ def find_word_pos(tgt_pos, src_tokens, tgt_tokens, t2s, tgt_vocab_map, dict_map,
         print(tgt_pos)
         print(tgt_tokens)
         sys.exit(1)
+      
       src_token = src_tokens[src_pos]
       prob = 0
       if src_token in dict_map and tgt_token in dict_map[src_token]:
@@ -163,8 +164,8 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
       (tgt_words, tgt_vocab_map, tgt_vocab_size) = text.add_word_to_vocab(pos_word, tgt_words, tgt_vocab_map, tgt_vocab_size)
 
     # null alignment
-    pos_null = '<p_n>'
-    (tgt_words, tgt_vocab_map, tgt_vocab_size) = text.add_word_to_vocab(pos_null, tgt_words, tgt_vocab_map, tgt_vocab_size)
+    #pos_null = '<p_n>'
+    #(tgt_words, tgt_vocab_map, tgt_vocab_size) = text.add_word_to_vocab(pos_null, tgt_words, tgt_vocab_map, tgt_vocab_size)
   elif opt==2 or opt==0:
     num_unks = 20
     (src_words, src_vocab_map, src_vocab_size) = add_unks(src_words, src_vocab_map, src_vocab_size, num_unks)
@@ -237,8 +238,17 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
     elif opt==1 or opt==4: # annotating unks with aligned positions
       assert dict_size > 0
       tgt_unk_tokens = []
+
+      new_tgt_tokens = []
+      best_src_positions = []
       for tgt_pos in xrange(len(tgt_tokens)):
         (tgt_token, best_src_pos) = find_word_pos(tgt_pos, src_tokens, tgt_tokens, t2s, tgt_vocab_map, dict_map, window)
+        new_tgt_tokens.append(tgt_token)
+        best_src_positions.append(best_src_pos)
+
+      for tgt_pos in xrange(len(tgt_tokens)):
+        tgt_token = new_tgt_tokens[tgt_pos]
+        best_src_pos = best_src_positions[tgt_pos]
 
         # stats
         if tgt_token == unk_symbol:
@@ -257,10 +267,35 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
 
         # annotate
         if opt==1:
-          pos_word = pos_null
-          if best_src_pos !=-1: # aligned word 
-            assert best_src_pos >= (tgt_pos-window) and best_src_pos <= (tgt_pos+window)
-            pos_word = '<p_' + str(tgt_pos-best_src_pos) + '>'
+          #pos_word = pos_null
+          #if best_src_pos !=-1: # aligned word 
+          if best_src_pos ==-1: # unaligned, try to approximate using prev/next target words
+            search_count = 0 
+            if tgt_pos>0 and best_src_positions[tgt_pos-1]!=-1:
+              best_src_pos = best_src_positions[tgt_pos-1]
+              search_count = 1
+            
+            if tgt_pos<(len(tgt_tokens)-1) and best_src_positions[tgt_pos+1]!=-1:
+              if search_count==0:
+                best_src_pos = best_src_positions[tgt_pos+1]
+              else:
+                best_src_pos = best_src_pos + best_src_positions[tgt_pos+1]
+              search_count = search_count + 1
+            
+            if search_count>0: # found an approximation
+              best_src_pos = best_src_pos/search_count
+
+              if best_src_pos>(tgt_pos+window):
+                best_src_pos = tgt_pos+window
+              elif best_src_pos<(tgt_pos-window):
+                best_src_pos = tgt_pos-window
+
+            else: # use use the tgt_pos
+              best_src_pos = tgt_pos
+
+          assert best_src_pos >= (tgt_pos-window) and best_src_pos <= (tgt_pos+window)
+          pos_word = '<p_' + str(tgt_pos-best_src_pos) + '>'
+  
 
           # Thang Jan 2015: purposely put pos in front of word
           tgt_unk_tokens.append(pos_word)

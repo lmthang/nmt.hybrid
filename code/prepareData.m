@@ -38,13 +38,6 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   else
     tgtMaxLen = max(tgtLens);
   end
-
-  % positional models
-  if params.posModel>0
-    % tgt sent: pos1 word1 ... pos_n word_n <eos>. 
-    % srcPos: pos1 ... pos_n
-    srcPos = params.eosPosId*ones(numSents, floor(tgtMaxLen/2)); 
-  end
   
   %% input / output
   if params.isBi
@@ -68,18 +61,43 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
     % tgtEos has been prefilled
     tgtInput(ii, 2:tgtLen) = tgtSent(1:tgtLen-1);
     tgtOutput(ii, 1:tgtLen-1) = tgtSent(1:tgtLen-1);
-    
-    % get src positions
-    if params.posModel>0
-      srcPos(ii, 1:tgtLen-1) = tgtSent(1:2:tgtLen-1);
-    end
   end
   
+  % mask
   if params.isBi
     srcMask = srcInput~=params.srcZero;
   end
   tgtMask = tgtInput~=params.tgtEos;
   numWords = sum(tgtMask(:)); 
+  
+  % positional models
+  if params.posModel>0
+    % tgt sent: pos1 word1 ... pos_n word_n <eos>. 
+    % posOutput: pos1 ... pos_n
+    data.posOutput = tgtOutput(:, 1:2:tgtMaxLen-1);
+    data.posMask = tgtMask(:, 1:2:tgtMaxLen-1);
+  end
+  
+  % assign to data struct
+  if params.isBi
+    data.srcInput = srcInput;
+    data.srcMask = srcMask;
+    
+    data.input = [srcInput tgtInput(:, 2:end)];
+    data.inputMask = [srcMask tgtMask(:, 2:end)];
+  else
+    data.input = tgtInput;
+    data.inputMask = tgtMask;
+  end
+  
+  data.tgtInput = tgtInput;
+  data.tgtOutput = tgtOutput;
+  data.tgtMask = tgtMask;
+  
+  data.srcMaxLen = srcMaxLen;
+  data.tgtMaxLen = tgtMaxLen;
+  data.numWords = numWords;
+  data.srcLens = srcLens;
   
   % sanity check
   if params.assert
@@ -91,26 +109,6 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
     
     assert(numWords == sum(tgtLens));
   end
-  
-  if params.isBi
-    data.srcInput = srcInput;
-    data.srcMask = srcMask;
-    
-    data.input = [srcInput tgtInput(:, 2:end)];
-    data.inputMask = [srcMask tgtMask(:, 2:end)];
-  else
-    data.input = trainData.tgtInput;
-    data.inputMask = trainData.tgtMask;
-  end
-  
-  data.tgtInput = tgtInput;
-  data.tgtOutput = tgtOutput;
-  data.tgtMask = tgtMask;
-  
-  data.srcMaxLen = srcMaxLen;
-  data.tgtMaxLen = tgtMaxLen;
-  data.numWords = numWords;
-  data.srcLens = srcLens;
 end
 
     

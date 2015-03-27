@@ -26,29 +26,6 @@ function [srcVocab, tgtVocab, params] = loadBiVocabs(params)
   if params.isBi
     fprintf(2, '## Bilingual setting\n');
     
-%     % positional vocab
-%     if params.posModel>0
-%       params.posVocabSize = 2*params.posWin + 3; % for W_softPos, -posWin, ..., 0, posWin, p_n, p_eos
-%       params.startPosId = length(tgtVocab) - 2*params.posWin - 1; % marks -posWin
-%       params.zeroPosId = params.startPosId + params.posWin;
-%       
-%       % assert: -posWin, ..., 0, posWin, p_n are those last words in the tgtVocab
-%       assert(params.startPosId == (length(srcVocab)+1), 'startPosId %d != srcVocab %d + 1\n', params.startPosId, length(srcVocab));
-%       for ii=1:(2*params.posWin +1)
-%         relPos = ii-params.posWin-1;
-%         assert(strcmp(tgtVocab{params.startPosId + ii - 1}, ['<p_', num2str(relPos), '>'])==1);
-%       end
-%       % p_n
-%       params.nullPosId = length(tgtVocab);
-%       assert(strcmp(tgtVocab{params.nullPosId}, '<p_n>')==1);
-%       % p_eos
-%       tgtVocab{end+1} = '<p_eos>';
-%       params.eosPosId = length(tgtVocab);
-%       
-%       fprintf(2, '# Positional model: zeroPosId %s=%d, nullPosId %s=%d, eosPosId %s=%d\n', tgtVocab{params.zeroPosId}, params.zeroPosId, tgtVocab{params.nullPosId}, params.nullPosId, tgtVocab{params.eosPosId}, params.eosPosId);
-%       fprintf(params.logId, '# Positional model: zeroPosId %s=%d, nullPosId %s=%d, eosPosId %s=%d\n', tgtVocab{params.zeroPosId}, params.zeroPosId, tgtVocab{params.nullPosId}, params.nullPosId, tgtVocab{params.eosPosId}, params.eosPosId);
-%     end
-    
     % add eos, sos, zero
     srcVocab{end+1} = '<s_eos>';
     params.srcEos = length(srcVocab);
@@ -62,7 +39,44 @@ function [srcVocab, tgtVocab, params] = loadBiVocabs(params)
     srcVocab = {};
   end
   
-  %% tgt vocab
+  % positional vocab
+  if params.posModel>0
+    indices = find(strncmp('<p_', tgtVocab, 3));
+    params.posVocabSize = length(indices);
+    fprintf(2, '# Positional model: num positional vocab = %d\n', params.posVocabSize);
+    
+    
+    % make sure indices are contiguous
+    assert(params.posVocabSize== (indices(end)-indices(1)+1));
+    pattern = '<p_(.+)>';
+    for ii=1:params.posVocabSize
+      n = regexp(tgtVocab{indices(ii)}, pattern, 'tokens');
+      pos = str2double(n{1}{1});
+      assert(~isnan(pos));
+      fprintf(2, '%s\t%d\n', tgtVocab{indices(ii)}, pos);
+    end
+    
+    params.posVocabSize = 2*params.posWin + 3; % for W_softPos, -posWin, ..., 0, posWin, p_n, p_eos
+    params.startPosId = length(tgtVocab) - 2*params.posWin - 1; % marks -posWin
+    params.zeroPosId = params.startPosId + params.posWin;
+
+    % assert: -posWin, ..., 0, posWin, p_n are those last words in the tgtVocab
+    assert(params.startPosId == (length(srcVocab)+1), 'startPosId %d != srcVocab %d + 1\n', params.startPosId, length(srcVocab));
+    for ii=1:(2*params.posWin +1)
+      relPos = ii-params.posWin-1;
+      assert(strcmp(tgtVocab{params.startPosId + ii - 1}, ['<p_', num2str(relPos), '>'])==1);
+    end
+    % p_n
+    params.nullPosId = length(tgtVocab);
+    assert(strcmp(tgtVocab{params.nullPosId}, '<p_n>')==1);
+%       % p_eos
+%       tgtVocab{end+1} = '<p_eos>';
+%       params.eosPosId = length(tgtVocab);
+
+    fprintf(2, '# Positional model: zeroPosId %s=%d, nullPosId %s=%d, eosPosId %s=%d\n', tgtVocab{params.zeroPosId}, params.zeroPosId, tgtVocab{params.nullPosId}, params.nullPosId, tgtVocab{params.eosPosId}, params.eosPosId);
+    fprintf(params.logId, '# Positional model: zeroPosId %s=%d, nullPosId %s=%d, eosPosId %s=%d\n', tgtVocab{params.zeroPosId}, params.zeroPosId, tgtVocab{params.nullPosId}, params.nullPosId, tgtVocab{params.eosPosId}, params.eosPosId);
+  end
+    
   % class-based softmax
   if params.numClasses>0 % make sure vocab size is divisible by numClasses
     remain = params.numClasses - mod(length(tgtVocab)+1, params.numClasses); % imagine after adding <t_eos>, how many words do we still need?
@@ -71,6 +85,7 @@ function [srcVocab, tgtVocab, params] = loadBiVocabs(params)
     end
     fprintf('# Using class-based softmax, numClasses=%d, adding %d dummy words, tgt vocab size now = %d\n', params.numClasses, remain, length(tgtVocab)+1);
   end
+  
   % add sos, eos
   tgtVocab{end+1} = '<t_sos>';
   params.tgtSos = length(tgtVocab);

@@ -119,16 +119,12 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     assert(params.isBi==1);
     assert(params.attnFunc==0);
   end
-  if params.posModel==0 % print out pos/word perplexities
-    assert(params.softmaxStep==1);
+  if params.attnFunc>0 || params.posModel>=0 
+    assert(params.softmaxStep==1); % print out pos/word perplexities
+    assert(params.isReverse==1);
   end
   if params.softmaxDim>0 || params.numClasses>0
     assert(params.attnFunc==0 & params.posModel==0, '! Assert failed: softmaxDim %d > 0 || numClasses % d > 0, so attnFunc %d and posModel %d have to be 0.\n', params.softmaxDim, params.numClasses, params.attnFunc, params.posModel);
-  end
-  
-  if params.attnFunc>0 || params.posModel==3
-    assert(params.softmaxStep==1, '! For attnFunc %d, softmaxStep %d should be 1\n', params.attnFunc, params.softmaxStep);
-    assert(params.isReverse==1);
   end
   
   % rand seed
