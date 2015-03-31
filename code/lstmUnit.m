@@ -14,13 +14,9 @@ function [lstm, h_t, c_t] = lstmUnit(W, x_t, h_t_1, c_t_1, ll, t, srcMaxLen, par
   %% dropout
   if params.dropout<1 && isTest==0
     if ~params.isGradCheck
-      if params.isGPU
-        dropoutMask = (rand(size(x_t), 'gpuArray')<params.dropout)/params.dropout;
-      else
-        dropoutMask = (rand(size(x_t))<params.dropout)/params.dropout;
-      end
+      dropoutMask = randSimpleMatrix(size(x_t), params.isGPU, params.dataType)/params.dropout;
     else % for gradient check use the same mask
-      if t>=srcMaxLen && ll==1 && (params.posModel==1 || params.posModel==2)
+      if t>=srcMaxLen && ll==1 && params.posModel==2 && mod(t-srcMaxLen+1, 2)==0 % predict words
         dropoutMask = params.dropoutMaskPos;
       else
         dropoutMask = params.dropoutMask;
@@ -71,12 +67,12 @@ function [lstm, h_t, c_t] = lstmUnit(W, x_t, h_t_1, c_t_1, ll, t, srcMaxLen, par
     lstm.f_c_t = f_c_t;
     
     if params.dropout<1 % store dropout mask
-      lstm.dropoutMask = dropoutMask;
-%       if t>=srcMaxLen && ll==1 && (params.posModel==1 || params.posModel==2)
-%         lstmCell.dropoutMaskPos = dropoutMask;
-%       else
-%         
-%       end
+      
+      if t>=srcMaxLen && ll==1 && params.posModel==2 && mod(t-srcMaxLen+1, 2)==0 % predict words
+        lstm.dropoutMaskPos = dropoutMask;
+      else
+        lstm.dropoutMask = dropoutMask;
+      end
     end
   else
     lstm = [];
