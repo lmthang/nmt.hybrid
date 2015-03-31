@@ -16,8 +16,6 @@ function [costs, softmaxGrad, otherGrads] = softmaxCostGrad(model, params, train
   srcMaxLen = trainData.srcMaxLen;
   tgtMaxLen = trainData.tgtMaxLen;
   tgtMask = trainData.tgtMask;
-  srcHidVecs = trainData.srcHidVecs;
-  % srcHidVecs = reshape([topHidVecs{:, 1:params.numSrcHidVecs}], params.lstmSize, curBatchSize, params.numSrcHidVecs);
   
   % init grads
   [softmaxGrad, otherGrads] = initSoftmaxGrad(model, params);
@@ -38,7 +36,7 @@ function [costs, softmaxGrad, otherGrads] = softmaxCostGrad(model, params, train
     batchData.srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
     if params.attnFunc==1
       % note that src sentences are reversed.
-      batchData.srcHidVecs(:, :, params.numAttnPositions-params.numSrcHidVecs+1:params.numAttnPositions) = srcHidVecs; % params.numAttnPositions = maxSentLen-1 >= params.numSrcHidVec
+      batchData.srcHidVecs(:, :, params.numAttnPositions-params.numSrcHidVecs+1:params.numAttnPositions) = trainData.srcHidVecs; % params.numAttnPositions = maxSentLen-1 >= params.numSrcHidVec
       startAttnId = 1;
       endAttnId = params.numSrcHidVecs;
       startHidId = params.numAttnPositions-params.numSrcHidVecs+1;
@@ -83,7 +81,7 @@ function [costs, softmaxGrad, otherGrads] = softmaxCostGrad(model, params, train
 
     % attention model 2: relative positions, we assume softmaxStep=1
     if params.attnFunc==2
-      [batchData.srcHidVecs, startAttnId, endAttnId, startHidId, endHidId] = buildSrcHidVecs(srcHidVecs, srcMaxLen, tgtPos, params);
+      [batchData.srcHidVecs, startAttnId, endAttnId, startHidId, endHidId] = buildSrcHidVecs(trainData.srcHidVecs, srcMaxLen, tgtPos, params);
     end
     
     % predict
