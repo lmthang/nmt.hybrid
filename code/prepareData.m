@@ -18,6 +18,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
     srcLens = cellfun(@(x) length(x), srcSents);
   end
   
+  % src
   numSents = length(tgtSents);
   if params.isBi
     srcLens = srcLens + 1; % add eos
@@ -29,12 +30,15 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
     end
   end
   
+  % tgt
   tgtLens = tgtLens + 1; % add eos
-
+  tgtMaxSentLen = params.maxSentLen;
+  if params.posModel>0
+    tgtMaxSentLen = (tgtMaxSentLen-1)*2 + 1;
+  end
   if isTest==0 % training
-    tgtLens(tgtLens>params.maxSentLen) = params.maxSentLen; % limit sent lengths
+    tgtLens(tgtLens>tgtMaxSentLen) = tgtMaxSentLen; % limit sent lengths
     tgtMaxLen = max(tgtLens);
-    assert(tgtMaxLen<=params.maxSentLen);
   else
     tgtMaxLen = max(tgtLens);
   end
@@ -73,9 +77,9 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   % positional models
   if params.posModel>0
     % tgt sent: pos1 word1 ... pos_n word_n <eos>. 
-    % posOutput: pos1 ... pos_n
-    data.posOutput = tgtOutput(:, 1:2:tgtMaxLen-1);
-    data.posMask = tgtMask(:, 1:2:tgtMaxLen-1);
+    % posOutput: pos1 ... pos_n <eos>
+    data.posOutput = tgtOutput(:, 1:2:tgtMaxLen);
+    data.posMask = tgtMask(:, 1:2:tgtMaxLen);
   end
   
   % assign to data struct

@@ -17,35 +17,36 @@ function gradCheck(model, params)
   tgtTrainSents = cell(1, params.batchSize);
   tgtTrainMaxLen = params.maxSentLen;
 
+  % generate src/tgt sentences (do not generate <eos> symbol)
   for ii=1:params.batchSize
     if params.isBi
       srcLen = randi([1, srcTrainMaxLen-1]);
       srcTrainSents{ii} = randi([1, params.srcVocabSize-2], 1, srcLen); % exclude <s_eos> and  <s_zero>
-      %srcTrainSents{ii}(end+1) = params.srcEos;
     end
 
     tgtLen = randi([1, tgtTrainMaxLen-1]);
     tgtTrainSents{ii} = randi([1, params.tgtVocabSize-2], 1, tgtLen); % exclude <t_sos> and <t_eos>
-%     if params.posModel>0 % positional models: generate pairs of pos/word
-%       tgtTrainSents{ii} = zeros(1, 2*tgtLen);
-%       tgtTrainSents{ii}(1:2:2*tgtLen-1) = randi([params.startPosId, params.tgtVocabSize-3], 1, tgtLen); % positions (exclude <p_eos>, <t_sos>, and <t_eos> at the end)
-%       tgtTrainSents{ii}(2:2:2*tgtLen) = randi([1, params.startPosId-1], 1, tgtLen); % words
-%     else
-%     end
-    %tgtTrainSents{ii}(end+1) = params.tgtEos;
+
+    % positional models: generate pairs of pos/word
+    if params.posModel>0 
+      tgtTrainSents{ii} = zeros(1, 2*tgtLen);
+      tgtTrainSents{ii}(1:2:2*tgtLen-1) = randi([params.startPosId, params.startPosId + params.posVocabSize-2], 1, tgtLen); % positions (exclude <t_eos> at the end)
+      tgtTrainSents{ii}(2:2:2*tgtLen) = randi([1, params.startPosId-1], 1, tgtLen); % words
+    else
+    end
   end
 
   % prepare data
   [trainData] = prepareData(srcTrainSents, tgtTrainSents, 0, params);
-  printSent(2, trainData.srcInput(1, :), params.vocab, 'input:');
-  printSent(2, trainData.tgtOutput(1, :), params.vocab, 'output:');
+  printSent(2, trainData.srcInput(1, :), params.vocab, 'src input:');
+  printSent(2, trainData.tgtOutput(1, :), params.vocab, 'tgt output:');
   fprintf(2, 'src mask: %s\n', num2str(trainData.srcMask(1, :)));
   fprintf(2, 'tgt mask: %s\n', num2str(trainData.tgtMask(1, :)));
   
-%   % positional models
-%   if params.posModel>0
-%     printSent(2, trainData.srcPos(1, :), params.vocab, '  srcPos 1:');
-%   end
+  % positional models
+  if params.posModel>0
+    printSent(2, trainData.posOutput(1, :), params.vocab, '  pos output:');
+  end
     
   % for gradient check purpose
   if params.dropout<1 % use the same dropout mask
