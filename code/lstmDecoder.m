@@ -17,7 +17,7 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
   input = data.input;
   inputMask = data.inputMask; 
   srcMaxLen = data.srcMaxLen;
-  srcLens = data.srcLens;
+  
   %printSent(2, input(1, 1:srcMaxLen), params.vocab, 'src 1: ');
   %printSent(2, input(1, srcMaxLen:end), params.vocab, 'tgt 1: ');
   %printSent(2, input(end, 1:srcMaxLen), params.vocab, 'src end: ');
@@ -32,8 +32,14 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
   %% encode %%
   %%%%%%%%%%%%
   lstm = cell(params.numLayers, 1); % lstm can be over written, as we do not need to backprop
-  if params.attnFunc>0 || params.posModel>=2
+  
+  % attentional / positional models
+  if params.attnFunc>0 || params.posModel>=2 
     params.numSrcHidVecs = srcMaxLen-1;
+    params.curBatchSize = params.batchSize;
+    data.curMask.mask = ones(1, params.curBatchSize);
+    data.curMask.unmaskedIds = 1:params.curBatchSize;
+    data.curMask.maskedIds = [];
     data.srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
   else
     params.numSrcHidVecs = 0;
@@ -93,7 +99,7 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
   startTime = clock;
   maxLen = floor(srcMaxLen*params.decodeLenRatio);
   sentIndices = data.startId:(data.startId+batchSize-1);
-  [candidates, candScores] = decodeBatch(model, params, lstm, maxLen, beamSize, stackSize, batchSize, sentIndices, srcMaxLen, srcLens);
+  [candidates, candScores] = decodeBatch(model, params, lstm, maxLen, beamSize, stackSize, batchSize, sentIndices, srcMaxLen, data);
   endTime = clock;
   timeElapsed = etime(endTime, startTime);
   fprintf(2, '  Done, maxLen=%d, speed %f sents/s, time %.0fs, %s\n', maxLen, batchSize/timeElapsed, timeElapsed, datestr(now));
@@ -108,8 +114,10 @@ end
 %   - beamSize
 %   - stackSize: maximum number of translations collected for one example
 %%
-function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen, beamSize, stackSize, batchSize, originalSentIndices, srcMaxLen, srcLens)
+function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen, beamSize, stackSize, batchSize, originalSentIndices, srcMaxLen, data)
+  srcLens = data.srcLens;  
   numLayers = params.numLayers;
+  numElements = batchSize*beamSize;
   
   candidates = cell(batchSize, 1);
   candScores = -1e10*oneMatrix([stackSize, batchSize], params.isGPU, params.dataType); % set to a very small value
@@ -124,24 +132,39 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
   % think for good models, we don't have to worry :)
   
   %% matrix dimension note
-  % note that we order matrices in the following dimension: n * (batchSize*beamSize)
+  % note that we order matrices in the following dimension: n * numElements
   % columns correspond to the 1st sent go first, then the 2nd one, until the batchSize-th sent.
   sentIndices = repmat(1:batchSize, beamSize, 1);
   sentIndices = sentIndices(:)'; % 1 ... 1, 2 ... 2, ...., batchSize ... batchSize . 1 * (beamSize*batchSize)
   
   %% init beam
-  beamScores = scores(:)'; % 1 * (beamSize*batchSize)
-  beamHistory = zeroMatrix([maxLen, batchSize*beamSize], params.isGPU, params.dataType); % maxLen * (batchSize*beamSize) 
+  beamScores = scores(:)'; % 1 * numElements
+  beamHistory = zeroMatrix([maxLen, numElements], params.isGPU, params.dataType); % maxLen * (numElements) 
   beamHistory(1, :) = words(:); % words for sent 1 go together, then sent 2, ...
   beamStates = cell(numLayers, 1);
-  for ll=1:numLayers % lstmSize * (batchSize*beamSize)
-    beamStates{ll}.c_t = reshape(repmat(lstmStart{ll}.c_t, beamSize, 1),  params.lstmSize, batchSize*beamSize); 
-    beamStates{ll}.h_t = reshape(repmat(lstmStart{ll}.h_t, beamSize, 1),  params.lstmSize, batchSize*beamSize); 
+  for ll=1:numLayers % lstmSize * numElements
+    beamStates{ll}.c_t = reshape(repmat(lstmStart{ll}.c_t, beamSize, 1),  params.lstmSize, numElements); 
+    beamStates{ll}.h_t = reshape(repmat(lstmStart{ll}.h_t, beamSize, 1),  params.lstmSize, numElements); 
+  end
+  
+  % attentional / positional models
+  if params.attnFunc>0 || params.posModel>=2 
+    params.curBatchSize = numElements;
+    data.curMask.mask = ones(1, params.curBatchSize);
+    data.curMask.unmaskedIds = 1:params.curBatchSize;
+    data.curMask.maskedIds = [];
+    
+    % duplicate srcHidVecs along the curBatchSize dimension beamSize times
+    data.srcHidVecs = permute(data.srcHidVecs, [1, 3, 2]); % lstmSize * numAttnPositions * batchSize
+    data.srcHidVecs = reshape(data.srcHidVecs, params.lstmSize*params.numAttnPositions, batchSize);
+    data.srcHidVecs = repmat(data.srcHidVecs, beamSize, 1);
+    data.srcHidVecs = reshape(data.srcHidVecs, params.lstmSize, params.numAttnPositions, numElements);
+    data.srcHidVecs = permute(data.srcHidVecs, [1, 3, 2]); % lstmSize * batchSize * numAttnPositions
   end
   
   decodeCompleteCount = 0; % count how many sentences we have completed collecting the translations
-  nextWords = zeroMatrix([1, batchSize*beamSize], params.isGPU, params.dataType);
-  beamIndices = zeroMatrix([1, batchSize*beamSize], params.isGPU, params.dataType);
+  nextWords = zeroMatrix([1, numElements], params.isGPU, params.dataType);
+  beamIndices = zeroMatrix([1, numElements], params.isGPU, params.dataType);
   for sentPos = 1 : maxLen
     % compute next lstm hidden states
     words = beamHistory(sentPos, :);
@@ -228,7 +251,7 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
     
     %% update lstm states
     for ll=1:numLayers
-      % lstmSize * (batchSize*beamSize): h_t and c_t vectors of each sent are arranged near each other
+      % lstmSize * (numElements): h_t and c_t vectors of each sent are arranged near each other
       beamStates{ll}.c_t = beamStates{ll}.c_t(:, colIndices); 
       beamStates{ll}.h_t = beamStates{ll}.h_t(:, colIndices);
     end
@@ -258,7 +281,7 @@ end
 function [bestLogProbs, bestWords] = nextBeamStep(model, h_t, beamSize, params, data)
   % softmax
   if params.attnFunc>0 % attention mechanism
-    [softmax_h] = lstm2softHid(h_t, params, model, data.srcHidVecs, curMask);
+    [softmax_h] = lstm2softHid(h_t, params, model, data.srcHidVecs, data.curMask);
   elseif params.posModel>0
     error('! Have not implemented decoder for positional models\n');
   else
