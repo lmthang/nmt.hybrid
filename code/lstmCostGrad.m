@@ -113,6 +113,12 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       if t>=srcMaxLen && ll==params.numLayers && (params.attnFunc>0 || params.posModel>=2)
         trainData.srcHidVecs = reshape([all_h_t{params.numLayers, 1:params.numSrcHidVecs}], params.lstmSize, curBatchSize, params.numSrcHidVecs);
       end
+      
+      % assert
+      if params.assert
+        assert(sum(sum(abs(all_h_t{ll, t}(:, trainData.maskInfo{t}.maskedIds))))==0);
+        assert(sum(sum(abs(all_c_t{ll, t}(:, trainData.maskInfo{t}.maskedIds))))==0);
+      end
     end % end for t
   end
   
@@ -210,12 +216,6 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       end
     end % end for layer
   end % end for time
-   
-  % grad W_soft_inclass
-  if params.numClasses>0
-    grad.classIndices = otherSoftmaxGrads.classIndices;
-    grad.W_soft_inclass = otherSoftmaxGrads.W_soft_inclass(:, :, grad.classIndices);
-  end
   
   % grad W_emb
   allEmbGrads(:, wordCount+1:end) = [];
@@ -226,7 +226,6 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   if params.attnFunc>0 || params.posModel>=2
     grad = rmfield(grad, 'srcHidVecs');
   end
-  params = rmfield(params, {'curBatchSize', 'srcMaxLen', 'T'});
   
   % gather data from GPU
   if params.isGPU    
@@ -265,154 +264,14 @@ function [grad, params] = initGrad(model, params)
 end
 
 
-
-    
-%     % update src embs from positional models
-%     if params.posModel==2
-%       numWords = otherSoftmaxGrads.wordCount;
-%       allEmbIndices(wordCount+1:wordCount+numWords) = otherSoftmaxGrads.allEmbIndices;
-%       allEmbGrads(:, wordCount+1:wordCount+numWords) = otherSoftmaxGrads.allEmbGrads;
-%       wordCount = wordCount + numWords;
-%     end
-
-%           if params.posModel==1 % word embs
-%             embIndices = [embIndices srcPosData(tgtPos).embIndices];
-%             embGrad = [embGrad lstm_grad.input(range, unmaskedIds)];
-%           elseif params.posModel==2 % embs of <p_n> and <p_eos>
-%             embIndices = [embIndices params.nullPosId*ones(1, length(srcPosData(tgtPos).nullIds)) params.eosPosId*ones(1, length(srcPosData(tgtPos).eosIds))];
-%             embGrad = [embGrad lstm_grad.input(range, [srcPosData(tgtPos).nullIds srcPosData(tgtPos).eosIds])];
-% 
-%             % update src hidden states
-%             if ~isempty(srcPosData(tgtPos).posIds)
-%               [linearIndices] = getTensorLinearIndices(trainData.srcHidVecs, srcPosData(tgtPos).posIds, srcPosData(tgtPos).colIndices);
-%               grad.srcHidVecs(linearIndices) = grad.srcHidVecs(linearIndices) + reshape(lstm_grad.input(range, srcPosData(tgtPos).posIds), 1, []);
-%             end
-%           end
-
-
-%   if params.embCPU && params.isGPU % only put part of the emb matrix onto GPU
-%     input_embs = model.W_emb(:, input);
-%     input_embs = gpuArray(input_embs); % load input embeddings onto GPUs
+%% class-based softmax %%
+% in main method, backprop
+%   % grad W_soft_inclass
+%   if params.numClasses>0
+%     grad.classIndices = otherSoftmaxGrads.classIndices;
+%     grad.W_soft_inclass = otherSoftmaxGrads.W_soft_inclass(:, :, grad.classIndices);
 %   end
 
-%         if params.embCPU && params.isGPU
-%           x_t = input_embs(:, ((t-1)*curBatchSize+1):t*curBatchSize);
-%         else
-%         end
-
-%     if params.embCPU
-%       grad.W_emb = double(gather(grad.W_emb));
-%     end
+%% Unused    
 
 
-%     if params.attnFunc==2
-%       params.numSrcHidVecs = params.srcMaxLen-1;
-% %     elseif params.posModel==2 || params.posModel==3% add an extra <s_eos> to the src side
-% %       params.numSrcHidVecs = params.srcMaxLen-2;
-%     else
-%       params.numSrcHidVecs = params.maxSentLen-1;
-%     end
-
-% last h_t, c_t on the src side
-%   if params.inputFormat==1
-%     last_h_t = cell(1, params.numLayers);
-%     last_c_t = cell(1, params.numLayers);
-%     last_lstm = cell(1, params.numLayers);
-%     for ll=1:params.numLayers
-%       last_h_t{ll} = zeroMatrix([params.lstmSize, curBatchSize], params.isGPU, params.dataType);
-%       last_c_t{ll} = zeroMatrix([params.lstmSize, curBatchSize], params.isGPU, params.dataType);
-%     end
-%   end
-  
-  % topHidVecs: lstmSize * curBatchSize * T 
-  %trainData.topHidVecs = zeroMatrix([params.lstmSize, curBatchSize, T], params.isGPU, params.dataType);
-  
-  
-        
-%       if params.inputFormat==1
-%         if t==(srcMaxLen+1)
-%           c_t_1 = last_c_t{ll}(:, :);
-%         end
-%         if t==srcMaxLen
-%           lstm_cell = last_lstm{ll};
-%         end
-%       end
-
-%         if params.inputFormat==1 && t==(srcMaxLen+1) % left-aligned
-%           c_t_1 = last_c_t{ll};
-%           h_t_1 = last_h_t{ll};
-%         else
-%           
-%         end
-
-%   if params.inputFormat==1 % left-aligned
-%     topHidVecs(:, :, srcMaxLen) = last_h_t{params.numLayers};
-%   end
-
-      % for left-aligned input: copy previous states for masked indices
-%       if params.inputFormat==1 && t<=srcMaxLen 
-%         last_h_t{ll} = all_h_t{ll}(:, :, t);
-%         last_c_t{ll} = all_c_t{ll}(:, :, t);
-%         last_lstm{ll} = lstm{ll, t};
-%         
-%         if ~isempty(trainData.maskInfo{t}.maskedIds) 
-%           last_h_t{ll}(:, trainData.maskInfo{t}.maskedIds) = all_h_t{ll}(:, trainData.maskInfo{t}.maskedIds, t-1);
-%           last_c_t{ll}(:, trainData.maskInfo{t}.maskedIds) = all_c_t{ll}(:, trainData.maskInfo{t}.maskedIds, t-1);
-%           
-%           last_lstm{ll}.input(:, trainData.maskInfo{t}.maskedIds) = lstm{ll, t-1}.input(:, trainData.maskInfo{t}.maskedIds);
-%           last_lstm{ll}.i_gate(:, trainData.maskInfo{t}.maskedIds) = lstm{ll, t-1}.i_gate(:, trainData.maskInfo{t}.maskedIds);
-%           last_lstm{ll}.f_gate(:, trainData.maskInfo{t}.maskedIds) = lstm{ll, t-1}.f_gate(:, trainData.maskInfo{t}.maskedIds);
-%           last_lstm{ll}.o_gate(:, trainData.maskInfo{t}.maskedIds) = lstm{ll, t-1}.o_gate(:, trainData.maskInfo{t}.maskedIds);
-%           last_lstm{ll}.a_signal(:, trainData.maskInfo{t}.maskedIds) = lstm{ll, t-1}.a_signal(:, trainData.maskInfo{t}.maskedIds);
-%           last_lstm{ll}.f_c_t(:, trainData.maskInfo{t}.maskedIds) = lstm{ll, t-1}.f_c_t(:, trainData.maskInfo{t}.maskedIds);
-%           if params.dropout<1 % store dropout mask
-%             last_lstm{ll}.dropoutMask(:, trainData.maskInfo{t}.maskedIds) = lstm{ll, t-1}.dropoutMask(:, trainData.maskInfo{t}.maskedIds);
-%           end
-%         end
-%       end
-
-
-  % global opt
-  %if params.globalOpt==1
-  %  srcSentEmbs = sum(reshape(input_embs(:, 1:curBatchSize*srcMaxLen), params.lstmSize*curBatchSize, srcMaxLen), 2); % sum
-  %  srcSentEmbs = bsxfun(@rdivide, reshape(srcSentEmbs, params.lstmSize, curBatchSize), trainData.srcLens');
-  %end
-
-%     % grad_ht
-%     for t=(srcMaxLen-1):T
-%       % words
-%       if (t>=srcMaxLen)
-%         lstm{params.numLayers, t}.grad_ht = otherGrad.word_ht(:, (t-srcMaxLen)*curBatchSize+1:(t-srcMaxLen+1)*curBatchSize);
-%       end
-%       
-%       % positions
-%       if params.posModel>0 && t<T
-%         range = (t-srcMaxLen+1)*curBatchSize+1:(t-srcMaxLen+2)*curBatchSize;
-%         if t==(srcMaxLen-1)
-%           lstm{params.numLayers, t}.grad_ht = otherGrad.pos_ht(:, range);
-%         else
-%           lstm{params.numLayers, t}.grad_ht = lstm{params.numLayers, t}.grad_ht + otherGrad.pos_ht(:, range);
-%         end
-%       end
-%     end
-
-
-%   if params.numClasses>0 % this might cause memory problem. We can actually do aggregation as we go
-%     allClassGrads = zeroMatrix([params.softmaxSize*params.classSize, trainData.numInputWords], params.isGPU, params.dataType);
-%     allClassIndices = zeros(trainData.numInputWords, 1);
-%     allClassCount = 0;
-%   end
-
-%   if params.numClasses>0 % class-based softmax
-%     allClassGrads(:, allClassCount+1:end) = [];
-%     allClassIndices(allClassCount+1:end) = [];
-%     [grad.W_soft_inclass, grad.classIndices] = aggregateMatrix(allClassGrads, allClassIndices, params.isGPU, params.dataType);
-%     grad.W_soft_inclass = reshape(grad.W_soft_inclass, [params.classSize params.softmaxSize length(grad.classIndices)]);
-%   end
-
-%       if params.numClasses>0 % class-based softmax
-%         numClassIds = length(classSoftmax.indices);
-%         allClassIndices(allClassCount+1:allClassCount+numClassIds) = classSoftmax.indices;
-%         allClassGrads(:, allClassCount+1:allClassCount+numClassIds) = classSoftmax.W_soft_inclass;
-%         allClassCount = allClassCount + numClassIds;
-%       end

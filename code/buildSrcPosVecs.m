@@ -1,4 +1,4 @@
-function [srcPosVecs, linearIndices] = buildSrcPosVecs(t, params, trainData, predPositions, curMask)
+function [srcPosVecs, linearIndices] = buildSrcPosVecs(t, params, data, predPositions, curMask)
 %%%
 %
 % For positional models, generate src vectors based on the predicted positions.
@@ -6,15 +6,16 @@ function [srcPosVecs, linearIndices] = buildSrcPosVecs(t, params, trainData, pre
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 %
 %%%
-
-  srcMaxLen = trainData.srcMaxLen;
   unmaskedIds = curMask.unmaskedIds;
-  srcHidVecs = trainData.srcHidVecs;
+
+  srcMaxLen = data.srcMaxLen;
+  srcHidVecs = data.srcHidVecs;
+  srcLens = data.srcLens(unmaskedIds);
   
   srcPosVecs = zeroMatrix([params.lstmSize, params.curBatchSize], params.isGPU, params.dataType);
   tgtPos = t-srcMaxLen+1;
   predPositions = predPositions(unmaskedIds);
-  srcLens = trainData.srcLens(unmaskedIds);
+  
  
   %% compute aligned src positions
   srcPositions = tgtPos - (predPositions - params.zeroPosId); % src_pos = tgt_pos - relative_pos
@@ -45,9 +46,10 @@ function [srcPosVecs, linearIndices] = buildSrcPosVecs(t, params, trainData, pre
   if params.assert
     assert(isempty(find(colIndices>=srcMaxLen, 1)));
     assert(sum(sum(srcPosVecs(:, curMask.maskedIds)))==0);
-    %assert(sum(srcEmbIndices == params.srcEos)==0);
   end  
 end
+
+%assert(sum(srcEmbIndices == params.srcEos)==0);
 
 %   if params.posModel==2 % use src embedding
 %     srcEmbIndices = input(sub2ind(size(input), unmaskedIds, colIndices));

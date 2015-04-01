@@ -84,17 +84,11 @@ function [costs, softmaxGrad, otherGrads] = softmaxCostGrad(model, params, train
     end
     
     % predict
-    if params.numClasses>0 % class-based
-      predClasses = mod(predWords, params.numClasses) + 1;
-      predInClasses = floor((predWords-1)/params.numClasses + 1e-9) + 1;
-      [word_cost, word_softmaxGrad, grad_ht , otherBatchGrads] = batchSoftmax('W_soft_class', h_t, predClasses, model, params, trainData, batchData, 0, curMask, predInClasses);
-    else % normal softmax
-      if params.posModel>=1 && mod(tgtPos, 2)==1 % positions
-        predWords = predWords - params.startPosId + 1;
-        [word_cost, word_softmaxGrad, grad_ht, otherBatchGrads] = batchSoftmax('W_softPos', h_t, predWords, model, params, trainData, batchData, 1, curMask);
-      else % words
-        [word_cost, word_softmaxGrad, grad_ht, otherBatchGrads] = batchSoftmax('W_soft', h_t, predWords, model, params, trainData, batchData, 0, curMask);
-      end
+    if params.posModel>=1 && mod(tgtPos, 2)==1 % positions
+      predWords = predWords - params.startPosId + 1;
+      [word_cost, word_softmaxGrad, grad_ht, otherBatchGrads] = batchSoftmax('W_softPos', h_t, predWords, model, params, trainData, batchData, 1, curMask);
+    else % words
+      [word_cost, word_softmaxGrad, grad_ht, otherBatchGrads] = batchSoftmax('W_soft', h_t, predWords, model, params, trainData, batchData, 0, curMask);
     end
     
     % costs
@@ -124,12 +118,6 @@ function [costs, softmaxGrad, otherGrads] = softmaxCostGrad(model, params, train
       % positional model 3
       if params.posModel==3 && mod(tgtPos, 2)==0
         softmaxGrad.srcHidVecs(batchData.linearIndices) = softmaxGrad.srcHidVecs(batchData.linearIndices) + reshape(otherBatchGrads.srcPosVecs(:, curMask.unmaskedIds), 1, []);
-      end
-
-      % class-based softmax
-      if params.numClasses>0 
-        otherGrads.W_soft_inclass(:, :, otherBatchGrads.indices) = otherGrads.W_soft_inclass(:, :, otherBatchGrads.indices) + otherBatchGrads.W_soft_inclass;
-        otherGrads.classIndices = unique([otherGrads.classIndices otherBatchGrads.indices]);
       end
             
       % grad_ht      
@@ -178,25 +166,6 @@ function [cost, softmaxGrad, grad_ht, otherBatchGrads] = batchSoftmax(matrixName
   scoreIndices = sub2ind(size(scores), predLabels, unmaskedIds); % 1 * length(tgtPredictedWords)
   cost = - sum(scores(scoreIndices)) + sum(log(norms).*mask);
   
-  % class-based softmax
-  if params.numClasses > 0
-    predInClass = varargin{1};
-    predInClass = predInClass(unmaskedIds);
-    
-    % in class loss
-    % model.W_soft_inclass(:,:,curClasses): classSize * softmaxSize * batchSize
-    % softmax_h: softmaxSize * batchSize
-    % inClassRaw: classSize * batchSize (sum across softmaxSize, dim 2)
-    curClasses = origPredLabels;
-    inClassRaw = reshape(sum(bsxfun(@times, model.W_soft_inclass(:,:,curClasses), permute(softmax_h, [3 1 2])), 2), params.classSize, params.curBatchSize);
-    [inClassProbs, inClassScores, inClassNorms] = softmax(inClassRaw, mask);
-    
-    inClassScoreIndices = sub2ind(size(inClassScores), predInClass, unmaskedIds);
-    inClassCost = - sum(inClassScores(inClassScoreIndices)) + sum(log(inClassNorms).*mask);
-    
-    cost = cost + inClassCost;
-  end
-  
   %% grad
   softmaxGrad = [];
   grad_ht = [];
@@ -207,20 +176,6 @@ function [cost, softmaxGrad, grad_ht, otherBatchGrads] = batchSoftmax(matrixName
 
     % softmax_h
     grad_softmax_h = model.(matrixName)'* probs;
-    
-    % class-based softmax
-    if params.numClasses > 0 
-      inClassProbs(inClassScoreIndices) = inClassProbs(inClassScoreIndices) - 1;
-
-      % W_soft_inclass(:,:,curClasses): classSize * softmaxSize * batchSize
-      % inClassProbs: classSize * batchSize
-      % grad_softmax_h: softmaxSize * batchSize (sum across classSize, dim 1)
-      grad_softmax_h = grad_softmax_h + squeeze(sum(bsxfun(@times, model.W_soft_inclass(:,:,curClasses), permute(inClassProbs, [1 3 2])), 1));
-    end
-
-    if params.assert && ~isempty(maskedIds)
-      assert(sum(sum(abs(grad_softmax_h(:, maskedIds))))==0);
-    end
     
     %% grad_softmax_h -> h_t
     if params.softmaxDim>0 || params.attnFunc>0 || (params.posModel==3 && isPredictPos==0) % softmax compression or attention
@@ -259,39 +214,13 @@ function [cost, softmaxGrad, grad_ht, otherBatchGrads] = batchSoftmax(matrixName
     % fail because softmaxGrad is only created after calling attnBackprop,
     % which means anything touches softmaxGrad before will be lost.
     softmaxGrad.(matrixName) = probs*softmax_h';
-    
-    if params.numClasses>0 % class-based softmax
-      numWords = length(unmaskedIds);
-      % inClassProbs(:, unmaskedIds): classSize * numWords
-      % softmax_h(:, unmaskedIds): softmaxSize * numWords
-      % W_soft_inclass: classSize * softmaxSize * numWords
-      W_soft_inclass_grads = bsxfun(@times, permute(inClassProbs(:, unmaskedIds),[1 3 2]), permute(softmax_h(:, unmaskedIds),[3 1 2]));
-      
-      % grad.W_soft_inclass: (classSize * softmaxSize) * numWords
-      W_soft_inclass_grads = reshape(W_soft_inclass_grads, [params.classSize*params.softmaxSize numWords]);
-      
-      % accumulate
-      [otherBatchGrads.W_soft_inclass, otherBatchGrads.indices] = aggregateMatrix(W_soft_inclass_grads, curClasses(unmaskedIds), params.isGPU, params.dataType);
-      otherBatchGrads.W_soft_inclass = reshape(otherBatchGrads.W_soft_inclass, [params.classSize params.softmaxSize length(otherBatchGrads.indices)]);
-    end
   end % end isTest
   
   
   % assert
   if params.assert
-    if params.isGPU
-      assert(gather(sum(sum(abs(scores(:, maskedIds)))))==0);
-    else
-      assert(sum(sum(abs(scores(:, maskedIds))))==0);
-    end
-    
-    if params.numClasses > 0
-      if params.isGPU
-        assert(gather(sum(sum(abs(inClassScores(:, maskedIds)))))==0);
-      else
-        assert(sum(sum(abs(inClassScores(:, maskedIds))))==0);
-      end
-    end
+    assert(sum(sum(abs(scores(:, maskedIds))))==0);
+    assert(sum(sum(abs(grad_softmax_h(:, maskedIds))))==0);
   end
 end
 
@@ -301,15 +230,79 @@ function [softmaxGrad, otherGrads] = initSoftmaxGrad(model, params)
     softmaxGrad.(field) = zeroMatrix(size(model.(field)), params.isGPU, params.dataType);
   end
   
-  if params.numClasses == 0 % normal
-    otherGrads = [];
-  else % class-based
-    otherGrads.W_soft_inclass = zeroMatrix(size(model.W_soft_inclass), params.isGPU, params.dataType);
-    otherGrads.classIndices = [];
-  end
+  otherGrads = [];
 end
 
-  
+%% class-based softmax %%
+% after forward prediction and before cost
+%     if params.numClasses>0 % class-based
+%       predClasses = mod(predWords, params.numClasses) + 1;
+%       predInClasses = floor((predWords-1)/params.numClasses + 1e-9) + 1;
+%       [word_cost, word_softmaxGrad, grad_ht , otherBatchGrads] = batchSoftmax('W_soft_class', h_t, predClasses, model, params, trainData, batchData, 0, curMask, predInClasses);
+%     else % normal softmax
+%     end
+% backprop, before grad_ht
+%       % class-based softmax
+%       if params.numClasses>0 
+%         otherGrads.W_soft_inclass(:, :, otherBatchGrads.indices) = otherGrads.W_soft_inclass(:, :, otherBatchGrads.indices) + otherBatchGrads.W_soft_inclass;
+%         otherGrads.classIndices = unique([otherGrads.classIndices otherBatchGrads.indices]);
+%       end
+% in initSoftmaxGrad()
+%   if params.numClasses == 0 % normal
+%   else % class-based
+%     otherGrads.W_soft_inclass = zeroMatrix(size(model.W_soft_inclass), params.isGPU, params.dataType);
+%     otherGrads.classIndices = [];
+%   end
+% in batchSoftmax(), right after cost
+%   % class-based softmax
+%   if params.numClasses > 0
+%     predInClass = varargin{1};
+%     predInClass = predInClass(unmaskedIds);
+%     
+%     % in class loss
+%     % model.W_soft_inclass(:,:,curClasses): classSize * softmaxSize * batchSize
+%     % softmax_h: softmaxSize * batchSize
+%     % inClassRaw: classSize * batchSize (sum across softmaxSize, dim 2)
+%     curClasses = origPredLabels;
+%     inClassRaw = reshape(sum(bsxfun(@times, model.W_soft_inclass(:,:,curClasses), permute(softmax_h, [3 1 2])), 2), params.classSize, params.curBatchSize);
+%     [inClassProbs, inClassScores, inClassNorms] = softmax(inClassRaw, mask);
+%     
+%     inClassScoreIndices = sub2ind(size(inClassScores), predInClass, unmaskedIds);
+%     inClassCost = - sum(inClassScores(inClassScoreIndices)) + sum(log(inClassNorms).*mask);
+%     
+%     cost = cost + inClassCost;
+%   end
+% in batchSoftmax(), grad_softmax_h
+%     % class-based softmax
+%     if params.numClasses > 0 
+%       inClassProbs(inClassScoreIndices) = inClassProbs(inClassScoreIndices) - 1;
+% 
+%       % W_soft_inclass(:,:,curClasses): classSize * softmaxSize * batchSize
+%       % inClassProbs: classSize * batchSize
+%       % grad_softmax_h: softmaxSize * batchSize (sum across classSize, dim 1)
+%       grad_softmax_h = grad_softmax_h + squeeze(sum(bsxfun(@times, model.W_soft_inclass(:,:,curClasses), permute(inClassProbs, [1 3 2])), 1));
+%     end
+% in batchSoftmax(), after computing softmaxGrad.(matrixName)
+%     if params.numClasses>0 % class-based softmax
+%       numWords = length(unmaskedIds);
+%       % inClassProbs(:, unmaskedIds): classSize * numWords
+%       % softmax_h(:, unmaskedIds): softmaxSize * numWords
+%       % W_soft_inclass: classSize * softmaxSize * numWords
+%       W_soft_inclass_grads = bsxfun(@times, permute(inClassProbs(:, unmaskedIds),[1 3 2]), permute(softmax_h(:, unmaskedIds),[3 1 2]));
+%       
+%       % grad.W_soft_inclass: (classSize * softmaxSize) * numWords
+%       W_soft_inclass_grads = reshape(W_soft_inclass_grads, [params.classSize*params.softmaxSize numWords]);
+%       
+%       % accumulate
+%       [otherBatchGrads.W_soft_inclass, otherBatchGrads.indices] = aggregateMatrix(W_soft_inclass_grads, curClasses(unmaskedIds), params.isGPU, params.dataType);
+%       otherBatchGrads.W_soft_inclass = reshape(otherBatchGrads.W_soft_inclass, [params.classSize params.softmaxSize length(otherBatchGrads.indices)]);
+%     end
+% assert    
+%     if params.numClasses > 0
+%         assert(sum(sum(abs(inClassScores(:, maskedIds))))==0);
+%     end
+
+%% Unused
 %     % note params.numAttnPositions>=params.numSrcHidVecs
 %     batchData.srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
 %     if params.attnFunc==1

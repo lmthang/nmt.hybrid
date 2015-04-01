@@ -5,13 +5,9 @@ function [srcVocab, tgtVocab, params] = loadBiVocabs(params)
   if params.isGradCheck
     if params.posModel>=0
       params.posWin = 2;
-      tgtVocab = {'a', 'b', '<p_-2>', '<p_-1>', '<p_0>', '<p_1>', '<p_2>'}; %, '<p_n>'};
+      tgtVocab = {'a', 'b', '<p_-2>', '<p_-1>', '<p_0>', '<p_1>', '<p_2>'};
     else
-      if params.numClasses>0
-        tgtVocab = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'};
-      else
-        tgtVocab = {'a', 'b'};
-      end
+      tgtVocab = {'a', 'b'};
     end
     
     if params.isBi
@@ -41,17 +37,8 @@ function [srcVocab, tgtVocab, params] = loadBiVocabs(params)
     srcVocab = {};
   end
     
-  %% tgt vocab
-  % class-based softmax
-  if params.numClasses>0 % make sure vocab size is divisible by numClasses
-    remain = params.numClasses - mod(length(tgtVocab)+1, params.numClasses); % imagine after adding <t_eos>, how many words do we still need?
-    for ii=1:remain
-      tgtVocab{end+1} = ['<dummy', num2str(ii), '>'];
-    end
-    fprintf('# Using class-based softmax, numClasses=%d, adding %d dummy words, tgt vocab size now = %d\n', params.numClasses, remain, length(tgtVocab)+1);
-  end
-  
-  %% positional vocab
+  %% tgt vocab  
+  % positional vocab
   if params.posModel>0
     indices = find(strncmp('<p_', tgtVocab, 3));
     assert(length(indices) == (indices(end)-indices(1)+1)); % make sure indices are contiguous
@@ -80,16 +67,15 @@ function [srcVocab, tgtVocab, params] = loadBiVocabs(params)
     fprintf(params.logId, '# Positional model: posVocabSize=%d, startPosId=%d, zeroPosId=%d\n', params.posVocabSize, params.startPosId, params.zeroPosId);
   end
   
-  
   % add eos, sos
   tgtVocab{end+1} = '<t_eos>'; % not learn
   params.tgtEos = length(tgtVocab);
   tgtVocab{end+1} = '<t_sos>';
   params.tgtSos = length(tgtVocab);
-  params.tgtVocabSize = length(tgtVocab);
-  params.vocab = [tgtVocab srcVocab];
   
   %% finalize vocab
+  params.tgtVocabSize = length(tgtVocab);
+  params.vocab = [tgtVocab srcVocab];
   if params.isBi
     params.srcEos = params.srcEos + params.tgtVocabSize;
     params.srcZero = params.srcZero + params.tgtVocabSize;
@@ -106,6 +92,25 @@ function [srcVocab, tgtVocab, params] = loadBiVocabs(params)
   end
 end
 
+
+%% class-based softmax %%
+% beginning
+%       if params.numClasses>0
+%         tgtVocab = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'};
+%       else
+%         tgtVocab = {'a', 'b'};
+%       end
+% before adding sos, eos to tgtVocab
+%   % class-based softmax
+%   if params.numClasses>0 % make sure vocab size is divisible by numClasses
+%     remain = params.numClasses - mod(length(tgtVocab)+2, params.numClasses); % assume we have added <sos>, <eos>
+%     for ii=1:remain
+%       tgtVocab{end+1} = ['<dummy', num2str(ii), '>'];
+%     end
+%     fprintf('# Using class-based softmax, numClasses=%d, adding %d dummy words, tgt vocab size now = %d\n', params.numClasses, remain, length(tgtVocab)+1);
+%   end
+
+%% Unused
 %       % min, max
 %       if ii==1
 %         minPos = pos;

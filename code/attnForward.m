@@ -1,4 +1,4 @@
-function [attnHidVecs, attn_h_concat, alignWeights] = attnForward(h_t, model, params, srcHidVecs, curMask)
+function [attnHidVecs, attn_h_concat, alignWeights] = attnForward(h_t, model, nonlinear_f, srcHidVecs, curMask)
 %%%
 %
 % Compute context vectors for attention-based models.
@@ -6,10 +6,6 @@ function [attnHidVecs, attn_h_concat, alignWeights] = attnForward(h_t, model, pa
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 %
 %%%
-  if params.assert
-    assert(sum(sum(abs(h_t(:, curMask.maskedIds))))==0);
-  end
-  
   % s_t = W_a * h_t
   % align weights a_t = softmax(s_t): numAttnPositions*curBatchSize
   alignWeights = softmax(model.W_a*h_t);
@@ -27,5 +23,5 @@ function [attnHidVecs, attn_h_concat, alignWeights] = attnForward(h_t, model, pa
   
   % attention hidden vectors: attnHid = f(W_ah*[attn_t; tgt_h_t])
   attn_h_concat = [attnVecs; h_t];
-  attnHidVecs = params.nonlinear_f(model.W_ah*attn_h_concat);
+  attnHidVecs = nonlinear_f(model.W_ah*attn_h_concat);
 end

@@ -60,7 +60,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   %% research options
   addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
   addOptional(p,'gradNormOpt', 0, @isnumeric); % gradOpt=0: basic, 1: add W_emb
-  addOptional(p,'numClasses', 0, @isnumeric); % >0: class-based softmax
   addOptional(p,'softmaxStep', 1, @isnumeric); % do multiple softmax prediction at once
   % attnFunc=0: no attention.
   %          >0: a_t = softmax(W_a * [tgt_h_t; srcLens])  
@@ -126,9 +125,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   if params.attnFunc==2
     assert(params.isReverse==1);
   end
-  if params.softmaxDim>0 || params.numClasses>0
-    assert(params.attnFunc==0 & params.posModel==-1, '! Assert failed: softmaxDim %d > 0 || numClasses % d > 0, so attnFunc %d and posModel %d have to be 0.\n', ...
-      params.softmaxDim, params.numClasses, params.attnFunc, params.posModel);
+  if params.softmaxDim>0
+    assert(params.attnFunc==0 & params.posModel==-1, '! Assert failed: softmaxDim %d > 0, so attnFunc %d and posModel %d have to be 0.\n', ...
+      params.softmaxDim, params.attnFunc, params.posModel);
   end
   
   % rand seed
@@ -312,10 +311,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       else
         model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - scaleLr*grad.W_emb;
       end
-      if params.numClasses>0
-        % update W_soft_inclass separately
-        model.W_soft_inclass(:, :, grad.classIndices) = model.W_soft_inclass(:, :, grad.classIndices) - scaleLr*grad.W_soft_inclass;
-      end
       
       %% logging, eval, save, decode, fine-tuning, etc.
       [totalWords, trainCost, params, startTime] = postTrainIter(model, costs, gradNorm, trainData, validData, testData, totalWords, trainCost, params, startTime, srcTrainSents, tgtTrainSents);
@@ -495,18 +490,8 @@ function [model] = initLSTM(params)
   end
   
   %% softmax input -> predictions
-  if params.numClasses == 0 % normal
-    % W_soft
-    model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.softmaxSize], params.isGPU, params.dataType);
-  else % class-based
-    assert(mod(params.outVocabSize, params.numClasses) == 0, sprintf('outVocabSize (%d) must be divisible by numClasses (%d)', params.outVocabSize, params.numClasses));
-    
-    % W_soft_class: numClasses * softmaxSize
-    model.W_soft_class = randomMatrix(params.initRange, [params.numClasses, params.softmaxSize], params.isGPU, params.dataType);
-    
-    % W_soft_inclass: classSize * softmaxSize * numClasses
-    model.W_soft_inclass = randomMatrix(params.initRange, [params.classSize, params.softmaxSize, params.numClasses], params.isGPU, params.dataType);
-  end
+  % W_soft
+  model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.softmaxSize], params.isGPU, params.dataType);
 end
 
 function [params] = evalSaveDecode(model, validData, testData, params, srcTrainSents, tgtTrainSents)
@@ -519,7 +504,7 @@ function [params] = evalSaveDecode(model, validData, testData, params, srcTrainS
   save(params.modelRecentFile, 'model', 'params');
 
   % decode
-  if params.isBi && params.attnFunc==0 && params.posModel<=0 && params.numClasses==0
+  if params.isBi && params.attnFunc==0 && params.posModel<=0 % && params.numClasses==0
     validId = randi(validData.numSents);
     testId = randi(testData.numSents);
     srcDecodeSents = [srcTrainSents(1); validData.srcSents(validId); testData.srcSents(testId)];
@@ -593,11 +578,6 @@ function [model, params] = initLoadModel(params)
     params.softmaxSize = params.softmaxDim;
   else % normal
     params.softmaxSize = params.lstmSize;
-  end
-  
-  % class-based softmax
-  if params.numClasses>0
-    params.classSize = params.outVocabSize / params.numClasses;
   end
   
   % a model exists, resume training
@@ -695,13 +675,9 @@ function [params] = setupVars(model, params)
   else
     softmaxVars = {};
   end
-  if params.numClasses == 0
-    softmaxVars{end+1} = 'W_soft';
-  else
-    softmaxVars{end+1} = 'W_soft_class';
-  end
-  params.softmaxVars = softmaxVars;
   
+  softmaxVars{end+1} = 'W_soft';
+  params.softmaxVars = softmaxVars;
 end
 
 function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab)
@@ -712,6 +688,35 @@ function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab)
   data.srcSents = srcSents;
   data.tgtSents = tgtSents;
 end
+
+%% class-based softmax %%
+% addOptional(p,'numClasses', 0, @isnumeric); % >0: class-based softmax
+% in initLSTM()
+%   if params.numClasses == 0 % normal  
+%   else % class-based
+%     assert(mod(params.outVocabSize, params.numClasses) == 0, sprintf('outVocabSize (%d) must be divisible by numClasses (%d)', params.outVocabSize, params.numClasses));
+%     
+%     % W_soft_class: numClasses * softmaxSize
+%     model.W_soft_class = randomMatrix(params.initRange, [params.numClasses, params.softmaxSize], params.isGPU, params.dataType);
+%     
+%     % W_soft_inclass: classSize * softmaxSize * numClasses
+%     model.W_soft_inclass = randomMatrix(params.initRange, [params.classSize, params.softmaxSize, params.numClasses], params.isGPU, params.dataType);
+%   end
+% in initLoadModel()
+%   % class-based softmax
+%   if params.numClasses>0
+%     params.classSize = params.outVocabSize / params.numClasses;
+%   end
+% in main loop update parameters
+%       if params.numClasses>0
+%         % update W_soft_inclass separately
+%         model.W_soft_inclass(:, :, grad.classIndices) = model.W_soft_inclass(:, :, grad.classIndices) - scaleLr*grad.W_soft_inclass;
+%       end
+% in setupVars()
+%   if params.numClasses == 0
+%   else
+%     softmaxVars{end+1} = 'W_soft_class';
+%   end
 
 %% Unused code %%
 %   lastNanIter = -1;
