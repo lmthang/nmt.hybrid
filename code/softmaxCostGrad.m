@@ -32,15 +32,14 @@ function [costs, softmaxGrad, otherGrads] = softmaxCostGrad(model, params, train
   end
     
   % attention
-  if params.attnFunc > 0
+  if params.attnFunc>0
     batchData.srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
     if params.attnFunc==1
-      % note that src sentences are reversed.
-      batchData.srcHidVecs(:, :, params.numAttnPositions-params.numSrcHidVecs+1:params.numAttnPositions) = trainData.srcHidVecs; % params.numAttnPositions = maxSentLen-1 >= params.numSrcHidVec
       startAttnId = 1;
       endAttnId = params.numSrcHidVecs;
       startHidId = params.numAttnPositions-params.numSrcHidVecs+1;
       endHidId = params.numAttnPositions;
+      batchData.srcHidVecs(:, :, startHidId:endHidId) = trainData.srcHidVecs;
     end
   else
     batchData.srcHidVecs = [];
@@ -116,12 +115,13 @@ function [costs, softmaxGrad, otherGrads] = softmaxCostGrad(model, params, train
         softmaxGrad.(field) = softmaxGrad.(field) + word_softmaxGrad.(field);
       end
       
-      % attention models: srcHidVecs      
+      % attention models: srcHidVecs
+      % otherBatchGrads: [params.lstmSize, params.curBatchSize, params.numAttnPositions]
       if params.attnFunc>0
         softmaxGrad.srcHidVecs(:, :, startAttnId:endAttnId) = softmaxGrad.srcHidVecs(:, :, startAttnId:endAttnId) + otherBatchGrads.srcHidVecs(:, :, startHidId:endHidId);
       end
       
-      % positional models
+      % positional model 3
       if params.posModel==3 && mod(tgtPos, 2)==0
         softmaxGrad.srcHidVecs(batchData.linearIndices) = softmaxGrad.srcHidVecs(batchData.linearIndices) + reshape(otherBatchGrads.srcPosVecs(:, curMask.unmaskedIds), 1, []);
       end
@@ -310,6 +310,24 @@ function [softmaxGrad, otherGrads] = initSoftmaxGrad(model, params)
 end
 
   
+%     % note params.numAttnPositions>=params.numSrcHidVecs
+%     batchData.srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
+%     if params.attnFunc==1
+%       if params.isReverse % reverse
+% %         startAttnId = 1;
+% %         endAttnId = params.numSrcHidVecs;
+%         startAttnId = params.numAttnPositions-params.numSrcHidVecs+1;
+%         endAttnId = params.numAttnPositions;
+%         startHidId = params.numAttnPositions-params.numSrcHidVecs+1;
+%         endHidId = params.numAttnPositions;
+%       else % normal
+%         startAttnId = 1;
+%         endAttnId = params.numSrcHidVecs;
+%         startHidId = 1;
+%         endHidId = params.numSrcHidVecs;
+%       end
+%       batchData.srcHidVecs(:, :, startHidId:endHidId) = trainData.srcHidVecs;
+%     end
   
 %   if params.posModel==2
 %     otherGrads.allEmbIndices(wordCount+1:end) = [];

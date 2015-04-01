@@ -8,14 +8,14 @@ function gradCheck(model, params)
 %%%
   % generate pseudo data
   if params.isBi
-    srcTrainMaxLen = params.maxSentLen;
+    srcTrainMaxLen = params.maxSentLen-2;
     srcTrainSents = cell(1, params.batchSize);
   else
     srcTrainSents = {};
   end
 
   tgtTrainSents = cell(1, params.batchSize);
-  tgtTrainMaxLen = params.maxSentLen;
+  tgtTrainMaxLen = params.maxSentLen-2;
 
   % generate src/tgt sentences (do not generate <eos> symbol)
   for ii=1:params.batchSize

@@ -123,7 +123,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   if params.attnFunc>0 || params.posModel>=0
     assert(params.softmaxStep==1); % print out pos/word perplexities
   end
-  if params.attnFunc>0
+  if params.attnFunc==2
     assert(params.isReverse==1);
   end
   if params.softmaxDim>0 || params.numClasses>0
@@ -146,7 +146,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     if n>0 % GPU exists
       fprintf(2, '# %d GPUs exist. So, we will use GPUs.\n', n);
       params.isGPU = 1;
-      %reset(gpuDevice(params.gpuDevice));
       gpuDevice(params.gpuDevice)
     else
       params.dataType = 'double';
@@ -160,7 +159,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     params.lstmSize = 2;
     params.batchSize = 10;
     params.batchId = 1;
-    params.maxSentLen = 5;
+    params.maxSentLen = 7;
     params.posWin = 1;
   end
   
