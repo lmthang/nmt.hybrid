@@ -17,7 +17,7 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
   input = data.input;
   inputMask = data.inputMask; 
   srcMaxLen = data.srcMaxLen;
-  srcLens = data.srcLens;
+  
   %printSent(2, input(1, 1:srcMaxLen), params.vocab, 'src 1: ');
   %printSent(2, input(1, srcMaxLen:end), params.vocab, 'tgt 1: ');
   %printSent(2, input(end, 1:srcMaxLen), params.vocab, 'src end: ');
@@ -32,6 +32,18 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
   %% encode %%
   %%%%%%%%%%%%
   lstm = cell(params.numLayers, 1); % lstm can be over written, as we do not need to backprop
+  
+  % attentional / positional models
+  if params.attnFunc>0 || params.posModel>=2 
+    params.numSrcHidVecs = srcMaxLen-1;
+    params.curBatchSize = params.batchSize;
+    data.curMask.mask = ones(1, params.curBatchSize);
+    data.curMask.unmaskedIds = 1:params.curBatchSize;
+    data.curMask.maskedIds = [];
+    data.srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
+  else
+    params.numSrcHidVecs = 0;
+  end
   
   W = model.W_src;
   for t=1:srcMaxLen % time
@@ -67,10 +79,15 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
       [lstm{ll}, h_t] = lstmUnit(W{ll}, x_t, h_t_1, c_t_1, ll, t, srcMaxLen, params, 1);
       lstm{ll}.h_t = h_t;
       
+      % attentional / positional models
+      if t<=params.numSrcHidVecs
+        data.srcHidVecs(:, :, params.numAttnPositions-params.numSrcHidVecs+t) = h_t;
+      end
+      
       % assert
       if params.assert
-        assert(gather(sum(sum(abs(lstm{ll}.c_t(:, maskedIds)))))<1e-5);
-        assert(gather(sum(sum(abs(lstm{ll}.h_t(:, maskedIds)))))<1e-5);
+        assert(sum(sum(abs(lstm{ll}.c_t(:, maskedIds))))<1e-5);
+        assert(sum(sum(abs(lstm{ll}.h_t(:, maskedIds))))<1e-5);
       end
     end
   end
@@ -81,26 +98,25 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
   startTime = clock;
   maxLen = floor(srcMaxLen*params.decodeLenRatio);
   sentIndices = data.startId:(data.startId+batchSize-1);
-  [candidates, candScores] = decodeBatch(model, params, lstm, maxLen, beamSize, stackSize, batchSize, sentIndices, srcMaxLen, srcLens);
+  [candidates, candScores] = decodeBatch(model, params, lstm, maxLen, beamSize, stackSize, batchSize, sentIndices, srcMaxLen, data);
   endTime = clock;
   timeElapsed = etime(endTime, startTime);
   fprintf(2, '  Done, maxLen=%d, speed %f sents/s, time %.0fs, %s\n', maxLen, batchSize/timeElapsed, timeElapsed, datestr(now));
   fprintf(params.logId, '  Done, maxLen=%d, speed %f sents/s, time %.0fs, %s\n', maxLen, batchSize/timeElapsed, timeElapsed, datestr(now));
 end
 
-%%%
-%
+%%
 % Beam decoder from an LSTM model, works for multiple sentences
-%
 % Input:
 %   - encoded vector of the source sentences
 %   - maximum length willing to go
 %   - beamSize
 %   - stackSize: maximum number of translations collected for one example
-%
-%%%
-function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen, beamSize, stackSize, batchSize, originalSentIndices, srcMaxLen, srcLens)
+%%
+function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen, beamSize, stackSize, batchSize, originalSentIndices, srcMaxLen, data)
+  srcLens = data.srcLens;  
   numLayers = params.numLayers;
+  numElements = batchSize*beamSize;
   
   candidates = cell(batchSize, 1);
   candScores = -1e10*oneMatrix([stackSize, batchSize], params.isGPU, params.dataType); % set to a very small value
@@ -110,29 +126,44 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
   end
   
   %% first prediction
-  [scores, words] = nextBeamStep(model, lstmStart{numLayers}.h_t, beamSize, params); % scores, words: beamSize * batchSize
+  [scores, words] = nextBeamStep(model, lstmStart{numLayers}.h_t, beamSize, params, data); % scores, words: beamSize * batchSize
   % TODO: by right, we should filter out words == params.tgtEos, but I
   % think for good models, we don't have to worry :)
   
   %% matrix dimension note
-  % note that we order matrices in the following dimension: n * (batchSize*beamSize)
+  % note that we order matrices in the following dimension: n * numElements
   % columns correspond to the 1st sent go first, then the 2nd one, until the batchSize-th sent.
   sentIndices = repmat(1:batchSize, beamSize, 1);
   sentIndices = sentIndices(:)'; % 1 ... 1, 2 ... 2, ...., batchSize ... batchSize . 1 * (beamSize*batchSize)
   
   %% init beam
-  beamScores = scores(:)'; % 1 * (beamSize*batchSize)
-  beamHistory = zeroMatrix([maxLen, batchSize*beamSize], params.isGPU, params.dataType); % maxLen * (batchSize*beamSize) 
+  beamScores = scores(:)'; % 1 * numElements
+  beamHistory = zeroMatrix([maxLen, numElements], params.isGPU, params.dataType); % maxLen * (numElements) 
   beamHistory(1, :) = words(:); % words for sent 1 go together, then sent 2, ...
   beamStates = cell(numLayers, 1);
-  for ll=1:numLayers % lstmSize * (batchSize*beamSize)
-    beamStates{ll}.c_t = reshape(repmat(lstmStart{ll}.c_t, beamSize, 1),  params.lstmSize, batchSize*beamSize); 
-    beamStates{ll}.h_t = reshape(repmat(lstmStart{ll}.h_t, beamSize, 1),  params.lstmSize, batchSize*beamSize); 
+  for ll=1:numLayers % lstmSize * numElements
+    beamStates{ll}.c_t = reshape(repmat(lstmStart{ll}.c_t, beamSize, 1),  params.lstmSize, numElements); 
+    beamStates{ll}.h_t = reshape(repmat(lstmStart{ll}.h_t, beamSize, 1),  params.lstmSize, numElements); 
+  end
+  
+  % attentional / positional models
+  if params.attnFunc>0 || params.posModel>=2 
+    params.curBatchSize = numElements;
+    data.curMask.mask = ones(1, params.curBatchSize);
+    data.curMask.unmaskedIds = 1:params.curBatchSize;
+    data.curMask.maskedIds = [];
+    
+    % duplicate srcHidVecs along the curBatchSize dimension beamSize times
+    data.srcHidVecs = permute(data.srcHidVecs, [1, 3, 2]); % lstmSize * numAttnPositions * batchSize
+    data.srcHidVecs = reshape(data.srcHidVecs, params.lstmSize*params.numAttnPositions, batchSize);
+    data.srcHidVecs = repmat(data.srcHidVecs, beamSize, 1);
+    data.srcHidVecs = reshape(data.srcHidVecs, params.lstmSize, params.numAttnPositions, numElements);
+    data.srcHidVecs = permute(data.srcHidVecs, [1, 3, 2]); % lstmSize * batchSize * numAttnPositions
   end
   
   decodeCompleteCount = 0; % count how many sentences we have completed collecting the translations
-  nextWords = zeroMatrix([1, batchSize*beamSize], params.isGPU, params.dataType);
-  beamIndices = zeroMatrix([1, batchSize*beamSize], params.isGPU, params.dataType);
+  nextWords = zeroMatrix([1, numElements], params.isGPU, params.dataType);
+  beamIndices = zeroMatrix([1, numElements], params.isGPU, params.dataType);
   for sentPos = 1 : maxLen
     % compute next lstm hidden states
     words = beamHistory(sentPos, :);
@@ -152,7 +183,7 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
     end
     
     % predict the next word
-    [allBestScores, allBestWords] = nextBeamStep(model, beamStates{numLayers}.h_t, beamSize, params); % beamSize * (beamSize*batchSize)
+    [allBestScores, allBestWords] = nextBeamStep(model, beamStates{numLayers}.h_t, beamSize, params, data); % beamSize * (beamSize*batchSize)
     
 %     beamScores
 %     params.vocab(beamHistory(1:sentPos, :))
@@ -218,7 +249,7 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
     
     %% update lstm states
     for ll=1:numLayers
-      % lstmSize * (batchSize*beamSize): h_t and c_t vectors of each sent are arranged near each other
+      % lstmSize * (numElements): h_t and c_t vectors of each sent are arranged near each other
       beamStates{ll}.c_t = beamStates{ll}.c_t(:, colIndices); 
       beamStates{ll}.h_t = beamStates{ll}.h_t(:, colIndices);
     end
@@ -242,44 +273,20 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
   end
 end
 
-function [bestLogProbs, bestWords] = nextBeamStep(model, h, beamSize, params)
+%%
 % return bestLogProbs, bestWords of sizes beamSize * curBatchSize
-  
+%%
+function [bestLogProbs, bestWords] = nextBeamStep(model, h_t, beamSize, params, data)
   % softmax
   if params.attnFunc>0 % attention mechanism
-    error('! Have not implemented decoder for attention mechanism\n');
+    [softmax_h] = lstm2softHid(h_t, params, model, data.srcHidVecs, data.curMask);
+  elseif params.posModel>0
+    error('! Have not implemented decoder for positional models\n');
   else
-    [softmax_h] = lstm2softHid(h, params, model);
+    [softmax_h] = lstm2softHid(h_t, params, model);
   end
-  if params.numClasses == 0 % normal softmax
-    [logProbs] = softmaxDecode(model.W_soft*softmax_h);
-  else
-    batch_size = size(softmax_h, 2);
-    [class_log_probs] = softmaxDecode(model.W_soft_class*softmax_h);
-
-    if params.assert
-      assert(isempty( find( abs(sum(exp(class_log_probs))-1)>1e-8, 1 ) ), 'sum of class_probs is not one\n');
-    end
-      
-    % W_soft_inclass: classSize * lstmSize * numClasses
-    % softmax_h: lstmSize * batchSize
-    % build classSize * lstmSize * numClasses * batchSize, 
-    % then sum across lstmSize (dim 2)
-    % in_class_raws: classSize * numClasses * batchSize, 
-    in_class_raws = squeeze(sum(bsxfun(@times, permute(model.W_soft_inclass,[1 2 3 4]), permute(softmax_h,[3 1 4 2])), 2));
-    mx = max(in_class_raws, [], 1); % max along classSize (dim 1)
-    in_class_raws = bsxfun(@minus, in_class_raws, mx);
-    in_class_log_probs = bsxfun(@minus, in_class_raws, log(sum(exp(in_class_raws),1))); % sum along classSize (dim 1)
-
-    % class_log_probs: numClasses * batchSize
-    % in_class_log_probs, total_log_probs: classSize * numClasses * batchSize
-    total_log_probs = bsxfun(@plus, permute(class_log_probs,[3 1 2]), in_class_log_probs);
-    logProbs = reshape(total_log_probs, params.classSize*params.numClasses, batch_size);
-    correct_order = repmat(params.classSize*(0:(params.numClasses-1))', [1 params.classSize]);
-    correct_order = bsxfun(@plus, correct_order, 1:params.classSize);
-
-    logProbs = logProbs(correct_order(:),:);
-  end
+  
+  [logProbs] = softmaxDecode(model.W_soft*softmax_h);
   
   % sort
   [sortedLogProbs, sortedWords] = sort(logProbs, 'descend');
@@ -295,111 +302,35 @@ function [logProbs] = softmaxDecode(scores)
 end
 
 
-%% Unused %%
-%    cls = randi(params.numClasses)
-%    sum(exp(bsxfun(@minus, logProbs((1:params.classSize)+(cls-1)*params.classSize,:), class_log_probs(cls,:))))
-    % test
-%    tmp = logProbs;
-%    tmp_sum = zeroMatrix([params.numClasses, batch_size], params.isGPU, params.dataType);
-%    assert(size(tmp,1) == params.tgtVocabSize, 'fuck\n');
-%%    sum(exp(tmp))
-%    for i = 1 : size(tmp,1)
-%      tmp(i,:) = tmp(i,:) - class_log_probs(mod(i,params.numClasses)+1,:);
-%    end
-%    tmp = exp(tmp);
-%%    sum(tmp)
-%    for i = 1 : size(tmp,1)
-%      tmp_sum(mod(i,params.numClasses)+1,:) = tmp_sum(mod(i,params.numClasses)+1,:) + tmp(i,:);
-%    end
-%%    tmp_sum
-
-%   if params.accmLstm
-%     accmLstm = cell(params.numLayers, 1); % accumulate c_t and h_t over time
-%     for ll=1:params.numLayers % layer
-%       accmLstm{ll}.c_t = zeroState;
-%       accmLstm{ll}.h_t = zeroState;
-%     end
-%   end
-
-%       % use accumulate state from the source
-%       if params.accmLstm
-%         lstm = accmLstm;
-%       end
-
-%       % accumulate
-%       if params.accmLstm && t<srcMaxLen
-%         accmLstm{ll}.c_t = accmLstm{ll}.c_t + lstm{ll}.c_t;
-%         accmLstm{ll}.h_t = accmLstm{ll}.h_t + lstm{ll}.h_t;
-%       end
-
-
-% hacky stuff no longer needed
-%   % penalize unks
-%   if params.unkPenalty>0 
-%     bestLogProbs = bestLogProbs - params.unkPenalty*(bestWords==params.unkId);
-%   end
-%   
-%   % length reward
-%   if params.lengthReward>0
-%     bestLogProbs = bestLogProbs + params.lengthReward;
-%   end
-
-
-%  show_beam(beam, beam_size, params);
-% function [] = showBeam(beam, beam_size, batchSize, params)
-%   fprintf(2, 'current beam state:\n');
-%   for bb=1:beam_size
-%     for jj=1:batchSize
-%       fprintf(2, 'hypothesis beam %d, example %d\n', bb, jj);
-%       for ii=1:length(beam.hists{bb}(jj, :))
-%         fprintf(2, '%s ', params.vocab{beam.hists{bb}(jj, ii)});
-%       end
-%       fprintf(2, ' -> %f\n', beam.scores(bb, jj));
-%       fprintf(2, '===================\n');
-%     end
-%   end
-%   fprintf(2, 'end_beam ================================================== end_beam\n');
-% end
-
-%     %% update scores
-%     beamScores = allBestScores(1:beamSize, :);
-%     beamScores = beamScores(:)';
-%     
-%     %% update history
-%     % find out which beams these beamSize*batchSize derivations came from
-%     rowIndices = indices(1:beamSize, :); % beamSize * batchSize
-%     rowIndices = rowIndices(:)';
-%     beamIndices = floor((rowIndices-1)/beamSize) + 1; 
-%     % figure out best next words
-%     nextWords = allBestWords(sub2ind(size(allBestWords), rowIndices, sentIndices))';
-%     % overwrite previous history
-%     colIndices = (sentIndices-1)*beamSize + beamIndices;
-%     beamHistory(1:sentPos, :) = beamHistory(1:sentPos, colIndices); 
-%     beamHistory(sentPos+1, :) = nextWords;
-%     
-%     %% update lstm states
-%     for ll=1:numLayers
-%       % lstmSize * (batchSize*beamSize): h_t and c_t vectors of each sent are arranged near each other
-%       beamStates{ll}.c_t = beamStates{ll}.c_t(:, colIndices); 
-%       beamStates{ll}.h_t = beamStates{ll}.h_t(:, colIndices);
-%     end
-%  
-%     %% find out if some derivations reach eos
-%     eosIndices = find(nextWords == params.tgtEos);
-%     for ii=1:length(eosIndices)
-%       eosIndex = eosIndices(ii);
-%       sentId = sentIndices(eosIndex);
-%       
-%       if numDecoded(sentId)<stackSize % haven't collected enough translations
-%         numDecoded(sentId) = numDecoded(sentId) + 1;
-%         candidates{sentId}{numDecoded(sentId)} = beamHistory(1:sentPos+1, eosIndex);
-%         candScores(numDecoded(sentId), sentId) = beamScores(eosIndex);
-%         
-%         beamScores(eosIndex) = -1e10; % make the beam score small so that it won't make into the candidate list again
+%% Code for class-based softmax %%
+%   if params.numClasses == 0 % normal softmax
+%     [logProbs] = softmaxDecode(model.W_soft*softmax_h);
+%   else
+%     batch_size = size(softmax_h, 2);
+%     [class_log_probs] = softmaxDecode(model.W_soft_class*softmax_h);
 % 
-%         if numDecoded(sentId)==stackSize % done for sentId
-%           decodeCompleteCount = decodeCompleteCount + 1;
-%         end
-%       end
+%     if params.assert
+%       assert(isempty( find( abs(sum(exp(class_log_probs))-1)>1e-8, 1 ) ), 'sum of class_probs is not one\n');
 %     end
+%       
+%     % W_soft_inclass: classSize * lstmSize * numClasses
+%     % softmax_h: lstmSize * batchSize
+%     % build classSize * lstmSize * numClasses * batchSize, 
+%     % then sum across lstmSize (dim 2)
+%     % in_class_raws: classSize * numClasses * batchSize, 
+%     in_class_raws = squeeze(sum(bsxfun(@times, permute(model.W_soft_inclass,[1 2 3 4]), permute(softmax_h,[3 1 4 2])), 2));
+%     mx = max(in_class_raws, [], 1); % max along classSize (dim 1)
+%     in_class_raws = bsxfun(@minus, in_class_raws, mx);
+%     in_class_log_probs = bsxfun(@minus, in_class_raws, log(sum(exp(in_class_raws),1))); % sum along classSize (dim 1)
+% 
+%     % class_log_probs: numClasses * batchSize
+%     % in_class_log_probs, total_log_probs: classSize * numClasses * batchSize
+%     total_log_probs = bsxfun(@plus, permute(class_log_probs,[3 1 2]), in_class_log_probs);
+%     logProbs = reshape(total_log_probs, params.classSize*params.numClasses, batch_size);
+%     correct_order = repmat(params.classSize*(0:(params.numClasses-1))', [1 params.classSize]);
+%     correct_order = bsxfun(@plus, correct_order, 1:params.classSize);
+% 
+%     logProbs = logProbs(correct_order(:),:);
+%   end
 
+%% Unused %%
