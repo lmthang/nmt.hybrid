@@ -112,7 +112,7 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   % load test data
   [srcVocab] = params.vocab(params.tgtVocabSize+1:end);
   [tgtVocab] = params.vocab(1 : params.tgtVocabSize);
-  isDecode = 1;
+  %isDecode = 1;
   [srcSents, tgtSents, numSents]  = loadBiData(params, params.testPrefix, srcVocab, tgtVocab);
   %[srcSents, tgtSents, numSents]  = loadBiData(params, params.trainPrefix, srcVocab, tgtVocab, 10);
   

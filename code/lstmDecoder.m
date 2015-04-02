@@ -76,8 +76,14 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
       c_t_1(:, maskedIds) = 0;
 
       % lstm cell
-      [lstm{ll}, h_t] = lstmUnit(W{ll}, x_t, h_t_1, c_t_1, ll, t, srcMaxLen, params, 1);
+      [lstm{ll}, h_t, c_t] = lstmUnit(W{ll}, x_t, h_t_1, c_t_1, ll, t, srcMaxLen, params, 1);
       lstm{ll}.h_t = h_t;
+      lstm{ll}.c_t = c_t;
+      
+      % attentional / positional models
+      if t<=params.numSrcHidVecs
+        data.srcHidVecs(:, :, params.numAttnPositions-params.numSrcHidVecs+t) = h_t;
+      end
       
       % attentional / positional models
       if t<=params.numSrcHidVecs
@@ -178,8 +184,9 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
       h_t_1 = beamStates{ll}.h_t;
       c_t_1 = beamStates{ll}.c_t;
 
-      [beamStates{ll}, h_t] = lstmUnit(model.W_tgt{ll}, x_t, h_t_1, c_t_1, ll, srcMaxLen+sentPos, srcMaxLen, params, 1);
+      [beamStates{ll}, h_t, c_t] = lstmUnit(model.W_tgt{ll}, x_t, h_t_1, c_t_1, ll, srcMaxLen+sentPos, srcMaxLen, params, 1);
       beamStates{ll}.h_t = h_t;
+      beamStates{ll}.c_t = c_t;
     end
     
     % predict the next word
