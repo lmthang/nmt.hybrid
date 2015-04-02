@@ -47,11 +47,12 @@ See the trainLSTM.m code for more options, e.g., training multiple layers.
 
 For otherOptions, you can put things like "'dropout',0.8,'posModel',1":
 'embCPU',1: to reduce memory footprint by putting embedding matrix on the CPU and only load the needed part onto GPU.
-'numClasses',100: to train with class-based softmax with 100 classes
-'posModel',1: train with positional models (values 1 or 2)
-'attnFunc',1: train with attention function
+'posModel',1: train with positional models (values 1, 2, 3)
+'attnFunc',1: train with attention function (values 1, 2)
 'softmaxDim',500: add an intermediate layer of size 500 between the lstm hidden state and the softmax layer
 'dropout',0.8: use dropout with dropout probability of 0.2
+'sortBatch',1: sort sentences by lengths within 100 batches for speed
+'shuffle',1: shuffle training batches for performance.
 
 /*********************/
 /** Sample commands **/
@@ -66,24 +67,23 @@ export MATLAB=matlab
 
 To run directly in Matlab, cd into code/ directory and run:
 trainLSTM('../data/id.1000/train.10k', '../data/id.1000/valid.100', '../data/id.1000/test.100', 'de', 'en', '../data/train.10k.de.vocab.1000', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1, 'isResume', 0)
-trainLSTM('../data/id.1000/train.10k', '../data/id.1000/valid.100', '../data/id.1000/test.100', 'de', 'en', '../data/train.10k.de.vocab.1000', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1, 'sortBatch', 1, 'shuffle', 1, 'isResume', 0)
 
 (c) Grad check
 trainLSTM('', '', '', '', '', '', '', '', 0, 'isGradCheck', 1)
-trainLSTM('', '', '', '', '', '', '', '../output', 0, 'isGradCheck', 1, 'assert', 1, 'numLayers', 2, 'initRange', 1.0, 'attnFunc', 0, 'softmaxDim', 0, 'posModel', 0, 'numClasses', 0, 'dropout', 1)
+trainLSTM('', '', '', '', '', '', '', '../output', 0, 'isGradCheck', 1, 'assert', 1, 'numLayers', 2, 'initRange', 1.0, 'attnFunc', 0, 'softmaxDim', 0, 'posModel', 0, 'dropout', 1)
 
 (d) Profiling
 trainLSTM('../data/id.1000/train.10k', '../data/id.1000/valid.100', '../data/id.1000/test.100', 'de', 'en', '../data/train.10k.de.vocab.1000', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1, 'isProfile', 1)
 
 (e) Train a monolingual LSTM model
 export MATLAB=matlab
-./scripts/run.sh ../data/id.1000/train.10k ../data/id.1000/valid.100 ../data/id.1000/test.100 "" en "" ../data/train.10k.en.vocab.1000 ../output 0 100 0.1 5 0.1 128 10 1
+./scripts/run.sh ../data/id.1000/train.10k ../data/id.1000/valid.100 ../data/id.1000/test.100 "" en "" ../data/train.10k.en.vocab.1000 ../monoOutput 0 100 0.1 5 0.1 128 10 1
 
 To run directly in Matlab, cd into code/ directory and run:
-trainLSTM('../data/id.1000/train.10k', '../data/id.1000/valid.100', '../data/id.1000/test.100', '', 'en', '', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1,'isResume',0)
+trainLSTM('../data/id.1000/train.10k', '../data/id.1000/valid.100', '../data/id.1000/test.100', '', 'en', '', '../data/train.10k.en.vocab.1000', '../monoOutput', 0, 'logFreq', 1,'isResume',0, 'isBi', 0)
 
 (f) Train on PTB data:
-trainLSTM('../data/ptb/id/ptb.train', '../data/ptb/id/ptb.valid', '../data/ptb/id/ptb.test', '', 'en', '', '../data/ptb/ptb.train.txt.vocab.10000', '../output', 0, 'logFreq', 10,'isBi',0,'lstmSize',200)
+trainLSTM('../data/ptb/id/ptb.train', '../data/ptb/id/ptb.valid', '../data/ptb/id/ptb.test', '', 'en', '', '../data/ptb/ptb.train.txt.vocab.10000', '../monoOutput', 0, 'logFreq', 10,'isBi',0,'lstmSize',200)
 
 (g) Train on posAll data:
 * Prepare data
@@ -92,10 +92,14 @@ trainLSTM('../data/ptb/id/ptb.train', '../data/ptb/id/ptb.valid', '../data/ptb/i
 ./scripts/generate_unk_parallel_data.py --no_eos --separate_output --dict ./data/train.10k.f5.en-de.dict --src_output_opt 1 --reverse_alignment --src_vocab ./data/train.10k.en.vocab.1000 --tgt_vocab ./data/train.10k.de.vocab.1000 ./data/valid.100 en de ./data/posAll/valid 1
 ./scripts/generate_unk_parallel_data.py --no_eos --separate_output --dict ./data/train.10k.f5.en-de.dict --src_output_opt 1 --reverse_alignment --src_vocab ./data/train.10k.en.vocab.1000 --tgt_vocab ./data/train.10k.de.vocab.1000 ./data/test.100 en de ./data/posAll/test 1
 * train
-trainLSTM('../data/posAll/train.id','../data/posAll/valid.id','../data/posAll/test.id','en','de','../data/posAll/train.vocab.en','../data/posAll/train.vocab.de','../output',0,'logFreq',1,'isClip',0,'numLayers',1,'posModel',1, 'numClasses', 0,'isResume',0, 'isReverse', 1)
+trainLSTM('../data/posAll/train.id','../data/posAll/valid.id','../data/posAll/test.id','en','de','../data/posAll/train.vocab.en','../data/posAll/train.vocab.de','../output',0,'logFreq',1,'isClip',0,'numLayers',1,'posModel',1,'isResume',0, 'isReverse', 1)
 
 (h) Train attention-based models:
-trainLSTM('../data/id.1000/train.10k', '../data/id.1000/valid.100', '../data/id.1000/test.100', 'de', 'en', '../data/train.10k.de.vocab.1000', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1, 'isResume', 0, 'attnFunc', 1, 'isReverse', 1)
+trainLSTM('../data/id.1000/train.10k', '../data/id.1000/valid.100', '../data/id.1000/test.100', 'de', 'en', '../data/train.10k.de.vocab.1000', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1, 'isResume', 0, 'attnFunc', 1)
 
-(i) Decode:
+(i) Train with booststraped mono models:
+trainLSTM('../data/id.1000/train.10k', '../data/id.1000/valid.100', '../data/id.1000/test.100', 'de', 'en', '../data/train.10k.de.vocab.1000', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1, 'isResume', 0, 'monoFile', '../monoOutput/model.mat')
+
+
+(j) Decode:
 testLSTM('../output/modelRecent.mat', 3, 10, 10, '../output/translations.txt', 0)

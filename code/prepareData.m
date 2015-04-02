@@ -29,6 +29,9 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
       
     end
     srcMaxLen = max(srcLens);
+  else
+    srcMaxLen = 1;
+    srcLens = ones(1, numSents);
   end
   
   % tgt
@@ -95,14 +98,13 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
     data.inputMask = tgtMask;
   end
   
+  data.srcMaxLen = srcMaxLen;
+  data.srcLens = srcLens;
   data.tgtInput = tgtInput;
   data.tgtOutput = tgtOutput;
   data.tgtMask = tgtMask;
-  
-  data.srcMaxLen = srcMaxLen;
   data.tgtMaxLen = tgtMaxLen;
   data.numWords = numWords;
-  data.srcLens = srcLens;
   
   % sanity check
   if params.assert
