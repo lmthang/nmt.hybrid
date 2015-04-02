@@ -63,7 +63,7 @@ For otherOptions, you can put things like "'dropout',0.8,'posModel',1":
 
 (b) Train a bilingual LSTM model
 export MATLAB=matlab
-./scripts/run.sh ../data/id.1000/train.10k ../data/id.1000/valid.100 ../data/id.1000/test.100 de en ../data/train.10k.de.vocab.1000 ../data/train.10k.en.vocab.1000 ../output 0 100 0.1 5 0.1 128 10 1
+./scripts/run.sh ../data/id.1000/train.10k ../data/id.1000/valid.100 ../data/id.1000/test.100 de en ../data/train.10k.de.vocab.1000 ../data/train.10k.en.vocab.1000 ../output 0 100 0.1 5 0.1 128 10 1 "'isAssert',1,'isResume',0"
 
 To run directly in Matlab, cd into code/ directory and run:
 trainLSTM('../data/id.1000/train.10k', '../data/id.1000/valid.100', '../data/id.1000/test.100', 'de', 'en', '../data/train.10k.de.vocab.1000', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1, 'isResume', 0)
@@ -77,7 +77,7 @@ trainLSTM('../data/id.1000/train.10k', '../data/id.1000/valid.100', '../data/id.
 
 (e) Train a monolingual LSTM model
 export MATLAB=matlab
-./scripts/run.sh ../data/id.1000/train.10k ../data/id.1000/valid.100 ../data/id.1000/test.100 "" en "" ../data/train.10k.en.vocab.1000 ../monoOutput 0 100 0.1 5 0.1 128 10 1
+./scripts/run.sh ../data/id.1000/train.10k ../data/id.1000/valid.100 ../data/id.1000/test.100 "" en "" ../data/train.10k.en.vocab.1000 ../monoOutput 0 100 0.1 5 0.1 128 10 1 "'isBi',0,'isAssert',1,'isResume',0"
 
 To run directly in Matlab, cd into code/ directory and run:
 trainLSTM('../data/id.1000/train.10k', '../data/id.1000/valid.100', '../data/id.1000/test.100', '', 'en', '', '../data/train.10k.en.vocab.1000', '../monoOutput', 0, 'logFreq', 1,'isResume',0, 'isBi', 0)
@@ -102,4 +102,5 @@ trainLSTM('../data/id.1000/train.10k', '../data/id.1000/valid.100', '../data/id.
 
 
 (j) Decode:
-testLSTM('../output/modelRecent.mat', 3, 10, 10, '../output/translations.txt', 0)
+./scripts/test.sh '../output/modelRecent.mat' 3 10 10 '../output/translations.txt'
+testLSTM('../output/modelRecent.mat', 3, 10, 10, '../output/translations.txt'

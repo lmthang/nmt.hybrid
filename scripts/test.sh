@@ -2,7 +2,12 @@
 
 if [[ $# -lt 5 || $# -gt 6 ]]; then
   echo -e "`basename $0`\tTest LSTM model"
-  echo -e "\totherOptions\t\tOther options to test"
+  echo -e "\tmodelFile\t\tModel file (.mat)."
+  echo -e "\tbeamSize\t\tbeam size, e.g., 12."
+  echo -e "\tstackSize\t\tnumber of top translations to keep, e.g., 100."
+  echo -e "\tbatchSize\t\tnumber of sentences to be decoded each time, e.g., 10."
+  echo -e "\toutputFile\t\toutput file for the final translations."
+  echo -e "\totherOptions\t\tOther options to test."
   exit
 fi
 
