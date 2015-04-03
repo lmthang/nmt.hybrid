@@ -38,10 +38,7 @@ function gradCheck(model, params)
 
   % prepare data
   [trainData] = prepareData(srcTrainSents, tgtTrainSents, 0, params);
-  printSent(2, trainData.srcInput(1, :), params.vocab, 'src input:');
-  printSent(2, trainData.tgtOutput(1, :), params.vocab, 'tgt output:');
-  fprintf(2, 'src mask: %s\n', num2str(trainData.srcMask(1, :)));
-  fprintf(2, 'tgt mask: %s\n', num2str(trainData.tgtMask(1, :)));
+  printTrainBatch(trainData, params);
   
   % positional models
   if params.posModel>0
@@ -63,13 +60,19 @@ function gradCheck(model, params)
   totalCost = costs.total;
   
   % W_emb
-  full_grad_W_emb = zeroMatrix(size(model.W_emb), params.isGPU, params.dataType);
-  if params.isGPU
-    full_grad_W_emb(:, grad.indices) = gather(grad.W_emb);
+  if params.separateEmb==1
+    full_grad_W_emb_src = zeroMatrix(size(model.W_emb_src), params.isGPU, params.dataType);
+    full_grad_W_emb_src(:, grad.indices_src) = grad.W_emb_src;
+    grad.W_emb_src = full_grad_W_emb_src;
+    
+    full_grad_W_emb_tgt = zeroMatrix(size(model.W_emb_tgt), params.isGPU, params.dataType);
+    full_grad_W_emb_tgt(:, grad.indices_tgt) = grad.W_emb_tgt;
+    grad.W_emb_tgt = full_grad_W_emb_tgt;
   else
+    full_grad_W_emb = zeroMatrix(size(model.W_emb), params.isGPU, params.dataType);
     full_grad_W_emb(:, grad.indices) = grad.W_emb;
+    grad.W_emb = full_grad_W_emb;
   end
-  grad.W_emb = full_grad_W_emb;
   
   % empirical grad
   delta = 0.01;

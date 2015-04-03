@@ -24,9 +24,6 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
     srcLens = srcLens + 1; % add eos
     if isTest==0 || params.attnFunc==1 % limit sent lengths for training or for attention model during both training/testing
       srcLens(srcLens>params.maxSentLen) = params.maxSentLen; 
-      %srcMaxLen = params.maxSentLen;
-    %else
-      
     end
     srcMaxLen = max(srcLens);
   else
@@ -124,36 +121,6 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   end
 end
 
-    
-%     if params.posModel>0 % add an extra <s_eos> to the src side
-%       srcMaxLen = srcMaxLen+1;
-%     end
-
-%   % positional models, tgt sent: pos1 word1 ... pos_n word_n <eos>
-%   if params.posModel>0
-%     tgtLens = (tgtLens+1)/2;
-%   end
-
-%       if params.posModel>0 % add an extra <s_eos> to the src side
-%         input(ii, srcMaxLen-srcLen:srcMaxLen-1) = srcSents{ii}(1:srcLen) + params.tgtVocabSize; % src part
-%         input(ii, srcMaxLen) = params.srcEosVocabId;
-%       else
-%         input(ii, srcMaxLen-srcLen+1:srcMaxLen) = srcSents{ii}(1:srcLen) + params.tgtVocabSize; % src part
-%       end
-
-
-%   % positional models
-%   if params.posModel>0
-%     data.srcPos = srcPos;
-%   end
-
-
-%       if params.inputFormat==1 % left-aligned
-%         srcInput(ii, 1:srcLen-1) = srcSents{ii}(1:srcLen-1) + params.tgtVocabSize;
-%         srcInput(ii, srcLen) = params.srcEos;
-%       else
-%         
-%       end
 
     %label = 'input';
     %printSent(input(1, :), params.vocab, ['  ', label, ' 1:']);

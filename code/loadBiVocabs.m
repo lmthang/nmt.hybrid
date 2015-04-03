@@ -1,4 +1,4 @@
-function [srcVocab, tgtVocab, params] = loadBiVocabs(params)
+function [params] = loadBiVocabs(params)
   %% grad check
   if params.isGradCheck
     if params.posModel>=0
@@ -73,7 +73,10 @@ function [srcVocab, tgtVocab, params] = loadBiVocabs(params)
   
   %% finalize vocab
   if params.isBi
-    if params.separateEmb==0
+    if params.separateEmb==1
+      params.srcVocab = srcVocab;
+      params.tgtVocab = tgtVocab;
+    else
       params.vocab = [tgtVocab srcVocab];
       params.srcEos = params.srcEos + params.tgtVocabSize;
       params.srcZero = params.srcZero + params.tgtVocabSize;

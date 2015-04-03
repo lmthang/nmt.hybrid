@@ -184,7 +184,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.logId = fopen([outDir '/log'], 'a');
   
   %% Load vocabs
-  [srcVocab, tgtVocab, params] = loadBiVocabs(params);
+  [params] = loadBiVocabs(params);
   
   %% Init / Load Model Parameters
   params.modelFile = [outDir '/model.mat']; % store those with the best valid perplexity
@@ -215,8 +215,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   %% Load data %%
   %%%%%%%%%%%%%%%
   % valid & test
-  [validData] = loadPrepareData(params, params.validPrefix, srcVocab, tgtVocab);
-  [testData] = loadPrepareData(params, params.testPrefix, srcVocab, tgtVocab);
+  [validData] = loadPrepareData(params, params.validPrefix, params.srcVocab, params.tgtVocab);
+  [testData] = loadPrepareData(params, params.testPrefix, params.srcVocab, params.tgtVocab);
   
   % train
   params.tgtTrainFile = sprintf('%s.%s', params.trainPrefix, params.tgtLang);
@@ -238,21 +238,13 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   
   % print
   if params.isBi
-    printSent(2, srcTrainSents{1}, srcVocab, '  src 1:');
-    printSent(2, srcTrainSents{end}, srcVocab, '  src end:');
+    printSent(2, srcTrainSents{1}, params.srcVocab, '  src 1:');
+    printSent(2, srcTrainSents{end}, params.srcVocab, '  src end:');
   end
-  printSent(2, tgtTrainSents{1}, tgtVocab, '  tgt:');
-  printSent(2, tgtTrainSents{end}, tgtVocab, '  tgt end:');
-
-  if params.isBi
-    printSent(2, trainBatches{1}.srcInput(1, :), params.vocab, '   src input 1:');
-  end
-  printSent(2, trainBatches{1}.tgtInput(1, :), params.vocab, '   tgt input 1:');
-  printSent(2, trainBatches{1}.tgtOutput(1, :), params.vocab, '  tgt output 1:');
-  % positional models
-  if params.posModel>0
-    printSent(2, trainBatches{1}.posOutput(1, :), params.vocab, '  srcPos 1:');
-  end
+  printSent(2, tgtTrainSents{1}, params.tgtVocab, '  tgt:');
+  printSent(2, tgtTrainSents{end}, params.tgtVocab, '  tgt end:');
+  printTrainBatch(trainBatches{1}, params);
+  
   
   %%%%%%%%%%%%%%
   %% Training %%
@@ -322,7 +314,12 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         end
       end
       % update W_emb separately
-      model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - scaleLr*grad.W_emb;
+      if params.separateEmb==1
+        model.W_emb_src(:, grad.indices_src) = model.W_emb_src(:, grad.indices_src) - scaleLr*grad.W_emb_src;
+        model.W_emb_tgt(:, grad.indices_tgt) = model.W_emb_tgt(:, grad.indices_tgt) - scaleLr*grad.W_emb_tgt;
+      else
+        model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - scaleLr*grad.W_emb;
+      end
       
       %% logging, eval, save, decode, fine-tuning, etc.
       [totalWords, trainCost, params, startTime] = postTrainIter(model, costs, gradNorm, trainData, validData, testData, totalWords, trainCost, params, startTime, srcTrainSents, tgtTrainSents);
@@ -681,7 +678,7 @@ function [params] = setupVars(model, params)
   % those matrices which we will update sparsely
   params.varsSelected = {};
   for ii=1:length(params.vars)
-    if strcmp(params.vars{ii}, 'W_emb')==0 && strcmp(params.vars{ii}, 'W_soft_inclass')==0
+    if strncmp(params.vars{ii}, 'W_emb', 4)==0 && strcmp(params.vars{ii}, 'W_soft_inclass')==0
       params.varsSelected{end+1} = params.vars{ii};
     end
   end
