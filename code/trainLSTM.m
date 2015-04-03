@@ -80,6 +80,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   
   addOptional(p,'monoFile', '', @ischar); % to boostrap the decoder with a monolingual model
   addOptional(p,'separateEmb', 0, @isnumeric); % 1: separate embedding matrix into src and tgt embs
+  addOptional(p,'epochUpdateDecoder', 1, @isnumeric); % when to start updating the pretrained decoder epoch>=monoUpdateEpoch (1 means start updating at the very beginning).
   
   %% system options
   addOptional(p,'onlyCPU', 0, @isnumeric); % 1: avoid using GPUs
@@ -192,16 +193,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   [model, params] = initLoadModel(params);
   printParams(1, params);
   printParams(params.logId, params);
-
-  % mono-boostraped
-  if strcmp(params.monoFile, '')==0
-    assert(params.separateEmb==1);
-    params.monoBoost = 1;
-    [monoModel, ~, monoParams, loaded] = loadModel(params.monoFile, params);
-    if loaded==0
-      error('! Failed to load mono model %s\n', params.monoFile);
-    end
-  end
   
   %% Check Grad
   if params.isGradCheck
@@ -233,7 +224,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   end
   params.tgtTrainId = fopen(params.tgtTrainFile, 'r');
   
-  
   [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents] = loadTrainBatches(params);
   
   % print
@@ -264,6 +254,13 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   startTime = clock;
   fprintf(2, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
   fprintf(params.logId, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
+  
+  % not update decoder
+  if params.epoch<params.epochUpdateDecoder
+    index = find(strcmp('W_tgt', params.varsSelected)==1, 1);
+    params.varsSelected(index) = [];
+  end
+  
   isRun = 1;
   while(isRun)
     assert(numTrainSents>0 && numBatches>0);
@@ -316,7 +313,11 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       % update W_emb separately
       if params.separateEmb==1
         model.W_emb_src(:, grad.indices_src) = model.W_emb_src(:, grad.indices_src) - scaleLr*grad.W_emb_src;
-        model.W_emb_tgt(:, grad.indices_tgt) = model.W_emb_tgt(:, grad.indices_tgt) - scaleLr*grad.W_emb_tgt;
+        
+        % update the decoder
+        if params.epoch>=params.epochUpdateDecoder
+          model.W_emb_tgt(:, grad.indices_tgt) = model.W_emb_tgt(:, grad.indices_tgt) - scaleLr*grad.W_emb_tgt;
+        end
       else
         model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - scaleLr*grad.W_emb;
       end
@@ -434,6 +435,12 @@ function [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents,
 
   % new epoch
   params.epoch = params.epoch + 1;
+  
+  % update decoder
+  if params.epochUpdateDecoder>1 && params.epoch==params.epochUpdateDecoder
+    params.varsSelected{end+1} = 'W_tgt';
+  end
+    
   if params.epoch <= params.numEpoches % continue training
     fprintf(2, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
     fprintf(params.logId, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
@@ -518,7 +525,7 @@ function [params] = evalSaveDecode(model, validData, testData, params, srcTrainS
   save(params.modelRecentFile, 'model', 'params');
 
   % decode
-  if params.isBi && params.attnFunc==0 && params.posModel<=0 % && params.numClasses==0
+  if params.isBi && params.posModel<=0 % && params.numClasses==0
     validId = randi(validData.numSents);
     testId = randi(testData.numSents);
     srcDecodeSents = [srcTrainSents(1); validData.srcSents(validId); testData.srcSents(testId)];
@@ -663,6 +670,48 @@ function [model, params] = initLoadModel(params)
     params.iter = 0;  % number of batches we have processed
     params.epochBatchCount = 0;
     params.finetuneCount = 0;
+    
+    
+    %% mono-boostraped
+    if strcmp(params.monoFile, '')==0
+      assert(params.separateEmb==1);
+      params.monoBoost = 1;
+      [monoModel, ~, monoParams, loaded] = loadModel(params.monoFile, params);
+      if loaded==0
+        error('! Failed to load mono model %s\n', params.monoFile);
+      end
+      
+      fprintf('# Boostrap from a mono model: W_tgt size=%s, vocab size=%d\n', mat2str(size(monoModel.W_tgt{1})), length(monoParams.vocab));
+      fprintf('  W_tgt size=%s\n', mat2str(size(model.W_tgt{1})));
+      fprintf('  tgt vocab size=%d\n', params.tgtVocabSize);
+      
+      % W_tgt
+      assert(strcmp(mat2str(size(model.W_tgt{1})), mat2str(size(monoModel.W_tgt{1})))==1);
+      model.W_tgt = monoModel.W_tgt;
+      
+      % vocab
+      assert(params.tgtVocabSize==length(monoParams.vocab));
+      flags = strcmp(params.tgtVocab, monoParams.vocab);
+      matchCount = sum(flags);
+      fprintf('  vocab match count=%d\n', matchCount);
+      model.W_emb_tgt(:, flags) = monoModel.W_emb(:, flags);
+      
+      % handle mismatch vocab
+      if matchCount < params.tgtVocabSize
+        indices = find(flags==0);
+        remainVocab = params.tgtVocab(indices);
+        remainMonoVocab = params.tgtVocab(indices);
+        for ii=1:length(indices)
+          index = find(strcmp(remainVocab{ii}, remainMonoVocab), 1);
+          if isempty(index)
+            fprintf(2, '  cannot init word %s\n', remainVocab{ii});
+          else
+            model.W_emb_tgt(:, indices(ii)) = monoModel.W_emb(:, indices(index));
+          end
+            
+        end
+      end
+    end
   end
 
   % compute model size

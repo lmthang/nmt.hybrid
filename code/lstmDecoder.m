@@ -46,10 +46,19 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
   end
   
   W = model.W_src;
+  
+  % separate emb
+  if params.separateEmb==1 
+    W_emb = model.W_emb_src;
+  else
+    W_emb = model.W_emb;
+  end
+  
   for t=1:srcMaxLen % time
     maskedIds = find(~inputMask(:, t)); % curBatchSize * 1
     if t==srcMaxLen % due to implementation in lstmCostGrad, we have to switch to W_tgt here. THIS IS VERY IMPORTANT!
-      W = model.W_tgt;      
+      W = model.W_tgt;  
+      W_emb = model.W_emb_tgt;
     end
     
     for ll=1:params.numLayers % layer
@@ -64,7 +73,7 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
 
       % current-time input
       if ll==1 % first layer
-        x_t = model.W_emb(:, input(:, t));
+        x_t = W_emb(:, input(:, t));
         %params.vocab(input(:, t))
       else % subsequent layer, use the previous-layer hidden state
         x_t = lstm{ll-1}.h_t;
@@ -170,13 +179,21 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
   decodeCompleteCount = 0; % count how many sentences we have completed collecting the translations
   nextWords = zeroMatrix([1, numElements], params.isGPU, params.dataType);
   beamIndices = zeroMatrix([1, numElements], params.isGPU, params.dataType);
+  
+  % separate emb
+  if params.separateEmb==1 
+    W_emb = model.W_emb_tgt;
+  else
+    W_emb = model.W_emb;
+  end
+  
   for sentPos = 1 : maxLen
     % compute next lstm hidden states
     words = beamHistory(sentPos, :);
     for ll = 1 : numLayers
       % current input
       if ll == 1
-        x_t = model.W_emb(:, words);
+        x_t = W_emb(:, words);
       else
         x_t = beamStates{ll-1}.h_t;
       end

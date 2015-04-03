@@ -39,11 +39,6 @@ function gradCheck(model, params)
   % prepare data
   [trainData] = prepareData(srcTrainSents, tgtTrainSents, 0, params);
   printTrainBatch(trainData, params);
-  
-  % positional models
-  if params.posModel>0
-    printSent(2, trainData.posOutput(1, :), params.vocab, '  pos output:');
-  end
     
   % for gradient check purpose
   if params.dropout<1 % use the same dropout mask

@@ -16,13 +16,24 @@ function printDecodeResults(decodeData, candidates, candScores, params, isOutput
     % log
     printSrc(params.logId, decodeData, ii, params, startId+ii-1);
     printRef(params.logId, decodeData, ii, params, startId+ii-1);
-    printSent(params.logId, translation, params.vocab, ['  tgt ' num2str(startId+ii-1) ': ']);
+    
+    % separate emb
+    if params.separateEmb==1 
+      printSent(params.logId, translation, params.tgtVocab, ['  tgt ' num2str(startId+ii-1) ': ']);
+    else
+      printSent(params.logId, translation, params.vocab, ['  tgt ' num2str(startId+ii-1) ': ']);
+    end
+    
     fprintf(params.logId, '  score %g\n', maxScores(ii));
 
     % debug
     printSrc(2, decodeData, ii, params, startId+ii-1);
     printRef(2, decodeData, ii, params, startId+ii-1);
-    printSent(2, translation, params.vocab, ['  tgt ' num2str(startId+ii-1) ': ']);
+    if params.separateEmb==1 
+      printSent(2, translation, params.tgtVocab, ['  tgt ' num2str(startId+ii-1) ': ']);
+    else
+      printSent(2, translation, params.vocab, ['  tgt ' num2str(startId+ii-1) ': ']);
+    end
     fprintf(2, '  score %g\n', maxScores(ii));
     %printTranslations(candidates{ii}, candScores(ii, :), params);
   end
@@ -32,13 +43,25 @@ end
 function printSrc(fid, data, ii, params, sentId)
   mask = data.inputMask(ii,1:data.srcMaxLen);
   src = data.input(ii,mask);
-  printSent(fid, src, params.vocab, ['  src ' num2str(sentId) ': ']);
+  
+  % separate emb
+  if params.separateEmb==1 
+    printSent(fid, src, params.tgtVocab, ['  src ' num2str(sentId) ': ']);
+  else
+    printSent(fid, src, params.vocab, ['  src ' num2str(sentId) ': ']);
+  end
 end
 
 function printRef(fid, data, ii, params, sentId)
   mask = data.inputMask(ii, data.srcMaxLen:end);
   ref = data.tgtOutput(ii,mask);
-  printSent(fid, ref, params.vocab, ['  ref ' num2str(sentId) ': ']);
+  
+  % separate emb
+  if params.separateEmb==1 
+    printSent(fid, ref, params.tgtVocab, ['  ref ' num2str(sentId) ': ']);
+  else
+    printSent(fid, ref, params.vocab, ['  ref ' num2str(sentId) ': ']);
+  end
 end
 
 function printTranslations(candidates, scores, params)
