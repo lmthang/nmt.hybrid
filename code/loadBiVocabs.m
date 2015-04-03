@@ -1,6 +1,4 @@
 function [srcVocab, tgtVocab, params] = loadBiVocabs(params)
-  srcVocab = {};
-  
   %% grad check
   if params.isGradCheck
     if params.posModel>=0
@@ -34,7 +32,6 @@ function [srcVocab, tgtVocab, params] = loadBiVocabs(params)
     params.srcVocabSize = length(srcVocab);
   else
     fprintf(2, '## Monolingual setting\n');
-    srcVocab = {};
   end
     
   %% tgt vocab  
@@ -72,16 +69,19 @@ function [srcVocab, tgtVocab, params] = loadBiVocabs(params)
   params.tgtEos = length(tgtVocab);
   tgtVocab{end+1} = '<t_sos>';
   params.tgtSos = length(tgtVocab);
+  params.tgtVocabSize = length(tgtVocab);
   
   %% finalize vocab
-  params.tgtVocabSize = length(tgtVocab);
-  params.vocab = [tgtVocab srcVocab];
   if params.isBi
-    params.srcEos = params.srcEos + params.tgtVocabSize;
-    params.srcZero = params.srcZero + params.tgtVocabSize;
-    params.inVocabSize = params.tgtVocabSize + params.srcVocabSize;
+    if params.separateEmb==0
+      params.vocab = [tgtVocab srcVocab];
+      params.srcEos = params.srcEos + params.tgtVocabSize;
+      params.srcZero = params.srcZero + params.tgtVocabSize;
+      params.inVocabSize = params.tgtVocabSize + params.srcVocabSize;
+    end
   else
     params.inVocabSize = params.tgtVocabSize;
+    params.vocab = tgtVocab;
   end
   params.outVocabSize = params.tgtVocabSize;
   

@@ -77,7 +77,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'posWin', 20, @isnumeric); % also used in attention-based models  
   addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
   addOptional(p,'softmaxStep', 1, @isnumeric); % do multiple softmax prediction at once
+  
   addOptional(p,'monoFile', '', @ischar); % to boostrap the decoder with a monolingual model
+  addOptional(p,'separateEmb', 0, @isnumeric); % 1: separate embedding matrix into src and tgt embs
   
   %% system options
   addOptional(p,'onlyCPU', 0, @isnumeric); % 1: avoid using GPUs
@@ -193,6 +195,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
 
   % mono-boostraped
   if strcmp(params.monoFile, '')==0
+    assert(params.separateEmb==1);
     params.monoBoost = 1;
     [monoModel, ~, monoParams, loaded] = loadModel(params.monoFile, params);
     if loaded==0
@@ -466,13 +469,22 @@ function [model] = initLSTM(params)
   end
   
   % W_emb
-  model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize], params.isGPU, params.dataType);
-  
-  % set parameters correspond to zero words
-  if params.isBi
-    model.W_emb(:, params.srcZero) = zeros(params.lstmSize, 1);
+  if params.separateEmb==1 % separate embeddings
+    model.W_emb_src = randomMatrix(params.initRange, [params.lstmSize, params.srcVocabSize], params.isGPU, params.dataType);
+    model.W_emb_tgt = randomMatrix(params.initRange, [params.lstmSize, params.tgtVocabSize], params.isGPU, params.dataType);
+
+    % set parameters correspond to zero words
+    model.W_emb_src(:, params.srcZero) = zeros(params.lstmSize, 1);
+    model.W_emb_tgt(:, params.tgtEos) = zeros(params.lstmSize, 1);
+  else
+    model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize], params.isGPU, params.dataType);
+
+    % set parameters correspond to zero words
+    if params.isBi
+      model.W_emb(:, params.srcZero) = zeros(params.lstmSize, 1);
+    end
+    model.W_emb(:, params.tgtEos) = zeros(params.lstmSize, 1);
   end
-  model.W_emb(:, params.tgtEos) = zeros(params.lstmSize, 1);
   
   %% h_t -> softmax input
   if params.attnFunc>0 % attention mechanism
