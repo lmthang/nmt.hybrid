@@ -23,10 +23,10 @@ function [params] = loadBiVocabs(params)
     fprintf(2, '## Bilingual setting\n');
     
     % add eos, sos, zero
+    srcVocab{end+1} = '<s_sos>'; % not learn
+    params.srcZero = length(srcVocab);
     srcVocab{end+1} = '<s_eos>';
     params.srcEos = length(srcVocab);
-    srcVocab{end+1} = '<s_zero>'; % not learn
-    params.srcZero = length(srcVocab);
     
     % here we have src eos, so we don't need tgt sos.
     params.srcVocabSize = length(srcVocab);
@@ -65,10 +65,10 @@ function [params] = loadBiVocabs(params)
   end
   
   % add eos, sos
-  tgtVocab{end+1} = '<t_eos>'; % not learn
-  params.tgtEos = length(tgtVocab);
   tgtVocab{end+1} = '<t_sos>';
   params.tgtSos = length(tgtVocab);
+  tgtVocab{end+1} = '<t_eos>';
+  params.tgtEos = length(tgtVocab);
   params.tgtVocabSize = length(tgtVocab);
   
   %% finalize vocab

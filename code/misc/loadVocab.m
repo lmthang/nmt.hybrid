@@ -1,6 +1,7 @@
 function [vocab, freqs, varargout] = loadVocab(vocabFile)
 %% 
-% Thang Luong @ 2012, <lmthang@stanford.edu>
+% Thang Luong @ 2012, 2015 <lmthang@stanford.edu>
+% Read vocab file in UTF-8 format.
 %%
 
   fid = fopen(vocabFile,'r');
