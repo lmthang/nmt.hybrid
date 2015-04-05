@@ -46,7 +46,7 @@ function printSrc(fid, data, ii, params, sentId)
   
   % separate emb
   if params.separateEmb==1 
-    printSent(fid, src, params.tgtVocab, ['  src ' num2str(sentId) ': ']);
+    printSent(fid, src, params.srcVocab, ['  src ' num2str(sentId) ': ']);
   else
     printSent(fid, src, params.vocab, ['  src ' num2str(sentId) ': ']);
   end
