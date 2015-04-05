@@ -78,7 +78,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
   addOptional(p,'softmaxStep', 1, @isnumeric); % do multiple softmax prediction at once
   
-  addOptional(p,'monoFile', '', @ischar); % to boostrap the decoder with a monolingual model
+  addOptional(p,'monoFile', '', @ischar); % to bootstrap the decoder with a monolingual model
   addOptional(p,'separateEmb', 0, @isnumeric); % 1: separate embedding matrix into src and tgt embs
   addOptional(p,'epochUpdateDecoder', 1, @isnumeric); % when to start updating the pretrained decoder epoch>=monoUpdateEpoch (1 means start updating at the very beginning).
   
@@ -677,16 +677,15 @@ function [model, params] = initLoadModel(params)
     params.finetuneCount = 0;
     
     
-    %% mono-boostraped
+    %% mono-bootstrap
     if strcmp(params.monoFile, '')==0
       assert(params.separateEmb==1);
-      params.monoBoost = 1;
       [monoModel, ~, monoParams, loaded] = loadModel(params.monoFile, params);
       if loaded==0
         error('! Failed to load mono model %s\n', params.monoFile);
       end
       
-      fprintf('# Boostrap from a mono model: W_tgt size=%s, vocab size=%d\n', mat2str(size(monoModel.W_tgt{1})), length(monoParams.vocab));
+      fprintf('# Bootstrap from a mono model: W_tgt size=%s, vocab size=%d\n', mat2str(size(monoModel.W_tgt{1})), length(monoParams.vocab));
       fprintf('  W_tgt size=%s\n', mat2str(size(model.W_tgt{1})));
       fprintf('  tgt vocab size=%d\n', params.tgtVocabSize);
       
@@ -707,6 +706,7 @@ function [model, params] = initLoadModel(params)
         remainVocab = params.tgtVocab(indices);
         remainMonoVocab = params.tgtVocab(indices);
         for ii=1:length(indices)
+          fprintf(2, '  mismatch %s \t %s\n', params.tgtVocab{indices(ii)}, monoParams.vocab{indices(ii)});
           index = find(strcmp(remainVocab{ii}, remainMonoVocab), 1);
           if isempty(index)
             fprintf(2, '  cannot init word %s\n', remainVocab{ii});
