@@ -592,6 +592,9 @@ function [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents]
 end
 
 function [model, params, oldParams, loaded] = loadModel(modelFile, params)
+  loaded = 0;
+  model = [];
+  oldParams = [];
   if exist(modelFile, 'file')
     fprintf(2, '# Model file %s exists. Try loading ...\n', modelFile);
     fprintf(params.logId, '# Model file %s exists. Try loading ...\n', modelFile);
@@ -600,10 +603,12 @@ function [model, params, oldParams, loaded] = loadModel(modelFile, params)
       loaded = 1;
     catch ME
       model = [];
-      loaded = 0;
       fprintf(2, '! Exception: identifier=%s, name=%s\n', ME.identifier, ME.message);
       return;
     end
+  else
+    fprintf(2, '! File %s doesnot exist\n', modelFile);
+    return;
   end
 
   % params
