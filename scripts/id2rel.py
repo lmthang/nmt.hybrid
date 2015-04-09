@@ -75,9 +75,14 @@ def process_files(in_file, out_file):
   for line in inf:
     line = clean_line(line)
     tokens = re.split('\s+', line)
+    sent_len = len(tokens)
     new_tokens = []
-    for ii in xrange(len(tokens)):
-      rel_dist = ii-int(tokens[ii])
+
+    order_map = {}
+    for ii in xrange(sent_len):
+      order_map[int(tokens[ii])] = ii
+    for ii in xrange(sent_len):
+      rel_dist = order_map[ii] - ii # tgt (permuted) pos - src (original) pos  #ii-int(tokens[ii])
       if rel_dist>max_dist or rel_dist<-max_dist:
         rel_dist=0
       new_tokens.append(str(rel_dist))
