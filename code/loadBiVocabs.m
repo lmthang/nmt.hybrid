@@ -73,10 +73,9 @@ function [params] = loadBiVocabs(params)
   
   %% finalize vocab
   if params.isBi
-    if params.separateEmb==1
-      params.srcVocab = srcVocab;
-      params.tgtVocab = tgtVocab;
-    else
+    params.srcVocab = srcVocab;
+    params.tgtVocab = tgtVocab;
+    if params.separateEmb==0
       params.vocab = [tgtVocab srcVocab];
       params.srcEos = params.srcEos + params.tgtVocabSize;
       params.srcZero = params.srcZero + params.tgtVocabSize;
