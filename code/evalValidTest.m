@@ -8,6 +8,7 @@ function [params] = evalValidTest(model, validData, testData, params)
   modelStr = wInfo(model);
   endTime = clock;
   timeElapsed = etime(endTime, startTime);
+  
   if params.posModel>=0 % positional model
     costValid.pos = costValid.pos*2/validData.numWords;
     costValid.word = costValid.word*2/validData.numWords;

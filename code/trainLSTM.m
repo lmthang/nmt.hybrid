@@ -240,6 +240,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   %% Training %%
   %%%%%%%%%%%%%%
   trainCost.total = 0; trainWords.total = 0;
+  trainWords.totalLog = 0;
   if params.posModel>=0 % positional model
     trainCost.pos = 0;
     trainCost.word = 0;
@@ -331,7 +332,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     
     %% end of an epoch
     if numTrainSents == 0 
-      [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents, params] = postTrainEpoch(model, validData, testData, params);
+      [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents, startTime, params] = postTrainEpoch(model, validData, testData, startTime, trainWords, trainCost, params);
       
       if params.epoch > params.numEpoches
         break; 
@@ -347,6 +348,7 @@ function [trainWords, trainCost, params, startTime] = postTrainIter(model, costs
   %% log info
   trainWords.total = trainWords.total + trainData.numWords;
   trainCost.total = trainCost.total + costs.total;
+  trainWords.totalLog = trainWords.totalLog + trainData.numWords; % to compute speed
   if params.posModel>=0 % positional model
     trainCost.pos = trainCost.pos + costs.pos;
     trainCost.word = trainCost.word + costs.word;
@@ -355,7 +357,7 @@ function [trainWords, trainCost, params, startTime] = postTrainIter(model, costs
     endTime = clock;
     timeElapsed = etime(endTime, startTime);
     params.costTrain = trainCost.total/trainWords.total;
-    params.speed = trainWords.total*0.001/timeElapsed;
+    params.speed = trainWords.totalLog*0.001/timeElapsed;
     if params.posModel>=0 % positional model
       params.speed = params.speed/2;
       params.costTrainPos = trainCost.pos*2/trainWords.total;
@@ -368,12 +370,7 @@ function [trainWords, trainCost, params, startTime] = postTrainIter(model, costs
     end
 
     % reset
-    trainWords.total = 0;
-    trainCost.total = 0;
-    if params.posModel>=0 % positional model
-      trainCost.pos = 0;
-      trainCost.word = 0;
-    end
+    trainWords.totalLog = 0;
     startTime = clock;
   end
 
@@ -409,13 +406,21 @@ function [trainWords, trainCost, params, startTime] = postTrainIter(model, costs
 end
 
 %% Things to do at the end of each training epoch %%
-function [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents, params] = postTrainEpoch(model, validData, testData, params)
+function [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents, startTime, params] = postTrainEpoch(model, validData, testData, startTime, trainWords, trainCost, params)
   % seek to the beginning
   if params.isBi
     fseek(params.srcTrainId, 0, 'bof');
   end
   fseek(params.tgtTrainId, 0, 'bof');
 
+  % for cases where logFreq > number of batches in a n epoch
+  if ~isfield(params, 'costTrain') || ~isfield(params, 'speed')
+    params.costTrain = trainCost.total/trainWords.total;
+    params.speed = trainWords.totalLog*0.001/timeElapsed;
+    trainWords.totalLog = 0;
+    startTime = clock;
+  end
+  
   % read more data
   [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents] = loadTrainBatches(params);
 
@@ -797,6 +802,12 @@ end
 %   end
 
 %% Unused code %%
+%     trainCost.total = 0;
+%     if params.posModel>=0 % positional model
+%       trainCost.pos = 0;
+%       trainCost.word = 0;
+%     end
+
 %   addOptional(p,'embCPU', 0, @isnumeric); % 1: put W_emb on CPU even if GPUs exist
 %   if params.embCPU == 1
 %     fprintf(2, '# W_emb is explicitly put on CPU\n');

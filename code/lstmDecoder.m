@@ -58,7 +58,10 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
     maskedIds = find(~inputMask(:, t)); % curBatchSize * 1
     if t==srcMaxLen % due to implementation in lstmCostGrad, we have to switch to W_tgt here. THIS IS VERY IMPORTANT!
       W = model.W_tgt;  
-      W_emb = model.W_emb_tgt;
+      
+      if params.separateEmb==1 
+        W_emb = model.W_emb_tgt;
+      end
     end
     
     for ll=1:params.numLayers % layer
