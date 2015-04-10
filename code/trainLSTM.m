@@ -239,7 +239,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   %%%%%%%%%%%%%%
   %% Training %%
   %%%%%%%%%%%%%%
-  trainCost.total = 0; totalWords = 0;
+  trainCost.total = 0; trainWords.total = 0;
   if params.posModel>=0 % positional model
     trainCost.pos = 0;
     trainCost.word = 0;
@@ -323,7 +323,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       end
       
       %% logging, eval, save, decode, fine-tuning, etc.
-      [totalWords, trainCost, params, startTime] = postTrainIter(model, costs, gradNorm, trainData, validData, testData, totalWords, trainCost, params, startTime, srcTrainSents, tgtTrainSents);
+      [trainWords, trainCost, params, startTime] = postTrainIter(model, costs, gradNorm, trainData, validData, testData, trainWords, trainCost, params, startTime, srcTrainSents, tgtTrainSents);
     end % end for batchId
 
     %% read more data
@@ -343,9 +343,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
 end
 
 %% Things to do after each training iteration %%
-function [totalWords, trainCost, params, startTime] = postTrainIter(model, costs, gradNorm, trainData, validData, testData, totalWords, trainCost, params, startTime, srcTrainSents, tgtTrainSents)
+function [trainWords, trainCost, params, startTime] = postTrainIter(model, costs, gradNorm, trainData, validData, testData, trainWords, trainCost, params, startTime, srcTrainSents, tgtTrainSents)
   %% log info
-  totalWords = totalWords + trainData.numWords;
+  trainWords.total = trainWords.total + trainData.numWords;
   trainCost.total = trainCost.total + costs.total;
   if params.posModel>=0 % positional model
     trainCost.pos = trainCost.pos + costs.pos;
@@ -354,12 +354,12 @@ function [totalWords, trainCost, params, startTime] = postTrainIter(model, costs
   if mod(params.iter, params.logFreq) == 0
     endTime = clock;
     timeElapsed = etime(endTime, startTime);
-    params.costTrain = trainCost.total/totalWords;
-    params.speed = totalWords*0.001/timeElapsed;
+    params.costTrain = trainCost.total/trainWords.total;
+    params.speed = trainWords.total*0.001/timeElapsed;
     if params.posModel>=0 % positional model
       params.speed = params.speed/2;
-      params.costTrainPos = trainCost.pos*2/totalWords;
-      params.costTrainWord = trainCost.word*2/totalWords;
+      params.costTrainPos = trainCost.pos*2/trainWords.total;
+      params.costTrainWord = trainCost.word*2/trainWords.total;
       fprintf(2, '%d, %d, %.2fK, %g, %.2f (%.2f, %.2f), gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
       fprintf(params.logId, '%d, %d, %.2fK, %g, %.2f (%.2f, %.2f), gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
     else
@@ -368,7 +368,7 @@ function [totalWords, trainCost, params, startTime] = postTrainIter(model, costs
     end
 
     % reset
-    totalWords = 0;
+    trainWords.total = 0;
     trainCost.total = 0;
     if params.posModel>=0 % positional model
       trainCost.pos = 0;
