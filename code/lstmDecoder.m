@@ -17,6 +17,7 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
   input = data.input;
   inputMask = data.inputMask; 
   srcMaxLen = data.srcMaxLen;
+  curBatchSize = size(input, 1);
   
   %printSent(2, input(1, 1:srcMaxLen), params.vocab, 'src 1: ');
   %printSent(2, input(1, srcMaxLen:end), params.vocab, 'tgt 1: ');
@@ -36,11 +37,10 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
   % attentional / positional models
   if params.attnFunc>0 || params.posModel>=2 
     params.numSrcHidVecs = srcMaxLen-1;
-    params.curBatchSize = params.batchSize;
-    data.curMask.mask = ones(1, params.curBatchSize);
-    data.curMask.unmaskedIds = 1:params.curBatchSize;
+    data.curMask.mask = ones(1, curBatchSize);
+    data.curMask.unmaskedIds = 1:curBatchSize;
     data.curMask.maskedIds = [];
-    data.srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
+    data.srcHidVecs = zeroMatrix([params.lstmSize, curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
   else
     params.numSrcHidVecs = 0;
   end
@@ -91,11 +91,6 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
       [lstm{ll}, h_t, c_t] = lstmUnit(W{ll}, x_t, h_t_1, c_t_1, ll, t, srcMaxLen, params, 1);
       lstm{ll}.h_t = h_t;
       lstm{ll}.c_t = c_t;
-      
-      % attentional / positional models
-      if t<=params.numSrcHidVecs
-        data.srcHidVecs(:, :, params.numAttnPositions-params.numSrcHidVecs+t) = h_t;
-      end
       
       % attentional / positional models
       if t<=params.numSrcHidVecs
@@ -166,9 +161,9 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
   
   % attentional / positional models
   if params.attnFunc>0 || params.posModel>=2 
-    params.curBatchSize = numElements;
-    data.curMask.mask = ones(1, params.curBatchSize);
-    data.curMask.unmaskedIds = 1:params.curBatchSize;
+    curBatchSize = numElements;
+    data.curMask.mask = ones(1, curBatchSize);
+    data.curMask.unmaskedIds = 1:curBatchSize;
     data.curMask.maskedIds = [];
     
     % duplicate srcHidVecs along the curBatchSize dimension beamSize times
