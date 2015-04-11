@@ -415,6 +415,8 @@ function [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents,
 
   % for cases where logFreq > number of batches in a n epoch
   if ~isfield(params, 'costTrain') || ~isfield(params, 'speed')
+    endTime = clock;
+    timeElapsed = etime(endTime, startTime);
     params.costTrain = trainCost.total/trainWords.total;
     params.speed = trainWords.totalLog*0.001/timeElapsed;
     trainWords.totalLog = 0;
