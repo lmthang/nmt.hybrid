@@ -86,8 +86,8 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
     end
   end
   
-  [srcVocab, tgtVocab, params] = loadBiVocabs(params);
-  params.vocab = [tgtVocab srcVocab];
+  [params] = loadBiVocabs(params);
+  params.vocab = [params.tgtVocab params.srcVocab];
   
   % copy fields
   fieldNames = fields(decodeParams);
@@ -110,10 +110,7 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   printParams(2, params);
   
   % load test data
-  [srcVocab] = params.vocab(params.tgtVocabSize+1:end);
-  [tgtVocab] = params.vocab(1 : params.tgtVocabSize);
-  %isDecode = 1;
-  [srcSents, tgtSents, numSents]  = loadBiData(params, params.testPrefix, srcVocab, tgtVocab);
+  [srcSents, tgtSents, numSents]  = loadBiData(params, params.testPrefix, params.srcVocab, params.tgtVocab);
   %[srcSents, tgtSents, numSents]  = loadBiData(params, params.trainPrefix, srcVocab, tgtVocab, 10);
   
   %%%%%%%%%%%%
