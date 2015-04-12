@@ -546,6 +546,7 @@ function [params] = evalSaveDecode(model, validData, testData, params, srcTrainS
 end
 
 function decodeSent(srcSent, tgtSent, model, params)
+  params.preeosId = -1;
   srcDecodeSents = [srcSent];
   tgtDecodeSents = [tgtSent];
   [decodeData] = prepareData(srcDecodeSents, tgtDecodeSents, 1, params);

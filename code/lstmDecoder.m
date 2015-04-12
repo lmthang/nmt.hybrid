@@ -242,7 +242,11 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen
       beamScores(startId:endId) = allBestScores(nonEosIndices, sentId);
       
       % store translations
-      eosIndices = find(bestWords(1:nonEosIndices(end))==params.tgtEos); % get words that are eos and ranked before the last hypothesis in the next beam
+      if params.preeosId~=-1 % when seeing this symbol, we know that the next decoded symbol must be eos.
+        eosIndices = find(bestWords(1:nonEosIndices(end))==params.preeosId);
+      else
+        eosIndices = find(bestWords(1:nonEosIndices(end))==params.tgtEos); % get words that are eos and ranked before the last hypothesis in the next beam
+      end
       if ~isempty(eosIndices) && sentPos>minLen % we don't want to start recording very short translations
         numTranslations = length(eosIndices);
         eosBeamIndices = floor((rowIndices(eosIndices)-1)/beamSize) + 1;
@@ -251,7 +255,12 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen
         for ii=1:numTranslations
           if numDecoded(sentId)<stackSize % haven't collected enough translations
             numDecoded(sentId) = numDecoded(sentId) + 1;
-            candidates{sentId}{numDecoded(sentId)} = [translations(:, ii); params.tgtEos];
+            
+            if params.preeosId~=-1
+              candidates{sentId}{numDecoded(sentId)} = [translations(:, ii); params.preeosId; params.tgtEos];
+            else
+              candidates{sentId}{numDecoded(sentId)} = [translations(:, ii); params.tgtEos];
+            end
             candScores(numDecoded(sentId), sentId) = transScores(ii);
 
             %printSent(2, translations(:, ii), params.vocab, ['  trans sent ' num2str(originalSentIndices(sentId)) ', ' num2str(transScores(ii)), ': ']);
