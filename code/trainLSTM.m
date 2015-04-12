@@ -50,6 +50,10 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'sortBatch', 0, @isnumeric); % 1: each time we read in 100 batches, we sort sentences by length.
   addOptional(p,'shuffle', 0, @isnumeric); % 1: shuffle training batches
 
+  % for decoding during training
+  addOptional(p,'minLenRatio', 0.5, @isnumeric);
+  addOptional(p,'maxLenRatio', 1.5, @isnumeric);
+  
   %% advanced (working) features
   addOptional(p,'dropout', 1, @isnumeric); % dropout prob: 1 no dropout, <1: dropout
   addOptional(p,'softmaxDim', 0, @isnumeric); % softmaxDim>0 convert hidden state into an intermediate representation of size softmaxDim before going through the softmax
@@ -535,15 +539,19 @@ function [params] = evalSaveDecode(model, validData, testData, params, srcTrainS
   if params.isBi && params.posModel<=0 % && params.numClasses==0
     validId = randi(validData.numSents);
     testId = randi(testData.numSents);
-    srcDecodeSents = [srcTrainSents(1); validData.srcSents(validId); testData.srcSents(testId)];
-    tgtDecodeSents = [tgtTrainSents(1); validData.tgtSents(validId); testData.tgtSents(testId)];
-    [decodeData] = prepareData(srcDecodeSents, tgtDecodeSents, 1, params);
-    decodeData.startId = 1;
-    params.permute = 0;
-    params.decodeLenRatio = 1.5;
-    [candidates, candScores] = lstmDecoder(model, decodeData, params);
-    printDecodeResults(decodeData, candidates, candScores, params, 0);
+    decodeSent(srcTrainSents(1), tgtTrainSents(1), model, params);
+    decodeSent(validData.srcSents(validId), validData.tgtSents(validId), model, params);
+    decodeSent(testData.srcSents(testId), testData.tgtSents(testId), model, params);
   end
+end
+
+function decodeSent(srcSent, tgtSent, model, params)
+  srcDecodeSents = [srcSent];
+  tgtDecodeSents = [tgtSent];
+  [decodeData] = prepareData(srcDecodeSents, tgtDecodeSents, 1, params);
+  decodeData.startId = 1;
+  [candidates, candScores] = lstmDecoder(model, decodeData, params);
+  printDecodeResults(decodeData, candidates, candScores, params, 0);
 end
 
 function [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents] = loadTrainBatches(params)

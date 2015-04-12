@@ -23,23 +23,15 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
 
   % optional
   addOptional(p,'gpuDevice', 1, @isnumeric); % choose the gpuDevice to use. 
-  addOptional(p,'decodeLenRatio', 1.5, @isnumeric); % decodeLen = srcMaxLen
-  addOptional(p,'permute', 0, @isnumeric); % 1: try to enforce a permutation
-  addOptional(p,'unkId', 1, @isnumeric); % id of unk word
+  addOptional(p,'minLenRatio', 0.5, @isnumeric); % decodeLen >= minLenRatio * srcMaxLen
+  addOptional(p,'maxLenRatio', 1.5, @isnumeric); % decodeLen <= maxLenRatio * srcMaxLen
   addOptional(p,'testPrefix', '', @ischar); % to specify a different file for decoding
-  
-%   addOptional(p,'accmLstm', 0, @isnumeric); % 1: accmulate h_t/c_t as we go over the src side.
-%   addOptional(p,'unkPenalty', 0, @isnumeric); % in log domain unkPenalty=0.5 ~ scale prob unk by 1.6
-%   addOptional(p,'lengthReward', 0, @isnumeric); % in log domain, promote longer sentences.
 
   p.KeepUnmatched = true;
   parse(p,modelFile,beamSize,stackSize,batchSize,outputFile,varargin{:})
   decodeParams = p.Results;
   if decodeParams.batchSize==-1 % decode sents one by one
     decodeParams.batchSize = 1;
-  end
-  if decodeParams.permute
-    decodeParams.decodeLenRatio = 1;
   end
   
   decodeParams.isGPU = 0;
@@ -104,7 +96,6 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   if ~isfield(params, 'softmaxDim')
     params.softmaxDim = 0;
   end
-  assert(strcmp(params.vocab{params.unkId}, '<unk>')==1);
   params.fid = fopen(params.outputFile, 'w');
   params.logId = fopen([outputFile '.log'], 'w');
   printParams(2, params);
@@ -148,5 +139,21 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   fclose(params.logId);
 end
 
+
+%   addOptional(p,'option', 0, @isnumeric); % 0: normal, 1: depparse, 2: permutation
+%   addOptional(p,'unkId', 1, @isnumeric); % id of unk word
+%   addOptional(p,'accmLstm', 0, @isnumeric); % 1: accmulate h_t/c_t as we go over the src side.
+%   addOptional(p,'unkPenalty', 0, @isnumeric); % in log domain unkPenalty=0.5 ~ scale prob unk by 1.6
+%   addOptional(p,'lengthReward', 0, @isnumeric); % in log domain, promote longer sentences.
+  
+%   assert(strcmp(params.vocab{params.unkId}, '<unk>')==1);
+
+%   if decodeParams.option==1 % depparse
+%     decodeParams.minLenRatio = 1.5;
+%     decodeParams.maxLenRatio = 2.5;
+%   else if decodeParams.option==2 % permutation
+%     decodeParams.minLenRatio = 1;
+%     decodeParams.maxLenRatio = 1;
+%   end
 
 

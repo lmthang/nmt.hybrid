@@ -109,13 +109,18 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
   %% decode %%
   %%%%%%%%%%%%
   startTime = clock;
-  maxLen = floor(srcMaxLen*params.decodeLenRatio);
+  if batchSize==1
+    minLen = floor(srcMaxLen*params.maxLenRatio);
+  else
+    minLen = 2;
+  end
+  maxLen = floor(srcMaxLen*params.maxLenRatio);
   sentIndices = data.startId:(data.startId+batchSize-1);
-  [candidates, candScores] = decodeBatch(model, params, lstm, maxLen, beamSize, stackSize, batchSize, sentIndices, srcMaxLen, data);
+  [candidates, candScores] = decodeBatch(model, params, lstm, minLen, maxLen, beamSize, stackSize, batchSize, sentIndices, srcMaxLen, data);
   endTime = clock;
   timeElapsed = etime(endTime, startTime);
-  fprintf(2, '  Done, maxLen=%d, speed %f sents/s, time %.0fs, %s\n', maxLen, batchSize/timeElapsed, timeElapsed, datestr(now));
-  fprintf(params.logId, '  Done, maxLen=%d, speed %f sents/s, time %.0fs, %s\n', maxLen, batchSize/timeElapsed, timeElapsed, datestr(now));
+  fprintf(2, '  Done, minLen=%d, maxLen=%d, speed %f sents/s, time %.0fs, %s\n', minLen, maxLen, batchSize/timeElapsed, timeElapsed, datestr(now));
+  fprintf(params.logId, '  Done, minLen=%d, maxLen=%d, speed %f sents/s, time %.0fs, %s\n', minLen, maxLen, batchSize/timeElapsed, timeElapsed, datestr(now));
 end
 
 %%
@@ -126,7 +131,7 @@ end
 %   - beamSize
 %   - stackSize: maximum number of translations collected for one example
 %%
-function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen, beamSize, stackSize, batchSize, originalSentIndices, srcMaxLen, data)
+function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen, maxLen, beamSize, stackSize, batchSize, originalSentIndices, srcMaxLen, data)
   srcLens = data.srcLens;  
   numLayers = params.numLayers;
   numElements = batchSize*beamSize;
@@ -238,11 +243,7 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, maxLen
       
       % store translations
       eosIndices = find(bestWords(1:nonEosIndices(end))==params.tgtEos); % get words that are eos and ranked before the last hypothesis in the next beam
-      if ~isempty(eosIndices) && sentPos>2 % we don't want to start recording very short translations
-        if params.permute && sentPos>srcLens(sentId) % don't want to decode more than this
-          continue;
-        end
-        
+      if ~isempty(eosIndices) && sentPos>minLen % we don't want to start recording very short translations
         numTranslations = length(eosIndices);
         eosBeamIndices = floor((rowIndices(eosIndices)-1)/beamSize) + 1;
         translations = beamHistory(1:sentPos, (sentId-1)*beamSize + eosBeamIndices);
