@@ -40,7 +40,11 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
     data.curMask.mask = ones(1, curBatchSize);
     data.curMask.unmaskedIds = 1:curBatchSize;
     data.curMask.maskedIds = [];
-    data.srcHidVecs = zeroMatrix([params.lstmSize, curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
+    data.srcHidVecs = zeroMatrix([params.lstmSize, curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);  
+    
+    if params.attnFunc==2
+      data.srcHidVecsAll = zeroMatrix([params.lstmSize, curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);  
+    end
   else
     params.numSrcHidVecs = 0;
   end
@@ -94,7 +98,11 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
       
       % attentional / positional models
       if t<=params.numSrcHidVecs
-        data.srcHidVecs(:, :, params.numAttnPositions-params.numSrcHidVecs+t) = h_t;
+        if params.attnFunc==1
+          data.srcHidVecs(:, :, params.numAttnPositions-params.numSrcHidVecs+t) = h_t;
+        elseif params.attnFunc==2
+          data.srcHidVecsAll(:, :, t) = h_t;
+        end
       end
       
       % assert
@@ -132,7 +140,6 @@ end
 %   - stackSize: maximum number of translations collected for one example
 %%
 function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen, maxLen, beamSize, stackSize, batchSize, originalSentIndices, srcMaxLen, data)
-  srcLens = data.srcLens;  
   numLayers = params.numLayers;
   numElements = batchSize*beamSize;
   
@@ -144,6 +151,12 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen
   end
   
   %% first prediction
+  if params.attnFunc==2
+    tgtPos = 1;
+    data.srcHidVecs = zeroMatrix([params.lstmSize, batchSize, params.numAttnPositions], params.isGPU, params.dataType);
+    [startAttnId, endAttnId, startHidId, endHidId] = buildSrcHidVecs(srcMaxLen, tgtPos, params);
+    data.srcHidVecs(:, :, startHidId:endHidId) = data.srcHidVecsAll(:, :, startAttnId:endAttnId);
+  end
   [scores, words] = nextBeamStep(model, lstmStart{numLayers}.h_t, beamSize, params, data); % scores, words: beamSize * batchSize
   % TODO: by right, we should filter out words == params.tgtEos, but I
   % think for good models, we don't have to worry :)
@@ -171,12 +184,14 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen
     data.curMask.unmaskedIds = 1:curBatchSize;
     data.curMask.maskedIds = [];
     
-    % duplicate srcHidVecs along the curBatchSize dimension beamSize times
-    data.srcHidVecs = permute(data.srcHidVecs, [1, 3, 2]); % lstmSize * numAttnPositions * batchSize
-    data.srcHidVecs = reshape(data.srcHidVecs, params.lstmSize*params.numAttnPositions, batchSize);
-    data.srcHidVecs = repmat(data.srcHidVecs, beamSize, 1);
-    data.srcHidVecs = reshape(data.srcHidVecs, params.lstmSize, params.numAttnPositions, numElements);
-    data.srcHidVecs = permute(data.srcHidVecs, [1, 3, 2]); % lstmSize * batchSize * numAttnPositions
+    if params.attnFunc==1
+      % duplicate srcHidVecs along the curBatchSize dimension beamSize times
+      data.srcHidVecs = permute(data.srcHidVecs, [1, 3, 2]); % lstmSize * numAttnPositions * batchSize
+      data.srcHidVecs = reshape(data.srcHidVecs, params.lstmSize*params.numAttnPositions, batchSize);
+      data.srcHidVecs = repmat(data.srcHidVecs, beamSize, 1);
+      data.srcHidVecs = reshape(data.srcHidVecs, params.lstmSize, params.numAttnPositions, numElements);
+      data.srcHidVecs = permute(data.srcHidVecs, [1, 3, 2]); % lstmSize * batchSize * numAttnPositions
+    end
   end
   
   decodeCompleteCount = 0; % count how many sentences we have completed collecting the translations
@@ -210,6 +225,19 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen
     end
     
     % predict the next word
+    if params.attnFunc==2
+      tgtPos = sentPos+1;
+      data.srcHidVecs = zeroMatrix([params.lstmSize, batchSize, params.numAttnPositions], params.isGPU, params.dataType);
+      [startAttnId, endAttnId, startHidId, endHidId] = buildSrcHidVecs(srcMaxLen, tgtPos, params);
+      data.srcHidVecs(:, :, startHidId:endHidId) = data.srcHidVecsAll(:, :, startAttnId:endAttnId);
+      
+      % duplicate srcHidVecs along the curBatchSize dimension beamSize times
+      data.srcHidVecs = permute(data.srcHidVecs, [1, 3, 2]); % lstmSize * numAttnPositions * batchSize
+      data.srcHidVecs = reshape(data.srcHidVecs, params.lstmSize*params.numAttnPositions, batchSize);
+      data.srcHidVecs = repmat(data.srcHidVecs, beamSize, 1);
+      data.srcHidVecs = reshape(data.srcHidVecs, params.lstmSize, params.numAttnPositions, numElements);
+      data.srcHidVecs = permute(data.srcHidVecs, [1, 3, 2]); % lstmSize * batchSize * numAttnPositions
+    end
     [allBestScores, allBestWords] = nextBeamStep(model, beamStates{numLayers}.h_t, beamSize, params, data); % beamSize * (beamSize*batchSize)
     
 %     beamScores

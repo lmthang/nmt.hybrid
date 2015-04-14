@@ -80,7 +80,8 @@ function [costs, softmaxGrad, otherGrads] = softmaxCostGrad(model, params, train
 
     % attention model 2: relative positions, we assume softmaxStep=1
     if params.attnFunc==2
-      [batchData.srcHidVecs, startAttnId, endAttnId, startHidId, endHidId] = buildSrcHidVecs(trainData.srcHidVecs, srcMaxLen, tgtPos, params);
+      [startAttnId, endAttnId, startHidId, endHidId] = buildSrcHidVecs(srcMaxLen, tgtPos, params);
+      batchData.srcHidVecs(:, :, startHidId:endHidId) = trainData.srcHidVecs(:, :, startAttnId:endAttnId);
     end
     
     % predict
