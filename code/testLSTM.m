@@ -81,7 +81,6 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   
   [params] = loadBiVocabs(params);
   params.vocab = [params.tgtVocab params.srcVocab];
-  
   % copy fields
   fieldNames = fields(decodeParams);
   for ii=1:length(fieldNames)
@@ -100,6 +99,10 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   params.fid = fopen(params.outputFile, 'w');
   params.logId = fopen([outputFile '.log'], 'w');
   printParams(2, params);
+  if params.preeosId~=-1
+    fprintf(2, '# preeos symbol = %s\n', params.vocab{params.preeosId});
+  end
+
   
   % load test data
   [srcSents, tgtSents, numSents]  = loadBiData(params, params.testPrefix, params.srcVocab, params.tgtVocab);

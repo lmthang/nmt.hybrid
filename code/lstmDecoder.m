@@ -110,7 +110,7 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
   %%%%%%%%%%%%
   startTime = clock;
   if batchSize==1
-    minLen = floor(srcMaxLen*params.maxLenRatio);
+    minLen = floor(srcMaxLen*params.minLenRatio);
   else
     minLen = 2;
   end

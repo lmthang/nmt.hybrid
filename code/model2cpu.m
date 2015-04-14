@@ -1,11 +1,16 @@
 function model2cpu(inFile, outFile)
 
 load(inFile);
-model.W_emb = gather(model.W_emb);
-model.W_soft = gather(model.W_soft);
-for ii=1:params.numLayers
-  model.W_src{ii} = gather(model.W_src{ii});
-  model.W_tgt{ii} = gather(model.W_tgt{ii});
+fields = fieldnames(model);
+for ii=1:length(fields)
+  field = fields{ii}
+  if iscell(model.(field))
+    for jj=1:length(model.(field))
+      model.(field){jj}= gather(model.(field){jj});
+    end
+  else
+    model.(field) = gather(model.(field));
+  end
 end
 save(outFile, 'model', 'params');
 
