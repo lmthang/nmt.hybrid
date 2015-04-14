@@ -19,6 +19,10 @@ function [attnHidVecs, attn_h_concat, alignWeights] = attnForward(h_t, model, no
   % alignWeights: 1 * curBatchSize * numAttnPositions
   % attention vectors: attn_t = H_src* a_t (weighted average of src vectors)
   % sum over numAttnPositions
+  if size(srcHidVecs, 3) ~= size(alignWeights, 3)
+    size(srcHidVecs)
+    size(alignWeights)
+  end
   attnVecs = squeeze(sum(bsxfun(@times, srcHidVecs, alignWeights), 3)); 
   
   % attention hidden vectors: attnHid = f(W_ah*[attn_t; tgt_h_t])

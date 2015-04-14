@@ -547,9 +547,7 @@ end
 
 function decodeSent(srcSent, tgtSent, model, params)
   params.preeosId = -1;
-  srcDecodeSents = [srcSent];
-  tgtDecodeSents = [tgtSent];
-  [decodeData] = prepareData(srcDecodeSents, tgtDecodeSents, 1, params);
+  [decodeData] = prepareData(srcSent, tgtSent, 1, params);
   decodeData.startId = 1;
   [candidates, candScores] = lstmDecoder(model, decodeData, params);
   printDecodeResults(decodeData, candidates, candScores, params, 0);
