@@ -61,6 +61,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   %          >0: a_t = softmax(W_a * [tgt_h_t; srcLens])  
   %           1: absolute positions
   %           2: relative positions
+  %           3: absolute positions + feed to input (start compute attn from srcMaxLen - 1)
+  %           4: absolute positions + feed to input (start compute attn from srcMaxLen - 1)
   addOptional(p,'attnFunc', 0, @isnumeric);
   addOptional(p,'attnSize', 0, @isnumeric); % dim of the vector used to input to the final softmax, if 0, use lstmSize
   
@@ -128,7 +130,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   if params.attnFunc>0 || params.posModel>=0
     assert(params.softmaxStep==1); % print out pos/word perplexities
   end
-  if params.attnFunc==2
+  if params.attnFunc==2 || params.attnFunc==4
     assert(params.isReverse==1);
   end
   if params.softmaxDim>0
@@ -175,9 +177,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       params.attnSize = params.lstmSize;
     end
     
-    if params.attnFunc==2 % relative positions
+    if params.attnFunc==2 || params.attnFunc==4 % relative positions
       params.numAttnPositions = 2*params.posWin + 1;
-    elseif params.attnFunc==1 % absolute positions
+    elseif params.attnFunc==1 || params.attnFunc==3 % absolute positions
       params.numAttnPositions = params.maxSentLen-1;
     end
   end
@@ -505,9 +507,13 @@ function [model] = initLSTM(params)
   if params.attnFunc>0 % attention mechanism
     model.W_a = randomMatrix(params.initRange, [params.numAttnPositions, params.lstmSize], params.isGPU, params.dataType);
     
-    % attn_t = H_src * a_t
-    % h_attn_t = f(W_ah * [attn_t; h_t])
-    model.W_ah = randomMatrix(params.initRange, [params.attnSize, 2*params.lstmSize], params.isGPU, params.dataType);
+    if params.attnFunc==1 || params.attnFunc==2
+      % attn_t = H_src * a_t
+      % h_attn_t = f(W_ah * [attn_t; h_t])
+      model.W_ah = randomMatrix(params.initRange, [params.attnSize, 2*params.lstmSize], params.isGPU, params.dataType);
+    elseif params.attnFunc==3 || params.attnFunc==4 % feed at input
+      model.W_tgt{1} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
+    end
   elseif params.softmaxDim>0 % compress softmax
     model.W_h = randomMatrix(params.initRange, [params.softmaxDim, params.lstmSize], params.isGPU, params.dataType);
   elseif params.posModel>0 % positional models
@@ -754,7 +760,7 @@ function [params] = setupVars(model, params)
   end
   
   % setup softmax vars
-  if params.attnFunc>0
+  if params.attnFunc==1 || params.attnFunc==2
     softmaxVars = {'W_a', 'W_ah'};
   elseif params.softmaxDim>0
     softmaxVars = {'W_h'};
