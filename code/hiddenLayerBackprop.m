@@ -1,4 +1,4 @@
-function [inGrad, grad_W] = hiddenBackpropLayer(W, outGrad, inVec, nonlinear_f_prime, outVec)
+function [inGrad, grad_W] = hiddenLayerBackprop(W, outGrad, inVec, nonlinear_f_prime, outVec)
 %% 
 % Forward outVec = f(W*inVec)
 % Compute inGrad, grad_W

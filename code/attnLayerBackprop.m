@@ -1,4 +1,4 @@
-function [inGrad, grad_W_a, grad_srcHidVecs] = attnBackpropLayer(W_a, outGrad, inVec, params, alignWeights, srcHidVecs, curMask) %srcHidVecs, softmax_h, grad_softmax_h, attn_h_concat, alignWeights, inVec, params, curMask)
+function [inGrad, grad_W_a, grad_srcHidVecs] = attnLayerBackprop(W_a, outGrad, inVec, params, alignWeights, srcHidVecs, curMask) %srcHidVecs, softmax_h, grad_softmax_h, attn_h_concat, alignWeights, inVec, params, curMask)
 %%%
 %
 % Compute grad for attention-based models.
@@ -9,7 +9,7 @@ function [inGrad, grad_W_a, grad_srcHidVecs] = attnBackpropLayer(W_a, outGrad, i
   
   %% from outGrad -> grad_srcHidVecs, grad_alignWeights
   % Grad formulae:
-  %   attn_t = H_src* a_t
+  %   outVec = H_src* a_t
   %   grad_srcHidVecs: outGrad * alignWeights'
   %   grad_alignWeights = H_src' * outGrad (per example, to scale over multiple examples, i.e., curBatchSize, need to use bsxfun)
   
@@ -19,7 +19,7 @@ function [inGrad, grad_W_a, grad_srcHidVecs] = attnBackpropLayer(W_a, outGrad, i
   %   alignWeights: 1 * curBatchSize * numAttnPositions
   %   attnGrad.srcHidVecs: lstmSize * curBatchSize * numAttnPositions
   %   grad_alignWeights: numAttnPositions * curBatchSize
-
+  outGrad = permute(outGrad, [1, 2, 3]); % change from lstmSize*curBatchSize -> lstmSize*curBatchSize*1
   grad_srcHidVecs = bsxfun(@times, outGrad, alignWeights);  
   grad_alignWeights = squeeze(sum(bsxfun(@times, srcHidVecs, outGrad), 1))'; % bsxfun along numAttnPositions, sum across lstmSize
 

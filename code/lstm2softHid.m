@@ -14,6 +14,12 @@ function [softmax_h, input, attn_h_concat, alignWeights] = lstm2softHid(h_t, par
     curMask = varargin{2};
 
     [softmax_h, attn_h_concat, alignWeights] = attnForward(h_t, model, params.nonlinear_f, srcHidVecs, curMask);
+    
+%     % softmax_h = f(W_ah*[attn_t; tgt_h_t])
+%     [attnVecs, alignWeights] = attnLayerForward(model, h_t, srcHidVecs, curMask);
+%     attn_h_concat = [attnVecs; h_t];
+%     [softmax_h] = hiddenLayerForward(model.W_ah, attn_h_concat, params.nonlinear_f);
+    
     input = h_t;
   elseif params.posModel==3 % positional model: f(W_h * [srcPosVecs; h_t])
     isPredictPos = varargin{1};

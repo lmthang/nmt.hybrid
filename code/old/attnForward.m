@@ -1,4 +1,4 @@
-function [outVec, alignWeights] = attnForwardLayer(model, inVec, srcHidVecs, curMask)
+function [attnHidVecs, attn_h_concat, alignWeights] = attnForward(h_t, model, nonlinear_f, srcHidVecs, curMask)
 %%%
 %
 % Compute context vectors for attention-based models.
@@ -6,9 +6,9 @@ function [outVec, alignWeights] = attnForwardLayer(model, inVec, srcHidVecs, cur
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 %
 %%%
-  % s_t = W_a * inVec
+  % s_t = W_a * h_t
   % align weights a_t = softmax(s_t): numAttnPositions*curBatchSize
-  alignWeights = softmax(model.W_a*inVec);
+  alignWeights = softmax(model.W_a*h_t);
   
   % alignWeights: numAttnPositions*curBatchSize
   % mask: 1 * curBatchSize
@@ -19,5 +19,13 @@ function [outVec, alignWeights] = attnForwardLayer(model, inVec, srcHidVecs, cur
   % alignWeights: 1 * curBatchSize * numAttnPositions
   % attention vectors: attn_t = H_src* a_t (weighted average of src vectors)
   % sum over numAttnPositions
-  outVec = squeeze(sum(bsxfun(@times, srcHidVecs, alignWeights), 3)); 
+  if size(srcHidVecs, 3) ~= size(alignWeights, 3)
+    size(srcHidVecs)
+    size(alignWeights)
+  end
+  attnVecs = squeeze(sum(bsxfun(@times, srcHidVecs, alignWeights), 3)); 
+  
+  % attention hidden vectors: attnHid = f(W_ah*[attn_t; tgt_h_t])
+  attn_h_concat = [attnVecs; h_t];
+  attnHidVecs = nonlinear_f(model.W_ah*attn_h_concat);
 end

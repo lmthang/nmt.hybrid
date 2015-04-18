@@ -204,7 +204,18 @@ function [cost, softmaxGrad, grad_ht, otherBatchGrads] = batchSoftmax(matrixName
         if params.assert && ~isempty(maskedIds)
           assert(sum(sum(abs(attn_h_concat(:, maskedIds))))==0);
         end
-        [softmaxGrad, grad_ht, otherBatchGrads.srcHidVecs] = attnBackprop(model, batchData.srcHidVecs, softmax_h, grad_softmax_h, attn_h_concat, alignWeights, h_t, params, curMask);
+        %[softmaxGrad, grad_ht, otherBatchGrads.srcHidVecs] = attnBackprop(model, batchData.srcHidVecs, softmax_h, grad_softmax_h, attn_h_concat, alignWeights, h_t, params, curMask);
+        
+        %% grad_softmax_h -> grad.W_ah, grad_ah 
+        % attn_h_concat = [attn_t; tgt_h_t]
+        % softmax_h = f(W_ah*attn_h_concat)  
+        [grad_ah, softmaxGrad.W_ah] = hiddenLayerBackprop(model.W_ah, grad_softmax_h, attn_h_concat, params.nonlinear_f_prime, softmax_h);
+
+        %% from grad_attn -> grad_ht, grad_W_a, grad_srcHidVecs
+        [grad_ht, softmaxGrad.W_a, otherBatchGrads.srcHidVecs] = attnLayerBackprop(model.W_a, grad_ah(1:params.lstmSize, :), h_t, params, alignWeights, batchData.srcHidVecs, curMask);
+
+        % grad_ht
+        grad_ht = grad_ht + grad_ah(params.lstmSize+1:end, :);
       end
     else % normal softmax
       grad_ht = grad_softmax_h;
