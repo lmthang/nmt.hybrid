@@ -11,7 +11,8 @@ function [attnHidVecs, attn_h_concat, alignWeights] = attnForward(h_t, model, no
   
   % attention hidden vectors: attnHid = f(W_ah*[attn_t; tgt_h_t])
   attn_h_concat = [attnVecs; h_t];
-  attnHidVecs = nonlinear_f(model.W_ah*attn_h_concat);
+  [attnHidVecs] = hiddenForwardLayer(model.W_ah, attn_h_concat, nonlinear_f);
+  %attnHidVecs = nonlinear_f(model.W_ah*attn_h_concat);
 end
 
 

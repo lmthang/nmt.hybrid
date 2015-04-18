@@ -6,30 +6,30 @@ function [attnGrad, grad_ht, grad_srcHidVecs] = attnBackprop(model, srcHidVecs, 
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 %
 %%%
+
   %% grad_softmax_h -> grad.W_ah, grad_ah 
   % attn_h_concat = [attn_t; tgt_h_t]
-  % softmax_h = f(W_ah*attn_h_concat)
-  % f'(softmax_h).*grad_softmax_h
-  tmpResult = params.nonlinear_f_prime(softmax_h).*grad_softmax_h;  
-  % grad.W_ah
-  attnGrad.W_ah = tmpResult*attn_h_concat';
-  % grad_ah
-  grad_ah = model.W_ah'*tmpResult;
+  % softmax_h = f(W_ah*attn_h_concat)  
+  [grad_ah, attnGrad.W_ah] = hiddenBackpropLayer(model.W_ah, grad_softmax_h, attn_h_concat, params.nonlinear_f_prime, softmax_h);
   
-  %% grad_ah -> grad_ht, grad_attn
-  % grad_ht
-  grad_ht = grad_ah(params.lstmSize+1:end, :);
-  % grad_attn
+  %% from grad_attn -> grad_ht, grad_W_a, grad_srcHidVecs, 
   grad_attn = permute(grad_ah(1:params.lstmSize, :), [1, 2, 3]); % change from lstmSize*curBatchSize -> lstmSize*curBatchSize*1
-
-  [grad_attn_input, modelGrad] = attnBackpropLayer(model, grad_attn, attnInput, params, alignWeights, srcHidVecs, curMask);
-  grad_srcHidVecs = modelGrad.srcHidVecs;
+  [grad_ht, attnGrad.W_a, grad_srcHidVecs] = attnBackpropLayer(model.W_a, grad_attn, attnInput, params, alignWeights, srcHidVecs, curMask);
     
-  % alignScores = model.W_a*tgt_h_t;
-  grad_ht = grad_ht + grad_attn_input;   
+  % grad_ht
+  grad_ht = grad_ht + grad_ah(params.lstmSize+1:end, :);   
 end
 
-%   %% from grad_attn -> grad_srcHidVecs, grad_alignWeights
+
+
+%   % f'(softmax_h).*grad_softmax_h
+%   tmpResult = params.nonlinear_f_prime(softmax_h).*grad_softmax_h;  
+%   % grad.W_ah
+%   attnGrad.W_ah = tmpResult*attn_h_concat';
+%   % grad_ah
+%   grad_ah = model.W_ah'*tmpResult;
+  
+  
 %   % Grad formulae:
 %   %   attn_t = H_src* a_t
 %   %   grad_srcHidVecs: grad_attn * alignWeights'
