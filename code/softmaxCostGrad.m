@@ -152,7 +152,10 @@ function [cost, softmaxGrad, grad_ht, otherBatchGrads] = batchSoftmax(matrixName
   
   %% h_t -> softmax_h
   if params.attnFunc>0 % attention mechanism
-    [softmax_h, ~, attn_h_concat, alignWeights] = lstm2softHid(h_t, params, model, batchData.srcHidVecs, curMask);
+    [softmax_h, interSoftInput, attn_h_concat, alignWeights] = lstm2softHid(h_t, params, model, batchData.srcHidVecs, curMask);
+    if params.assert && ~isempty(maskedIds)
+      assert(sum(sum(abs(attn_h_concat(:, maskedIds))))==0);
+    end
   elseif params.posModel==3 % positional model
     [softmax_h, interSoftInput] = lstm2softHid(h_t, params, model, isPredictPos, batchData.srcPosVecs); %, curMask);
   else
@@ -178,39 +181,12 @@ function [cost, softmaxGrad, grad_ht, otherBatchGrads] = batchSoftmax(matrixName
     % softmax_h
     grad_softmax_h = model.(matrixName)'* probs;
     
+    %% grad_softmax_h -> h_t
+    [grad_ht, softmaxGrad, otherBatchGrads] = softmax2hidBackprop(model, grad_softmax_h, interSoftInput, attn_h_concat, alignWeights, softmax_h, isPredictPos, batchData, curMask, params);
+    
     % W_soft.
     softmaxGrad.(matrixName) = probs*softmax_h';
     
-    %% grad_softmax_h -> h_t
-    if params.softmaxDim>0 || params.attnFunc>0 || (params.posModel==3 && isPredictPos==0) % softmax compression or attention
-      if params.softmaxDim>0 || params.posModel==3 % f(W_h * interSoftInput)
-        [grad_ht, softmaxGrad.W_h] = hiddenLayerBackprop(model.W_h, grad_softmax_h, interSoftInput, params.nonlinear_f_prime, softmax_h);
-
-        if params.posModel==3 % interSoftInput = [srcPosVecs; h_t]
-          % grad srcPosVecs
-          otherBatchGrads.srcPosVecs = grad_ht(1:params.lstmSize, :);
-          
-          % grad_ht: this line needs to come after the above line
-          grad_ht = grad_ht(params.lstmSize+1:end, :);
-        end
-      elseif params.attnFunc>0 % f(W_ah*[attn_t; tgt_h_t])
-        if params.assert && ~isempty(maskedIds)
-          assert(sum(sum(abs(attn_h_concat(:, maskedIds))))==0);
-        end
-        %[softmaxGrad, grad_ht, otherBatchGrads.srcHidVecs] = attnBackprop(model, batchData.srcHidVecs, softmax_h, grad_softmax_h, attn_h_concat, alignWeights, h_t, params, curMask);
-        
-        % softmax_h = f(W_ah*[attn_t; tgt_h_t])  
-        [grad_ah, softmaxGrad.W_ah] = hiddenLayerBackprop(model.W_ah, grad_softmax_h, attn_h_concat, params.nonlinear_f_prime, softmax_h);
-
-        % grad_attn -> grad_ht, grad_W_a, grad_srcHidVecs
-        [grad_ht, softmaxGrad.W_a, otherBatchGrads.srcHidVecs] = attnLayerBackprop(model.W_a, grad_ah(1:params.lstmSize, :), h_t, params, alignWeights, batchData.srcHidVecs, curMask);
-
-        % grad_ht
-        grad_ht = grad_ht + grad_ah(params.lstmSize+1:end, :);
-      end
-    else % normal softmax
-      grad_ht = grad_softmax_h;
-    end
   end % end isTest
   
   
@@ -218,6 +194,37 @@ function [cost, softmaxGrad, grad_ht, otherBatchGrads] = batchSoftmax(matrixName
   if params.assert
     assert(sum(sum(abs(scores(:, maskedIds))))==0);
     assert(sum(sum(abs(grad_softmax_h(:, maskedIds))))==0);
+  end
+end
+
+function [grad_ht, softmaxGrad, otherBatchGrads] = softmax2hidBackprop(model, grad_softmax_h, interSoftInput, attn_h_concat, alignWeights, softmax_h, isPredictPos, batchData, curMask, params)
+  otherBatchGrads = [];
+  softmaxGrad = [];
+  if params.softmaxDim>0 || params.attnFunc>0 || (params.posModel==3 && isPredictPos==0) % softmax compression or attention
+    if params.softmaxDim>0 || params.posModel==3 % f(W_h * interSoftInput)
+      [grad_ht, softmaxGrad.W_h] = hiddenLayerBackprop(model.W_h, grad_softmax_h, interSoftInput, params.nonlinear_f_prime, softmax_h);
+
+      if params.posModel==3 % interSoftInput = [srcPosVecs; h_t]
+        % grad srcPosVecs
+        otherBatchGrads.srcPosVecs = grad_ht(1:params.lstmSize, :);
+
+        % grad_ht: this line needs to come after the above line
+        grad_ht = grad_ht(params.lstmSize+1:end, :);
+      end
+    elseif params.attnFunc>0 % f(W_ah*[attn_t; tgt_h_t])
+      %[softmaxGrad, grad_ht, otherBatchGrads.srcHidVecs] = attnBackprop(model, batchData.srcHidVecs, softmax_h, grad_softmax_h, attn_h_concat, alignWeights, h_t, params, curMask);
+
+      % softmax_h = f(W_ah*[attn_t; tgt_h_t])  
+      [grad_ah, softmaxGrad.W_ah] = hiddenLayerBackprop(model.W_ah, grad_softmax_h, attn_h_concat, params.nonlinear_f_prime, softmax_h);
+
+      % grad_attn -> grad_ht, grad_W_a, grad_srcHidVecs
+      [grad_ht, softmaxGrad.W_a, otherBatchGrads.srcHidVecs] = attnLayerBackprop(model.W_a, grad_ah(1:params.lstmSize, :), interSoftInput, params, alignWeights, batchData.srcHidVecs, curMask);
+
+      % grad_ht
+      grad_ht = grad_ht + grad_ah(params.lstmSize+1:end, :);
+    end
+  else % normal softmax
+    grad_ht = grad_softmax_h;
   end
 end
 
