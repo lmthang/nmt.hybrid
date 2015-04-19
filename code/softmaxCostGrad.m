@@ -178,27 +178,20 @@ function [cost, softmaxGrad, grad_ht, otherBatchGrads] = batchSoftmax(matrixName
     % softmax_h
     grad_softmax_h = model.(matrixName)'* probs;
     
+    % W_soft.
+    softmaxGrad.(matrixName) = probs*softmax_h';
+    
     %% grad_softmax_h -> h_t
     if params.softmaxDim>0 || params.attnFunc>0 || (params.posModel==3 && isPredictPos==0) % softmax compression or attention
       if params.softmaxDim>0 || params.posModel==3 % f(W_h * interSoftInput)
-        % f'(softmax_h).*grad_softmax_h
-        tmpResult = params.nonlinear_f_prime(softmax_h).*grad_softmax_h;
+        [grad_ht, softmaxGrad.W_h] = hiddenLayerBackprop(model.W_h, grad_softmax_h, interSoftInput, params.nonlinear_f_prime, softmax_h);
 
-        % grad.W_h
-        softmaxGrad.W_h = tmpResult*interSoftInput';
-
-        if params.softmaxDim>0
-          % grad_ht
-          grad_ht = model.W_h'*tmpResult;
-        else
-          % grad_srcPosH: [srcPosVecs; h_t]
-          grad_srcPosH = model.W_h'*tmpResult;
-          
-          % grad_ht
-          grad_ht = grad_srcPosH(params.lstmSize+1:end, :);
-          
+        if params.posModel==3 % interSoftInput = [srcPosVecs; h_t]
           % grad srcPosVecs
-          otherBatchGrads.srcPosVecs = grad_srcPosH(1:params.lstmSize, :);
+          otherBatchGrads.srcPosVecs = grad_ht(1:params.lstmSize, :);
+          
+          % grad_ht: this line needs to come after the above line
+          grad_ht = grad_ht(params.lstmSize+1:end, :);
         end
       elseif params.attnFunc>0 % f(W_ah*[attn_t; tgt_h_t])
         if params.assert && ~isempty(maskedIds)
@@ -206,12 +199,10 @@ function [cost, softmaxGrad, grad_ht, otherBatchGrads] = batchSoftmax(matrixName
         end
         %[softmaxGrad, grad_ht, otherBatchGrads.srcHidVecs] = attnBackprop(model, batchData.srcHidVecs, softmax_h, grad_softmax_h, attn_h_concat, alignWeights, h_t, params, curMask);
         
-        %% grad_softmax_h -> grad.W_ah, grad_ah 
-        % attn_h_concat = [attn_t; tgt_h_t]
-        % softmax_h = f(W_ah*attn_h_concat)  
+        % softmax_h = f(W_ah*[attn_t; tgt_h_t])  
         [grad_ah, softmaxGrad.W_ah] = hiddenLayerBackprop(model.W_ah, grad_softmax_h, attn_h_concat, params.nonlinear_f_prime, softmax_h);
 
-        %% from grad_attn -> grad_ht, grad_W_a, grad_srcHidVecs
+        % grad_attn -> grad_ht, grad_W_a, grad_srcHidVecs
         [grad_ht, softmaxGrad.W_a, otherBatchGrads.srcHidVecs] = attnLayerBackprop(model.W_a, grad_ah(1:params.lstmSize, :), h_t, params, alignWeights, batchData.srcHidVecs, curMask);
 
         % grad_ht
@@ -220,12 +211,6 @@ function [cost, softmaxGrad, grad_ht, otherBatchGrads] = batchSoftmax(matrixName
     else % normal softmax
       grad_ht = grad_softmax_h;
     end
-    
-    %% loss -> W_soft. 
-    % Note: do not move this part up; otherwise, the case attnFunc>0 will
-    % fail because softmaxGrad is only created after calling attnBackprop,
-    % which means anything touches softmaxGrad before will be lost.
-    softmaxGrad.(matrixName) = probs*softmax_h';
   end % end isTest
   
   
@@ -315,6 +300,35 @@ end
 %     end
 
 %% Unused
+
+%         % f'(softmax_h).*grad_softmax_h
+%         tmpResult = params.nonlinear_f_prime(softmax_h).*grad_softmax_h;
+% 
+%         % grad.W_h
+%         softmaxGrad.W_h = tmpResult*interSoftInput';
+% 
+%         if params.softmaxDim>0
+%           % grad_ht
+%           grad_ht = model.W_h'*tmpResult;
+%         else
+%           % grad_srcPosH: [srcPosVecs; h_t]
+%           grad_srcPosH = model.W_h'*tmpResult;
+%           
+%           % grad_ht
+%           grad_ht = grad_srcPosH(params.lstmSize+1:end, :);
+%           
+%           % grad srcPosVecs
+%           otherBatchGrads.srcPosVecs = grad_srcPosH(1:params.lstmSize, :);
+%         end
+
+    
+    %% loss -> W_soft. 
+    % Note: do not move this part up; otherwise, the case attnFunc>0 will
+    % fail because softmaxGrad is only created after calling attnBackprop,
+    % which means anything touches softmaxGrad before will be lost.
+    %softmaxGrad.(matrixName) = probs*softmax_h';
+    
+
 %     % note params.numAttnPositions>=params.numSrcHidVecs
 %     batchData.srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
 %     if params.attnFunc==1

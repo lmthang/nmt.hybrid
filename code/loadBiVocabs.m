@@ -62,14 +62,22 @@ function [params] = loadBiVocabs(params)
     params.posVocabSize = length(indices) + 1; % include <eos>
     fprintf(2, '# Positional model: posVocabSize=%d, startPosId=%d, zeroPosId=%d\n', params.posVocabSize, params.startPosId, params.zeroPosId);
     fprintf(params.logId, '# Positional model: posVocabSize=%d, startPosId=%d, zeroPosId=%d\n', params.posVocabSize, params.startPosId, params.zeroPosId);
+    
+    % NOTE: purposely add eos first, then sos, so that the positional vocab
+    % (including eos) is contiguous
+    tgtVocab{end+1} = '<t_eos>';
+    params.tgtEos = length(tgtVocab);
+    tgtVocab{end+1} = '<t_sos>';
+    params.tgtSos = length(tgtVocab);
+  else
+    % add eos, sos
+    tgtVocab{end+1} = '<t_sos>';
+    params.tgtSos = length(tgtVocab);
+    tgtVocab{end+1} = '<t_eos>';
+    params.tgtEos = length(tgtVocab);
   end
-  
-  % add eos, sos
-  tgtVocab{end+1} = '<t_sos>';
-  params.tgtSos = length(tgtVocab);
-  tgtVocab{end+1} = '<t_eos>';
-  params.tgtEos = length(tgtVocab);
   params.tgtVocabSize = length(tgtVocab);
+  
   
   %% finalize vocab
   if params.isBi

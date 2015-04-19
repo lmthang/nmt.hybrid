@@ -134,7 +134,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     assert(params.isReverse==1);
   end
   if params.softmaxDim>0
-    assert(params.attnFunc==0 & params.posModel==-1, '! Assert failed: softmaxDim %d > 0, so attnFunc %d and posModel %d have to be 0.\n', ...
+    assert(params.attnFunc==0 & params.posModel==-1, '! Assert failed: softmaxDim %d > 0, so attnFunc %d and posModel %d have to be -1.\n', ...
       params.softmaxDim, params.attnFunc, params.posModel);
   end
   
