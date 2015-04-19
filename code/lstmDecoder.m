@@ -338,12 +338,10 @@ end
 %%
 function [bestLogProbs, bestWords] = nextBeamStep(model, h_t, beamSize, params, data)
   % softmax
-  if params.attnFunc>0 % attention mechanism
-    [softmax_h] = lstm2softHid(h_t, params, model, data.srcHidVecs, data.curMask);
-  elseif params.posModel>0
+  if params.posModel>0
     error('! Have not implemented decoder for positional models\n');
   else
-    [softmax_h] = lstm2softHid(h_t, params, model);
+    [softmax_h] = hid2softForward(h_t, params, model, data, data.curMask, 0);  
   end
   
   [logProbs] = softmaxDecode(model.W_soft*softmax_h);
