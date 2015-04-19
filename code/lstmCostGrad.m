@@ -127,7 +127,6 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         x_t = all_h_t{ll-1, tt}; % lstm{ll-1, t}.h_t;
       end
       
-      
       % masking
       x_t(:, trainData.maskInfo{tt}.maskedIds) = 0; 
       h_t_1(:, trainData.maskInfo{tt}.maskedIds) = 0;

@@ -10,24 +10,24 @@
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 %
 %%%
-function [costs, softmaxGrad, grad_tgt_ht] = softmaxCostGrad(model, params, trainData, topHidVecs)
+function [allCosts, allGrads, grad_tgt_ht] = softmaxCostGrad(model, params, trainData, topHidVecs)
   curBatchSize = params.curBatchSize;
   T = trainData.T;
   srcMaxLen = trainData.srcMaxLen;
   tgtMaxLen = trainData.tgtMaxLen;
   
   % init grads
-  [softmaxGrad] = initSoftmaxGrad(model, params);
+  [allGrads] = initSoftmaxGrad(model, params);
   if params.attnFunc>0 || params.posModel==3
-    softmaxGrad.srcHidVecs = zeroMatrix([params.lstmSize, curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);
+    allGrads.srcHidVecs = zeroMatrix([params.lstmSize, curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);
   end
   grad_tgt_ht = cell(1, tgtMaxLen);
   
   % init costs
-  costs.total = zeroMatrix([1, 1], params.isGPU, params.dataType);
+  allCosts.total = zeroMatrix([1, 1], params.isGPU, params.dataType);
   if params.posModel>=0
-    costs.word = zeroMatrix([1, 1], params.isGPU, params.dataType);
-    costs.pos = zeroMatrix([1, 1], params.isGPU, params.dataType);
+    allCosts.word = zeroMatrix([1, 1], params.isGPU, params.dataType);
+    allCosts.pos = zeroMatrix([1, 1], params.isGPU, params.dataType);
   end
     
   % attention
@@ -69,52 +69,65 @@ function [costs, softmaxGrad, grad_tgt_ht] = softmaxCostGrad(model, params, trai
     % predict
     if params.posModel>=1 && mod(tgtPos, 2)==1 % positions
       predWords = predWords - params.startPosId + 1;
-      [word_cost, word_softmaxGrad, grad_ht, otherBatchGrads] = softmaxOneStep('W_softPos', h_t, predWords, model, params, trainData, batchData, 1, curMask);
+      isPredictPos = 1;
+      matrixName = 'W_softPos';
     else % words
-      [word_cost, word_softmaxGrad, grad_ht, otherBatchGrads] = softmaxOneStep('W_soft', h_t, predWords, model, params, trainData, batchData, 0, curMask);
+      isPredictPos = 0;
+      matrixName = 'W_soft';
     end
     
+    % h_t -> softmax_h
+    [softmax_h, hid2softData] = hid2softForward(h_t, params, model, batchData, curMask, isPredictPos);
+    
+    %% softmax
+    [cost, grad_W_soft, grad_softmax_h] = softmaxOneStep(model.(matrixName), softmax_h, predWords, params, trainData.isTest, curMask);
+      
     % costs
-    costs.total = costs.total + word_cost;
+    allCosts.total = allCosts.total + cost;
     if params.posModel>=0 % separate out pos/word perplexities
       if mod(tgtPos, 2)==0
-        costs.word = costs.word + word_cost;
+        allCosts.word = allCosts.word + cost;
       else
-        costs.pos = costs.pos + word_cost;
+        allCosts.pos = allCosts.pos + cost;
       end
     end
     
     % update grads
     if trainData.isTest==0
-      fields = fieldnames(word_softmaxGrad);
-      for ii=1:length(fields)
-        field = fields{ii};
-        softmaxGrad.(field) = softmaxGrad.(field) + word_softmaxGrad.(field);
-      end
+      % grad_W_soft
+      allGrads.(matrixName) = allGrads.(matrixName) + grad_W_soft;
       
-      % attention models: srcHidVecs
-      % otherBatchGrads: [params.lstmSize, params.curBatchSize, params.numAttnPositions]
-      if params.attnFunc>0
-        softmaxGrad.srcHidVecs(:, :, startAttnId:endAttnId) = softmaxGrad.srcHidVecs(:, :, startAttnId:endAttnId) + otherBatchGrads.srcHidVecs(:, :, startHidId:endHidId);
+      %% grad_softmax_h -> h_t
+      if params.attnFunc>0 || params.softmaxDim>0 || (params.posModel==3 && isPredictPos==0)
+        [grad_tgt_ht{tgtPos}, hid2softGrad, grad_srcHidVecs] = hid2softBackprop(model, grad_softmax_h, hid2softData, softmax_h, isPredictPos, batchData, curMask, params);
+        fields = fieldnames(hid2softGrad);
+        for ii=1:length(fields)
+          field = fields{ii};
+          allGrads.(field) = allGrads.(field) + hid2softGrad.(field);
+        end
+
+        % attention models: srcHidVecs
+        if params.attnFunc>0
+          allGrads.srcHidVecs(:, :, startAttnId:endAttnId) = allGrads.srcHidVecs(:, :, startAttnId:endAttnId) + grad_srcHidVecs(:, :, startHidId:endHidId);
+        end
+
+        % positional model 3
+        if params.posModel==3 && isPredictPos==0
+          allGrads.srcHidVecs(batchData.linearIndices) = allGrads.srcHidVecs(batchData.linearIndices) + reshape(grad_srcHidVecs(:, curMask.unmaskedIds), 1, []);
+        end
+      else
+        grad_tgt_ht{tgtPos} = grad_softmax_h;
       end
-      
-      % positional model 3
-      if params.posModel==3 && mod(tgtPos, 2)==0
-        softmaxGrad.srcHidVecs(batchData.linearIndices) = softmaxGrad.srcHidVecs(batchData.linearIndices) + reshape(otherBatchGrads.srcPosVecs(:, curMask.unmaskedIds), 1, []);
-      end
-            
-      % grad_ht   
-      grad_tgt_ht{tgtPos} = grad_ht;
       
       % assert
       if params.assert
-        assert(sum(sum(abs(grad_ht(:, curMask.maskedIds))))==0);
+        assert(sum(sum(abs(grad_tgt_ht{tgtPos}(:, curMask.maskedIds))))==0);
       end
     end
   end
 end
 
-function [cost, softmaxGrad, grad_ht, otherBatchGrads] = softmaxOneStep(matrixName, h_t, origPredLabels, model, params, trainData, batchData, isPredictPos, curMask, varargin) %
+function [cost, grad_W, inGrad] = softmaxOneStep(W, inVec, predLabels, params, isTest, curMask) %
 %%%
 %
 % Perform softmax prediction and backprop.
@@ -127,43 +140,35 @@ function [cost, softmaxGrad, grad_ht, otherBatchGrads] = softmaxOneStep(matrixNa
 %%%
   mask = curMask.mask;
   unmaskedIds = curMask.unmaskedIds;
-  maskedIds = curMask.maskedIds;
-  
-  %% h_t -> softmax_h
-  [softmax_h, hid2softData] = hid2softForward(h_t, params, model, batchData, curMask, isPredictPos);  
+  maskedIds = curMask.maskedIds;  
   
   %% softmax_h -> predictions
-  [probs, scores, norms] = softmax(model.(matrixName)*softmax_h, mask);
+  [probs, scores, norms] = softmax(W*inVec, mask);
   % cost
-  predLabels = origPredLabels(unmaskedIds);
+  predLabels = predLabels(unmaskedIds);
   
   scoreIndices = sub2ind(size(scores), predLabels, unmaskedIds); % 1 * length(tgtPredictedWords)
   cost = - sum(scores(scoreIndices)) + sum(log(norms).*mask);
   
   %% grad
-  softmaxGrad = [];
-  grad_ht = [];
-  otherBatchGrads = [];
-  if trainData.isTest==0 % compute grad
+  if isTest==0 % compute grad
     %% loss -> grad_softmax_h
     probs(scoreIndices) = probs(scoreIndices) - 1; % minus one at predicted words
 
     % softmax_h
-    grad_softmax_h = model.(matrixName)'* probs;
+    inGrad = W'* probs;
     
-    %% grad_softmax_h -> h_t
-    [grad_ht, softmaxGrad, otherBatchGrads] = hid2softBackprop(model, grad_softmax_h, hid2softData, softmax_h, isPredictPos, batchData, curMask, params);
-    
-    % W_soft.
-    softmaxGrad.(matrixName) = probs*softmax_h';
-    
+    % W_soft
+    grad_W = probs*inVec';
+  else
+    grad_W = [];
+    inGrad = [];
   end % end isTest
-  
   
   % assert
   if params.assert
     assert(sum(sum(abs(scores(:, maskedIds))))==0);
-    assert(sum(sum(abs(grad_softmax_h(:, maskedIds))))==0);
+    assert(sum(sum(abs(inGrad(:, maskedIds))))==0);
   end
 end
 

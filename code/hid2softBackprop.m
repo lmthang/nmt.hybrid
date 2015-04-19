@@ -1,13 +1,12 @@
-function [grad_ht, softmaxGrad, otherBatchGrads] = hid2softBackprop(model, grad_softmax_h, hid2softData, softmax_h, isPredictPos, batchData, curMask, params)
-  otherBatchGrads = [];
-  softmaxGrad = [];
+function [grad_ht, hid2softGrad, grad_srcHidVecs] = hid2softBackprop(model, grad_softmax_h, hid2softData, softmax_h, isPredictPos, batchData, curMask, params)
+  grad_srcHidVecs = [];
   if params.softmaxDim>0 || (params.posModel==3 && isPredictPos==0) % softmax compression or attention or posModel 3
     % f(W_h * input)
-    [grad_ht, softmaxGrad.W_h] = hiddenLayerBackprop(model.W_h, grad_softmax_h, hid2softData.input, params.nonlinear_f_prime, softmax_h);
+    [grad_ht, hid2softGrad.W_h] = hiddenLayerBackprop(model.W_h, grad_softmax_h, hid2softData.input, params.nonlinear_f_prime, softmax_h);
 
     if params.posModel==3 % input = [srcPosVecs; h_t]
       % grad srcPosVecs
-      otherBatchGrads.srcPosVecs = grad_ht(1:params.lstmSize, :);
+      grad_srcHidVecs = grad_ht(1:params.lstmSize, :);
 
       % grad_ht: this line needs to come after the above line
       grad_ht = grad_ht(params.lstmSize+1:end, :);
@@ -16,14 +15,12 @@ function [grad_ht, softmaxGrad, otherBatchGrads] = hid2softBackprop(model, grad_
     %[softmaxGrad, grad_ht, otherBatchGrads.srcHidVecs] = attnBackprop(model, batchData.srcHidVecs, softmax_h, grad_softmax_h, attn_h_concat, alignWeights, h_t, params, curMask);
 
     % softmax_h = f(W_ah*[attn_t; tgt_h_t])  
-    [grad_ah, softmaxGrad.W_ah] = hiddenLayerBackprop(model.W_ah, grad_softmax_h, hid2softData.attn_h_concat, params.nonlinear_f_prime, softmax_h);
+    [grad_ah, hid2softGrad.W_ah] = hiddenLayerBackprop(model.W_ah, grad_softmax_h, hid2softData.attn_h_concat, params.nonlinear_f_prime, softmax_h);
 
     % grad_attn -> grad_ht, grad_W_a, grad_srcHidVecs
-    [grad_ht, softmaxGrad.W_a, otherBatchGrads.srcHidVecs] = attnLayerBackprop(model.W_a, grad_ah(1:params.lstmSize, :), hid2softData.input, params, hid2softData.alignWeights, batchData.srcHidVecs, curMask);
+    [grad_ht, hid2softGrad.W_a, grad_srcHidVecs] = attnLayerBackprop(model.W_a, grad_ah(1:params.lstmSize, :), hid2softData.input, params, hid2softData.alignWeights, batchData.srcHidVecs, curMask);
 
     % grad_ht
     grad_ht = grad_ht + grad_ah(params.lstmSize+1:end, :);
-  else % normal softmax
-    grad_ht = grad_softmax_h;
   end
 end

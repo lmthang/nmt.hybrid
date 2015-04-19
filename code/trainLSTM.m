@@ -82,7 +82,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'posModel', -1, @isnumeric); 
   addOptional(p,'posWin', 20, @isnumeric); % also used in attention-based models  
   addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
-  addOptional(p,'softmaxStep', 1, @isnumeric); % do multiple softmax prediction at once
+  %addOptional(p,'softmaxStep', 1, @isnumeric); % do multiple softmax prediction at once
   
   addOptional(p,'monoFile', '', @ischar); % to bootstrap the decoder with a monolingual model
   addOptional(p,'separateEmb', 0, @isnumeric); % 1: separate embedding matrix into src and tgt embs
@@ -127,9 +127,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     assert(params.isBi==1);
     assert(params.attnFunc==0);
   end
-  if params.attnFunc>0 || params.posModel>=0
-    assert(params.softmaxStep==1); % print out pos/word perplexities
-  end
+%   if params.attnFunc>0 || params.posModel>=0
+%     assert(params.softmaxStep==1); % print out pos/word perplexities
+%   end
   if params.attnFunc==2 || params.attnFunc==4
     assert(params.isReverse==1);
   end
