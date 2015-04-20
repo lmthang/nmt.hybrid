@@ -71,8 +71,24 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
     W_tgt_combined = [model.W_tgt{1} model.W_tgt_pos];
   end
   
-  if params.attnFunc==3 || params.attnFunc==4
-    attnVecs = cell(tgtMaxLen, 1);
+  if params.attnFunc>0
+    curSrcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
+    
+    if params.attnFunc==3 || params.attnFunc==4
+      attnVecs = cell(tgtMaxLen, 1);
+      alignWeights = cell(tgtMaxLen, 1);
+      if params.attnFunc==3
+        startAttnId = 1;
+        endAttnId = params.numSrcHidVecs;
+        startHidId = params.numAttnPositions-params.numSrcHidVecs+1;
+        endHidId = params.numAttnPositions;
+      else
+        startAttnId = zeros(tgtMaxLen, 1);
+        endAttnId = zeros(tgtMaxLen, 1);
+        startHidId = zeros(tgtMaxLen, 1);
+        endHidId = zeros(tgtMaxLen, 1);
+      end
+    end
   end
   
   % separate emb
@@ -122,10 +138,17 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         trainData.maskInfo{tt}.maskedIds = find(~trainData.maskInfo{tt}.mask);
         
         % attention model 3, 4
-        if (params.attnFunc==3 || params.attnFunc==4) && tt>=(srcMaxLen-1) && tt<T
-
+        if (params.attnFunc==3 || params.attnFunc==4) && tt>=srcMaxLen
+          if params.attnFunc==4
+            [startAttnId(tgtPos), endAttnId(tgtPos), startHidId(tgtPos), endHidId(tgtPos)] = buildSrcHidVecs(srcMaxLen, tgtPos, params);
+            curSrcHidVecs(:, :, startHidId(tgtPos):endHidId(tgtPos)) = trainData.srcHidVecs(:, :, startAttnId(tgtPos):endAttnId(tgtPos));
+            curSrcHidVecs(:, :, 1:startHidId(tgtPos)-1) = 0;
+            curSrcHidVecs(:, :, endHidId(tgtPos)+1:end) = 0;
+          end
+          
           % attnForward: h_t -> attnVecs (used the previous hidden state
-          [attnVecs{tgtPos}, hid2softData.alignWeights] = attnLayerForward(model, all_h_t{ll, tt-1}, batchData.srcHidVecs, trainData.maskInfo{tt});
+          % here we use the top hidden state
+          [attnVecs{tgtPos}, alignWeights{tgtPos}] = attnLayerForward(model, all_h_t{params.numLayers, tt-1}, curSrcHidVecs, trainData.maskInfo{tt-1});
           x_t = [x_t; attnVecs{tgtPos}];
         end
         
@@ -150,20 +173,10 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       % attention-based or positional-based models: keep track of all the src hidden states
       if tt==params.numSrcHidVecs && ll==params.numLayers && (params.attnFunc>0 || params.posModel>=2)
         % attention model 3, 4
-        if (params.attnFunc==3 || params.attnFunc==4) && tt<T
-          if params.assert
-            assert(tt==(srcMaxLen-1));
-          end
-          
-          if params.attnFunc==3
-            startHidId = params.numAttnPositions-params.numSrcHidVecs+1;
-            endHidId = params.numAttnPositions;
-            batchData.srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
-            batchData.srcHidVecs(:, :, startHidId:endHidId) = reshape([all_h_t{params.numLayers, 1:params.numSrcHidVecs}], params.lstmSize, curBatchSize, params.numSrcHidVecs);
-          elseif params.attnFunc==4
-            [startAttnId, endAttnId, startHidId, endHidId] = buildSrcHidVecs(srcMaxLen, tgtPos, params);
-            batchData.srcHidVecs(:, :, startHidId:endHidId) = trainData.srcHidVecs(:, :, startAttnId:endAttnId);
-          end
+        if params.attnFunc==3 && tt<T
+          startHidId = params.numAttnPositions-params.numSrcHidVecs+1;
+          endHidId = params.numAttnPositions;
+          curSrcHidVecs(:, :, startHidId:endHidId) = reshape([all_h_t{params.numLayers, 1:params.numSrcHidVecs}], params.lstmSize, curBatchSize, params.numSrcHidVecs);
         else
           trainData.srcHidVecs = reshape([all_h_t{ll, 1:params.numSrcHidVecs}], params.lstmSize, curBatchSize, params.numSrcHidVecs);
         end
@@ -221,6 +234,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
     wordCount = 0;
   end
   
+  % NOTE: IMPORTANT for tt first, then for ll in other for attn3,4, pos2 models to work
   for tt=T:-1:1 % time
     unmaskedIds = trainData.maskInfo{tt}.unmaskedIds;
     tgtPos = tt-srcMaxLen+1;
@@ -232,6 +246,10 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
           dh{ll} = dh{ll} + grad_tgt_ht{tgtPos};
         end
 
+        if (params.attnFunc==3 || params.attnFunc==4) && tt>=(srcMaxLen-1) && tt<T
+          dh{ll} = dh{ll} + grad_attn_ht;
+        end
+          
         if tt<=params.numSrcHidVecs % attention/pos models: get feedback from grad.srcHidVecs
           dh{ll} = dh{ll} + grad.srcHidVecs(:,:,tt);
         end
@@ -277,6 +295,31 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
           grad.srcHidVecs(linearIndices) = grad.srcHidVecs(linearIndices) + reshape(lstm_grad.input(params.lstmSize+1:2*params.lstmSize, unmaskedIds), 1, []);          
         end
 
+        % attn model 3, 4
+        if (params.attnFunc==3 || params.attnFunc==4) && tt>=srcMaxLen
+          if params.attnFunc==4 % relative pos, so have to compute curSrcHidVecs
+            curSrcHidVecs(:, :, startHidId(tgtPos):endHidId(tgtPos)) = trainData.srcHidVecs(:, :, startAttnId(tgtPos):endAttnId(tgtPos));
+            curSrcHidVecs(:, :, 1:startHidId(tgtPos)-1) = 0;
+            curSrcHidVecs(:, :, endHidId(tgtPos)+1:end) = 0;
+          end
+          
+          % grad_attn -> grad_ht, grad_W_a, grad_srcHidVecs
+          [grad_attn_ht, grad_W_a, grad_srcHidVecs] = attnLayerBackprop(model.W_a, lstm_grad.input(params.lstmSize+1:2*params.lstmSize, :), all_h_t{params.numLayers, tt-1}, ...
+            params, alignWeights{tgtPos}, curSrcHidVecs, trainData.maskInfo{tt-1});
+          
+          % update srcHidVecs
+          if params.attnFunc==3
+            grad.srcHidVecs(:, :, startAttnId:endAttnId) = grad.srcHidVecs(:, :, startAttnId:endAttnId) + grad_srcHidVecs(:, :, startHidId:endHidId);
+          else
+            grad.srcHidVecs(:, :, startAttnId(tgtPos):endAttnId(tgtPos)) = grad.srcHidVecs(:, :, startAttnId(tgtPos):endAttnId(tgtPos)) + grad_srcHidVecs(:, :, startHidId(tgtPos):endHidId(tgtPos));
+          end
+          
+          % update W_a
+          grad.W_a = grad.W_a + grad_W_a;
+          
+          % grad_ht will be used in time tt-1, at the top layer
+        end
+        
         numWords = length(embIndices);
         
         % separate embs
