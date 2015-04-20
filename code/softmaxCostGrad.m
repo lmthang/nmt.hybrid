@@ -105,7 +105,7 @@ function [allCosts, allGrads, grad_tgt_ht] = softmaxCostGrad(model, params, trai
       
       %% grad_softmax_h -> h_t
       if params.attnFunc==1 || params.attnFunc==2 || params.softmaxDim>0 || (params.posModel==3 && isPredictPos==0)
-        [grad_tgt_ht{tgtPos}, hid2softGrad, grad_srcHidVecs] = hid2softBackprop(model, grad_softmax_h, hid2softData, softmax_h, isPredictPos, batchData, curMask, params);
+        [grad_tgt_ht{tgtPos}, hid2softGrad, grad_srcHidVecs] = hid2softBackprop(model, grad_softmax_h, hid2softData, softmax_h, isPredictPos, batchData, params);
         fields = fieldnames(hid2softGrad);
         for ii=1:length(fields)
           field = fields{ii};
