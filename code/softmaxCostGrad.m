@@ -33,7 +33,7 @@ function [allCosts, allGrads, grad_tgt_ht] = softmaxCostGrad(model, params, trai
   % attention
   if params.attnFunc>0
     batchData.srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
-    if params.attnFunc==1 || params.attnFunc==3
+    if params.attnFunc==1
       startAttnId = 1;
       endAttnId = params.numSrcHidVecs;
       startHidId = params.numAttnPositions-params.numSrcHidVecs+1;
@@ -61,7 +61,7 @@ function [allCosts, allGrads, grad_tgt_ht] = softmaxCostGrad(model, params, trai
     end
 
     % attention model 2: relative positions, we assume softmaxStep=1
-    if params.attnFunc==2 || params.attnFunc==4
+    if params.attnFunc==2
       [startAttnId, endAttnId, startHidId, endHidId] = buildSrcHidVecs(srcMaxLen, tgtPos, params);
       batchData.srcHidVecs(:, :, startHidId:endHidId) = trainData.srcHidVecs(:, :, startAttnId:endAttnId);
     end

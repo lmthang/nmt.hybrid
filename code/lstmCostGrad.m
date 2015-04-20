@@ -71,6 +71,10 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
     W_tgt_combined = [model.W_tgt{1} model.W_tgt_pos];
   end
   
+  if params.attnFunc==3 || params.attnFunc==4
+    attnVecs = cell(tgtMaxLen, 1);
+  end
+  
   % separate emb
   if params.separateEmb==1 
     W_emb = model.W_emb_src;
@@ -117,6 +121,14 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         trainData.maskInfo{tt}.unmaskedIds = find(trainData.maskInfo{tt}.mask);
         trainData.maskInfo{tt}.maskedIds = find(~trainData.maskInfo{tt}.mask);
         
+        % attention model 3, 4
+        if (params.attnFunc==3 || params.attnFunc==4) && tt>=(srcMaxLen-1) && tt<T
+
+          % attnForward: h_t -> attnVecs (used the previous hidden state
+          [attnVecs{tgtPos}, hid2softData.alignWeights] = attnLayerForward(model, all_h_t{ll, tt-1}, batchData.srcHidVecs, trainData.maskInfo{tt});
+          x_t = [x_t; attnVecs{tgtPos}];
+        end
+        
         % positionl models 2: at the first level, we use additional src information
         if params.posModel==2 && tt>=srcMaxLen && mod(tgtPos, 2)==0 % predict words
           [s_t, trainData.srcPosInfo{tt}.linearIndices] = buildSrcPosVecs(tt, params, trainData, trainData.tgtOutput(:, tgtPos)', trainData.maskInfo{tt});
@@ -136,8 +148,25 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       [lstms{ll, tt}, all_h_t{ll, tt}, all_c_t{ll, tt}] = lstmUnit(W, x_t, h_t_1, c_t_1, ll, tt, srcMaxLen, params, isTest); 
       
       % attention-based or positional-based models: keep track of all the src hidden states
-      if tt>=srcMaxLen && ll==params.numLayers && (params.attnFunc>0 || params.posModel>=2)
-        trainData.srcHidVecs = reshape([all_h_t{params.numLayers, 1:params.numSrcHidVecs}], params.lstmSize, curBatchSize, params.numSrcHidVecs);
+      if tt==params.numSrcHidVecs && ll==params.numLayers && (params.attnFunc>0 || params.posModel>=2)
+        % attention model 3, 4
+        if (params.attnFunc==3 || params.attnFunc==4) && tt<T
+          if params.assert
+            assert(tt==(srcMaxLen-1));
+          end
+          
+          if params.attnFunc==3
+            startHidId = params.numAttnPositions-params.numSrcHidVecs+1;
+            endHidId = params.numAttnPositions;
+            batchData.srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
+            batchData.srcHidVecs(:, :, startHidId:endHidId) = reshape([all_h_t{params.numLayers, 1:params.numSrcHidVecs}], params.lstmSize, curBatchSize, params.numSrcHidVecs);
+          elseif params.attnFunc==4
+            [startAttnId, endAttnId, startHidId, endHidId] = buildSrcHidVecs(srcMaxLen, tgtPos, params);
+            batchData.srcHidVecs(:, :, startHidId:endHidId) = trainData.srcHidVecs(:, :, startAttnId:endAttnId);
+          end
+        else
+          trainData.srcHidVecs = reshape([all_h_t{ll, 1:params.numSrcHidVecs}], params.lstmSize, curBatchSize, params.numSrcHidVecs);
+        end
       end
       
       % assert
