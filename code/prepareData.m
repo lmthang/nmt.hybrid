@@ -22,7 +22,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   numSents = length(tgtSents);
   if params.isBi
     srcLens = srcLens + 1; % add eos
-    if isTest==0 || params.attnFunc==1 % limit sent lengths for training or for attention model during both training/testing
+    if isTest==0 || (params.attnFunc==1 || params.attnFunc==3) % limit sent lengths for training or for attention model during both training/testing
       srcLens(srcLens>params.maxSentLen) = params.maxSentLen; 
     end
     srcMaxLen = max(srcLens);

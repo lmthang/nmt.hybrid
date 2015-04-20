@@ -1,4 +1,4 @@
-function [outVec, alignWeights] = attnLayerForward(model, inVec, srcHidVecs, curMask)
+function [outVec, alignWeights] = attnLayerForward(model, inVec, srcHidVecs, mask)
 %%%
 %
 % Compute context vectors for attention-based models.
@@ -13,7 +13,7 @@ function [outVec, alignWeights] = attnLayerForward(model, inVec, srcHidVecs, cur
   % alignWeights: numAttnPositions*curBatchSize
   % mask: 1 * curBatchSize
   % -> alignWeights: 1 * curBatchSize * numAttnPositions
-  alignWeights = permute(bsxfun(@times, alignWeights, curMask.mask), [3, 2, 1]);
+  alignWeights = permute(bsxfun(@times, alignWeights, mask), [3, 2, 1]);
   
   % srcHidVecs: lstmSize * curBatchSize * numAttnPositions
   % alignWeights: 1 * curBatchSize * numAttnPositions

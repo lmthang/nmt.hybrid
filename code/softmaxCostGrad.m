@@ -82,7 +82,7 @@ function [allCosts, allGrads, grad_tgt_ht] = softmaxCostGrad(model, params, trai
     if params.attnFunc==3 || params.attnFunc==4
       softmax_h = h_t;
     else
-      [softmax_h, hid2softData] = hid2softForward(h_t, params, model, batchData, curMask, isPredictPos);
+      [softmax_h, hid2softData] = hid2softForward(h_t, params, model, batchData, curMask.mask, isPredictPos);
     end
     
     %% softmax

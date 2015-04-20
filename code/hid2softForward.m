@@ -1,4 +1,4 @@
-function [softmax_h, hid2softData] = hid2softForward(h_t, params, model, batchData, curMask, isPredictPos)
+function [softmax_h, hid2softData] = hid2softForward(h_t, params, model, batchData, mask, isPredictPos)
 %%%
 %
 % From lstm hidden state to softmax hidden state.
@@ -11,7 +11,7 @@ function [softmax_h, hid2softData] = hid2softForward(h_t, params, model, batchDa
   
   if params.attnFunc>0 % attention mechanism
     % softmax_h = f(W_ah*[attn_t; tgt_h_t])
-    [attnVecs, hid2softData.alignWeights] = attnLayerForward(model, h_t, batchData.srcHidVecs, curMask);
+    [attnVecs, hid2softData.alignWeights] = attnLayerForward(model, h_t, batchData.srcHidVecs, mask);
     hid2softData.attn_h_concat = [attnVecs; h_t];
     [softmax_h] = hiddenLayerForward(model.W_ah, hid2softData.attn_h_concat, params.nonlinear_f);
   elseif params.softmaxDim>0 || (params.posModel==3 && isPredictPos==0) % compression: f(W_h * h_t) or positional model: f(W_h * [srcPosVecs; h_t])
