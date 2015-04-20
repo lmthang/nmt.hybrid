@@ -25,12 +25,8 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   curBatchSize = size(input, 1);
   
   % separate embs
-  if params.separateEmb==1
-    trainData.numInputWords_src = sum(sum(trainData.srcMask));
-    trainData.numInputWords_tgt = sum(sum(trainData.tgtMask(:, 2:end)));
-  else
-    trainData.numInputWords = sum(sum(inputMask));
-  end
+  trainData.numInputWords_src = sum(sum(trainData.srcMask));
+  trainData.numInputWords_tgt = sum(sum(trainData.tgtMask(:, 2:end)));
   
   trainData.isTest = isTest;
   trainData.T = T;
@@ -54,12 +50,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   
   % positional model 3, include more src embeddings
   if params.posModel==3 
-    % separate embs
-    if params.separateEmb==1
-      trainData.numInputWords_src = floor(trainData.numInputWords_src + trainData.numInputWords_tgt*0.5);
-    else
-      trainData.numInputWords = floor(trainData.numInputWords * 1.5);
-    end
+    trainData.numInputWords_src = floor(trainData.numInputWords_src + trainData.numInputWords_tgt*0.5);
   end
   
   %%%%%%%%%%%%%%%%%%%%
@@ -90,29 +81,19 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       end
     end
   end
-  
-  % separate emb
-  if params.separateEmb==1 
-    W_emb = model.W_emb_src;
-  else
-    W_emb = model.W_emb;
-  end
-  
+    
   % Note: IMPORTANT. For attention-based models or positional models, it it
   % important to build the top hidden states first before moving to the
   % next time step. So DO NOT swap these for loops.
   W_layers = model.W_src;
+  W_emb = model.W_emb_src;
   for tt=1:T % time
     tgtPos = tt-srcMaxLen+1;
     
     % switch to decoder mode
     if tt==srcMaxLen 
       W_layers = model.W_tgt;
-    
-      % separate emb
-      if params.separateEmb==1 
-        W_emb = model.W_emb_tgt;
-      end
+      W_emb = model.W_emb_tgt;
     end
     
     for ll=1:params.numLayers % layer
@@ -213,25 +194,18 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
     dh{ll} = zeroState;
     dc{ll} = zeroState;
   end
-  
-  % separate embs
-  if params.separateEmb==1
-    allEmbGrads_src = zeroMatrix([params.lstmSize, trainData.numInputWords_src], params.isGPU, params.dataType);
-    allEmbIndices_src = zeros(trainData.numInputWords_src, 1);
-    wordCount_src = 0;
-    
-    % update the decoder
-    if params.epoch>=params.epochUpdateDecoder
-      allEmbGrads_tgt = zeroMatrix([params.lstmSize, trainData.numInputWords_tgt], params.isGPU, params.dataType);
-      allEmbIndices_tgt = zeros(trainData.numInputWords_tgt, 1);
-      wordCount_tgt = 0;
-    end
-  else
-    allEmbGrads = zeroMatrix([params.lstmSize, trainData.numInputWords], params.isGPU, params.dataType);
-    allEmbIndices = zeros(trainData.numInputWords, 1);
-    wordCount = 0;
+
+  % emb grad
+  allEmbGrads_src = zeroMatrix([params.lstmSize, trainData.numInputWords_src], params.isGPU, params.dataType);
+  allEmbIndices_src = zeros(trainData.numInputWords_src, 1);
+  wordCount_src = 0;
+  % update the decoder
+  if params.epoch>=params.epochUpdateDecoder
+    allEmbGrads_tgt = zeroMatrix([params.lstmSize, trainData.numInputWords_tgt], params.isGPU, params.dataType);
+    allEmbIndices_tgt = zeros(trainData.numInputWords_tgt, 1);
+    wordCount_tgt = 0;
   end
-  
+    
   % NOTE: IMPORTANT for tt first, then for ll in other for attn3,4, pos2 models to work
   for tt=T:-1:1 % time
     unmaskedIds = trainData.maskInfo{tt}.unmaskedIds;
@@ -322,24 +296,18 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         
         numWords = length(embIndices);
         
-        % separate embs
-        if params.separateEmb==1
-          if (tt<srcMaxLen)
-            allEmbIndices_src(wordCount_src+1:wordCount_src+numWords) = embIndices;
-            allEmbGrads_src(:, wordCount_src+1:wordCount_src+numWords) = embGrad;
-            wordCount_src = wordCount_src + numWords;
-          else
-            % update the decoder
-            if params.epoch>=params.epochUpdateDecoder
-              allEmbIndices_tgt(wordCount_tgt+1:wordCount_tgt+numWords) = embIndices;
-              allEmbGrads_tgt(:, wordCount_tgt+1:wordCount_tgt+numWords) = embGrad;
-              wordCount_tgt = wordCount_tgt + numWords;
-            end
-          end
+        % emb grad
+        if (tt<srcMaxLen)
+          allEmbIndices_src(wordCount_src+1:wordCount_src+numWords) = embIndices;
+          allEmbGrads_src(:, wordCount_src+1:wordCount_src+numWords) = embGrad;
+          wordCount_src = wordCount_src + numWords;
         else
-          allEmbIndices(wordCount+1:wordCount+numWords) = embIndices;
-          allEmbGrads(:, wordCount+1:wordCount+numWords) = embGrad;
-          wordCount = wordCount + numWords;
+          % update the decoder
+          if params.epoch>=params.epochUpdateDecoder
+            allEmbIndices_tgt(wordCount_tgt+1:wordCount_tgt+numWords) = embIndices;
+            allEmbGrads_tgt(:, wordCount_tgt+1:wordCount_tgt+numWords) = embGrad;
+            wordCount_tgt = wordCount_tgt + numWords;
+          end
         end
       else % pass down hidden state grad to the below layer
         dh{ll-1}(:, unmaskedIds) = dh{ll-1}(:, unmaskedIds) + lstm_grad.input(1:params.lstmSize, unmaskedIds);
@@ -348,21 +316,15 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   end % end for time
   
   % grad W_emb
-  if params.separateEmb==1 % % separate embs
-    allEmbGrads_src(:, wordCount_src+1:end) = [];
-    allEmbIndices_src(wordCount_src+1:end) = [];
-    [grad.W_emb_src, grad.indices_src] = aggregateMatrix(allEmbGrads_src, allEmbIndices_src, params.isGPU, params.dataType);
-    
-    % update the decoder
-    if params.epoch>=params.epochUpdateDecoder
-      allEmbGrads_tgt(:, wordCount_tgt+1:end) = [];
-      allEmbIndices_tgt(wordCount_tgt+1:end) = [];
-      [grad.W_emb_tgt, grad.indices_tgt] = aggregateMatrix(allEmbGrads_tgt, allEmbIndices_tgt, params.isGPU, params.dataType);
-    end
-  else
-    allEmbGrads(:, wordCount+1:end) = [];
-    allEmbIndices(wordCount+1:end) = [];
-    [grad.W_emb, grad.indices] = aggregateMatrix(allEmbGrads, allEmbIndices, params.isGPU, params.dataType);
+  allEmbGrads_src(:, wordCount_src+1:end) = [];
+  allEmbIndices_src(wordCount_src+1:end) = [];
+  [grad.W_emb_src, grad.indices_src] = aggregateMatrix(allEmbGrads_src, allEmbIndices_src, params.isGPU, params.dataType);
+
+  % update the decoder
+  if params.epoch>=params.epochUpdateDecoder
+    allEmbGrads_tgt(:, wordCount_tgt+1:end) = [];
+    allEmbIndices_tgt(wordCount_tgt+1:end) = [];
+    [grad.W_emb_tgt, grad.indices_tgt] = aggregateMatrix(allEmbGrads_tgt, allEmbIndices_tgt, params.isGPU, params.dataType);
   end
     
   % remove unused variables
@@ -416,5 +378,46 @@ end
 %   end
 
 %% Unused    
+%   if params.separateEmb==1  
+%   else
+%     trainData.numInputWords = sum(sum(inputMask));
+%   end
 
+%     % separate embs
+%     if params.separateEmb==1
+%     else
+%       trainData.numInputWords = floor(trainData.numInputWords * 1.5);
+%     end
 
+%   % separate emb
+%   if params.separateEmb==1 
+%   else
+%     W_emb = model.W_emb;
+%   end
+
+%       % separate emb
+%       if params.separateEmb==1   
+%       end
+
+%   % separate embs
+%   if params.separateEmb==1
+%   else
+%     allEmbGrads = zeroMatrix([params.lstmSize, trainData.numInputWords], params.isGPU, params.dataType);
+%     allEmbIndices = zeros(trainData.numInputWords, 1);
+%     wordCount = 0;
+%   end
+
+%         % separate embs
+%         if params.separateEmb==1
+%         else
+%           allEmbIndices(wordCount+1:wordCount+numWords) = embIndices;
+%           allEmbGrads(:, wordCount+1:wordCount+numWords) = embGrad;
+%           wordCount = wordCount + numWords;
+%         end
+
+%   if params.separateEmb==1 % % separate embs
+%   else
+%     allEmbGrads(:, wordCount+1:end) = [];
+%     allEmbIndices(wordCount+1:end) = [];
+%     [grad.W_emb, grad.indices] = aggregateMatrix(allEmbGrads, allEmbIndices, params.isGPU, params.dataType);
+%   end

@@ -85,7 +85,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   %addOptional(p,'softmaxStep', 1, @isnumeric); % do multiple softmax prediction at once
   
   addOptional(p,'monoFile', '', @ischar); % to bootstrap the decoder with a monolingual model
-  addOptional(p,'separateEmb', 0, @isnumeric); % 1: separate embedding matrix into src and tgt embs
+  %addOptional(p,'separateEmb', 0, @isnumeric); % 1: separate embedding matrix into src and tgt embs
   addOptional(p,'epochUpdateDecoder', 1, @isnumeric); % when to start updating the pretrained decoder epoch>=monoUpdateEpoch (1 means start updating at the very beginning).
   
   %% system options
@@ -318,15 +318,10 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         end
       end
       % update W_emb separately
-      if params.separateEmb==1
-        model.W_emb_src(:, grad.indices_src) = model.W_emb_src(:, grad.indices_src) - scaleLr*grad.W_emb_src;
-        
-        % update the decoder
-        if params.epoch>=params.epochUpdateDecoder
-          model.W_emb_tgt(:, grad.indices_tgt) = model.W_emb_tgt(:, grad.indices_tgt) - scaleLr*grad.W_emb_tgt;
-        end
-      else
-        model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - scaleLr*grad.W_emb;
+      model.W_emb_src(:, grad.indices_src) = model.W_emb_src(:, grad.indices_src) - scaleLr*grad.W_emb_src;  
+      % update the decoder
+      if params.epoch>=params.epochUpdateDecoder
+        model.W_emb_tgt(:, grad.indices_tgt) = model.W_emb_tgt(:, grad.indices_tgt) - scaleLr*grad.W_emb_tgt;
       end
       
       %% logging, eval, save, decode, fine-tuning, etc.
@@ -486,23 +481,13 @@ function [model] = initLSTM(params)
   end
   
   % W_emb
-  if params.separateEmb==1 % separate embeddings
+  if params.isBi
     model.W_emb_src = randomMatrix(params.initRange, [params.lstmSize, params.srcVocabSize], params.isGPU, params.dataType);
-    model.W_emb_tgt = randomMatrix(params.initRange, [params.lstmSize, params.tgtVocabSize], params.isGPU, params.dataType);
-
-    % set parameters correspond to zero words
     model.W_emb_src(:, params.srcZero) = zeros(params.lstmSize, 1);
-    model.W_emb_tgt(:, params.tgtEos) = zeros(params.lstmSize, 1);
-  else
-    model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize], params.isGPU, params.dataType);
-
-    % set parameters correspond to zero words
-    if params.isBi
-      model.W_emb(:, params.srcZero) = zeros(params.lstmSize, 1);
-    end
-    model.W_emb(:, params.tgtEos) = zeros(params.lstmSize, 1);
   end
-  
+  model.W_emb_tgt = randomMatrix(params.initRange, [params.lstmSize, params.tgtVocabSize], params.isGPU, params.dataType);
+  model.W_emb_tgt(:, params.tgtEos) = zeros(params.lstmSize, 1);
+    
   %% h_t -> softmax input
   if params.attnFunc>0 % attention mechanism
     model.W_a = randomMatrix(params.initRange, [params.numAttnPositions, params.lstmSize], params.isGPU, params.dataType);
@@ -699,7 +684,6 @@ function [model, params] = initLoadModel(params)
     
     %% mono-bootstrap
     if strcmp(params.monoFile, '')==0
-      assert(params.separateEmb==1);
       [monoModel, ~, monoParams, loaded] = loadModel(params.monoFile, params);
       if loaded==0
         error('! Failed to load mono model %s\n', params.monoFile);
@@ -817,6 +801,23 @@ end
 %   end
 
 %% Unused code %%
+%       if params.separateEmb==1
+%       else
+%         model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - scaleLr*grad.W_emb;
+%       end
+
+%   if params.separateEmb==1 % separate embeddings
+%   else
+%     model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize], params.isGPU, params.dataType);
+% 
+%     % set parameters correspond to zero words
+%     if params.isBi
+%       model.W_emb(:, params.srcZero) = zeros(params.lstmSize, 1);
+%     end
+%     model.W_emb(:, params.tgtEos) = zeros(params.lstmSize, 1);
+%   end
+
+
 %     trainCost.total = 0;
 %     if params.posModel>=0 % positional model
 %       trainCost.pos = 0;

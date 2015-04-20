@@ -58,22 +58,12 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
   end
   
   W = model.W_src;
-  
-  % separate emb
-  if params.separateEmb==1 
-    W_emb = model.W_emb_src;
-  else
-    W_emb = model.W_emb;
-  end
-  
+  W_emb = model.W_emb_src;  
   for tt=1:srcMaxLen % time
     maskedIds = find(~inputMask(:, tt)); % curBatchSize * 1
     if tt==srcMaxLen % due to implementation in lstmCostGrad, we have to switch to W_tgt here. THIS IS VERY IMPORTANT!
       W = model.W_tgt;  
-      
-      if params.separateEmb==1 
-        W_emb = model.W_emb_tgt;
-      end
+      W_emb = model.W_emb_tgt;
     end
     
     for ll=1:params.numLayers % layer
@@ -213,14 +203,8 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen
   decodeCompleteCount = 0; % count how many sentences we have completed collecting the translations
   nextWords = zeroMatrix([1, numElements], params.isGPU, params.dataType);
   beamIndices = zeroMatrix([1, numElements], params.isGPU, params.dataType);
-  
-  % separate emb
-  if params.separateEmb==1 
-    W_emb = model.W_emb_tgt;
-  else
-    W_emb = model.W_emb;
-  end
-  
+
+  W_emb = model.W_emb_tgt;
   for sentPos = 1 : maxLen
     tgtPos = sentPos+1;
     
@@ -435,6 +419,13 @@ end
 %   end
 
 %% Unused %%
+%   % separate emb
+%   if params.separateEmb==1 
+%   else
+%     W_emb = model.W_emb;
+%   end
+   
+
 %       data.srcHidVecs = zeroMatrix([params.lstmSize, batchSize, params.numAttnPositions], params.isGPU, params.dataType);
 %       [startAttnId, endAttnId, startHidId, endHidId] = buildSrcHidVecs(srcMaxLen, tgtPos, params);
 %       data.srcHidVecs(:, :, startHidId:endHidId) = data.srcHidVecsAll(:, :, startAttnId:endAttnId);

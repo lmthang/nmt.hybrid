@@ -55,13 +55,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
     %% src
     if params.isBi
       srcLen = srcLens(ii);
-      
-      if params.separateEmb==1 % separate vocab
-        srcInput(ii, srcMaxLen-srcLen+1:srcMaxLen-1) = srcSents{ii}(1:srcLen-1);
-      else
-        srcInput(ii, srcMaxLen-srcLen+1:srcMaxLen-1) = srcSents{ii}(1:srcLen-1) + params.tgtVocabSize;
-      end
-      
+      srcInput(ii, srcMaxLen-srcLen+1:srcMaxLen-1) = srcSents{ii}(1:srcLen-1);      
       srcInput(ii, srcMaxLen) = params.srcEos;
     end
     
@@ -123,6 +117,10 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   end
 end
 
+%       if params.separateEmb==1 % separate vocab
+%       else
+%         srcInput(ii, srcMaxLen-srcLen+1:srcMaxLen-1) = srcSents{ii}(1:srcLen-1) + params.tgtVocabSize;
+%       end
 
     %label = 'input';
     %printSent(input(1, :), params.vocab, ['  ', label, ' 1:']);

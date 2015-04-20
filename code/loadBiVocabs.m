@@ -83,12 +83,6 @@ function [params] = loadBiVocabs(params)
   if params.isBi
     params.srcVocab = srcVocab;
     params.tgtVocab = tgtVocab;
-    if params.separateEmb==0
-      params.vocab = [tgtVocab srcVocab];
-      params.srcEos = params.srcEos + params.tgtVocabSize;
-      params.srcZero = params.srcZero + params.tgtVocabSize;
-      params.inVocabSize = params.tgtVocabSize + params.srcVocabSize;
-    end
   else
     params.inVocabSize = params.tgtVocabSize;
     params.vocab = tgtVocab;
@@ -121,3 +115,10 @@ end
 %   end
 
 %% Unused
+%     if params.separateEmb==0
+%       params.vocab = [tgtVocab srcVocab];
+%       params.srcEos = params.srcEos + params.tgtVocabSize;
+%       params.srcZero = params.srcZero + params.tgtVocabSize;
+%       params.inVocabSize = params.tgtVocabSize + params.srcVocabSize;
+%     end
+
