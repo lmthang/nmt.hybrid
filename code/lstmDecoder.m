@@ -90,7 +90,7 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
           
           % attnForward: h_t -> attnVecs (used the previous hidden state
           % here we use the top hidden state
-          [attnVecs] = attnLayerForward(model, lstm{params.numLayers}.h_t, data.srcHidVecs, inputMask(:, tt-1)'); % here we use the previous time step mask
+          [attnVecs] = attnLayerForward(model, lstm{params.numLayers}.h_t, data.srcHidVecs, data.curMask.mask);
           x_t = [x_t; attnVecs];
         end
       else % subsequent layer, use the previous-layer hidden state
@@ -418,7 +418,7 @@ end
 %     logProbs = logProbs(correct_order(:),:);
 %   end
 
-%% Unused %%
+%% Unused %%  
 %   % separate emb
 %   if params.separateEmb==1 
 %   else

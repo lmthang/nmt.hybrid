@@ -129,7 +129,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
           
           % attnForward: h_t -> attnVecs (used the previous hidden state
           % here we use the top hidden state
-          [attnVecs{tgtPos}, alignWeights{tgtPos}] = attnLayerForward(model, all_h_t{params.numLayers, tt-1}, curSrcHidVecs, inputMask(:, tt-1)');
+          [attnVecs{tgtPos}, alignWeights{tgtPos}] = attnLayerForward(model, all_h_t{params.numLayers, tt-1}, curSrcHidVecs, inputMask(:, tt)');
           x_t = [x_t; attnVecs{tgtPos}];
         end
         
@@ -282,16 +282,15 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
           end
           
           % grad_attn -> grad_ht, grad_W_a, grad_srcHidVecs
+          % grad_attn_ht will be used in time tt-1, at the top layer
           [grad_attn_ht, grad_W_a, grad_srcHidVecs] = attnLayerBackprop(model.W_a, lstm_grad.input(params.lstmSize+1:2*params.lstmSize, :), all_h_t{params.numLayers, tt-1}, ...
-            params, alignWeights{tgtPos}, curSrcHidVecs, trainData.maskInfo{tt-1});
+            params, alignWeights{tgtPos}, curSrcHidVecs);
           
           % update srcHidVecs
           grad.srcHidVecs(:, :, startAttnId:endAttnId) = grad.srcHidVecs(:, :, startAttnId:endAttnId) + grad_srcHidVecs(:, :, startHidId:endHidId);
           
           % update W_a
           grad.W_a = grad.W_a + grad_W_a;
-          
-          % grad_ht will be used in time tt-1, at the top layer
         end
         
         numWords = length(embIndices);

@@ -1,4 +1,4 @@
-function [inGrad, grad_W_a, grad_srcHidVecs] = attnLayerBackprop(W_a, outGrad, inVec, params, alignWeights, srcHidVecs, curMask) %srcHidVecs, softmax_h, grad_softmax_h, attn_h_concat, alignWeights, inVec, params, curMask)
+function [inGrad, grad_W_a, grad_srcHidVecs] = attnLayerBackprop(W_a, outGrad, inVec, params, alignWeights, srcHidVecs) %srcHidVecs, softmax_h, grad_softmax_h, attn_h_concat, alignWeights, inVec, params, curMask)
 %%%
 %
 % Compute grad for attention-based models.
@@ -54,7 +54,9 @@ function [inGrad, grad_W_a, grad_srcHidVecs] = attnLayerBackprop(W_a, outGrad, i
   grad_scores = tmpResult - bsxfun(@times, alignWeights, sum(tmpResult, 1));
     
   if params.assert
-    assert(sum(sum(abs(inVec(:, curMask.maskedIds))))==0);
+%     if params.attnFunc~=3 && params.attnFunc~=4
+%       assert(sum(sum(abs(inVec(:, curMask.maskedIds))))==0);
+%     end
     
     % compute grad_scores in a different way
     grad_scores1 = zeroMatrix(size(grad_scores), params.isGPU, params.dataType);
