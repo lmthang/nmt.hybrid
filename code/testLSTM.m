@@ -79,6 +79,9 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
     end
   end
   
+  if ~isfield(params, 'separateEmb')
+    params.separateEmb = 0;
+  end
   [params] = loadBiVocabs(params);
   params.vocab = [params.tgtVocab params.srcVocab];
   % copy fields
