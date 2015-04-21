@@ -108,7 +108,7 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
       lstm{ll}.c_t = c_t;
       
       % attentional  models
-      if tt<=params.numSrcHidVecs
+      if tt<=params.numSrcHidVecs && ll==params.numLayers
         if params.attnFunc==1 || params.attnFunc==3
           data.srcHidVecs(:, :, params.numAttnPositions-params.numSrcHidVecs+tt) = h_t;
         elseif params.attnFunc==2 || params.attnFunc==4
