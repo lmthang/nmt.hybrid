@@ -71,8 +71,8 @@ function [lstm_grad] = lstmUnitGrad(model, lstm, c_t, c_t_1, dc, dh, ll, t, srcM
  
   % dropout
   if params.dropout<1
-    if t>=srcMaxLen && ll==1 && params.posModel==2 && mod(t-srcMaxLen+1, 2)==0 % predict words
-      lstm_grad.input(1:2*params.lstmSize, :) = lstm_grad.input(1:2*params.lstmSize, :).*lstm.dropoutMaskPos; % dropout x_t, s_t
+    if t>=srcMaxLen && ll==1 && ((params.posModel==2 && mod(t-srcMaxLen+1, 2)==0) || params.attnFunc==3 || params.attnFunc==4) % predict words
+      lstm_grad.input(1:2*params.lstmSize, :) = lstm_grad.input(1:2*params.lstmSize, :).*lstm.dropoutMaskInput; % dropout x_t, s_t
     else
       lstm_grad.input(1:params.lstmSize, :) = lstm_grad.input(1:params.lstmSize, :).*lstm.dropoutMask; % dropout x_t
     end

@@ -45,8 +45,8 @@ function gradCheck(model, params)
     curBatchSize = size(trainData.input, 1);
     params.dropoutMask = randSimpleMatrix([params.lstmSize curBatchSize], params.isGPU, params.dataType)/params.dropout;
     
-    if params.posModel==2
-      params.dropoutMaskPos = randSimpleMatrix([2*params.lstmSize curBatchSize], params.isGPU, params.dataType)/params.dropout;
+    if params.posModel==2 || params.attnFunc==3 || params.attnFunc==4
+      params.dropoutMaskInput = randSimpleMatrix([2*params.lstmSize curBatchSize], params.isGPU, params.dataType)/params.dropout;
     end
   end
   
