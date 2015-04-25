@@ -27,6 +27,7 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   addOptional(p,'maxLenRatio', 1.5, @isnumeric); % decodeLen <= maxLenRatio * srcMaxLen
   addOptional(p,'depParse', 0, @isnumeric); % 1: indicate that we are doing dependency parsing
   addOptional(p,'depRootId', -1, @isnumeric); % 1: indicate that we are doing dependency parsing
+  addOptional(p,'depShiftId', -1, @isnumeric); % 1: indicate that we are doing dependency parsing
   addOptional(p,'testPrefix', '', @ischar); % to specify a different file for decoding
 
   p.KeepUnmatched = true;
@@ -34,12 +35,6 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   decodeParams = p.Results;
   if decodeParams.batchSize==-1 % decode sents one by one
     decodeParams.batchSize = 1;
-  end
-  
-  % dependency parsing
-  if decodeParams.depParse 
-    fprintf(2, '## Dependency parsing\n');
-    assert(decodeParams.batchSize==1);
   end
   
   % GPU settings
@@ -111,6 +106,18 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   params.fid = fopen(params.outputFile, 'w');
   params.logId = fopen([outputFile '.log'], 'w');
   printParams(2, params);
+  
+  
+  
+  % dependency parsing
+  if decodeParams.depParse 
+    fprintf(2, '## Dependency parsing, rootId for %s=%d, shiftId for %s=%d\n', params.vocab{params.depRootId}, params.depRootId, ...
+      params.vocab{params.depShiftId}, params.depShiftId);
+    assert(decodeParams.batchSize==1);
+    assert(strcmp(params.vocab{params.depRootId}, 'R(root)')==1);
+    assert(strcmp(params.vocab{params.depShiftId}, 'S')==1);
+  end
+  
   
   % load test data
   [srcSents, tgtSents, numSents]  = loadBiData(params, params.testPrefix, params.srcVocab, params.tgtVocab);
