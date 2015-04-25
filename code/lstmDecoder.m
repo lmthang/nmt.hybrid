@@ -168,7 +168,8 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen
     [startAttnId, endAttnId, startHidId, endHidId] = buildSrcHidVecs(srcMaxLen, tgtPos, params);
     data.srcHidVecs(:, :, startHidId:endHidId) = data.srcHidVecsAll(:, :, startAttnId:endAttnId);
   end
-  [scores, words] = nextBeamStep(model, lstmStart{numLayers}.h_t, beamSize, params, data); % scores, words: beamSize * batchSize
+  mask = ones(1, batchSize);
+  [scores, words] = nextBeamStep(model, lstmStart{numLayers}.h_t, beamSize, params, data, mask); % scores, words: beamSize * batchSize
   % TODO: by right, we should filter out words == params.tgtEos, but I
   % think for good models, we don't have to worry :)
   
@@ -191,10 +192,11 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen
   % attentional / positional models
   if params.attnFunc>0 || params.posModel>=2 
     curBatchSize = numElements;
-    data.curMask.mask = ones(1, curBatchSize);
-    data.curMask.unmaskedIds = 1:curBatchSize;
-    data.curMask.maskedIds = [];
+%     data.curMask.mask = ones(1, curBatchSize);
+%     data.curMask.unmaskedIds = 1:curBatchSize;
+%     data.curMask.maskedIds = [];
     
+    mask = ones(1, curBatchSize);
     if params.attnFunc==1
       [data.srcHidVecs] = duplicateSrcHidVecs(data.srcHidVecs, batchSize, params, beamSize);
     end
@@ -242,7 +244,7 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen
     if params.attnFunc==2
       [data.srcHidVecs] = computeRelativeSrcHidVecs(data.srcHidVecsAll, srcMaxLen, tgtPos, batchSize, params, beamSize);
     end
-    [allBestScores, allBestWords] = nextBeamStep(model, beamStates{numLayers}.h_t, beamSize, params, data); % beamSize * (beamSize*batchSize)
+    [allBestScores, allBestWords] = nextBeamStep(model, beamStates{numLayers}.h_t, beamSize, params, data, mask); % beamSize * (beamSize*batchSize)
     
 %     beamScores
 %     params.vocab(beamHistory(1:sentPos, :))
@@ -340,7 +342,7 @@ end
 %%
 % return bestLogProbs, bestWords of sizes beamSize * curBatchSize
 %%
-function [bestLogProbs, bestWords] = nextBeamStep(model, h_t, beamSize, params, data)
+function [bestLogProbs, bestWords] = nextBeamStep(model, h_t, beamSize, params, data, mask)
   % softmax
   if params.posModel>0
     error('! Have not implemented decoder for positional models\n');
@@ -348,7 +350,7 @@ function [bestLogProbs, bestWords] = nextBeamStep(model, h_t, beamSize, params, 
     if params.attnFunc==3 || params.attnFunc==4
       softmax_h = h_t;
     else
-      [softmax_h] = hid2softForward(h_t, params, model, data, data.curMask.mask, 0);  
+      [softmax_h] = hid2softForward(h_t, params, model, data, mask, 0);  
     end
   end
   
