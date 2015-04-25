@@ -8,7 +8,7 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
 %   - candScores: score of the corresponding candidates (stackSize * batchSize)
 %
 % Thang Luong @ 2015, <lmthang@stanford.edu>
-% Hieu Pham @ 2015, <hyhieu@cs.stanford.edu>
+%   With help from Hieu Pham.
 %
 %%%
   beamSize = params.beamSize;
@@ -371,24 +371,22 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen
     end
     
     %% update history
-    if sentPos<maxLen
-      % overwrite previous history
-      colIndices = (sentIndices-1)*beamSize + beamIndices;
-      beamHistory(1:sentPos, :) = beamHistory(1:sentPos, colIndices); 
-      beamHistory(sentPos+1, :) = beamWords;
+    % overwrite previous history
+    colIndices = (sentIndices-1)*beamSize + beamIndices;
+    beamHistory(1:sentPos, :) = beamHistory(1:sentPos, colIndices); 
+    beamHistory(sentPos+1, :) = beamWords;
 
-      %% update lstm states
-      for ll=1:numLayers
-        % lstmSize * (numElements): h_t and c_t vectors of each sent are arranged near each other
-        beamStates{ll}.c_t = beamStates{ll}.c_t(:, colIndices); 
-        beamStates{ll}.h_t = beamStates{ll}.h_t(:, colIndices);
-      end
+    %% update lstm states
+    for ll=1:numLayers
+      % lstmSize * (numElements): h_t and c_t vectors of each sent are arranged near each other
+      beamStates{ll}.c_t = beamStates{ll}.c_t(:, colIndices); 
+      beamStates{ll}.h_t = beamStates{ll}.h_t(:, colIndices);
     end
     
     if decodeCompleteCount==batchSize % done decoding the entire batch
       break;
     end
-  end
+  end % for sentPos
   
   for sentId=1:batchSize
     if numDecoded(sentId) == 0 % no translations found, output all we have in the beam
