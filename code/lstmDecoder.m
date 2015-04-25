@@ -40,10 +40,14 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
     data.curMask.mask = ones(1, curBatchSize);
     data.curMask.unmaskedIds = 1:curBatchSize;
     data.curMask.maskedIds = [];
-    data.srcHidVecs = zeroMatrix([params.lstmSize, curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);  
+
     
     if params.attnFunc==2
       data.srcHidVecsAll = zeroMatrix([params.lstmSize, curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);  
+    end
+    
+    if params.attnFunc==1 || params.attnFunc==3
+      data.srcHidVecs = zeroMatrix([params.lstmSize, curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);  
     end
   else
     params.numSrcHidVecs = 0;
@@ -58,9 +62,9 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
     W_emb = model.W_emb;
   end
   
-  for t=1:srcMaxLen % time
-    maskedIds = find(~inputMask(:, t)); % curBatchSize * 1
-    if t==srcMaxLen % due to implementation in lstmCostGrad, we have to switch to W_tgt here. THIS IS VERY IMPORTANT!
+  for tt=1:srcMaxLen % time
+    maskedIds = find(~inputMask(:, tt)); % curBatchSize * 1
+    if tt==srcMaxLen % due to implementation in lstmCostGrad, we have to switch to W_tgt here. THIS IS VERY IMPORTANT!
       W = model.W_tgt;  
       
       if params.separateEmb==1 
@@ -70,7 +74,7 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
     
     for ll=1:params.numLayers % layer
       % previous-time input
-      if t==1 % first time step
+      if tt==1 % first time step
         h_t_1 = zeroState;
         c_t_1 = zeroState;
       else
@@ -80,8 +84,9 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
 
       % current-time input
       if ll==1 % first layer
-        x_t = W_emb(:, input(:, t));
+        x_t = W_emb(:, input(:, tt));
         %params.vocab(input(:, t))
+
       else % subsequent layer, use the previous-layer hidden state
         x_t = lstm{ll-1}.h_t;
       end
@@ -92,16 +97,16 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
       c_t_1(:, maskedIds) = 0;
 
       % lstm cell
-      [lstm{ll}, h_t, c_t] = lstmUnit(W{ll}, x_t, h_t_1, c_t_1, ll, t, srcMaxLen, params, 1);
+      [lstm{ll}, h_t, c_t] = lstmUnit(W{ll}, x_t, h_t_1, c_t_1, ll, tt, srcMaxLen, params, 1);
       lstm{ll}.h_t = h_t;
       lstm{ll}.c_t = c_t;
       
-      % attentional / positional models
-      if t<=params.numSrcHidVecs && ll==params.numLayers
+      % attentional  models
+      if tt<=params.numSrcHidVecs && ll==params.numLayers
         if params.attnFunc==1
-          data.srcHidVecs(:, :, params.numAttnPositions-params.numSrcHidVecs+t) = h_t;
+          data.srcHidVecs(:, :, params.numAttnPositions-params.numSrcHidVecs+tt) = h_t;
         elseif params.attnFunc==2
-          data.srcHidVecsAll(:, :, t) = h_t;
+          data.srcHidVecsAll(:, :, tt) = h_t;
         end
       end
       
@@ -117,12 +122,18 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
   %% decode %%
   %%%%%%%%%%%%
   startTime = clock;
-  if batchSize==1
-    minLen = floor(srcMaxLen*params.minLenRatio);
+  if params.depParse % dependency parsing
+    minLen = (srcMaxLen-1)*2; % srcMaxLen include eos, we want our dependency parse will have length = 2 * input (no eos) length 
+    maxLen = minLen;
   else
-    minLen = 2;
+    if batchSize==1
+      minLen = floor(srcMaxLen*params.minLenRatio);
+    else
+      minLen = 2;
+    end
+    maxLen = floor(srcMaxLen*params.maxLenRatio);
   end
-  maxLen = floor(srcMaxLen*params.maxLenRatio);
+  
   sentIndices = data.startId:(data.startId+batchSize-1);
   [candidates, candScores] = decodeBatch(model, params, lstm, minLen, maxLen, beamSize, stackSize, batchSize, sentIndices, srcMaxLen, data);
   endTime = clock;
@@ -185,19 +196,14 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen
     data.curMask.maskedIds = [];
     
     if params.attnFunc==1
-      % duplicate srcHidVecs along the curBatchSize dimension beamSize times
-      data.srcHidVecs = permute(data.srcHidVecs, [1, 3, 2]); % lstmSize * numAttnPositions * batchSize
-      data.srcHidVecs = reshape(data.srcHidVecs, params.lstmSize*params.numAttnPositions, batchSize);
-      data.srcHidVecs = repmat(data.srcHidVecs, beamSize, 1);
-      data.srcHidVecs = reshape(data.srcHidVecs, params.lstmSize, params.numAttnPositions, numElements);
-      data.srcHidVecs = permute(data.srcHidVecs, [1, 3, 2]); % lstmSize * batchSize * numAttnPositions
+      [data.srcHidVecs] = duplicateSrcHidVecs(data.srcHidVecs, batchSize, params, beamSize);
     end
   end
   
   decodeCompleteCount = 0; % count how many sentences we have completed collecting the translations
   nextWords = zeroMatrix([1, numElements], params.isGPU, params.dataType);
   beamIndices = zeroMatrix([1, numElements], params.isGPU, params.dataType);
-  
+
   % separate emb
   if params.separateEmb==1 
     W_emb = model.W_emb_tgt;
@@ -206,12 +212,15 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen
   end
   
   for sentPos = 1 : maxLen
+    tgtPos = sentPos+1;
+    
     % compute next lstm hidden states
     words = beamHistory(sentPos, :);
     for ll = 1 : numLayers
       % current input
       if ll == 1
         x_t = W_emb(:, words);
+
       else
         x_t = beamStates{ll-1}.h_t;
       end
@@ -226,75 +235,84 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen
     
     % predict the next word
     if params.attnFunc==2
-      tgtPos = sentPos+1;
-      data.srcHidVecs = zeroMatrix([params.lstmSize, batchSize, params.numAttnPositions], params.isGPU, params.dataType);
-      [startAttnId, endAttnId, startHidId, endHidId] = buildSrcHidVecs(srcMaxLen, tgtPos, params);
-      data.srcHidVecs(:, :, startHidId:endHidId) = data.srcHidVecsAll(:, :, startAttnId:endAttnId);
-      
-      % duplicate srcHidVecs along the curBatchSize dimension beamSize times
-      data.srcHidVecs = permute(data.srcHidVecs, [1, 3, 2]); % lstmSize * numAttnPositions * batchSize
-      data.srcHidVecs = reshape(data.srcHidVecs, params.lstmSize*params.numAttnPositions, batchSize);
-      data.srcHidVecs = repmat(data.srcHidVecs, beamSize, 1);
-      data.srcHidVecs = reshape(data.srcHidVecs, params.lstmSize, params.numAttnPositions, numElements);
-      data.srcHidVecs = permute(data.srcHidVecs, [1, 3, 2]); % lstmSize * batchSize * numAttnPositions
+      [data.srcHidVecs] = computeRelativeSrcHidVecs(data.srcHidVecsAll, srcMaxLen, tgtPos, batchSize, params, beamSize);
     end
-    [allBestScores, allBestWords] = nextBeamStep(model, beamStates{numLayers}.h_t, beamSize, params, data); % beamSize * (beamSize*batchSize)
+    if params.depParse && sentPos == maxLen % for dependency parsing, we want R(root) at the end
+      [~, ~, logProbs] = nextBeamStep(model, beamStates{numLayers}.h_t, beamSize, params, data); % beamSize * (beamSize*batchSize)
+      allBestScores = logProbs(params.depRootId, :);
+      allBestWords = params.depRootId*ones(1, beamSize*batchSize);
+      cardinality = 1;
+    else
+      [allBestScores, allBestWords] = nextBeamStep(model, beamStates{numLayers}.h_t, beamSize, params, data); % beamSize * (beamSize*batchSize)
+      cardinality = beamSize;
+    end
+    
+    % use previous beamScores, 1 * (beamSize*batchSize), update along the first dimentions
+    allBestScores = bsxfun(@plus, allBestScores, beamScores);
+    allBestScores = reshape(allBestScores, [cardinality*beamSize, batchSize]);
+    allBestWords = reshape(allBestWords, [cardinality*beamSize, batchSize]);
+
+    % for each sent, select the best beamSize candidates, out of cardinality*beamSize ones
+    [allBestScores, indices] = sort(allBestScores, 'descend'); % (cardinality*beamSize) * batchSize
+    
     
 %     beamScores
 %     params.vocab(beamHistory(1:sentPos, :))
 %     params.vocab(allBestWords)
 
-    % use previous beamScores, 1 * (beamSize*batchSize), update along the first dimentions
-    allBestScores = bsxfun(@plus, allBestScores, beamScores);
-    allBestScores = reshape(allBestScores, [beamSize*beamSize, batchSize]);
-    allBestWords = reshape(allBestWords, [beamSize*beamSize, batchSize]);
-    
-    % for each sent, select the best beamSize candidates, out of beamSize^2 ones
-    [allBestScores, indices] = sort(allBestScores, 'descend'); % beamSize^2 * batchSize
-    
     %% build new beam
     for sentId=1:batchSize
-      startId = (sentId-1)*beamSize+1;
-      endId = sentId*beamSize;
       rowIndices = indices(:, sentId)';
       bestWords = allBestWords(rowIndices, sentId);
       
-      % nonEosIndices: get the top beamSize words that are not eos
-      nonEosIndices = find(bestWords~=params.tgtEos, beamSize);
-      nextWords(startId:endId) = bestWords(nonEosIndices);
+      % get candidates
+      if sentPos<maxLen
+        startId = (sentId-1)*beamSize+1;
+        endId = sentId*beamSize;
+        
+        if params.depParse % dependency parsing, we don't want R(root) & eos
+          selectedIndices = find(bestWords~=params.tgtEos & bestWords~=params.depRootId, beamSize);
+        else
+          selectedIndices = find(bestWords~=params.tgtEos, beamSize);
+        end
+        nextWords(startId:endId) = bestWords(selectedIndices);
       
-      % update beam
-      beamIndices(startId:endId) = floor((rowIndices(nonEosIndices)-1)/beamSize) + 1;
-      
-      % update scores
-      beamScores(startId:endId) = allBestScores(nonEosIndices, sentId);
+        % update beam
+        beamIndices(startId:endId) = floor((rowIndices(selectedIndices)-1)/beamSize) + 1;
+
+        % update scores
+        beamScores(startId:endId) = allBestScores(selectedIndices, sentId);
+      end
       
       % store translations
-      if params.preeosId~=-1 % when seeing this symbol, we know that the next decoded symbol must be eos.
-        eosIndices = find(bestWords(1:nonEosIndices(end))==params.preeosId);
-      else
-        eosIndices = find(bestWords(1:nonEosIndices(end))==params.tgtEos); % get words that are eos and ranked before the last hypothesis in the next beam
-      end
-      if ~isempty(eosIndices) && sentPos>minLen % we don't want to start recording very short translations
-        numTranslations = length(eosIndices);
-        eosBeamIndices = floor((rowIndices(eosIndices)-1)/beamSize) + 1;
-        translations = beamHistory(1:sentPos, (sentId-1)*beamSize + eosBeamIndices);
-        transScores = allBestScores(eosIndices, sentId);
-        for ii=1:numTranslations
-          if numDecoded(sentId)<stackSize % haven't collected enough translations
-            numDecoded(sentId) = numDecoded(sentId) + 1;
-            
-            if params.preeosId~=-1
-              candidates{sentId}{numDecoded(sentId)} = [translations(:, ii); params.preeosId; params.tgtEos];
-            else
-              candidates{sentId}{numDecoded(sentId)} = [translations(:, ii); params.tgtEos];
-            end
-            candScores(numDecoded(sentId), sentId) = transScores(ii);
+      if params.depParse==0 || sentPos==maxLen % for dependency parsing, we only collect output at maxLen, i.e. end at R(root), then append eos.
+        if params.depParse % dependency parsing, we want R(root)
+          endIndices = find(bestWords==params.depRootId);
+        else
+          endIndices = find(bestWords(1:selectedIndices(end))==params.tgtEos); % get words that are eos and ranked before the last hypothesis in the next beam
+        end
+        
+        if ~isempty(endIndices) && sentPos>=minLen % we don't want to start recording very short translations
+          numTranslations = length(endIndices);
+          eosBeamIndices = floor((rowIndices(endIndices)-1)/beamSize) + 1;
+          translations = beamHistory(1:sentPos, (sentId-1)*beamSize + eosBeamIndices);
+          transScores = allBestScores(endIndices, sentId);
+          for ii=1:numTranslations
+            if numDecoded(sentId)<stackSize % haven't collected enough translations
+              numDecoded(sentId) = numDecoded(sentId) + 1;
 
-            %printSent(2, translations(:, ii), params.vocab, ['  trans sent ' num2str(originalSentIndices(sentId)) ', ' num2str(transScores(ii)), ': ']);
-            if numDecoded(sentId)==stackSize % done for sentId
-              decodeCompleteCount = decodeCompleteCount + 1;
-              break;
+              if params.depParse % dependency parsing, append R(root) and eos
+                candidates{sentId}{numDecoded(sentId)} = [translations(:, ii); params.depRootId; params.tgtEos];
+              else
+                candidates{sentId}{numDecoded(sentId)} = [translations(:, ii); params.tgtEos];
+              end
+              candScores(numDecoded(sentId), sentId) = transScores(ii);
+
+              %printSent(2, translations(:, ii), params.vocab, ['  trans sent ' num2str(originalSentIndices(sentId)) ', ' num2str(transScores(ii)), ': ']);
+              if numDecoded(sentId)==stackSize % done for sentId
+                decodeCompleteCount = decodeCompleteCount + 1;
+                break;
+              end
             end
           end
         end
@@ -302,16 +320,18 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen
     end
     
     %% update history
-    % overwrite previous history
-    colIndices = (sentIndices-1)*beamSize + beamIndices;
-    beamHistory(1:sentPos, :) = beamHistory(1:sentPos, colIndices); 
-    beamHistory(sentPos+1, :) = nextWords;
-    
-    %% update lstm states
-    for ll=1:numLayers
-      % lstmSize * (numElements): h_t and c_t vectors of each sent are arranged near each other
-      beamStates{ll}.c_t = beamStates{ll}.c_t(:, colIndices); 
-      beamStates{ll}.h_t = beamStates{ll}.h_t(:, colIndices);
+    if sentPos<maxLen
+      % overwrite previous history
+      colIndices = (sentIndices-1)*beamSize + beamIndices;
+      beamHistory(1:sentPos, :) = beamHistory(1:sentPos, colIndices); 
+      beamHistory(sentPos+1, :) = nextWords;
+
+      %% update lstm states
+      for ll=1:numLayers
+        % lstmSize * (numElements): h_t and c_t vectors of each sent are arranged near each other
+        beamStates{ll}.c_t = beamStates{ll}.c_t(:, colIndices); 
+        beamStates{ll}.h_t = beamStates{ll}.h_t(:, colIndices);
+      end
     end
     
     if decodeCompleteCount==batchSize % done decoding the entire batch
@@ -336,7 +356,7 @@ end
 %%
 % return bestLogProbs, bestWords of sizes beamSize * curBatchSize
 %%
-function [bestLogProbs, bestWords] = nextBeamStep(model, h_t, beamSize, params, data)
+function [bestLogProbs, bestWords, logProbs] = nextBeamStep(model, h_t, beamSize, params, data)
   % softmax
   if params.attnFunc>0 % attention mechanism
     [softmax_h] = lstm2softHid(h_t, params, model, data.srcHidVecs, data.curMask);
@@ -361,6 +381,25 @@ function [logProbs] = softmaxDecode(scores)
   logProbs = bsxfun(@minus, scores, log(sum(exp(scores))));
 end
 
+function [srcHidVecs] = computeRelativeSrcHidVecs(srcHidVecsAll, srcMaxLen, tgtPos, batchSize, params, beamSize)
+  srcHidVecs = zeroMatrix([params.lstmSize, batchSize, params.numAttnPositions], params.isGPU, params.dataType);
+  [startAttnId, endAttnId, startHidId, endHidId] = buildSrcHidVecs(srcMaxLen, tgtPos, params);
+  srcHidVecs(:, :, startHidId:endHidId) = srcHidVecsAll(:, :, startAttnId:endAttnId);
+
+  % duplicate srcHidVecs along the curBatchSize dimension beamSize times
+  if (beamSize>1)
+    [srcHidVecs] = duplicateSrcHidVecs(srcHidVecs, batchSize, params, beamSize);
+  end
+end
+
+function [srcHidVecs] = duplicateSrcHidVecs(srcHidVecs, batchSize, params, beamSize)
+  numElements = batchSize*beamSize;
+  srcHidVecs = permute(srcHidVecs, [1, 3, 2]); % lstmSize * numAttnPositions * batchSize
+  srcHidVecs = reshape(srcHidVecs, params.lstmSize*params.numAttnPositions, batchSize);
+  srcHidVecs = repmat(srcHidVecs, beamSize, 1);
+  srcHidVecs = reshape(srcHidVecs, params.lstmSize, params.numAttnPositions, numElements);
+  srcHidVecs = permute(srcHidVecs, [1, 3, 2]); % lstmSize * batchSize * numAttnPositions
+end
 
 %% Code for class-based softmax %%
 %   if params.numClasses == 0 % normal softmax

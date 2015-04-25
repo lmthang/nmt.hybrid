@@ -25,7 +25,8 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   addOptional(p,'gpuDevice', 1, @isnumeric); % choose the gpuDevice to use. 
   addOptional(p,'minLenRatio', 0.5, @isnumeric); % decodeLen >= minLenRatio * srcMaxLen
   addOptional(p,'maxLenRatio', 1.5, @isnumeric); % decodeLen <= maxLenRatio * srcMaxLen
-  addOptional(p,'preeosId', -1, @isnumeric); % tgt vocab id that will signal eos right after it, e.g., in dependency parsing, R(root) is always followed by eos.
+  addOptional(p,'depParse', 0, @isnumeric); % 1: indicate that we are doing dependency parsing
+  addOptional(p,'depRootId', -1, @isnumeric); % 1: indicate that we are doing dependency parsing
   addOptional(p,'testPrefix', '', @ischar); % to specify a different file for decoding
 
   p.KeepUnmatched = true;
@@ -35,6 +36,13 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
     decodeParams.batchSize = 1;
   end
   
+  % dependency parsing
+  if decodeParams.depParse 
+    fprintf(2, '## Dependency parsing\n');
+    assert(decodeParams.batchSize==1);
+  end
+  
+  % GPU settings
   decodeParams.isGPU = 0;
   if ismac==0
     n = gpuDeviceCount;  
@@ -51,6 +59,7 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   end
   printParams(2, decodeParams);
   
+  % load model
   [savedData] = load(decodeParams.modelFile);
   params = savedData.params;  
   params.posModel=0;
@@ -102,10 +111,6 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   params.fid = fopen(params.outputFile, 'w');
   params.logId = fopen([outputFile '.log'], 'w');
   printParams(2, params);
-  if params.preeosId~=-1
-    fprintf(2, '# preeos symbol = %s\n', params.vocab{params.preeosId});
-  end
-
   
   % load test data
   [srcSents, tgtSents, numSents]  = loadBiData(params, params.testPrefix, params.srcVocab, params.tgtVocab);
