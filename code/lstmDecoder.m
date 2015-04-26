@@ -168,7 +168,21 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen
     [startAttnId, endAttnId, startHidId, endHidId] = buildSrcHidVecs(srcMaxLen, tgtPos, params);
     data.srcHidVecs(:, :, startHidId:endHidId) = data.srcHidVecsAll(:, :, startAttnId:endAttnId);
   end
-  [scores, words] = nextBeamStep(model, lstmStart{numLayers}.h_t, beamSize, params, data); % scores, words: beamSize * batchSize
+  
+  if params.depParse % dependency parsing, the first symbol needs to be S
+    [~, ~, logProbs] = nextBeamStep(model, lstmStart{numLayers}.h_t, beamSize, params, data);
+    scores = repmat(logProbs(params.depShiftId, :), beamSize, 1);
+    words = params.depShiftId*ones(1, beamSize*batchSize);
+    
+    assert(batchSize==1);
+    srcLen = data.srcLens-1;
+    stackCounts = 2*ones(numElements, 1); % at first, all hypotheses have R(root) and the first word in the stack
+    bufferCounts = (srcLen - 1)*ones(numElements, 1); % don't count eos, and minus the first word
+    shiftCounts = ones(numElements, 1);
+  else
+    [scores, words] = nextBeamStep(model, lstmStart{numLayers}.h_t, beamSize, params, data); % scores, words: beamSize * batchSize
+  end
+  
   % TODO: by right, we should filter out words == params.tgtEos, but I
   % think for good models, we don't have to worry :)
   
@@ -186,13 +200,6 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen
   for ll=1:numLayers % lstmSize * numElements
     beamStates{ll}.c_t = reshape(repmat(lstmStart{ll}.c_t, beamSize, 1),  params.lstmSize, numElements); 
     beamStates{ll}.h_t = reshape(repmat(lstmStart{ll}.h_t, beamSize, 1),  params.lstmSize, numElements); 
-  end
-  
-  % dependency parse
-  if params.depParse
-    assert(batchSize==1);
-    stackCounts = ones(numElements, 1); % at first, all hypotheses have R(root) in the stack
-    bufferCounts = data.srcLens - 1 - stackCounts; % don't count eos, here we assume batchSize = 1
   end
   
   % attentional / positional models
@@ -219,6 +226,9 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen
   end
   
   for sentPos = 1 : (maxLen-1)
+    if sentPos==52
+      sentPos
+    end
     %% Description:
     % At this point, hypotheses of length sentPos are completed.
     % If sentPos<maxLen, this loop will prepare hypotheses of length(sentPos+1) by:
@@ -341,14 +351,20 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen
       
       if params.depParse % dependency parsing
         % shift: increase stack count, decrease buffer count
-        shiftIndices = find(sentWords == params.depShiftId);
+        shiftIds = find(sentWords == params.depShiftId);
+        shiftCounts(shiftIds) = shiftCounts(sentBeamIndices(shiftIds)) + 1;
+        % assert(isempty(find(shiftCounts>=data.srcLens,1)));
+        if ~isempty(find(shiftCounts>=data.srcLens, 1))
+          shiftCounts'
+        end
+        
         oldStackCounts = stackCounts;
-        stackCounts(shiftIndices) = stackCounts(sentBeamIndices(shiftIndices)) + 1;
-        bufferCounts(shiftIndices) = bufferCounts(sentBeamIndices(shiftIndices)) - 1;
-
+        stackCounts(shiftIds) = stackCounts(sentBeamIndices(shiftIds)) + 1;
+        bufferCounts(shiftIds) = bufferCounts(sentBeamIndices(shiftIds)) - 1;
+        
         % not shift: decrease stack count
-        nonshiftIndices = find(sentWords ~= params.depShiftId);
-        stackCounts(nonshiftIndices) = oldStackCounts(sentBeamIndices(nonshiftIndices)) -1; % Important: to use oldStackCounts here
+        noshiftIds = find(sentWords ~= params.depShiftId);
+        stackCounts(noshiftIds) = oldStackCounts(sentBeamIndices(noshiftIds)) -1; % Important: to use oldStackCounts here
       end
       
       % store translations
