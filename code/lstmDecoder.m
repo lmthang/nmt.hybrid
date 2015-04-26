@@ -226,9 +226,6 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen
   end
   
   for sentPos = 1 : (maxLen-1)
-    if sentPos==52
-      sentPos
-    end
     %% Description:
     % At this point, hypotheses of length sentPos are completed.
     % If sentPos<maxLen, this loop will prepare hypotheses of length(sentPos+1) by:
@@ -353,10 +350,9 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen
         % shift: increase stack count, decrease buffer count
         shiftIds = find(sentWords == params.depShiftId);
         shiftCounts(shiftIds) = shiftCounts(sentBeamIndices(shiftIds)) + 1;
-        % assert(isempty(find(shiftCounts>=data.srcLens,1)));
-        if ~isempty(find(shiftCounts>=data.srcLens, 1))
-          shiftCounts'
-        end
+        
+        % assert: we should not shift more than the number of words present
+        assert(isempty(find(shiftCounts>=data.srcLens,1)));
         
         oldStackCounts = stackCounts;
         stackCounts(shiftIds) = stackCounts(sentBeamIndices(shiftIds)) + 1;

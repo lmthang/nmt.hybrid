@@ -136,10 +136,6 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
     startId = (batchId-1)*batchSize+1;
     endId = batchId*batchSize;
     
-    if startId==14
-      startId
-    end
-    
     if endId > numSents
       endId = numSents;
     end
