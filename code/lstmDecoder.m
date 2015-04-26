@@ -191,7 +191,7 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen
   % dependency parse
   if params.depParse
     assert(batchSize==1);
-    stackCounts = ones(1, numElements); % at first, all hypotheses have R(root) in the stack
+    stackCounts = ones(numElements, 1); % at first, all hypotheses have R(root) in the stack
     bufferCounts = data.srcLens - 1 - stackCounts; % don't count eos, here we assume batchSize = 1
   end
   
@@ -266,14 +266,30 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen
         [allBestScores, allBestWords, logProbs] = nextBeamStep(model, beamStates{numLayers}.h_t, beamSize, params, data); % beamSize * (beamSize*batchSize)
         
         %% NOTE: this code require batchSize to be 1.
-        % shift
-        shiftIndices = find(stackCounts==1 & bufferCounts>0); % when stack has one word and buffer is not empty, needs shift
+        % shift: when stack has one word and buffer is not empty
+        shiftIndices = find(stackCounts==1 & bufferCounts>0);
         mustShiftCount = length(shiftIndices);
         if mustShiftCount>0
           allBestScores(1, shiftIndices) = logProbs(params.depShiftId, shiftIndices); 
           allBestWords(1, shiftIndices) = params.depShiftId;
           allBestScores(2:end, shiftIndices) = -1e10; % make the scores very small, so it won't make into the beam
         end
+        
+        % noshift: when buffer is empty
+        noshiftIndices = find(bufferCounts==0);
+        noshiftCount = length(noshiftIndices);
+        if noshiftCount>0
+          assert(isempty(intersect(shiftIndices, noshiftIndices))==1);
+          linearIndices = find(allBestWords(:, noshiftIndices)==params.depShiftId);
+          if ~isempty(linearIndices)
+            [xIndices, yIndices] = ind2sub([beamSize, noshiftCount], linearIndices);
+            linearIndices = sub2ind(size(allBestScores), xIndices, noshiftIndices(yIndices));
+            allBestScores(linearIndices) = -1e10; % make the scores very small, so it won't make into the beam
+            
+            noshiftCount = length(linearIndices); % the actual number of shift opeators in the candidates.
+          end
+        end
+        
         card = beamSize;
       end
     else
@@ -298,7 +314,7 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen
           % because of shiftIndices, we know that only the following top choices are valid: 
           %   beamSize*(beamSize-mustShiftCount) for non-shift operators + 
           %   mustShiftCount operators.
-          validCount = beamSize*(beamSize-mustShiftCount) + mustShiftCount;
+          validCount = beamSize*(beamSize-mustShiftCount) + mustShiftCount - noshiftCount;
           selectedIndices = find(bestWords(1:validCount)~=params.tgtEos & bestWords(1:validCount)~=params.depRootId, beamSize);
         else % we already chose R(root) above
           assert(length(bestWords)==beamSize);
