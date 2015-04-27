@@ -63,7 +63,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   %           1: absolute positions
   %           2: relative positions
   %           3: absolute positions + feed to input (start compute attn from srcMaxLen - 1)
-  %           4: absolute positions + feed to input (start compute attn from srcMaxLen - 1)
+  %           4: relative positions + feed to input (start compute attn from srcMaxLen - 1)
   addOptional(p,'attnFunc', 0, @isnumeric);
   addOptional(p,'attnSize', 0, @isnumeric); % dim of the vector used to input to the final softmax, if 0, use lstmSize
   
