@@ -14,7 +14,7 @@ function [lstm, h_t, c_t] = lstmUnit(W, x_t, h_t_1, c_t_1, ll, t, srcMaxLen, par
   %% dropout
   if params.dropout<1 && isTest==0
     if ~params.isGradCheck
-      dropoutMask = randSimpleMatrix(size(x_t), params.isGPU, params.dataType)/params.dropout;
+      dropoutMask = (randSimpleMatrix(size(x_t), params.isGPU, params.dataType)<params.dropout)/params.dropout;
     else % for gradient check use the same mask
       if t>=srcMaxLen && ll==1 && ((params.posModel==2 && mod(t-srcMaxLen+1, 2)==0) || params.attnFunc==3 || params.attnFunc==4) % predict words
         dropoutMask = params.dropoutMaskInput;
