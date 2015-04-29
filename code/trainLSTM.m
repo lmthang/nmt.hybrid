@@ -51,9 +51,11 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'shuffle', 0, @isnumeric); % 1: shuffle training batches
   addOptional(p,'decode', 1, @isnumeric); % 1: decode during training
 
-  % for decoding during training
+  %% decoding
   addOptional(p,'minLenRatio', 0.5, @isnumeric);
   addOptional(p,'maxLenRatio', 1.5, @isnumeric);
+  addOptional(p,'depParse', 0, @isnumeric); % 1: indicate that we are doing dependency parsing
+  
   
   %% advanced (working) features
   addOptional(p,'dropout', 1, @isnumeric); % dropout prob: 1 no dropout, <1: dropout
@@ -193,6 +195,13 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   
   %% Load vocabs
   [params] = loadBiVocabs(params);
+  % dependency parsing
+  if params.depParse 
+    params.depRootId = find(strcmp(params.tgtVocab, 'R(root)')==1,1);
+    params.depShiftId = find(strcmp(params.tgtVocab, 'S')==1,1);
+    fprintf(2, '# Dependency parsing, rootId for %s=%d, shiftId for %s=%d\n', params.tgtVocab{params.depRootId}, params.depRootId, ...
+      params.tgtVocab{params.depShiftId}, params.depShiftId);
+  end
   
   %% Init / Load Model Parameters
   params.modelFile = [outDir '/model.mat']; % store those with the best valid perplexity

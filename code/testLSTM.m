@@ -25,7 +25,7 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   addOptional(p,'gpuDevice', 1, @isnumeric); % choose the gpuDevice to use. 
   addOptional(p,'minLenRatio', 0.5, @isnumeric); % decodeLen >= minLenRatio * srcMaxLen
   addOptional(p,'maxLenRatio', 1.5, @isnumeric); % decodeLen <= maxLenRatio * srcMaxLen
-  addOptional(p,'preeosId', -1, @isnumeric); % tgt vocab id that will signal eos right after it, e.g., in dependency parsing, R(root) is always followed by eos.
+  addOptional(p,'depParse', 0, @isnumeric); % 1: indicate that we are doing dependency parsing
   addOptional(p,'testPrefix', '', @ischar); % to specify a different file for decoding
 
   p.KeepUnmatched = true;
@@ -35,6 +35,7 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
     decodeParams.batchSize = 1;
   end
   
+  % GPU settings
   decodeParams.isGPU = 0;
   if ismac==0
     n = gpuDeviceCount;  
@@ -51,6 +52,7 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   end
   printParams(2, decodeParams);
   
+  % load model
   [savedData] = load(decodeParams.modelFile);
   params = savedData.params;  
   params.posModel=0;
@@ -79,8 +81,11 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
     end
   end
   
+  if ~isfield(params, 'separateEmb')
+    params.separateEmb = 0;
+  end
   [params] = loadBiVocabs(params);
-  params.vocab = [params.tgtVocab params.srcVocab];
+  
   % copy fields
   fieldNames = fields(decodeParams);
   for ii=1:length(fieldNames)
@@ -99,10 +104,15 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   params.fid = fopen(params.outputFile, 'w');
   params.logId = fopen([outputFile '.log'], 'w');
   printParams(2, params);
-  if params.preeosId~=-1
-    fprintf(2, '# preeos symbol = %s\n', params.vocab{params.preeosId});
+  
+  % dependency parsing
+  if params.depParse 
+    assert(decodeParams.batchSize==1);
+    params.depRootId = find(strcmp(params.tgtVocab, 'R(root)')==1,1);
+    params.depShiftId = find(strcmp(params.tgtVocab, 'S')==1,1);
+    fprintf(2, '## Dependency parsing, rootId for %s=%d, shiftId for %s=%d\n', params.tgtVocab{params.depRootId}, params.depRootId, ...
+      params.tgtVocab{params.depShiftId}, params.depShiftId);
   end
-
   
   % load test data
   [srcSents, tgtSents, numSents]  = loadBiData(params, params.testPrefix, params.srcVocab, params.tgtVocab);
@@ -143,6 +153,7 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   fclose(params.logId);
 end
 
+% params.vocab = [params.tgtVocab params.srcVocab];
 
 %   addOptional(p,'option', 0, @isnumeric); % 0: normal, 1: depparse, 2: permutation
 %   addOptional(p,'unkId', 1, @isnumeric); % id of unk word

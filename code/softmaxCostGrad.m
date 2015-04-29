@@ -166,16 +166,16 @@ function [cost, grad_W, inGrad] = softmaxOneStep(W, inVec, predLabels, params, i
     
     % W_soft
     grad_W = probs*inVec';
+    
+    % assert
+    if params.assert
+      assert(sum(sum(abs(scores(:, maskedIds))))==0);
+      assert(sum(sum(abs(inGrad(:, maskedIds))))==0);
+    end
   else
     grad_W = [];
     inGrad = [];
   end % end isTest
-  
-  % assert
-  if params.assert
-    assert(sum(sum(abs(scores(:, maskedIds))))==0);
-    assert(sum(sum(abs(inGrad(:, maskedIds))))==0);
-  end
 end
 
 function [softmaxGrad] = initSoftmaxGrad(model, params)
