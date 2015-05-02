@@ -402,7 +402,7 @@ function [model] = initLSTM(params)
   
   %% softmax input -> predictions
   % W_soft
-  model.W_soft = randomMatrix(params.initRange, [params.outVocabSize, params.softmaxSize], params.isGPU, params.dataType);
+  model.W_soft = randomMatrix(params.initRange, [params.tgtVocabSize, params.softmaxSize], params.isGPU, params.dataType);
 end
 
 %% Things to do after each training iteration %%
@@ -533,7 +533,7 @@ function [params] = evalSaveDecode(model, validData, testData, params, srcTrainS
   save(params.modelRecentFile, 'model', 'params');
 
   % decode
-  if params.isBi && params.posModel<=0 && params.decode==1
+  if params.isBi && params.posModel<=0 && params.decode==1 && params.sameLength==0
     validId = randi(validData.numSents);
     testId = randi(testData.numSents);
     decodeSent(srcTrainSents(1), tgtTrainSents(1), model, params);

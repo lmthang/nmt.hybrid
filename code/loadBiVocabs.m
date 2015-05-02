@@ -84,10 +84,10 @@ function [params] = loadBiVocabs(params)
     params.srcVocab = srcVocab;
     params.tgtVocab = tgtVocab;
   else
-    params.inVocabSize = params.tgtVocabSize;
+    %params.inVocabSize = params.tgtVocabSize;
     params.vocab = tgtVocab;
   end
-  params.outVocabSize = params.tgtVocabSize;
+  %params.outVocabSize = params.tgtVocabSize;
   
   if params.assert
     if params.posModel>=1

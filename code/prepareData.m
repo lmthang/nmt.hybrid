@@ -88,8 +88,6 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
     data.srcInput = srcInput;
     data.srcMask = srcMask;
     
-%     data.input = [srcInput tgtInput(:, 2:end)];
-%     data.inputMask = [srcMask tgtMask(:, 2:end)];
     data.input = [srcInput(:, 1:end-1) tgtInput]; % tgtInput starts with tgtSos so as to be compatible with mono language models
     data.inputMask = [srcMask(:, 1:end-1) tgtMask];
   else
