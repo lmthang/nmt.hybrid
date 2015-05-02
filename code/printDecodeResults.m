@@ -10,7 +10,7 @@ function printDecodeResults(decodeData, candidates, candScores, params, isOutput
     assert(isempty(find(translation>params.tgtVocabSize, 1)));
     
     if isOutput
-      printSent(params.fid, translation(1:end-1), params.vocab, ''); % remove <t_eos>
+      printSent(params.fid, translation(1:end-1), params.tgtVocab, ''); % remove <t_eos>
     end
 
     % log
