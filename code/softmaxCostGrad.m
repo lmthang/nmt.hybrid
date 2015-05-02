@@ -17,9 +17,13 @@ function [allCosts, allGrads, grad_tgt_ht] = softmaxCostGrad(model, params, trai
   tgtMaxLen = trainData.tgtMaxLen;
   
   % init grads
-  [allGrads] = initSoftmaxGrad(model, params);
-  if params.attnFunc>0 || params.posModel==3
-    allGrads.srcHidVecs = zeroMatrix([params.lstmSize, curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);
+  %[allGrads] = initSoftmaxGrad(model, params);
+  if trainData.isTest == 1
+    allGrads = [];
+  else
+    if params.attnFunc>0 || params.posModel==3
+      allGrads.srcHidVecs = zeroMatrix([params.lstmSize, curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);
+    end
   end
   grad_tgt_ht = cell(1, tgtMaxLen);
   
@@ -101,7 +105,11 @@ function [allCosts, allGrads, grad_tgt_ht] = softmaxCostGrad(model, params, trai
     % update grads
     if trainData.isTest==0
       % grad_W_soft
-      allGrads.(matrixName) = allGrads.(matrixName) + grad_W_soft;
+      if tt==srcMaxLen
+        allGrads.(matrixName) = grad_W_soft;
+      else
+        allGrads.(matrixName) = allGrads.(matrixName) + grad_W_soft;
+      end
       
       %% grad_softmax_h -> h_t
       if params.attnFunc==1 || params.attnFunc==2 || params.softmaxDim>0 || (params.posModel==3 && isPredictPos==0)
@@ -109,7 +117,11 @@ function [allCosts, allGrads, grad_tgt_ht] = softmaxCostGrad(model, params, trai
         fields = fieldnames(hid2softGrad);
         for ii=1:length(fields)
           field = fields{ii};
-          allGrads.(field) = allGrads.(field) + hid2softGrad.(field);
+          if tt==srcMaxLen
+            allGrads.(field) = hid2softGrad.(field);
+          else
+            allGrads.(field) = allGrads.(field) + hid2softGrad.(field);
+          end
         end
 
         % attention models: srcHidVecs
@@ -178,12 +190,12 @@ function [cost, grad_W, inGrad] = softmaxOneStep(W, inVec, predLabels, params, i
   end % end isTest
 end
 
-function [softmaxGrad] = initSoftmaxGrad(model, params)
-  for ii=1:length(params.softmaxVars)
-    field = params.softmaxVars{ii};
-    softmaxGrad.(field) = zeroMatrix(size(model.(field)), params.isGPU, params.dataType);
-  end
-end
+% function [softmaxGrad] = initSoftmaxGrad(model, params)
+%   for ii=1:length(params.softmaxVars)
+%     field = params.softmaxVars{ii};
+%     softmaxGrad.(field) = zeroMatrix(size(model.(field)), params.isGPU, params.dataType);
+%   end
+% end
 
 %% class-based softmax %%
 % after forward prediction and before cost

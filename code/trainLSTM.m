@@ -274,8 +274,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   
   % not update decoder
   if params.epoch<params.epochUpdateDecoder
-    index = find(strcmp('W_tgt', params.varsSelected)==1, 1);
-    params.varsSelected(index) = [];
+    index = find(strcmp('W_tgt', params.varsDenseUpdate)==1, 1);
+    params.varsDenseUpdate(index) = [];
   end
   
   isRun = 1;
@@ -309,7 +309,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       end
       
       %% grad clipping      
-      [gradNorm, ~] = computeGradNorm(grad, params.batchSize, params.varsSelected); % historical reason: we exclude W_emb % indNorms
+      [gradNorm, ~] = computeGradNorm(grad, params.batchSize, params.varsDenseUpdate); % historical reason: we exclude W_emb % indNorms
       scale = 1.0/params.batchSize; % grad is divided by batchSize
       if gradNorm > params.maxGradNorm
         scale = scale*params.maxGradNorm/gradNorm;
@@ -317,8 +317,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       scaleLr = params.lr*scale;
       
       %% update parameters
-      for ii=1:length(params.varsSelected)
-        field = params.varsSelected{ii};
+      for ii=1:length(params.varsDenseUpdate)
+        field = params.varsDenseUpdate{ii};
         if iscell(model.(field))
           for jj=1:length(model.(field)) % cell, like W_src, W_tgt
             model.(field){jj} = model.(field){jj} - scaleLr*grad.(field){jj};
@@ -456,7 +456,7 @@ function [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents,
   
   % update decoder
   if params.epochUpdateDecoder>1 && params.epoch==params.epochUpdateDecoder
-    params.varsSelected{end+1} = 'W_tgt';
+    params.varsDenseUpdate{end+1} = 'W_tgt';
   end
     
   if params.epoch <= params.numEpoches % continue training
@@ -746,30 +746,30 @@ function [params] = setupVars(model, params)
   
   % exclude W_emb and W_soft_inclass (for class-based softmax). These are
   % those matrices which we will update sparsely
-  params.varsSelected = {};
+  params.varsDenseUpdate = {};
   for ii=1:length(params.vars)
     if strncmp(params.vars{ii}, 'W_emb', 4)==0 && strcmp(params.vars{ii}, 'W_soft_inclass')==0
-      params.varsSelected{end+1} = params.vars{ii};
+      params.varsDenseUpdate{end+1} = params.vars{ii};
     end
   end
   
-  % setup softmax vars
-  if params.attnFunc==1 || params.attnFunc==2
-    softmaxVars = {'W_a', 'W_ah'};
-  elseif params.softmaxDim>0
-    softmaxVars = {'W_h'};
-  elseif params.posModel>0
-    if params.posModel==3
-      softmaxVars = {'W_h', 'W_softPos'};
-    else
-      softmaxVars = {'W_softPos'};
-    end
-  else
-    softmaxVars = {};
-  end
-  
-  softmaxVars{end+1} = 'W_soft';
-  params.softmaxVars = softmaxVars;
+%   % setup softmax vars
+%   if params.attnFunc==1 || params.attnFunc==2
+%     softmaxVars = {'W_a', 'W_ah'};
+%   elseif params.softmaxDim>0
+%     softmaxVars = {'W_h'};
+%   elseif params.posModel>0
+%     if params.posModel==3
+%       softmaxVars = {'W_h', 'W_softPos'};
+%     else
+%       softmaxVars = {'W_softPos'};
+%     end
+%   else
+%     softmaxVars = {};
+%   end
+%   
+%   softmaxVars{end+1} = 'W_soft';
+%   params.softmaxVars = softmaxVars;
 end
 
 function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab)

@@ -25,8 +25,10 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   curBatchSize = size(input, 1);
   
   % separate embs
-  trainData.numInputWords_src = sum(sum(trainData.srcMask));
-  trainData.numInputWords_tgt = sum(sum(trainData.tgtMask(:, 2:end)));
+%   trainData.numInputWords_src = sum(sum(trainData.srcMask));
+%   trainData.numInputWords_tgt = sum(sum(trainData.tgtMask(:, 2:end)));
+  trainData.numInputWords_src = sum(sum(trainData.srcMask(:, 1:end-1)));
+  trainData.numInputWords_tgt = sum(sum(trainData.tgtMask));
   
   trainData.isTest = isTest;
   trainData.T = T;
@@ -344,8 +346,8 @@ end
 
 function [grad, params] = initGrad(model, params)
   %% grad
-  for ii=1:length(params.varsSelected)
-    field = params.varsSelected{ii};
+  for ii=1:length(params.varsDenseUpdate)
+    field = params.varsDenseUpdate{ii};
     if iscell(model.(field))
       for jj=1:length(model.(field)) % cell, like W_src, W_tgt
         grad.(field){jj} = zeroMatrix(size(model.(field){jj}), params.isGPU, params.dataType);
