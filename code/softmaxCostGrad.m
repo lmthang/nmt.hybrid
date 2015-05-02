@@ -105,7 +105,7 @@ function [allCosts, allGrads, grad_tgt_ht] = softmaxCostGrad(model, params, trai
     % update grads
     if trainData.isTest==0
       % grad_W_soft
-      if tt==srcMaxLen
+      if tt==srcMaxLen || (params.posModel>=1 && tt==(srcMaxLen+1))
         allGrads.(matrixName) = grad_W_soft;
       else
         allGrads.(matrixName) = allGrads.(matrixName) + grad_W_soft;
@@ -117,7 +117,7 @@ function [allCosts, allGrads, grad_tgt_ht] = softmaxCostGrad(model, params, trai
         fields = fieldnames(hid2softGrad);
         for ii=1:length(fields)
           field = fields{ii};
-          if tt==srcMaxLen
+          if tt==srcMaxLen || (params.posModel==3 && isPredictPos==0 && tt==(srcMaxLen+1))
             allGrads.(field) = hid2softGrad.(field);
           else
             allGrads.(field) = allGrads.(field) + hid2softGrad.(field);
