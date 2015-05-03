@@ -651,8 +651,8 @@ function [model, params, oldParams, loaded] = loadModel(modelFile, params)
   model
   clear savedData;
 
-  fprintf(2, '  loaded! lr=%g, epoch=%d, iter=%d, bestCostValid=%g, testPerplexity=%g\n', params.lr, params.epoch, params.startIter, params.bestCostValid, params.testPerplexity);
-  fprintf(params.logId, '  loaded! lr=%g, epoch=%d, iter=%d, bestCostValid=%g, testPerplexity=%g\n', params.lr, params.epoch, params.startIter, params.bestCostValid, params.testPerplexity);
+  fprintf(2, '  loaded! lr=%g, epoch=%d, iter=%d, bestCostValid=%g, testPerplexity=%g, model: %s\n', params.lr, params.epoch, params.startIter, params.bestCostValid, params.testPerplexity, wInfo(model));
+  fprintf(params.logId, '  loaded! lr=%g, epoch=%d, iter=%d, bestCostValid=%g, testPerplexity=%g, model: %s\n', params.lr, params.epoch, params.startIter, params.bestCostValid, params.testPerplexity, wInfo(model));
 end
 
 function [model, params] = initLoadModel(params)
@@ -708,8 +708,8 @@ function [model, params] = initLoadModel(params)
       flags = strcmp(params.tgtVocab, monoParams.vocab);
       matchCount = sum(flags);
       fprintf('  vocab match count=%d\n', matchCount);
-      %model.W_emb_tgt = monoModel.W_emb; % due to encoding problem, it's not quite correct at the moment to compare string like the below code. just hope that the two vocabs agree!
-      model.W_emb_tgt(:, flags) = monoModel.W_emb(:, flags);
+      model.W_emb_tgt = monoModel.W_emb; % due to encoding problem, it's not quite correct at the moment to compare string like the below code. just hope that the two vocabs agree!
+      %model.W_emb_tgt(:, flags) = monoModel.W_emb(:, flags);
       
       % handle mismatch vocab
       if matchCount < params.tgtVocabSize
@@ -718,14 +718,14 @@ function [model, params] = initLoadModel(params)
        remainMonoVocab = params.tgtVocab(indices);
        for ii=1:length(indices)
          fprintf(2, '  mismatch %s \t %s\n', params.tgtVocab{indices(ii)}, monoParams.vocab{indices(ii)});
-         index = find(strcmp(remainVocab{ii}, remainMonoVocab), 1);
-         if isempty(index)
-           fprintf(2, '  cannot init word %s\n', remainVocab{ii});
-         else
-           model.W_emb_tgt(:, indices(ii)) = monoModel.W_emb(:, indices(index));
-         end
+         %index = find(strcmp(remainVocab{ii}, remainMonoVocab), 1);
+         %if isempty(index)
+         %  fprintf(2, '  cannot init word %s\n', remainVocab{ii});
+         %else
+         %  model.W_emb_tgt(:, indices(ii)) = monoModel.W_emb(:, indices(index));
+         %end
        end
-       assert(abs(matchCount-params.tgtVocabSize)<10);
+       %assert(abs(matchCount-params.tgtVocabSize)<10);
       end
     end
   end
