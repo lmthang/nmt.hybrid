@@ -87,7 +87,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'sameLength', 0, @isnumeric); % sameLength=1: output and input are of the same length, so let's feed the src hidden states into the tgt!
   
   addOptional(p,'monoFile', '', @ischar); % to bootstrap the decoder with a monolingual model
-  addOptional(p,'epochUpdateDecoder', 1, @isnumeric); % when to start updating the pretrained decoder epoch>=monoUpdateEpoch (1 means start updating at the very beginning).
+  addOptional(p,'decodeUpdateEpoch', 1, @isnumeric); % when to start updating the pretrained decoder epoch>=monoUpdateEpoch (1 means start updating at the very beginning).
+  addOptional(p,'decodeUpdateOpt', 0, @isnumeric); % 0: everything is fixed, 1: only update LSTM params, 2: only update softmax params (these options only activate when decodeUpdateEpoch>1).
   
   %% system options
   addOptional(p,'onlyCPU', 0, @isnumeric); % 1: avoid using GPUs
@@ -268,10 +269,19 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   fprintf(params.logId, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
   
   % not update decoder
-  if params.epoch<params.epochUpdateDecoder
-    index = find(strcmp('W_tgt', params.varsDenseUpdate)==1, 1);
-    params.varsDenseUpdate(index) = [];
+  if params.epoch<params.decodeUpdateEpoch
+    % fix decoder LSTM params
+    if params.decodeUpdateOpt==0 || params.decodeUpdateOpt==2 
+      index = find(strcmp('W_tgt', params.varsDenseUpdate)==1, 1);
+      params.varsDenseUpdate(index) = [];
+    end
+    % fix decoder softmax params
+    if params.decodeUpdateOpt==0 || params.decodeUpdateOpt==1 
+      index = find(strcmp('W_soft', params.varsDenseUpdate)==1, 1);
+      params.varsDenseUpdate(index) = [];
+    end
   end
+  printCell(2, params.varsDenseUpdate, '# varsDenseUpdate: ');
   
   isRun = 1;
   while(isRun)
@@ -323,9 +333,11 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         end
       end
       % update W_emb separately
-      model.W_emb_src(:, grad.indices_src) = model.W_emb_src(:, grad.indices_src) - scaleLr*grad.W_emb_src;  
+      if params.isBi
+        model.W_emb_src(:, grad.indices_src) = model.W_emb_src(:, grad.indices_src) - scaleLr*grad.W_emb_src;  
+      end
       % update the decoder
-      if params.epoch>=params.epochUpdateDecoder
+      if params.epoch>=params.decodeUpdateEpoch
         model.W_emb_tgt(:, grad.indices_tgt) = model.W_emb_tgt(:, grad.indices_tgt) - scaleLr*grad.W_emb_tgt;
       end
       
@@ -505,11 +517,20 @@ function [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents,
   % new epoch
   params.epoch = params.epoch + 1;
   
-  % update decoder
-  if params.epochUpdateDecoder>1 && params.epoch==params.epochUpdateDecoder
-    params.varsDenseUpdate{end+1} = 'W_tgt';
+  % now update decoder
+  if params.decodeUpdateEpoch>1 && params.epoch==params.decodeUpdateEpoch
+    % LSTM params
+    if params.decodeUpdateOpt==0 || params.decodeUpdateOpt==2 
+      params.varsDenseUpdate{end+1} = 'W_tgt';
+    end
+    % fix decoder softmax params
+    if params.decodeUpdateOpt==0 || params.decodeUpdateOpt==1 
+      params.varsDenseUpdate{end+1} = 'W_soft';
+    end
+    printCell(2, params.varsDenseUpdate, '# update varsDenseUpdate: ');
   end
-    
+  
+
   if params.epoch <= params.numEpoches % continue training
     fprintf(2, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
     fprintf(params.logId, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
@@ -693,6 +714,12 @@ function [model, params] = initLoadModel(params)
       [monoModel, ~, monoParams, loaded] = loadModel(params.monoFile, params);
       if loaded==0
         error('! Failed to load mono model %s\n', params.monoFile);
+      end
+      if isfield(monoParams, 'tgtVocab')
+        monoParams.vocab = monoParams.tgtVocab;
+      end
+      if isfield(monoModel, 'W_emb_tgt')
+        monoModel.W_emb = monoModel.W_emb_tgt;
       end
       
       fprintf('# Bootstrap from a mono model: W_tgt size=%s, vocab size=%d\n', mat2str(size(monoModel.W_tgt{1})), length(monoParams.vocab));

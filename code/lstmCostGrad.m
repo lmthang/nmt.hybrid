@@ -16,6 +16,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   if params.isBi
     srcMaxLen = trainData.srcMaxLen;
     T = srcMaxLen+tgtMaxLen-1;
+    trainData.numInputWords_src = sum(sum(trainData.srcMask(:, 1:end-1)));
   else
     srcMaxLen = 1;
     T = tgtMaxLen;
@@ -23,9 +24,6 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   input = trainData.input;
   inputMask = trainData.inputMask;
   curBatchSize = size(input, 1);
-  
-  % separate embs
-  trainData.numInputWords_src = sum(sum(trainData.srcMask(:, 1:end-1)));
   trainData.numInputWords_tgt = sum(sum(trainData.tgtMask));
   
   trainData.isTest = isTest;
@@ -91,8 +89,10 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   % Note: IMPORTANT. For attention-based models or positional models, it it
   % important to build the top hidden states first before moving to the
   % next time step. So DO NOT swap these for loops.
-  W_layers = model.W_src;
-  W_emb = model.W_emb_src;
+  if params.isBi
+    W_layers = model.W_src;
+    W_emb = model.W_emb_src;
+  end
   for tt=1:T % time
     tgtPos = tt-srcMaxLen+1;
     
@@ -168,10 +168,12 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   if isTest==1 % don't compute grad
     return;
   else
-    fields = fieldnames(softmaxGrad);
-    for ii=1:length(fields)
-      field = fields{ii};
-      grad.(field) = softmaxGrad.(field);
+    if isstruct(softmaxGrad)
+      fields = fieldnames(softmaxGrad);
+      for ii=1:length(fields)
+        field = fields{ii};
+        grad.(field) = softmaxGrad.(field);
+      end
     end
   end
   
@@ -187,11 +189,13 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   end
 
   % emb grad
-  allEmbGrads_src = zeroMatrix([params.lstmSize, trainData.numInputWords_src], params.isGPU, params.dataType);
-  allEmbIndices_src = zeros(trainData.numInputWords_src, 1);
-  wordCount_src = 0;
+  if params.isBi
+    allEmbGrads_src = zeroMatrix([params.lstmSize, trainData.numInputWords_src], params.isGPU, params.dataType);
+    allEmbIndices_src = zeros(trainData.numInputWords_src, 1);
+    wordCount_src = 0;
+  end
   % update the decoder
-  if params.epoch>=params.epochUpdateDecoder
+  if params.epoch>=params.decodeUpdateEpoch
     allEmbGrads_tgt = zeroMatrix([params.lstmSize, trainData.numInputWords_tgt], params.isGPU, params.dataType);
     allEmbIndices_tgt = zeros(trainData.numInputWords_tgt, 1);
     wordCount_tgt = 0;
@@ -236,7 +240,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       %% grad.W_src / grad.W_tgt
       if (tt>=srcMaxLen)
         % update the decoder
-        if params.epoch>=params.epochUpdateDecoder
+        if params.epoch>=params.decodeUpdateEpoch || params.decodeUpdateOpt==1 % for decodeUpdateOpt==1, always update
           % positional
           if params.posModel==2 && ll==1 && mod(tgtPos, 2)==0 % predict words
             grad.W_tgt{ll} = grad.W_tgt{ll} + lstm_grad.W(:, 1:2*params.lstmSize);
@@ -302,7 +306,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
           wordCount_src = wordCount_src + numWords;
         else
           % update the decoder
-          if params.epoch>=params.epochUpdateDecoder
+          if params.epoch>=params.decodeUpdateEpoch
             allEmbIndices_tgt(wordCount_tgt+1:wordCount_tgt+numWords) = embIndices;
             allEmbGrads_tgt(:, wordCount_tgt+1:wordCount_tgt+numWords) = embGrad;
             wordCount_tgt = wordCount_tgt + numWords;
@@ -315,12 +319,14 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   end % end for time
   
   % grad W_emb
-  allEmbGrads_src(:, wordCount_src+1:end) = [];
-  allEmbIndices_src(wordCount_src+1:end) = [];
-  [grad.W_emb_src, grad.indices_src] = aggregateMatrix(allEmbGrads_src, allEmbIndices_src, params.isGPU, params.dataType);
+  if params.isBi
+    allEmbGrads_src(:, wordCount_src+1:end) = [];
+    allEmbIndices_src(wordCount_src+1:end) = [];
+    [grad.W_emb_src, grad.indices_src] = aggregateMatrix(allEmbGrads_src, allEmbIndices_src, params.isGPU, params.dataType);
+  end
 
   % update the decoder
-  if params.epoch>=params.epochUpdateDecoder
+  if params.epoch>=params.decodeUpdateEpoch
     allEmbGrads_tgt(:, wordCount_tgt+1:end) = [];
     allEmbIndices_tgt(wordCount_tgt+1:end) = [];
     [grad.W_emb_tgt, grad.indices_tgt] = aggregateMatrix(allEmbGrads_tgt, allEmbIndices_tgt, params.isGPU, params.dataType);

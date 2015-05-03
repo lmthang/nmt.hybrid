@@ -18,12 +18,12 @@ function [allCosts, allGrads, grad_tgt_ht] = softmaxCostGrad(model, params, trai
   
   % init grads
   %[allGrads] = initSoftmaxGrad(model, params);
-  if trainData.isTest == 1
-    allGrads = [];
-  else
+  if trainData.isTest == 0 && (params.epoch>=params.decodeUpdateEpoch || params.decodeUpdateOpt==2)
     if params.attnFunc>0 || params.posModel==3
       allGrads.srcHidVecs = zeroMatrix([params.lstmSize, curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);
     end
+  else
+    allGrads = 0;
   end
   grad_tgt_ht = cell(1, tgtMaxLen);
   
@@ -105,10 +105,12 @@ function [allCosts, allGrads, grad_tgt_ht] = softmaxCostGrad(model, params, trai
     % update grads
     if trainData.isTest==0
       % grad_W_soft
-      if tt==srcMaxLen || (params.posModel>=1 && tt==(srcMaxLen+1))
-        allGrads.(matrixName) = grad_W_soft;
-      else
-        allGrads.(matrixName) = allGrads.(matrixName) + grad_W_soft;
+      if params.epoch>=params.decodeUpdateEpoch || params.decodeUpdateOpt==2 % always update softmax params
+        if tt==srcMaxLen || (params.posModel>=1 && tt==(srcMaxLen+1))
+          allGrads.(matrixName) = grad_W_soft;
+        else
+          allGrads.(matrixName) = allGrads.(matrixName) + grad_W_soft;
+        end
       end
       
       %% grad_softmax_h -> h_t

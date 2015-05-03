@@ -82,11 +82,11 @@ function [params] = loadBiVocabs(params)
   %% finalize vocab
   if params.isBi
     params.srcVocab = srcVocab;
-    params.tgtVocab = tgtVocab;
   else
     %params.inVocabSize = params.tgtVocabSize;
-    params.vocab = tgtVocab;
+    params.srcVocab = [];
   end
+  params.tgtVocab = tgtVocab;
   %params.outVocabSize = params.tgtVocabSize;
   
   if params.assert
