@@ -114,6 +114,12 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
       params.tgtVocab{params.depShiftId}, params.depShiftId);
   end
   
+  % same-length decoder
+  if params.sameLength
+    assert(decodeParams.batchSize==1);
+    fprintf(2, '## Same-length decoding\n');
+  end
+  
   % load test data
   [srcSents, tgtSents, numSents]  = loadBiData(params, params.testPrefix, params.srcVocab, params.tgtVocab);
   %[srcSents, tgtSents, numSents]  = loadBiData(params, params.trainPrefix, srcVocab, tgtVocab, 10);

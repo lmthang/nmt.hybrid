@@ -554,7 +554,7 @@ function [params] = evalSaveDecode(model, validData, testData, params, srcTrainS
   save(params.modelRecentFile, 'model', 'params');
 
   % decode
-  if params.isBi && params.posModel<=0 && params.decode==1 && params.sameLength==0
+  if params.isBi && params.posModel<=0 && params.decode==1
     validId = randi(validData.numSents);
     testId = randi(testData.numSents);
     decodeSent(srcTrainSents(1), tgtTrainSents(1), model, params);

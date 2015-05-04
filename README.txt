@@ -100,6 +100,8 @@ trainLSTM('../data/id.1000/train.10k', '../data/id.1000/valid.100', '../data/id.
 (i) Train with booststraped mono models:
 trainLSTM('../data/id.1000/train.10k', '../data/id.1000/valid.100', '../data/id.1000/test.100', 'de', 'en', '../data/train.10k.de.vocab.1000', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1, 'isResume', 0, 'monoFile', '../monoOutput/model.mat')
 
+trainLSTM('../data/id.1000/train.10k', '../data/id.1000/valid.100', '../data/id.1000/test.100', 'de', 'en', '../data/train.10k.de.vocab.1000', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1, 'isResume', 0, 'monoFile', '../monoOutput/model.mat', 'decodeUpdateEpoch', 2, 'decodeUpdateOpt', 2)
+
 (j) Train on depparse data:
 trainLSTM('../data/depparse/id/train', '../data/depparse/id/dev.100', '../data/depparse/id/test.100', 'en', 'dep', '../data/depparse/train.en.vocab.50000', '../data/depparse/train.dep.vocab.50000', '../output', 0, 'logFreq', 1, 'isResume', 0)
 
