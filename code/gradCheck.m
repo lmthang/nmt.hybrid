@@ -55,13 +55,19 @@ function gradCheck(model, params)
   totalCost = costs.total;
   
   % W_emb
-  full_grad_W_emb_src = zeroMatrix(size(model.W_emb_src), params.isGPU, params.dataType);
-  full_grad_W_emb_src(:, grad.indices_src) = grad.W_emb_src;
-  grad.W_emb_src = full_grad_W_emb_src;
+  if params.tieEmb % tie embeddings
+    full_grad_W_emb_tie = zeroMatrix(size(model.W_emb_tie), params.isGPU, params.dataType);
+    full_grad_W_emb_tie(:, grad.indices_tie) = grad.W_emb_tie;
+    grad.W_emb_tie = full_grad_W_emb_tie;
+  else
+    full_grad_W_emb_src = zeroMatrix(size(model.W_emb_src), params.isGPU, params.dataType);
+    full_grad_W_emb_src(:, grad.indices_src) = grad.W_emb_src;
+    grad.W_emb_src = full_grad_W_emb_src;
 
-  full_grad_W_emb_tgt = zeroMatrix(size(model.W_emb_tgt), params.isGPU, params.dataType);
-  full_grad_W_emb_tgt(:, grad.indices_tgt) = grad.W_emb_tgt;
-  grad.W_emb_tgt = full_grad_W_emb_tgt;
+    full_grad_W_emb_tgt = zeroMatrix(size(model.W_emb_tgt), params.isGPU, params.dataType);
+    full_grad_W_emb_tgt(:, grad.indices_tgt) = grad.W_emb_tgt;
+    grad.W_emb_tgt = full_grad_W_emb_tgt;
+  end
   
   % empirical grad
   delta = 0.01;

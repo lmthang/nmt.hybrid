@@ -9,7 +9,11 @@ function [params] = loadBiVocabs(params)
     end
     
     if params.isBi
-      srcVocab = {'x', 'y'};
+      if params.tieEmb % tie embeddings
+        srcVocab = tgtVocab;
+      else
+        srcVocab = {'x', 'y'};
+      end
     end
   else
     [tgtVocab] = loadVocab(params.tgtVocabFile);    
@@ -24,7 +28,7 @@ function [params] = loadBiVocabs(params)
     
     % add eos, sos, zero
     srcVocab{end+1} = '<s_sos>'; % not learn
-    params.srcZero = length(srcVocab);
+    params.srcSos = length(srcVocab);
     srcVocab{end+1} = '<s_eos>';
     params.srcEos = length(srcVocab);
     
@@ -77,7 +81,10 @@ function [params] = loadBiVocabs(params)
     params.tgtEos = length(tgtVocab);
   end
   params.tgtVocabSize = length(tgtVocab);
-  
+  if params.tieEmb % tie embeddings
+    tgtVocab{params.tgtSos} = srcVocab{params.srcSos};
+    tgtVocab{params.tgtEos} = srcVocab{params.srcEos};
+  end
   
   %% finalize vocab
   if params.isBi

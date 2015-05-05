@@ -46,7 +46,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   
   %% input / output
   if params.isBi
-    srcInput = params.srcZero*ones(numSents, srcMaxLen);
+    srcInput = params.srcSos*ones(numSents, srcMaxLen);
   end
   tgtInput = [params.tgtSos*ones(numSents, 1) params.tgtEos*ones(numSents, tgtMaxLen-1)];
   tgtOutput = params.tgtEos*ones(numSents, tgtMaxLen);
@@ -70,7 +70,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   
   % mask
   if params.isBi
-    srcMask = srcInput~=params.srcZero;
+    srcMask = srcInput~=params.srcSos;
   end
   tgtMask = tgtInput~=params.tgtEos;
   numWords = sum(tgtMask(:)); 

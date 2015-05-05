@@ -1,4 +1,4 @@
-function [lstm_grad] = lstmUnitGrad(model, lstm, c_t, c_t_1, dc, dh, ll, t, srcMaxLen, zero_state, params)
+function [lstm_grad] = lstmUnitGrad(W, lstm, c_t, c_t_1, dc, dh, ll, t, srcMaxLen, zero_state, params)
   if params.isGPU
     %% dh, dc
     if params.lstmOpt==0 % h_t = o_g * f(c_t)
@@ -56,14 +56,7 @@ function [lstm_grad] = lstmUnitGrad(model, lstm, c_t, c_t_1, dc, dh, ll, t, srcM
   lstm_grad.dc = lstm.f_gate.*dc; % contribute to grad of c_{t-1} = f_t * d(c_t) %(lstm.f_gate + lstm.f_bias)
   
   % grad W
-  if (t>=srcMaxLen) % tgt
-    W = model.W_tgt{ll};
-  else % src
-    W = model.W_src{ll};
-  end
   d_ifoa = [di; df; do; da];
- 
-  % dW
   lstm_grad.W = d_ifoa*lstm.input';
 
   % dx, dh

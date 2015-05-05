@@ -85,6 +85,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'posModel', -1, @isnumeric);  
   addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
   addOptional(p,'sameLength', 0, @isnumeric); % sameLength=1: output and input are of the same length, so let's feed the src hidden states into the tgt!
+  addOptional(p,'tieEmb', 0, @isnumeric); % 1: tie src/tgt embeddings (when src/tgt languages are the same)
   
   addOptional(p,'monoFile', '', @ischar); % to bootstrap the decoder with a monolingual model
   addOptional(p,'decodeUpdateEpoch', 1, @isnumeric); % when to start updating the pretrained decoder epoch>=monoUpdateEpoch (1 means start updating at the very beginning).
@@ -332,13 +333,17 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
           model.(field) = model.(field) - scaleLr*grad.(field);
         end
       end
-      % update W_emb separately
-      if params.isBi
-        model.W_emb_src(:, grad.indices_src) = model.W_emb_src(:, grad.indices_src) - scaleLr*grad.W_emb_src;  
-      end
-      % update the decoder
-      if params.epoch>=params.decodeUpdateEpoch
-        model.W_emb_tgt(:, grad.indices_tgt) = model.W_emb_tgt(:, grad.indices_tgt) - scaleLr*grad.W_emb_tgt;
+      % update W_emb sparsely
+      if params.tieEmb % tie embeddings
+        model.W_emb_tie(:, grad.indices_tie) = model.W_emb_tie(:, grad.indices_tie) - scaleLr*grad.W_emb_tie;  
+      else % separate embeddings
+        if params.isBi
+          model.W_emb_src(:, grad.indices_src) = model.W_emb_src(:, grad.indices_src) - scaleLr*grad.W_emb_src;  
+        end
+        % update the decoder
+        if params.epoch>=params.decodeUpdateEpoch
+          model.W_emb_tgt(:, grad.indices_tgt) = model.W_emb_tgt(:, grad.indices_tgt) - scaleLr*grad.W_emb_tgt;
+        end
       end
       
       %% logging, eval, save, decode, fine-tuning, etc.
@@ -383,13 +388,20 @@ function [model] = initLSTM(params)
   end
   
   % W_emb
-  if params.isBi
-    model.W_emb_src = randomMatrix(params.initRange, [params.lstmSize, params.srcVocabSize], params.isGPU, params.dataType);
-    model.W_emb_src(:, params.srcZero) = zeros(params.lstmSize, 1);
+  if params.tieEmb % tie embeddings
+    assert(params.tgtVocabSize==params.srcVocabSize);
+    assert(sum(strcmp(params.tgtVocab, params.srcVocab)) == params.tgtVocabSize);
+    model.W_emb_tie = randomMatrix(params.initRange, [params.lstmSize, params.tgtVocabSize], params.isGPU, params.dataType);
+    model.W_emb_tie(:, params.tgtEos) = zeros(params.lstmSize, 1);
+  else % separate embeddings
+    if params.isBi
+      model.W_emb_src = randomMatrix(params.initRange, [params.lstmSize, params.srcVocabSize], params.isGPU, params.dataType);
+      model.W_emb_src(:, params.srcZero) = zeros(params.lstmSize, 1);
+    end
+    model.W_emb_tgt = randomMatrix(params.initRange, [params.lstmSize, params.tgtVocabSize], params.isGPU, params.dataType);
+    model.W_emb_tgt(:, params.tgtEos) = zeros(params.lstmSize, 1);
   end
-  model.W_emb_tgt = randomMatrix(params.initRange, [params.lstmSize, params.tgtVocabSize], params.isGPU, params.dataType);
-  model.W_emb_tgt(:, params.tgtEos) = zeros(params.lstmSize, 1);
-    
+  
   %% h_t -> softmax input
   % attention mechanism
   if params.attnFunc>0 
