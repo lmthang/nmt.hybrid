@@ -170,7 +170,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   %%%%%%%%%%%%%%%
   %%% SOFTMAX %%%
   %%%%%%%%%%%%%%%
-  [costs, softmaxGrad, grad_tgt_ht] = softmaxCostGrad(model, params, trainData, all_h_t(params.numLayers, :));
+  [costs, softmaxGrad, grad_tgt_ht] = hid2lossCostGrad(model, params, trainData, all_h_t(params.numLayers, :));
   if isTest==1 % don't compute grad
     return;
   else

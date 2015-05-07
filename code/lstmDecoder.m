@@ -186,10 +186,10 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen
     data.srcHidVecs(:, :, startHidId:endHidId) = data.srcHidVecsAll(:, :, startAttnId:endAttnId);
   end
   
-  mask = ones(1, batchSize);
+  curMask.mask = ones(1, batchSize);
 
   if params.depParse % dependency parsing, the first symbol needs to be S
-    [~, ~, logProbs] = nextBeamStep(model, lstmStart{numLayers}.h_t, beamSize, params, data, mask);
+    [~, ~, logProbs] = nextBeamStep(model, lstmStart{numLayers}.h_t, beamSize, params, data, curMask);
     scores = repmat(logProbs(params.depShiftId, :), beamSize, 1);
     words = params.depShiftId*ones(1, beamSize*batchSize);
     
@@ -199,7 +199,7 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen
     bufferCounts = (srcLen - 1)*ones(numElements, 1); % don't count eos, and minus the first word
     shiftCounts = ones(numElements, 1);
   else
-    [scores, words] = nextBeamStep(model, lstmStart{numLayers}.h_t, beamSize, params, data, mask); % scores, words: beamSize * batchSize
+    [scores, words] = nextBeamStep(model, lstmStart{numLayers}.h_t, beamSize, params, data, curMask); % scores, words: beamSize * batchSize
   end
   
   % TODO: by right, we should filter out words == params.tgtEos, but I
@@ -228,7 +228,7 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen
 %     data.curMask.unmaskedIds = 1:curBatchSize;
 %     data.curMask.maskedIds = [];
     
-    mask = ones(1, curBatchSize);
+    curMask.mask = ones(1, curBatchSize);
     if params.attnFunc==1
       [data.srcHidVecs] = duplicateSrcHidVecs(data.srcHidVecs, batchSize, beamSize);
     else
@@ -306,12 +306,12 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen
     end
     if params.depParse % dependency parsing
       if sentPos == (maxLen-1) % we want R(root) to be the next word
-        [~, ~, logProbs] = nextBeamStep(model, beamStates{numLayers}.h_t, beamSize, params, data, mask);
+        [~, ~, logProbs] = nextBeamStep(model, beamStates{numLayers}.h_t, beamSize, params, data, curMask);
         allBestScores = logProbs(params.depRootId, :);
         allBestWords = params.depRootId*ones(1, beamSize*batchSize);
         card = 1;
       else
-        [allBestScores, allBestWords, logProbs] = nextBeamStep(model, beamStates{numLayers}.h_t, beamSize, params, data, mask); % beamSize * (beamSize*batchSize)
+        [allBestScores, allBestWords, logProbs] = nextBeamStep(model, beamStates{numLayers}.h_t, beamSize, params, data, curMask); % beamSize * (beamSize*batchSize)
         
         %% NOTE: this code require batchSize to be 1.
         % shift: when stack has one word and buffer is not empty
@@ -341,12 +341,12 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen
         card = beamSize;
       end
     elseif params.sameLength && sentPos == (maxLen-1) % same length decoding
-      [~, ~, logProbs] = nextBeamStep(model, beamStates{numLayers}.h_t, beamSize, params, data, mask);
+      [~, ~, logProbs] = nextBeamStep(model, beamStates{numLayers}.h_t, beamSize, params, data, curMask);
       allBestScores = logProbs(params.tgtEos, :);
       allBestWords = params.tgtEos*ones(1, beamSize*batchSize);
       card = 1;
     else
-      [allBestScores, allBestWords] = nextBeamStep(model, beamStates{numLayers}.h_t, beamSize, params, data, mask); % beamSize * (beamSize*batchSize)
+      [allBestScores, allBestWords] = nextBeamStep(model, beamStates{numLayers}.h_t, beamSize, params, data, curMask); % beamSize * (beamSize*batchSize)
       card = beamSize;
     end
     [allBestScores, allBestWords, indices] = addSortScores(allBestScores, allBestWords, beamScores, card, beamSize, batchSize);
@@ -493,14 +493,14 @@ end
 %%
 % return bestLogProbs, bestWords of sizes beamSize * curBatchSize
 %%
-function [bestLogProbs, bestWords, logProbs, sortedLogProbs, sortedWords] = nextBeamStep(model, h_t, beamSize, params, data, mask, tgtPos)
+function [bestLogProbs, bestWords, logProbs, sortedLogProbs, sortedWords] = nextBeamStep(model, h_t, beamSize, params, data, curMask, tgtPos)
   % softmax
   if params.posModel>=1 && mod(tgtPos, 2)==1 % positions
     curInfo.isPredictPos = 1;
   else % words
     curInfo.isPredictPos = 0;
   end
-  [softmax_h] = hid2softForward(h_t, params, model, data, mask, curInfo);  
+  [softmax_h] = hid2softLayerForward(h_t, params, model, data, curMask, curInfo);  
   
   [logProbs] = softmaxDecode(model.W_soft*softmax_h);
   
