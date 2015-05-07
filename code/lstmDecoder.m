@@ -55,12 +55,19 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
   end
   
   W = model.W_src;
-  W_emb = model.W_emb_src;
+  if params.tieEmb
+    W_emb = model.W_emb_tie;
+  else
+    W_emb = model.W_emb_src;
+  end
   for tt=1:srcMaxLen % time
     maskedIds = find(~inputMask(:, tt)); % curBatchSize * 1
     if tt==srcMaxLen % due to implementation in lstmCostGrad, we have to switch to W_tgt here. THIS IS VERY IMPORTANT!
       W = model.W_tgt;
-      W_emb = model.W_emb_tgt;
+      
+      if params.tieEmb==0
+        W_emb = model.W_emb_tgt;
+      end
     end
 
     
@@ -236,7 +243,12 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen
   if params.sameLength
     zeroState = zeroMatrix([params.lstmSize, numElements], params.isGPU, params.dataType);
   end
-  W_emb = model.W_emb_tgt;
+  
+  if params.tieEmb
+    W_emb = model.W_emb_tie;
+  else
+    W_emb = model.W_emb_tgt;
+  end
   for sentPos = 1 : (maxLen-1)
     %% Description:
     % At this point, hypotheses of length sentPos are completed.
