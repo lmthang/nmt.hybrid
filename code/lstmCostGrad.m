@@ -67,8 +67,6 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   
   % attentional model
   if params.attnFunc>0
-    %attnSrcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
-    
     if params.attnFeedInput
       if params.attnRelativePos
         trainData.startAttnIds = zeros(tgtMaxLen, 1);
@@ -82,8 +80,6 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         endHidId = params.numAttnPositions;
       end
     end
-%   else
-%     attnSrcHidVecs = [];
   end
   absAttnSrcHidVecs = [];
   
@@ -157,7 +153,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
           absAttnSrcHidVecs(:, :, startHidId:endHidId) = reshape([all_h_t{params.numLayers, 1:params.numSrcHidVecs}], params.lstmSize, curBatchSize, params.numSrcHidVecs);
         end
         
-        if params.attnFunc==0 || params.attnFeedSoftmax
+        if params.attnFunc==0 || params.attnRelativePos==1 || params.attnFeedSoftmax
           trainData.srcHidVecs = reshape([all_h_t{ll, 1:params.numSrcHidVecs}], params.lstmSize, curBatchSize, params.numSrcHidVecs);
         end
       end

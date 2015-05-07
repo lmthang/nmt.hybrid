@@ -493,17 +493,14 @@ end
 %%
 % return bestLogProbs, bestWords of sizes beamSize * curBatchSize
 %%
-function [bestLogProbs, bestWords, logProbs, sortedLogProbs, sortedWords] = nextBeamStep(model, h_t, beamSize, params, data, mask)
+function [bestLogProbs, bestWords, logProbs, sortedLogProbs, sortedWords] = nextBeamStep(model, h_t, beamSize, params, data, mask, tgtPos)
   % softmax
-  if params.posModel>0
-    error('! Have not implemented decoder for positional models\n');
-  else
-    if params.attnFunc==3 || params.attnFunc==4
-      softmax_h = h_t;
-    else
-      [softmax_h] = hid2softForward(h_t, params, model, data, mask, 0);  
-    end
+  if params.posModel>=1 && mod(tgtPos, 2)==1 % positions
+    curInfo.isPredictPos = 1;
+  else % words
+    curInfo.isPredictPos = 0;
   end
+  [softmax_h] = hid2softForward(h_t, params, model, data, mask, curInfo);  
   
   [logProbs] = softmaxDecode(model.W_soft*softmax_h);
   
