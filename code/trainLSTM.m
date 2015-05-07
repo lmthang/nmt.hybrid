@@ -68,10 +68,12 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'softmaxDim', 0, @isnumeric); % softmaxDim>0 convert hidden state into an intermediate representation of size softmaxDim before going through the softmax
   % attnFunc=0: no attention.
   %          >0: a_t = softmax(W_a * [tgt_h_t; srcLens])  
-  %           1: absolute positions
-  %           2: relative positions
+  %           1: absolute positions + feed to softmax
+  %           2: relative positions + feed to softmax
   %           3: absolute positions + feed to input (start compute attn from srcMaxLen - 1)
   %           4: relative positions + feed to input (start compute attn from srcMaxLen - 1)
+  %           5: absolute positions + feed to input (start compute attn from srcMaxLen - 1) + feed to softmax
+  %           6: relative positions + feed to input (start compute attn from srcMaxLen - 1) + feed to softmax
   addOptional(p,'attnFunc', 0, @isnumeric);
   addOptional(p,'attnSize', 0, @isnumeric); % dim of the vector used to input to the final softmax, if 0, use lstmSize
   addOptional(p,'posWin', 20, @isnumeric); % relative window, also used in positional models 
@@ -172,17 +174,36 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   
   %% set more params
   % attentional/positional models
+  params.attnFeedInput=0;
+  params.attnFeedSoftmax=0;
+  params.attnRelativePos=0;
   if params.attnFunc>0 || params.posModel>0
     if params.attnSize==0
       params.attnSize = params.lstmSize;
     end
     
-    if params.attnFunc==2 || params.attnFunc==4 % relative positions
+    if params.attnFunc==2 || params.attnFunc==4 || params.attnFunc==6 % relative positions
       params.numAttnPositions = 2*params.posWin + 1;
-    elseif params.attnFunc==1 || params.attnFunc==3 % absolute positions
+    elseif params.attnFunc==1 || params.attnFunc==3 || params.attnFunc==5 % absolute positions
       params.numAttnPositions = params.maxSentLen-1;
     end
+    
+    % feed input
+    if params.attnFunc==3 || params.attnFunc==4 || params.attnFunc==5 || params.attnFunc==6 % feed attn vec to input
+      params.attnFeedInput=1;
+    end
+    
+    % feed softmax
+    if params.attnFunc==1 || params.attnFunc==2 || params.attnFunc==5 || params.attnFunc==6 % feed attn vec to input
+      params.attnFeedSoftmax=1;
+    end
+    
+    % relative pos
+    if params.attnFunc==2 || params.attnFunc==4 || params.attnFunc==6 % use relative window instead of absolute window
+      params.attnRelativePos=1;
+    end
   end
+  
   
   assert(strcmp(outDir, '')==0);
   if ~exist(outDir, 'dir')
@@ -383,7 +404,7 @@ function [model] = initLSTM(params)
   for ll=1:params.numLayers
     model.W_tgt{ll} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
   end
-  if params.sameLength==1 || params.attnFunc==3 || params.attnFunc==4 % feed in src hidden states to the tgt
+  if params.sameLength || params.attnFeedInput % feed in src hidden states to the tgt
     model.W_tgt{1} = randomMatrix(params.initRange, [4*params.lstmSize, 3*params.lstmSize], params.isGPU, params.dataType);
   end
   
@@ -396,10 +417,11 @@ function [model] = initLSTM(params)
   else % separate embeddings
     if params.isBi
       model.W_emb_src = randomMatrix(params.initRange, [params.lstmSize, params.srcVocabSize], params.isGPU, params.dataType);
-      model.W_emb_src(:, params.srcZero) = zeros(params.lstmSize, 1);
+      %model.W_emb_src(:, params.srcSos) = zeros(params.lstmSize, 1);
+      %model.W_emb_src(:, params.srcEos) = zeros(params.lstmSize, 1);
     end
     model.W_emb_tgt = randomMatrix(params.initRange, [params.lstmSize, params.tgtVocabSize], params.isGPU, params.dataType);
-    model.W_emb_tgt(:, params.tgtEos) = zeros(params.lstmSize, 1);
+    %model.W_emb_tgt(:, params.tgtEos) = zeros(params.lstmSize, 1);
   end
   
   %% h_t -> softmax input
@@ -407,7 +429,7 @@ function [model] = initLSTM(params)
   if params.attnFunc>0 
     model.W_a = randomMatrix(params.initRange, [params.numAttnPositions, params.lstmSize], params.isGPU, params.dataType);
     
-    if params.attnFunc==1 || params.attnFunc==2 % attn_t = H_src * a_t % h_attn_t = f(W_ah * [attn_t; h_t])
+    if params.attnFeedSoftmax % attn_t = H_src * a_t % h_attn_t = f(W_ah * [attn_t; h_t])
       model.W_ah = randomMatrix(params.initRange, [params.attnSize, 2*params.lstmSize], params.isGPU, params.dataType);
     end
   % compress softmax
@@ -417,7 +439,8 @@ function [model] = initLSTM(params)
   elseif params.posModel>0 
     if params.posModel==2 % W_tgt [x_t; h_t] + W_tgt_pos*s_t, where s_t is the source hidden state and is used to compute the tgt hidden states
       model.W_tgt_pos = randomMatrix(params.initRange, [4*params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
-    elseif params.posModel==3 % h_pos_t = f(W_h * [src_pos_t; h_t])
+    end
+    if params.posModel==3 % h_pos_t = f(W_h * [src_pos_t; h_t])
       model.W_h = randomMatrix(params.initRange, [params.attnSize, 2*params.lstmSize], params.isGPU, params.dataType);
     end
     
@@ -690,7 +713,7 @@ end
 
 function [model, params] = initLoadModel(params)
   % softmaxSize
-  if params.attnFunc>0 || params.posModel>0 % attention/positional mechanism    
+  if params.attnFeedSoftmax || params.posModel>0 % attention/positional mechanism    
     params.softmaxSize = params.attnSize;
   elseif params.softmaxDim>0 % compress softmax
     params.softmaxSize = params.softmaxDim;
@@ -786,24 +809,6 @@ function [params] = setupVars(model, params)
       params.varsDenseUpdate{end+1} = params.vars{ii};
     end
   end
-  
-%   % setup softmax vars
-%   if params.attnFunc==1 || params.attnFunc==2
-%     softmaxVars = {'W_a', 'W_ah'};
-%   elseif params.softmaxDim>0
-%     softmaxVars = {'W_h'};
-%   elseif params.posModel>0
-%     if params.posModel==3
-%       softmaxVars = {'W_h', 'W_softPos'};
-%     else
-%       softmaxVars = {'W_softPos'};
-%     end
-%   else
-%     softmaxVars = {};
-%   end
-%   
-%   softmaxVars{end+1} = 'W_soft';
-%   params.softmaxVars = softmaxVars;
 end
 
 function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab)
@@ -845,6 +850,25 @@ end
 %   end
 
 %% Unused code %%
+  
+%   % setup softmax vars
+%   if params.attnFunc==1 || params.attnFunc==2
+%     softmaxVars = {'W_a', 'W_ah'};
+%   elseif params.softmaxDim>0
+%     softmaxVars = {'W_h'};
+%   elseif params.posModel>0
+%     if params.posModel==3
+%       softmaxVars = {'W_h', 'W_softPos'};
+%     else
+%       softmaxVars = {'W_softPos'};
+%     end
+%   else
+%     softmaxVars = {};
+%   end
+%   
+%   softmaxVars{end+1} = 'W_soft';
+%   params.softmaxVars = softmaxVars;
+
 %       if params.separateEmb==1
 %       else
 %         model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - scaleLr*grad.W_emb;

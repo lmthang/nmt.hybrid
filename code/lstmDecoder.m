@@ -87,7 +87,7 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
           
           % attnForward: h_t -> attnVecs (used the previous hidden state
           % here we use the top hidden state
-          [attnVecs] = attnLayerForward(model, lstm{params.numLayers}.h_t, data.srcHidVecs, data.curMask.mask);
+          [attnVecs] = attnLayerForward(model.W_a, lstm{params.numLayers}.h_t, data.srcHidVecs, data.curMask.mask);
           x_t = [W_emb(:, input(:, tt)); attnVecs];
         elseif params.sameLength && tt==srcMaxLen
           x_t = [W_emb(:, input(:, tt)); data.srcHidVecsAll(:, :, params.numSrcHidVecs-tgtPos+1)];

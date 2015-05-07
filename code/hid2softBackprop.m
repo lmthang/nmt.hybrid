@@ -1,4 +1,4 @@
-function [grad_ht, hid2softGrad, grad_srcHidVecs] = hid2softBackprop(model, grad_softmax_h, hid2softData, softmax_h, isPredictPos, batchData, params)
+function [grad_ht, hid2softGrad, grad_srcHidVecs] = hid2softBackprop(model, grad_softmax_h, hid2softData, softmax_h, isPredictPos, srcHidVecs, params)
   grad_srcHidVecs = [];
   if params.softmaxDim>0 || (params.posModel==3 && isPredictPos==0) % softmax compression or attention or posModel 3
     % f(W_h * input)
@@ -16,7 +16,7 @@ function [grad_ht, hid2softGrad, grad_srcHidVecs] = hid2softBackprop(model, grad
     [grad_ah, hid2softGrad.W_ah] = hiddenLayerBackprop(model.W_ah, grad_softmax_h, hid2softData.attn_h_concat, params.nonlinear_f_prime, softmax_h);
 
     % grad_attn -> grad_ht, grad_W_a, grad_srcHidVecs
-    [grad_ht, hid2softGrad.W_a, grad_srcHidVecs] = attnLayerBackprop(model.W_a, grad_ah(1:params.lstmSize, :), hid2softData.input, params, hid2softData.alignWeights, batchData.srcHidVecs);
+    [grad_ht, hid2softGrad.W_a, grad_srcHidVecs] = attnLayerBackprop(model.W_a, grad_ah(1:params.lstmSize, :), hid2softData.input, params, hid2softData.alignWeights, srcHidVecs);
 
     % grad_ht
     grad_ht = grad_ht + grad_ah(params.lstmSize+1:end, :);

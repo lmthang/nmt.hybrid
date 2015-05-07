@@ -67,25 +67,26 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   
   % attentional model
   if params.attnFunc>0
-    attnSrcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
+    %attnSrcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
     
-    if params.attnFunc==3 || params.attnFunc==4
-      if params.attnFunc==3
+    if params.attnFeedInput
+      if params.attnRelativePos
+        trainData.startAttnIds = zeros(tgtMaxLen, 1);
+        trainData.endAttnIds = zeros(tgtMaxLen, 1);
+        trainData.startHidIds = zeros(tgtMaxLen, 1);
+        trainData.endHidIds = zeros(tgtMaxLen, 1); 
+      else % absolute pos
         startAttnId = 1;
         endAttnId = params.numSrcHidVecs;
         startHidId = params.numAttnPositions-params.numSrcHidVecs+1;
         endHidId = params.numAttnPositions;
-      else
-        trainData.startAttnIds = zeros(tgtMaxLen, 1);
-        trainData.endAttnIds = zeros(tgtMaxLen, 1);
-        trainData.startHidIds = zeros(tgtMaxLen, 1);
-        trainData.endHidIds = zeros(tgtMaxLen, 1);
       end
     end
-  else
-    attnSrcHidVecs = [];
+%   else
+%     attnSrcHidVecs = [];
   end
-    
+  absAttnSrcHidVecs = [];
+  
   % Note: IMPORTANT. For attention-based models or positional models, it it
   % important to build the top hidden states first before moving to the
   % next time step. So DO NOT swap these for loops.
@@ -128,7 +129,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         trainData.maskInfo{tt}.maskedIds = find(~trainData.maskInfo{tt}.mask);
         
         if tt>=srcMaxLen % decoder input
-          [x_t, allDecodeInfo{tgtPos}] = getDecoderInput(input(:, tt), tt, tgtPos, model, W_emb, all_h_t, trainData, attnSrcHidVecs, zeroState, params);
+          [x_t, allDecodeInfo{tgtPos}] = getDecoderInput(input(:, tt), tt, tgtPos, model, W_emb, all_h_t, trainData, absAttnSrcHidVecs, zeroState, params);
           
           % pos model predict words
           if params.posModel==2 && mod(tgtPos, 2)==0 
@@ -151,9 +152,12 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       
       % attention-based or positional-based models or same-length decoder: keep track of all the src hidden states
       if tt==params.numSrcHidVecs && ll==params.numLayers && (params.attnFunc>0 || params.posModel>=2 || params.sameLength==1)
-        if params.attnFunc==3
-          attnSrcHidVecs(:, :, startHidId:endHidId) = reshape([all_h_t{params.numLayers, 1:params.numSrcHidVecs}], params.lstmSize, curBatchSize, params.numSrcHidVecs);
-        else
+        if params.attnFeedInput && params.attnRelativePos==0 % absolute positions
+          absAttnSrcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
+          absAttnSrcHidVecs(:, :, startHidId:endHidId) = reshape([all_h_t{params.numLayers, 1:params.numSrcHidVecs}], params.lstmSize, curBatchSize, params.numSrcHidVecs);
+        end
+        
+        if params.attnFunc==0 || params.attnFeedSoftmax
           trainData.srcHidVecs = reshape([all_h_t{ll, 1:params.numSrcHidVecs}], params.lstmSize, curBatchSize, params.numSrcHidVecs);
         end
       end
@@ -217,6 +221,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   % NOTE: IMPORTANT for tt first, then for ll in other for attn3,4, pos2 models to work
   for tt=T:-1:1 % time
     unmaskedIds = trainData.maskInfo{tt}.unmaskedIds;
+    maskedIds = trainData.maskInfo{tt}.maskedIds;
     tgtPos = tt-srcMaxLen+1;
     if tt>=srcMaxLen
       decodeInfo = allDecodeInfo{tgtPos};
@@ -234,10 +239,6 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         if (tt>=srcMaxLen) % get signals from the softmax layer
           dh{ll} = dh{ll} + grad_tgt_ht{tgtPos};
         end
-
-        if (params.attnFunc==3 || params.attnFunc==4) && tt>=(srcMaxLen-1) && tt<T
-          dh{ll} = dh{ll} + grad_attn_ht;
-        end
           
         if tt<=params.numSrcHidVecs % attention/pos models: get feedback from grad.srcHidVecs
           dh{ll} = dh{ll} + grad.srcHidVecs(:,:,tt);
@@ -253,8 +254,13 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       c_t = all_c_t{ll, tt};
       lstm = lstms{ll, tt};
       
-      [lstm_grad] = lstmUnitGrad(W, lstm, c_t, c_t_1, dc{ll}, dh{ll}, ll, tt, srcMaxLen, zeroState, params);
+      [lstm_grad] = lstmUnitGrad(W, lstm, c_t, c_t_1, dc{ll}, dh{ll}, ll, tt, srcMaxLen, zeroState, maskedIds, params);
       dc{ll} = lstm_grad.dc;
+      
+      % assert
+      if params.assert
+        assert(sum(sum(abs(lstm_grad.input(:, maskedIds))))==0);
+      end
       
       %% grad.W_src / grad.W_tgt
       if (tt>=srcMaxLen)
@@ -292,21 +298,24 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
           grad.srcHidVecs(linearIndices) = grad.srcHidVecs(linearIndices) + reshape(lstm_grad.input(params.lstmSize+1:2*params.lstmSize, unmaskedIds), 1, []);          
         end
 
-        % attn model 3, 4
-        if (params.attnFunc==3 || params.attnFunc==4) && tt>=srcMaxLen
-          if params.attnFunc==4 % relative pos, so have to compute curSrcHidVecs
+        % attn feed input
+        if params.attnFeedInput && tt>=srcMaxLen
+          if params.attnRelativePos % relative
+            attnSrcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
             startAttnId = decodeInfo.startAttnId;
             endAttnId = decodeInfo.endAttnId;
             startHidId = decodeInfo.startHidId;
             endHidId = decodeInfo.endHidId;
             attnSrcHidVecs(:, :, startHidId:endHidId) = trainData.srcHidVecs(:, :, startAttnId:endAttnId);
-            attnSrcHidVecs(:, :, 1:startHidId-1) = 0;
-            attnSrcHidVecs(:, :, endHidId+1:end) = 0;
+          else % absolute
+            attnSrcHidVecs = absAttnSrcHidVecs;
           end
           
           % grad_attn -> grad_ht, grad_W_a, grad_srcHidVecs
           % grad_attn_ht will be used in time tt-1, at the top layer
-          [grad_attn_ht, grad_W_a, grad_srcHidVecs] = attnLayerBackprop(model.W_a, lstm_grad.input(params.lstmSize+1:2*params.lstmSize, :), all_h_t{params.numLayers, tt-1}, ...
+          prev_ht = all_h_t{params.numLayers, tt-1};
+          prev_ht(:, maskedIds) = 0;
+          [grad_attn_ht, grad_W_a, grad_srcHidVecs] = attnLayerBackprop(model.W_a, lstm_grad.input(params.lstmSize+1:2*params.lstmSize, :), prev_ht, ...
             params, decodeInfo.alignWeights, attnSrcHidVecs);
           
           % update srcHidVecs
@@ -314,7 +323,10 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
           
           % update W_a
           grad.W_a = grad.W_a + grad_W_a;
-        end
+          
+          % update the top hidden layer of the previous time step
+          dh{params.numLayers} = dh{params.numLayers} + grad_attn_ht;
+        end % if attnFeedInput
         
         numWords = length(embIndices);
         
@@ -379,10 +391,10 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   end
 end
 
-function [x_t, decodeInfo] = getDecoderInput(decodeInput, tt, tgtPos, model, W_emb, all_h_t, trainData, attnSrcHidVecs, zeroState, params)
+function [x_t, decodeInfo] = getDecoderInput(decodeInput, tt, tgtPos, model, W_emb, all_h_t, trainData, absAttnSrcHidVecs, zeroState, params)
   decodeInfo = [];
   
-  if params.sameLength==1 || params.attnFunc==3 || params.attnFunc==4 || (params.posModel==2 && mod(tgtPos, 2)==0)
+  if params.sameLength==1 || params.attnFeedInput || (params.posModel==2 && mod(tgtPos, 2)==0)
     % same-length decoder
     if params.sameLength==1
       if tgtPos>params.numSrcHidVecs
@@ -392,17 +404,18 @@ function [x_t, decodeInfo] = getDecoderInput(decodeInput, tt, tgtPos, model, W_e
       end
     end
 
-    % attention model 3, 4
-    if params.attnFunc==3 || params.attnFunc==4
-      if params.attnFunc==4
+    % attention feed input
+    if params.attnFeedInput
+      if params.attnRelativePos % relative
         [decodeInfo.startAttnId, decodeInfo.endAttnId, decodeInfo.startHidId, decodeInfo.endHidId] = buildSrcHidVecs(trainData.srcMaxLen, tgtPos, params);
+        attnSrcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
         attnSrcHidVecs(:, :, decodeInfo.startHidId:decodeInfo.endHidId) = trainData.srcHidVecs(:, :, decodeInfo.startAttnId:decodeInfo.endAttnId);
-        attnSrcHidVecs(:, :, 1:decodeInfo.startHidId-1) = 0;
-        attnSrcHidVecs(:, :, decodeInfo.endHidId+1:end) = 0;
+      else % absolute
+        attnSrcHidVecs = absAttnSrcHidVecs;
       end
-
+      
       % attnForward: h_t -> attnVecs (used the top previous hidden state)
-      [attnVecs, decodeInfo.alignWeights] = attnLayerForward(model, all_h_t{params.numLayers, tt-1}, attnSrcHidVecs, trainData.maskInfo{tt}.mask);
+      [attnVecs, decodeInfo.alignWeights] = attnLayerForward(model.W_a, all_h_t{params.numLayers, tt-1}, attnSrcHidVecs, trainData.maskInfo{tt}.mask);
       x_t = [W_emb(:, decodeInput); attnVecs];
     end
 

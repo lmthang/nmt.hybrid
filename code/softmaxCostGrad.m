@@ -19,7 +19,7 @@ function [allCosts, allGrads, grad_tgt_ht] = softmaxCostGrad(model, params, trai
   % init grads
   %[allGrads] = initSoftmaxGrad(model, params);
   if trainData.isTest == 0 && (params.epoch>=params.decodeUpdateEpoch || params.decodeUpdateOpt==2)
-    if params.attnFunc>0 || params.posModel==3
+    if params.attnFeedSoftmax || params.posModel==3
       allGrads.srcHidVecs = zeroMatrix([params.lstmSize, curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);
     end
   else
@@ -35,17 +35,19 @@ function [allCosts, allGrads, grad_tgt_ht] = softmaxCostGrad(model, params, trai
   end
     
   % attention
-  if params.attnFunc>0
-    batchData.srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
-    if params.attnFunc==1
+  srcHidVecs = [];
+  if params.attnFeedSoftmax
+    %batchData.srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
+    if params.attnRelativePos==0 % absolute position
       startAttnId = 1;
       endAttnId = params.numSrcHidVecs;
       startHidId = params.numAttnPositions-params.numSrcHidVecs+1;
       endHidId = params.numAttnPositions;
-      batchData.srcHidVecs(:, :, startHidId:endHidId) = trainData.srcHidVecs;
+      absSrcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
+      absSrcHidVecs(:, :, startHidId:endHidId) = trainData.srcHidVecs;
     end
-  else
-    batchData.srcHidVecs = [];
+%   else
+%     batchData.srcHidVecs = [];
   end
   
   %% predict words from srcMaxLen to T
@@ -61,15 +63,20 @@ function [allCosts, allGrads, grad_tgt_ht] = softmaxCostGrad(model, params, trai
     
     % positional model 3: refer to src info, assume softmaxStep==1
     if params.posModel==3
-      [batchData.srcPosVecs, batchData.linearIndices] = buildSrcPosVecs(tt, params, trainData, predWords, curMask);
+      [srcHidVecs, batchData.linearIndices] = buildSrcPosVecs(tt, params, trainData, predWords, curMask);
     end
 
-    % attention model 2: relative positions, we assume softmaxStep=1
-    if params.attnFunc==2
-      [startAttnId, endAttnId, startHidId, endHidId] = buildSrcHidVecs(srcMaxLen, tgtPos, params);
-      batchData.srcHidVecs(:, :, startHidId:endHidId) = trainData.srcHidVecs(:, :, startAttnId:endAttnId);
-      batchData.srcHidVecs(:, :, 1:startHidId-1) = 0;
-      batchData.srcHidVecs(:, :, endHidId+1:end) = 0;
+    % attention
+    if params.attnFeedSoftmax
+      if params.attnRelativePos % relative
+        [startAttnId, endAttnId, startHidId, endHidId] = buildSrcHidVecs(srcMaxLen, tgtPos, params);
+        srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
+        srcHidVecs(:, :, startHidId:endHidId) = trainData.srcHidVecs(:, :, startAttnId:endAttnId);
+        %batchData.srcHidVecs(:, :, 1:startHidId-1) = 0;
+        %batchData.srcHidVecs(:, :, endHidId+1:end) = 0;
+      else
+        srcHidVecs = absSrcHidVecs;
+      end
     end
     
     % predict
@@ -83,10 +90,10 @@ function [allCosts, allGrads, grad_tgt_ht] = softmaxCostGrad(model, params, trai
     end
     
     % h_t -> softmax_h
-    if params.attnFunc==3 || params.attnFunc==4
+    if params.attnFunc>0 && params.attnFeedSoftmax==0
       softmax_h = h_t;
     else
-      [softmax_h, hid2softData] = hid2softForward(h_t, params, model, batchData, curMask.mask, isPredictPos);
+      [softmax_h, hid2softData] = hid2softForward(h_t, params, model, srcHidVecs, curMask.mask, isPredictPos);
     end
     
     %% softmax
@@ -114,8 +121,8 @@ function [allCosts, allGrads, grad_tgt_ht] = softmaxCostGrad(model, params, trai
       end
       
       %% grad_softmax_h -> h_t
-      if params.attnFunc==1 || params.attnFunc==2 || params.softmaxDim>0 || (params.posModel==3 && isPredictPos==0)
-        [grad_tgt_ht{tgtPos}, hid2softGrad, grad_srcHidVecs] = hid2softBackprop(model, grad_softmax_h, hid2softData, softmax_h, isPredictPos, batchData, params);
+      if params.attnFeedSoftmax || params.softmaxDim>0 || (params.posModel==3 && isPredictPos==0)
+        [grad_tgt_ht{tgtPos}, hid2softGrad, grad_srcHidVecs] = hid2softBackprop(model, grad_softmax_h, hid2softData, softmax_h, isPredictPos, srcHidVecs, params);
         fields = fieldnames(hid2softGrad);
         for ii=1:length(fields)
           field = fields{ii};
@@ -127,7 +134,7 @@ function [allCosts, allGrads, grad_tgt_ht] = softmaxCostGrad(model, params, trai
         end
 
         % attention models: srcHidVecs
-        if params.attnFunc>0
+        if params.attnFeedSoftmax>0
           allGrads.srcHidVecs(:, :, startAttnId:endAttnId) = allGrads.srcHidVecs(:, :, startAttnId:endAttnId) + grad_srcHidVecs(:, :, startHidId:endHidId);
         end
 

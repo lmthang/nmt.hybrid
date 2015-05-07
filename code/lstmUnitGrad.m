@@ -1,4 +1,7 @@
-function [lstm_grad] = lstmUnitGrad(W, lstm, c_t, c_t_1, dc, dh, ll, t, srcMaxLen, zero_state, params)
+function [lstm_grad] = lstmUnitGrad(W, lstm, c_t, c_t_1, dc, dh, ll, t, srcMaxLen, zero_state, maskedIds, params)
+  dh(:, maskedIds) = 0;
+  dc(:, maskedIds) = 0;
+  
   if params.isGPU
     %% dh, dc
     if params.lstmOpt==0 % h_t = o_g * f(c_t)

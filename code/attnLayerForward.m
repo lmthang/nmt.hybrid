@@ -1,4 +1,4 @@
-function [outVec, alignWeights] = attnLayerForward(model, inVec, srcHidVecs, mask)
+function [outVec, alignWeights] = attnLayerForward(W_a, inVec, srcHidVecs, mask)
 %%%
 %
 % Compute context vectors for attention-based models.
@@ -8,7 +8,7 @@ function [outVec, alignWeights] = attnLayerForward(model, inVec, srcHidVecs, mas
 %%%
   % s_t = W_a * inVec
   % align weights a_t = softmax(s_t): numAttnPositions*curBatchSize
-  alignWeights = softmax(model.W_a*inVec);
+  alignWeights = softmax(W_a*inVec);
   
   % alignWeights: numAttnPositions*curBatchSize
   % mask: 1 * curBatchSize
