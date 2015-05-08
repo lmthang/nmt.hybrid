@@ -1,10 +1,10 @@
-function [cost, probs, scores, scoreIndices] = softmaxLayerForward(W, inVec, predLabels, curMask)
-%
+%%
 % Perform softmax prediction.
 %
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 %
-%%%
+%%
+function [cost, probs, scores, scoreIndices] = softmaxLayerForward(W, inVec, predLabels, curMask)
   mask = curMask.mask;
   unmaskedIds = curMask.unmaskedIds;
   

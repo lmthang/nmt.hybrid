@@ -1,5 +1,4 @@
-function [candidates, candScores] = lstmDecoder(model, data, params)
-%%%
+%%
 %
 % Decode from an LSTM model.
 %   stackSize: the maximum number of translations we want to get.
@@ -10,7 +9,8 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 %   With help from Hieu Pham.
 %
-%%%
+%%
+function [candidates, candScores] = lstmDecoder(model, data, params)
   beamSize = params.beamSize;
   stackSize = params.stackSize;
   
@@ -181,9 +181,7 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, minLen
   %% first prediction
   if params.attnFunc==2
     tgtPos = 1;
-    data.srcHidVecs = zeroMatrix([params.lstmSize, batchSize, params.numAttnPositions], params.isGPU, params.dataType);
-    [startAttnId, endAttnId, startHidId, endHidId] = buildSrcHidVecs(srcMaxLen, tgtPos, params);
-    data.srcHidVecs(:, :, startHidId:endHidId) = data.srcHidVecsAll(:, :, startAttnId:endAttnId);
+    [data.srcHidVecs] = buildSrcHidVecs(data.srcHidVecsAll, srcMaxLen, tgtPos, params);
   end
   
   curMask.mask = ones(1, batchSize);
@@ -518,9 +516,7 @@ function [logProbs] = softmaxDecode(scores)
 end
 
 function [srcHidVecs] = computeRelativeSrcHidVecs(srcHidVecsAll, srcMaxLen, tgtPos, batchSize, params, beamSize)
-  srcHidVecs = zeroMatrix([params.lstmSize, batchSize, params.numAttnPositions], params.isGPU, params.dataType);
-  [startAttnId, endAttnId, startHidId, endHidId] = buildSrcHidVecs(srcMaxLen, tgtPos, params);
-  srcHidVecs(:, :, startHidId:endHidId) = srcHidVecsAll(:, :, startAttnId:endAttnId);
+  [srcHidVecs] = buildSrcHidVecs(srcHidVecsAll, srcMaxLen, tgtPos, params);
 
   % duplicate srcHidVecs along the curBatchSize dimension beamSize times
   if (beamSize>1)

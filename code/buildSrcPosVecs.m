@@ -1,4 +1,4 @@
-function [srcPosVecs, linearIndices] = buildSrcPosVecs(t, params, data, predPositions, curMask)
+function [srcPosVecs, linearIndices] = buildSrcPosVecs(tgtPos, params, trainData, predPositions, curMask)
 %%%
 %
 % For positional models, generate src vectors based on the predicted positions.
@@ -8,12 +8,9 @@ function [srcPosVecs, linearIndices] = buildSrcPosVecs(t, params, data, predPosi
 %%%
   unmaskedIds = curMask.unmaskedIds;
 
-  srcMaxLen = data.srcMaxLen;
-  srcHidVecs = data.srcHidVecs;
-  srcLens = data.srcLens(unmaskedIds);
+  srcMaxLen = trainData.srcMaxLen; 
+  srcLens = trainData.srcLens(unmaskedIds);
   
-  srcPosVecs = zeroMatrix([params.lstmSize, params.curBatchSize], params.isGPU, params.dataType);
-  tgtPos = t-srcMaxLen+1;
   predPositions = predPositions(unmaskedIds);
   
  
@@ -38,8 +35,9 @@ function [srcPosVecs, linearIndices] = buildSrcPosVecs(t, params, data, predPosi
 
   %% get srcPosVecs
   % topHidVecs: lstmSize * curBatchSize * T
-  [linearIndices] = getTensorLinearIndices(srcHidVecs, unmaskedIds, colIndices);
-  srcPosVecs(:, unmaskedIds) = reshape(srcHidVecs(linearIndices), params.lstmSize, length(unmaskedIds)); 
+  [linearIndices] = getTensorLinearIndices(trainData.srcHidVecs, unmaskedIds, colIndices);
+  srcPosVecs = zeroMatrix([params.lstmSize, params.curBatchSize], params.isGPU, params.dataType);
+  srcPosVecs(:, unmaskedIds) = reshape(trainData.srcHidVecs(linearIndices), params.lstmSize, length(unmaskedIds)); 
   
 
   % assert

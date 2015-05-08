@@ -174,34 +174,25 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   
   %% set more params
   % attentional/positional models
-  params.attnFeedInput=0;
-  params.attnFeedSoftmax=0;
+  %params.attnFeedInput=0;
   params.attnRelativePos=0;
   if params.attnFunc>0 || params.posModel>0
     if params.attnSize==0
       params.attnSize = params.lstmSize;
     end
     
-    if params.attnFunc==2 || params.attnFunc==4 || params.attnFunc==6 % relative positions
+    % positions
+    if params.attnFunc==2 || params.attnFunc==4 % relative
       params.numAttnPositions = 2*params.posWin + 1;
-    elseif params.attnFunc==1 || params.attnFunc==3 || params.attnFunc==5 % absolute positions
+      params.attnRelativePos=1;
+    elseif params.attnFunc==1 || params.attnFunc==3 % absolute
       params.numAttnPositions = params.maxSentLen-1;
     end
     
-    % feed input
-    if params.attnFunc==3 || params.attnFunc==4 || params.attnFunc==5 || params.attnFunc==6 % feed attn vec to input
-      params.attnFeedInput=1;
-    end
-    
-    % feed softmax
-    if params.attnFunc==1 || params.attnFunc==2 || params.attnFunc==5 || params.attnFunc==6 % feed attn vec to input
-      params.attnFeedSoftmax=1;
-    end
-    
-    % relative pos
-    if params.attnFunc==2 || params.attnFunc==4 || params.attnFunc==6 % use relative window instead of absolute window
-      params.attnRelativePos=1;
-    end
+%     % feed input
+%     if params.attnFunc==3 || params.attnFunc==4
+%       params.attnFeedInput=1;
+%     end
   end
   
   
@@ -404,7 +395,7 @@ function [model] = initLSTM(params)
   for ll=1:params.numLayers
     model.W_tgt{ll} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
   end
-  if params.sameLength || params.attnFeedInput % feed in src hidden states to the tgt
+  if params.sameLength % || params.attnFeedInput % feed in src hidden states to the tgt
     model.W_tgt{1} = randomMatrix(params.initRange, [4*params.lstmSize, 3*params.lstmSize], params.isGPU, params.dataType);
   end
   
@@ -429,9 +420,8 @@ function [model] = initLSTM(params)
   if params.attnFunc>0 
     model.W_a = randomMatrix(params.initRange, [params.numAttnPositions, params.lstmSize], params.isGPU, params.dataType);
     
-    if params.attnFeedSoftmax % attn_t = H_src * a_t % h_attn_t = f(W_ah * [attn_t; h_t])
-      model.W_ah = randomMatrix(params.initRange, [params.attnSize, 2*params.lstmSize], params.isGPU, params.dataType);
-    end
+    % attn_t = H_src * a_t % h_attn_t = f(W_ah * [attn_t; h_t])
+    model.W_ah = randomMatrix(params.initRange, [params.attnSize, 2*params.lstmSize], params.isGPU, params.dataType);
   % compress softmax
   elseif params.softmaxDim>0 
     model.W_h = randomMatrix(params.initRange, [params.softmaxDim, params.lstmSize], params.isGPU, params.dataType);
@@ -713,7 +703,7 @@ end
 
 function [model, params] = initLoadModel(params)
   % softmaxSize
-  if params.attnFeedSoftmax || params.posModel>0 % attention/positional mechanism    
+  if params.attnFunc % attention/positional mechanism    
     params.softmaxSize = params.attnSize;
   elseif params.softmaxDim>0 % compress softmax
     params.softmaxSize = params.softmaxDim;

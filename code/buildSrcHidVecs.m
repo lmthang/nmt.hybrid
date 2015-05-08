@@ -1,4 +1,4 @@
-function [startAttnId, endAttnId, startHidId, endHidId] = buildSrcHidVecs(srcMaxLen, tgtPos, params)
+function [srcHidVecs, startAttnId, endAttnId, startHidId, endHidId] = buildSrcHidVecs(srcHidVecsAll, srcMaxLen, tgtPos, params)
 
   startAttnId = (srcMaxLen-tgtPos)-params.posWin;
   endAttnId = (srcMaxLen-tgtPos) + params.posWin;
@@ -19,4 +19,8 @@ function [startAttnId, endAttnId, startHidId, endHidId] = buildSrcHidVecs(srcMax
     end
     endAttnId = params.numSrcHidVecs; % Note: don't swap these two lines
   end
+  
+  batchSize = size(srcHidVecsAll, 2);
+  srcHidVecs = zeroMatrix([params.lstmSize, batchSize, params.numAttnPositions], params.isGPU, params.dataType);
+  srcHidVecs(:, :, startHidId:endHidId) = srcHidVecsAll(:, :, startAttnId:endAttnId);
 end
