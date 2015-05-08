@@ -420,8 +420,8 @@ function [model] = initLSTM(params)
   if params.attnFunc>0 
     model.W_a = randomMatrix(params.initRange, [params.numAttnPositions, params.lstmSize], params.isGPU, params.dataType);
     
-    % attn_t = H_src * a_t % h_attn_t = f(W_ah * [attn_t; h_t])
-    model.W_ah = randomMatrix(params.initRange, [params.attnSize, 2*params.lstmSize], params.isGPU, params.dataType);
+    % attn_t = H_src * a_t % h_attn_t = f(W_h * [attn_t; h_t])
+    model.W_h = randomMatrix(params.initRange, [params.attnSize, 2*params.lstmSize], params.isGPU, params.dataType);
   % compress softmax
   elseif params.softmaxDim>0 
     model.W_h = randomMatrix(params.initRange, [params.softmaxDim, params.lstmSize], params.isGPU, params.dataType);

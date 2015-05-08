@@ -68,19 +68,19 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   end
   
   % attentional model
-%   if params.attnFeedInput
-%     if params.attnRelativePos
-%       trainData.startAttnIds = zeros(tgtMaxLen, 1);
-%       trainData.endAttnIds = zeros(tgtMaxLen, 1);
-%       trainData.startHidIds = zeros(tgtMaxLen, 1);
-%       trainData.endHidIds = zeros(tgtMaxLen, 1); 
-%     else % absolute pos
-%       startAttnId = 1;
-%       endAttnId = params.numSrcHidVecs;
-%       startHidId = params.numAttnPositions-params.numSrcHidVecs+1;
-%       endHidId = params.numAttnPositions;
-%     end
-%   end
+  if params.attnFunc
+    if params.attnRelativePos
+      trainData.startAttnIds = zeros(tgtMaxLen, 1);
+      trainData.endAttnIds = zeros(tgtMaxLen, 1);
+      trainData.startHidIds = zeros(tgtMaxLen, 1);
+      trainData.endHidIds = zeros(tgtMaxLen, 1); 
+    else % absolute pos
+      startAttnId = 1;
+      endAttnId = params.numSrcHidVecs;
+      startHidId = params.numAttnPositions-params.numSrcHidVecs+1;
+      endHidId = params.numAttnPositions;
+    end
+  end
   absAttnSrcHidVecs = [];
   
   % Note: IMPORTANT. For attention-based models or positional models, it it
@@ -147,19 +147,20 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       [lstms{ll, tt}, all_h_t{ll, tt}, all_c_t{ll, tt}] = lstmUnit(W, x_t, h_t_1, c_t_1, ll, tt, srcMaxLen, params, isTest); 
       
       % softmax_h
-%       if tt>=srcMaxLen && ll==params.numLayers % decoding phase, tgtPos>=1
-%         [softmaxVecAll{tgtPos}, h2sInfoAll{tgtPos}] = hid2softLayerForward(all_h_t{ll, tt}, params, model, trainData, trainData.maskInfo{tt}, tgtPos);
-%       end
+      if tt>=srcMaxLen && ll==params.numLayers % decoding phase, tgtPos>=1
+        [softmaxVecAll{tgtPos}, h2sInfoAll{tgtPos}] = hid2softLayerForward(all_h_t{ll, tt}, params, model, trainData, trainData.maskInfo{tt}, tgtPos);
+      end
       
       % attention-based or positional-based models or same-length decoder: keep track of all the src hidden states
       if tt==params.numSrcHidVecs && ll==params.numLayers && (params.attnFunc>0 || params.posModel>=2 || params.sameLength==1)
         trainData.srcHidVecs = reshape([all_h_t{params.numLayers, 1:params.numSrcHidVecs}], params.lstmSize, curBatchSize, params.numSrcHidVecs);
         
-%         if params.attnFeedInput && params.attnRelativePos==0 % absolute positions
-%           absAttnSrcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
-%           absAttnSrcHidVecs(:, :, startHidId:endHidId) = reshape([all_h_t{params.numLayers, 1:params.numSrcHidVecs}], params.lstmSize, curBatchSize, params.numSrcHidVecs);
-%         end
+        if params.attnFunc && params.attnRelativePos==0 % absolute positions
+          trainData.absSrcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
+          trainData.absSrcHidVecs(:, :, startHidId:endHidId) = trainData.srcHidVecs;
+        end
       end
+      
       
       % assert
       if params.assert
@@ -173,7 +174,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   %%%%%%%%%%%%%%%
   %%% SOFTMAX %%%
   %%%%%%%%%%%%%%%
-  [costs, softmaxGrad, grad_tgt_ht] = hid2lossCostGrad(model, params, trainData, all_h_t(params.numLayers, :));
+  [costs, softmaxGrad, grad_tgt_ht] = hid2lossCostGrad(model, params, trainData, softmaxVecAll, h2sInfoAll); %all_h_t(params.numLayers, :));
   if isTest==1 % don't compute grad
     return;
   else
@@ -307,7 +308,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
 %             endHidId = decodeInfo.endHidId;
 %             attnSrcHidVecs(:, :, startHidId:endHidId) = trainData.srcHidVecs(:, :, startAttnId:endAttnId);
 %           else % absolute
-%             attnSrcHidVecs = absAttnSrcHidVecs;
+%             attnSrcHidVecs = trainData.absSrcHidVecs;
 %           end
 %           
 %           % grad_attn -> grad_ht, grad_W_a, grad_srcHidVecs

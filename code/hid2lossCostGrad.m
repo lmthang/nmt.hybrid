@@ -8,7 +8,7 @@
 %
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 %%
-function [allCosts, allGrads, grad_tgt_ht] = hid2lossCostGrad(model, params, trainData, topHidVecs)
+function [allCosts, allGrads, grad_tgt_ht] = hid2lossCostGrad(model, params, trainData, softmaxVecAll, h2sInfoAll) %topHidVecs)
   curBatchSize = params.curBatchSize;
   T = trainData.T;
   srcMaxLen = trainData.srcMaxLen;
@@ -62,11 +62,14 @@ function [allCosts, allGrads, grad_tgt_ht] = hid2lossCostGrad(model, params, tra
       matrixName = 'W_soft';
     end
     
-    % h_t
-    h_t = [topHidVecs{:, tt}];
+%     % h_t
+%     h_t = [topHidVecs{:, tt}];
+%     
+%     %% h_t -> softmax_h
+%     [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainData, curMask, tgtPos);
     
-    %% h_t -> softmax_h
-    [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainData, curMask, tgtPos);
+    softmax_h = softmaxVecAll{tgtPos};
+    h2sInfo = h2sInfoAll{tgtPos};
     
     %% softmax_h -> loss --> softmax
     [cost, probs, scores, scoreIndices] = softmaxLayerForward(model.(matrixName), softmax_h, predWords, curMask);
@@ -105,7 +108,7 @@ function [allCosts, allGrads, grad_tgt_ht] = hid2lossCostGrad(model, params, tra
     
       % softmax_h -> h_t
       if params.attnFunc || params.softmaxDim>0 || (params.posModel==3 && isPredictPos==0) % position 3, predict words
-        [grad_tgt_ht{tgtPos}, hid2softGrad, grad_srcHidVecs] = hid2softLayerBackprop(model, grad_softmax_h, trainData, h2sInfo, h_t, softmax_h, ...
+        [grad_tgt_ht{tgtPos}, hid2softGrad, grad_srcHidVecs] = hid2softLayerBackprop(model, grad_softmax_h, trainData, h2sInfo, softmax_h, ...
           isPredictPos, params);
         
         fields = fieldnames(hid2softGrad);
