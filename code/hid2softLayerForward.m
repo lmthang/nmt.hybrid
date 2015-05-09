@@ -18,7 +18,8 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
       h2sInfo.input = [srcHidVecs; h_t];
     elseif params.attnFunc % attention mechanism: f(W_h*[attn_t; tgt_h_t])
       if params.attnRelativePos % relative
-        [srcHidVecs, h2sInfo.startAttnId, h2sInfo.endAttnId, h2sInfo.startHidId, h2sInfo.endHidId] = buildSrcHidVecs(trainData.srcHidVecs, trainData.srcMaxLen, tgtPos, params);
+        [srcHidVecs, h2sInfo.startAttnId, h2sInfo.endAttnId, h2sInfo.startHidId, h2sInfo.endHidId] = buildSrcHidVecs(...
+          trainData.srcHidVecs, trainData.srcMaxLen, tgtPos, params);
       else
         srcHidVecs = trainData.absSrcHidVecs;
       end

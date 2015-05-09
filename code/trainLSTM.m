@@ -88,6 +88,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
   addOptional(p,'sameLength', 0, @isnumeric); % sameLength=1: output and input are of the same length, so let's feed the src hidden states into the tgt!
   addOptional(p,'tieEmb', 0, @isnumeric); % 1: tie src/tgt embeddings (when src/tgt languages are the same)
+  addOptional(p,'softmaxFeedInput', 0, @isnumeric); % 1: feed the softmax vector to the next timestep input
   
   addOptional(p,'monoFile', '', @ischar); % to bootstrap the decoder with a monolingual model
   addOptional(p,'decodeUpdateEpoch', 1, @isnumeric); % when to start updating the pretrained decoder epoch>=monoUpdateEpoch (1 means start updating at the very beginning).
@@ -174,7 +175,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   
   %% set more params
   % attentional/positional models
-  %params.attnFeedInput=0;
   params.attnRelativePos=0;
   if params.attnFunc>0 || params.posModel>0
     if params.attnSize==0
@@ -182,17 +182,12 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     end
     
     % positions
-    if params.attnFunc==2 || params.attnFunc==4 % relative
+    if params.attnFunc==2 % relative
       params.numAttnPositions = 2*params.posWin + 1;
       params.attnRelativePos=1;
-    elseif params.attnFunc==1 || params.attnFunc==3 % absolute
+    elseif params.attnFunc==1 % absolute
       params.numAttnPositions = params.maxSentLen-1;
     end
-    
-%     % feed input
-%     if params.attnFunc==3 || params.attnFunc==4
-%       params.attnFeedInput=1;
-%     end
   end
   
   
@@ -395,7 +390,7 @@ function [model] = initLSTM(params)
   for ll=1:params.numLayers
     model.W_tgt{ll} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
   end
-  if params.sameLength % || params.attnFeedInput % feed in src hidden states to the tgt
+  if params.sameLength || params.softmaxFeedInput % feed in src hidden states to the tgt
     model.W_tgt{1} = randomMatrix(params.initRange, [4*params.lstmSize, 3*params.lstmSize], params.isGPU, params.dataType);
   end
   
