@@ -30,7 +30,7 @@ end
 
 
 function printSrc(fid, data, ii, params, sentId)
-  mask = data.inputMask(ii,1:data.srcMaxLen);
+  mask = data.inputMask(ii,1:data.srcMaxLen-1);
   src = data.input(ii,mask);
   printSent(fid, src, params.srcVocab, ['  src ' num2str(sentId) ': ']);
 end

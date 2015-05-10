@@ -132,7 +132,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     assert(params.isBi==1);
     assert(params.attnFunc==0);
   end
-  if params.attnFunc>0 || params.sameLength==1
+  if params.attnFunc>0 || params.sameLength==1 || params.posModel>=2
     assert(params.isReverse==1);
   end
   if params.softmaxDim>0
@@ -566,7 +566,7 @@ function [params] = evalSaveDecode(model, validData, testData, params, srcTrainS
   save(params.modelRecentFile, 'model', 'params');
 
   % decode
-  if params.isBi && params.posModel<=0 && params.decode==1
+  if params.isBi && params.decode==1
     validId = randi(validData.numSents);
     testId = randi(testData.numSents);
     decodeSent(srcTrainSents(1), tgtTrainSents(1), model, params);

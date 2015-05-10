@@ -133,9 +133,10 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         trainData.maskInfo{tt}.mask = inputMask(:, tt)'; % curBatchSize * 1
         trainData.maskInfo{tt}.unmaskedIds = find(trainData.maskInfo{tt}.mask);
         trainData.maskInfo{tt}.maskedIds = find(~trainData.maskInfo{tt}.mask);
+        curMask = trainData.maskInfo{tt};
         
         if tt>=srcMaxLen % decoder input
-          [x_t, allInputInfo{tgtPos}] = getLstmDecoderInput(input(:, tt), tgtPos, W_emb, softmax_h, trainData, zeroState, params);
+          [x_t, allInputInfo{tgtPos}] = getLstmDecoderInput(input(:, tt)', tgtPos, W_emb, softmax_h, trainData, zeroState, params, curMask);
           % pos model predict words
           if params.posModel==2 && mod(tgtPos, 2)==0 
             W = W_tgt_combined;
@@ -144,7 +145,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
           x_t = W_emb(:, input(:, tt));
         end
         
-        curMask = trainData.maskInfo{tt};
+        
       else % subsequent layer, use the previous-layer hidden state
         x_t = all_h_t{ll-1, tt}; % lstm{ll-1, t}.h_t;
       end
@@ -160,7 +161,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       %% Loss
       if tt>=srcMaxLen && ll==params.numLayers % decoding phase, tgtPos>=1
         % h_t -> softmax_h
-        [softmax_h, h2sInfoAll{tgtPos}] = hid2softLayerForward(all_h_t{ll, tt}, params, model, trainData, curMask, tgtPos);
+        [softmax_h, h2sInfoAll{tgtPos}] = hid2softLayerForward(all_h_t{ll, tt}, params, model, trainData, curMask, tgtPos, 0);
         
         % softmax_h -> loss
         predWords = trainData.tgtOutput(:, tgtPos)';

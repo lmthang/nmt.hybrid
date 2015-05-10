@@ -54,7 +54,7 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
   
   softmax_h = zeroState;
   curMask.mask = ones(1, batchSize);
-  
+  curMask.unmaskedIds = 1:batchSize;
   W = model.W_src;
   if params.tieEmb % tie embeddings
     W_emb = model.W_emb_tie;
@@ -85,7 +85,7 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
       % current-time input
       if ll==1 % first layer
         if tt==srcMaxLen % decoder input
-          x_t = getLstmDecoderInput(input(:, tt), tgtPos, W_emb, softmax_h, data, zeroState, params);
+          x_t = getLstmDecoderInput(input(:, tt), tgtPos, W_emb, softmax_h, data, zeroState, params, curMask);
           % pos model predict words
           if params.posModel==2 && mod(tgtPos, 2)==0 
             W = W_tgt_combined;
@@ -109,7 +109,11 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
       
       % h_t -> softmax_h
       if tt==srcMaxLen && ll==params.numLayers
-        [softmax_h] = hid2softLayerForward(h_t, params, model, data, curMask, tgtPos); 
+        if params.attnRelativePos % relative position
+          [data.srcHidVecs] = buildSrcHidVecs(data.srcHidVecsAll, srcMaxLen, tgtPos, params);
+        end
+  
+        [softmax_h] = hid2softLayerForward(h_t, params, model, data, curMask, tgtPos, 1); 
       end
       
       % attentional  models
@@ -174,15 +178,17 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, softma
   end
   
   %% first prediction
-  if params.attnFunc==2
-    tgtPos = 1;
-    [data.srcHidVecs] = buildSrcHidVecs(data.srcHidVecsAll, srcMaxLen, tgtPos, params);
-  end
-  
   %curMask.mask = ones(1, batchSize);
   %tgtPos = 1;
-  [scores, words] = nextBeamStep(model, softmax_h, beamSize); %lstmStart{numLayers}.h_t, beamSize, params, data, curMask, tgtPos); % scores, words: beamSize * batchSize
-
+  matrixName = 'W_soft';
+  if params.posModel>=1 % we predict positions
+    matrixName = 'W_softPos';
+  end
+  [scores, words] = nextBeamStep(model.(matrixName), softmax_h, beamSize); %lstmStart{numLayers}.h_t, beamSize, params, data, curMask, tgtPos); % scores, words: beamSize * batchSize
+  if params.posModel>=1
+    words = words + params.startPosId - 1;
+  end
+  
   % TODO: by right, we should filter out words == params.tgtEos, but I
   % think for good models, we don't have to worry :)
   
@@ -206,12 +212,21 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, softma
   softmax_h = reshape(repmat(softmax_h, beamSize, 1),  params.lstmSize, numElements); 
   
   curMask.mask = ones(1, batchSize);
+  curMask.unmaskedIds = 1:batchSize;
   % attentional / positional models
   if params.attnFunc || params.posModel>=2 || params.sameLength
     curBatchSize = numElements;
     curMask.mask = ones(1, curBatchSize);
+    curMask.unmaskedIds = 1:curBatchSize;
     if params.attnFunc && params.attnRelativePos==0 % absolute position
       [data.absSrcHidVecs] = duplicateSrcHidVecs(data.absSrcHidVecs, batchSize, beamSize);
+    end
+    
+    % duplicate srcLens
+    if params.posModel>=2
+      params.curBatchSize = batchSize;
+      data.srcLens = reshape(repmat(data.srcLens, beamSize, 1), 1, []);
+      data.srcHidVecs = duplicateSrcHidVecs(data.srcHidVecsAll, batchSize, beamSize);
     end
   end
   
@@ -243,16 +258,30 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, softma
     %   (maxLen+1), ending in R(root) <eos>.
     tgtPos = sentPos+1;
     
+    % position models
+    if params.posModel>=1
+      if mod(tgtPos, 2)==1 % positions
+        matrixName = 'W_softPos';
+      else
+        matrixName = 'W_soft';
+      end
+    end
+    
     %% compute next lstm hidden states
     words = beamHistory(sentPos, :);
     for ll = 1 : numLayers
       W = model.W_tgt{ll};
       % current input
       if ll == 1
-        x_t = getLstmDecoderInput(words, tgtPos, W_emb, softmax_h, data, zeroState, params);
+        x_t = getLstmDecoderInput(words, tgtPos, W_emb, softmax_h, data, zeroState, params, curMask);
         % pos model predict words
-        if params.posModel==2 && mod(tgtPos, 2)==0 
-          W = W_tgt_combined;
+        if params.posModel>0 && mod(tgtPos, 2)==0 
+          if params.posModel==2
+            W = W_tgt_combined;
+          end
+          if params.posModel==3
+            data.positions = words;
+          end
         end
       else
         x_t = beamStates{ll-1}.h_t;
@@ -267,7 +296,7 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, softma
       
       % h_t -> softmax_h
       if ll==params.numLayers
-        [softmax_h] = hid2softLayerForward(h_t, params, model, data, curMask, tgtPos); 
+        [softmax_h] = hid2softLayerForward(h_t, params, model, data, curMask, tgtPos, 1); 
       end
     end
     
@@ -276,12 +305,15 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, softma
       [data.srcHidVecs] = computeRelativeSrcHidVecs(data.srcHidVecsAll, srcMaxLen, tgtPos, batchSize, params, beamSize);
     end
     if params.sameLength && sentPos == (maxLen-1) % same length decoding
-      [~, ~, logProbs] = nextBeamStep(model, softmax_h, beamSize); %beamStates{numLayers}.h_t, beamSize, params, data, curMask, tgtPos);
+      [~, ~, logProbs] = nextBeamStep(model.(matrixName), softmax_h, beamSize); %beamStates{numLayers}.h_t, beamSize, params, data, curMask, tgtPos);
       allBestScores = logProbs(params.tgtEos, :);
       allBestWords = params.tgtEos*ones(1, beamSize*batchSize);
       card = 1;
     else
-      [allBestScores, allBestWords] = nextBeamStep(model, softmax_h, beamSize); %beamStates{numLayers}.h_t, beamSize, params, data, curMask, tgtPos); % beamSize * (beamSize*batchSize)
+      [allBestScores, allBestWords] = nextBeamStep(model.(matrixName), softmax_h, beamSize); %beamStates{numLayers}.h_t, beamSize, params, data, curMask, tgtPos); % beamSize * (beamSize*batchSize)
+      if params.posModel>=1 && mod(tgtPos, 2)==1 % positions
+        allBestWords = allBestWords + params.startPosId - 1;
+      end
       card = beamSize;
     end
     [allBestScores, allBestWords, indices] = addSortScores(allBestScores, allBestWords, beamScores, card, beamSize, batchSize);
@@ -395,10 +427,8 @@ end
 %%
 % return bestLogProbs, bestWords of sizes beamSize * curBatchSize
 %%
-function [bestLogProbs, bestWords, logProbs, sortedLogProbs, sortedWords] = nextBeamStep(model, softmax_h, beamSize) %h_t, beamSize, params, data, curMask, tgtPos)
-  %[softmax_h] = hid2softLayerForward(h_t, params, model, data, curMask, tgtPos);  
-  
-  [logProbs] = softmaxDecode(model.W_soft*softmax_h);
+function [bestLogProbs, bestWords, logProbs, sortedLogProbs, sortedWords] = nextBeamStep(W, softmax_h, beamSize) %h_t, beamSize, params, data, curMask, tgtPos)
+  [logProbs] = softmaxDecode(W*softmax_h);
   
   % sort
   [sortedLogProbs, sortedWords] = sort(logProbs, 'descend');

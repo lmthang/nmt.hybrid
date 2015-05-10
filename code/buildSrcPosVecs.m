@@ -23,13 +23,9 @@ function [srcPosVecs, linearIndices] = buildSrcPosVecs(tgtPos, params, trainData
   srcPositions(indices) = srcLens(indices)-1;
   
   % get the column indices on the src side
-  if params.isReverse
-    colIndices = srcMaxLen-srcPositions;
-  else
-    colIndices = srcMaxLen-srcLens+srcPositions; % srcLens include <eos>
-  end
+  colIndices = srcMaxLen-srcPositions; % NOTE: important, here we assume src sentences are reversed
 
-  % use the below two lines to verify if you get the alignments correctly
+%   % use the below two lines to verify if you get the alignments correctly
 %   params.vocab(input(sub2ind(size(input), unmaskedIds, colIndices)))
 %   params.vocab(trainData.tgtOutput(unmaskedIds, tgtPos+1))
 
@@ -46,6 +42,11 @@ function [srcPosVecs, linearIndices] = buildSrcPosVecs(tgtPos, params, trainData
     assert(sum(sum(srcPosVecs(:, curMask.maskedIds)))==0);
   end  
 end
+
+%   if params.isReverse
+%   else
+%     colIndices = srcMaxLen-srcLens+srcPositions; % srcLens include <eos>
+%   end
 
 %assert(sum(srcEmbIndices == params.srcEos)==0);
 
