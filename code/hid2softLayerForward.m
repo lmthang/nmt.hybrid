@@ -30,6 +30,7 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
     end
     
     softmax_h = hiddenLayerForward(model.W_h, h2sInfo.input, params.nonlinear_f);
+    h2sInfo.softmax_h = softmax_h;
   else % no intermediate layer
     softmax_h = h_t;
   end

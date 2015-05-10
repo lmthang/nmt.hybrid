@@ -5,12 +5,12 @@
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 %
 %%% 
-function [grad_ht, hid2softGrad, grad_srcHidVecs] = hid2softLayerBackprop(model, grad_softmax_h, trainData, h2sInfo, softmax_h, isPredictPos, params)
+function [grad_ht, hid2softGrad, grad_srcHidVecs] = hid2softLayerBackprop(model, grad_softmax_h, trainData, h2sInfo, isPredictPos, params)
   grad_srcHidVecs = [];
   
   if params.softmaxDim || params.attnFunc || (params.posModel==3 && isPredictPos==0)
     % softmax_h -> h_t
-    [grad_input, hid2softGrad.W_h] = hiddenLayerBackprop(model.W_h, grad_softmax_h, h2sInfo.input, params.nonlinear_f_prime, softmax_h);
+    [grad_input, hid2softGrad.W_h] = hiddenLayerBackprop(model.W_h, grad_softmax_h, h2sInfo.input, params.nonlinear_f_prime, h2sInfo.softmax_h);
     
     if params.softmaxDim % softmax compression: f(W_h * h_t)
       grad_ht = grad_input;

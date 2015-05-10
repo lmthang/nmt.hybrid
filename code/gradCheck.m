@@ -6,6 +6,8 @@ function gradCheck(model, params)
 % Thang Luong @ 2014, <lmthang@stanford.edu>
 %
 %%%
+  delta = 0.01; % set to 0.01 to debug on GPU.
+
   % generate pseudo data
   if params.isBi
     srcTrainMaxLen = params.maxSentLen-2;
@@ -70,7 +72,6 @@ function gradCheck(model, params)
   end
   
   % empirical grad
-  delta = 0.01;
   total_abs_diff = 0;
   numParams = 0;
 

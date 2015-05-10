@@ -47,13 +47,21 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
     end
   end
   
+  % init costs
+  costs.total = zeroMatrix([1, 1], params.isGPU, params.dataType);
+  if params.posModel>=0
+    costs.word = zeroMatrix([1, 1], params.isGPU, params.dataType);
+    costs.pos = zeroMatrix([1, 1], params.isGPU, params.dataType);
+  end
+  
   %%%%%%%%%%%%%%%%%%%%
   %%% FORWARD PASS %%%
   %%%%%%%%%%%%%%%%%%%%
   trainData.maskInfo = cell(T, 1);
   allInputInfo = cell(tgtMaxLen, 1);
-  softmaxVecAll = cell(tgtMaxLen, 1);
+  grad_softmax_all = cell(tgtMaxLen, 1);
   h2sInfoAll = cell(tgtMaxLen, 1);
+  softmax_h = zeroState;
   % positional models
   if params.posModel>0
     if params.posModel==2
@@ -81,7 +89,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       endHidId = params.numAttnPositions;
     end
   end
-  absAttnSrcHidVecs = [];
+  %absAttnSrcHidVecs = [];
   
   % Note: IMPORTANT. For attention-based models or positional models, it it
   % important to build the top hidden states first before moving to the
@@ -94,6 +102,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       W_emb = model.W_emb_src;
     end
   end
+  matrixName = 'W_soft';
   for tt=1:T % time
     tgtPos = tt-srcMaxLen+1;
     
@@ -108,6 +117,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
     for ll=1:params.numLayers % layer
       W = W_layers{ll};
       
+      %% Input
       % previous-time input
       if tt==1 % first time step
         h_t_1 = zeroState;
@@ -125,8 +135,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         trainData.maskInfo{tt}.maskedIds = find(~trainData.maskInfo{tt}.mask);
         
         if tt>=srcMaxLen % decoder input
-          %[x_t, allInputInfo{tgtPos}] = getLstmDecoderInput(input(:, tt), tt, tgtPos, model, W_emb, all_h_t, trainData, absAttnSrcHidVecs, zeroState, params);
-          [x_t, allInputInfo{tgtPos}] = getLstmDecoderInput(input(:, tt), tgtPos, W_emb, softmaxVecAll, trainData, zeroState, params);
+          [x_t, allInputInfo{tgtPos}] = getLstmDecoderInput(input(:, tt), tgtPos, W_emb, softmax_h, trainData, zeroState, params);
           % pos model predict words
           if params.posModel==2 && mod(tgtPos, 2)==0 
             W = W_tgt_combined;
@@ -134,24 +143,60 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         else
           x_t = W_emb(:, input(:, tt));
         end
+        
+        curMask = trainData.maskInfo{tt};
       else % subsequent layer, use the previous-layer hidden state
         x_t = all_h_t{ll-1, tt}; % lstm{ll-1, t}.h_t;
       end
       
       % masking
-      x_t(:, trainData.maskInfo{tt}.maskedIds) = 0; 
-      h_t_1(:, trainData.maskInfo{tt}.maskedIds) = 0;
-      c_t_1(:, trainData.maskInfo{tt}.maskedIds) = 0;
+      x_t(:, curMask.maskedIds) = 0; 
+      h_t_1(:, curMask.maskedIds) = 0;
+      c_t_1(:, curMask.maskedIds) = 0;
       
-      %% Core LSTM
+      %% Core LSTM: input -> h_t
       [lstms{ll, tt}, all_h_t{ll, tt}, all_c_t{ll, tt}] = lstmUnit(W, x_t, h_t_1, c_t_1, ll, tt, srcMaxLen, params, isTest); 
       
-      % softmax_h
+      %% Loss
       if tt>=srcMaxLen && ll==params.numLayers % decoding phase, tgtPos>=1
-        [softmaxVecAll{tgtPos}, h2sInfoAll{tgtPos}] = hid2softLayerForward(all_h_t{ll, tt}, params, model, trainData, trainData.maskInfo{tt}, tgtPos);
+        % h_t -> softmax_h
+        [softmax_h, h2sInfoAll{tgtPos}] = hid2softLayerForward(all_h_t{ll, tt}, params, model, trainData, curMask, tgtPos);
+        
+        % softmax_h -> loss
+        predWords = trainData.tgtOutput(:, tgtPos)';
+        if params.posModel>=1
+          if mod(tgtPos, 2)==1 % positions
+            predWords = predWords - params.startPosId + 1;
+            matrixName = 'W_softPos';
+          else
+            matrixName = 'W_soft';
+          end
+        end
+        [cost, probs, scores, scoreIndices] = softmaxLayerForward(model.(matrixName), softmax_h, predWords, curMask);
+        costs.total = costs.total + cost;
+        if params.posModel>=0 % separate out pos/word perplexities
+          if mod(tgtPos, 2)==0
+            costs.word = costs.word + cost;
+          else
+            costs.pos = costs.pos + cost;
+          end
+        end
+        
+        % backprop: loss -> softmax_h
+        if isTest==0
+          % loss -> softmax_h
+          [grad_W_soft, grad_softmax_all{tgtPos}] = softmaxLayerBackprop(model.(matrixName), softmax_h, probs, scoreIndices);
+          if tt==srcMaxLen || (params.posModel>=1 && tt==(srcMaxLen+1))
+            grad.(matrixName) = grad_W_soft;
+          else
+            grad.(matrixName) = grad.(matrixName) + grad_W_soft;
+          end
+        end
       end
       
-      % attention-based or positional-based models or same-length decoder: keep track of all the src hidden states
+      
+    
+      %% Record src hidden states
       if tt==params.numSrcHidVecs && ll==params.numLayers && (params.attnFunc>0 || params.posModel>=2 || params.sameLength==1)
         trainData.srcHidVecs = reshape([all_h_t{params.numLayers, 1:params.numSrcHidVecs}], params.lstmSize, curBatchSize, params.numSrcHidVecs);
         
@@ -164,27 +209,22 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       
       % assert
       if params.assert
-        assert(sum(sum(abs(all_h_t{ll, tt}(:, trainData.maskInfo{tt}.maskedIds))))==0);
-        assert(sum(sum(abs(all_c_t{ll, tt}(:, trainData.maskInfo{tt}.maskedIds))))==0);
+        assert(sum(sum(abs(all_h_t{ll, tt}(:, curMask.maskedIds))))==0);
+        assert(sum(sum(abs(all_c_t{ll, tt}(:, curMask.maskedIds))))==0);
+        
+        if tt>=srcMaxLen && ll==params.numLayers
+          assert(sum(sum(abs(scores(:, curMask.maskedIds))))==0);
+          
+          if isTest==0
+            assert(sum(sum(abs(grad_softmax_all{tgtPos}(:, curMask.maskedIds))))==0);
+          end
+        end
       end
     end % end for t
   end
   
-  
-  %%%%%%%%%%%%%%%
-  %%% SOFTMAX %%%
-  %%%%%%%%%%%%%%%
-  [costs, softmaxGrad, grad_tgt_ht] = hid2lossCostGrad(model, params, trainData, softmaxVecAll, h2sInfoAll); %all_h_t(params.numLayers, :));
   if isTest==1 % don't compute grad
     return;
-  else
-    if isstruct(softmaxGrad)
-      fields = fieldnames(softmaxGrad);
-      for ii=1:length(fields)
-        field = fields{ii};
-        grad.(field) = softmaxGrad.(field);
-      end
-    end
   end
   
   %%%%%%%%%%%%%%%%%%%%%
@@ -220,31 +260,73 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   
   % NOTE: IMPORTANT for tt first, then for ll in other for attn3,4, pos2 models to work
   for tt=T:-1:1 % time
-    unmaskedIds = trainData.maskInfo{tt}.unmaskedIds;
-    maskedIds = trainData.maskInfo{tt}.maskedIds;
+    curMask = trainData.maskInfo{tt};
+    unmaskedIds = curMask.unmaskedIds;
+    maskedIds = curMask.maskedIds;
     tgtPos = tt-srcMaxLen+1;
-    if tt>=srcMaxLen
-      decodeInfo = allInputInfo{tgtPos};
-    end
     
     % switch to encoder. NOTE: we assume W_layers has been set to 
     if tt==(srcMaxLen-1)
       W_layers = model.W_src;
     end
+    
+    %% softmax_h -> h_t
+    if (tt>=srcMaxLen)
+      if params.posModel>=1 && mod(tgtPos, 2)==1 % positions
+        isPredictPos = 1;
+      else % words
+        isPredictPos = 0;
+      end
+      
+      if params.attnFunc || params.softmaxDim>0 || (params.posModel==3 && isPredictPos==0) % position 3, predict words
+        h2sInfo = h2sInfoAll{tgtPos};
+        [grad_tgt_ht, hid2softGrad, grad_srcHidVecs] = hid2softLayerBackprop(model, grad_softmax_all{tgtPos}, trainData, h2sInfo, ...
+          isPredictPos, params);
+        if params.assert
+          assert(sum(sum(abs(grad_tgt_ht(:, curMask.maskedIds))))==0);
+        end
+      
+        fields = fieldnames(hid2softGrad);
+        for ii=1:length(fields)
+          field = fields{ii};
+          if tt==T
+            grad.(field) = hid2softGrad.(field);
+          else
+            grad.(field) = grad.(field) + hid2softGrad.(field);
+          end
+        end
+
+        % attention models: srcHidVecs
+        if params.attnFunc
+          if params.attnRelativePos % relative
+            startAttnId = h2sInfo.startAttnId;
+            endAttnId = h2sInfo.endAttnId;
+            startHidId = h2sInfo.startHidId;
+            endHidId = h2sInfo.endHidId;
+          end
+          grad.srcHidVecs(:, :, startAttnId:endAttnId) = grad.srcHidVecs(:, :, startAttnId:endAttnId) + grad_srcHidVecs(:, :, startHidId:endHidId);
+        end
+
+        % positional model 3, predict words
+        if params.posModel==3 && isPredictPos==0
+          grad.srcHidVecs(h2sInfo.linearIndices) = grad.srcHidVecs(h2sInfo.linearIndices) + reshape(grad_srcHidVecs(:, curMask.unmaskedIds), 1, []);
+        end
+      else
+        grad_tgt_ht = grad_softmax_all{tgtPos};
+      end
+      
+      % get signals from the softmax layer
+      dh{params.numLayers} = dh{params.numLayers} + grad_tgt_ht;
+    end
+    
+    % attention/pos models: get feedback from grad.srcHidVecs
+    if tt<=params.numSrcHidVecs 
+      dh{params.numLayers} = dh{params.numLayers} + grad.srcHidVecs(:,:,tt);
+    end
+    
     for ll=params.numLayers:-1:1 % layer
       W = W_layers{ll};
       
-      %% hidden state grad
-      if ll==params.numLayers
-        if (tt>=srcMaxLen) % get signals from the softmax layer
-          dh{ll} = dh{ll} + grad_tgt_ht{tgtPos};
-        end
-          
-        if tt<=params.numSrcHidVecs % attention/pos models: get feedback from grad.srcHidVecs
-          dh{ll} = dh{ll} + grad.srcHidVecs(:,:,tt);
-        end
-      end
-
       %% cell backprop
       if tt==1
         c_t_1 = [];
@@ -283,9 +365,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       % Later, when we go back one time step, we will accumulate.
       dh{ll} = lstm_grad.input(end-params.lstmSize+1:end, :); 
       if ll==1 % collect embedding grad
-        embIndices = input(unmaskedIds, tt)';
-        embGrad = lstm_grad.input(1:params.lstmSize, unmaskedIds);
-        
+        %% those models that feed additional info into lstm input
         % same-length decoder
         if params.sameLength==1 && tt>=srcMaxLen
           if tgtPos<=params.numSrcHidVecs
@@ -294,43 +374,19 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         end
         % pos model 2 lstm_grad.input = = [x_t; s_t; h_t]
         if params.posModel==2 && tt>=srcMaxLen && mod(tgtPos, 2)==0 % predict words
-          linearIndices = decodeInfo.srcPosLinearIndices;
+          inputInfo = allInputInfo{tgtPos};
+          linearIndices = inputInfo.srcPosLinearIndices;
           grad.srcHidVecs(linearIndices) = grad.srcHidVecs(linearIndices) + reshape(lstm_grad.input(params.lstmSize+1:2*params.lstmSize, unmaskedIds), 1, []);          
         end
-
-%         % attn feed input
-%         if params.attnFeedInput && tt>=srcMaxLen
-%           if params.attnRelativePos % relative
-%             attnSrcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
-%             startAttnId = decodeInfo.startAttnId;
-%             endAttnId = decodeInfo.endAttnId;
-%             startHidId = decodeInfo.startHidId;
-%             endHidId = decodeInfo.endHidId;
-%             attnSrcHidVecs(:, :, startHidId:endHidId) = trainData.srcHidVecs(:, :, startAttnId:endAttnId);
-%           else % absolute
-%             attnSrcHidVecs = trainData.absSrcHidVecs;
-%           end
-%           
-%           % grad_attn -> grad_ht, grad_W_a, grad_srcHidVecs
-%           % grad_attn_ht will be used in time tt-1, at the top layer
-%           prev_ht = all_h_t{params.numLayers, tt-1};
-%           prev_ht(:, maskedIds) = 0;
-%           [grad_attn_ht, grad_W_a, grad_srcHidVecs] = attnLayerBackprop(model.W_a, lstm_grad.input(params.lstmSize+1:2*params.lstmSize, :), prev_ht, ...
-%             params, decodeInfo.alignWeights, attnSrcHidVecs);
-%           
-%           % update srcHidVecs
-%           grad.srcHidVecs(:, :, startAttnId:endAttnId) = grad.srcHidVecs(:, :, startAttnId:endAttnId) + grad_srcHidVecs(:, :, startHidId:endHidId);
-%           
-%           % update W_a
-%           grad.W_a = grad.W_a + grad_W_a;
-%           
-%           % update the top hidden layer of the previous time step
-%           dh{params.numLayers} = dh{params.numLayers} + grad_attn_ht;
-%         end % if attnFeedInput
+        % feed softmax vector
+        if params.softmaxFeedInput && tt>srcMaxLen % for tt==srcMaxLen, we feed zero vector
+          grad_softmax_all{tgtPos-1} = grad_softmax_all{tgtPos-1} + lstm_grad.input(params.lstmSize+1:2*params.lstmSize, :);
+        end
         
+        %% emb grad
+        embIndices = input(unmaskedIds, tt)';
+        embGrad = lstm_grad.input(1:params.lstmSize, unmaskedIds);
         numWords = length(embIndices);
-        
-        % emb grad
         if params.tieEmb % tie embeddings
           allEmbIndices_tie(wordCount_tie+1:wordCount_tie+numWords) = embIndices;
           allEmbGrads_tie(:, wordCount_tie+1:wordCount_tie+numWords) = embGrad;
@@ -391,7 +447,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   end
 end
 
-function [x_t, inputInfo] = getLstmDecoderInput(decodeInput, tgtPos, W_emb, softmaxVecAll, trainData, zeroState, params)
+function [x_t, inputInfo] = getLstmDecoderInput(decodeInput, tgtPos, W_emb, softmax_h, trainData, zeroState, params)
   inputInfo = [];
   
   
@@ -405,15 +461,11 @@ function [x_t, inputInfo] = getLstmDecoderInput(decodeInput, tgtPos, W_emb, soft
   
   % feed softmax vector of the previous timestep
   elseif params.softmaxFeedInput
-    if tgtPos==1
-      x_t = [W_emb(:, decodeInput); zeroState];
-    else
-      x_t = [W_emb(:, decodeInput); softmaxVecAll{tgtPos}];
-    end
+    x_t = [W_emb(:, decodeInput); softmax_h];
     
   % positionl models 2: at the first level, we use additional src information
   elseif params.posModel==2 && mod(tgtPos, 2)==0 % predict words
-    tt = tgtPos + srcMaxLen - 1;
+    tt = tgtPos + params.srcMaxLen - 1;
     [s_t, inputInfo.srcPosLinearIndices] = buildSrcPosVecs(tgtPos, params, trainData, trainData.tgtOutput(:, tgtPos)', trainData.maskInfo{tt});
     x_t = [W_emb(:, decodeInput); s_t];
   else
@@ -447,6 +499,22 @@ function [grad, params] = initGrad(model, params)
   end
 end
 
+
+%   %%%%%%%%%%%%%%%
+%   %%% SOFTMAX %%%
+%   %%%%%%%%%%%%%%%
+%   [costs, softmaxGrad, grad_tgt_ht] = hid2lossCostGrad(model, params, trainData, softmaxVecAll, h2sInfoAll); %all_h_t(params.numLayers, :));
+%   if isTest==1 % don't compute grad
+%     return;
+%   else
+%     if isstruct(softmaxGrad)
+%       fields = fieldnames(softmaxGrad);
+%       for ii=1:length(fields)
+%         field = fields{ii};
+%         grad.(field) = softmaxGrad.(field);
+%       end
+%     end
+%   end
     
 %   % attention feed input
 %   elseif params.attnFeedInput
@@ -459,6 +527,36 @@ end
 %     % attnForward: h_t -> attnVecs (used the top previous hidden state)
 %     [attnVecs, decodeInfo.alignWeights] = attnLayerForward(model.W_a, all_h_t{params.numLayers, tt-1}, attnSrcHidVecs, trainData.maskInfo{tt}.mask);
 %     x_t = [W_emb(:, decodeInput); attnVecs];
+
+%         % attn feed input
+%         if params.attnFeedInput && tt>=srcMaxLen
+%           if params.attnRelativePos % relative
+%             attnSrcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
+%             startAttnId = decodeInfo.startAttnId;
+%             endAttnId = decodeInfo.endAttnId;
+%             startHidId = decodeInfo.startHidId;
+%             endHidId = decodeInfo.endHidId;
+%             attnSrcHidVecs(:, :, startHidId:endHidId) = trainData.srcHidVecs(:, :, startAttnId:endAttnId);
+%           else % absolute
+%             attnSrcHidVecs = trainData.absSrcHidVecs;
+%           end
+%           
+%           % grad_attn -> grad_ht, grad_W_a, grad_srcHidVecs
+%           % grad_attn_ht will be used in time tt-1, at the top layer
+%           prev_ht = all_h_t{params.numLayers, tt-1};
+%           prev_ht(:, maskedIds) = 0;
+%           [grad_attn_ht, grad_W_a, grad_srcHidVecs] = attnLayerBackprop(model.W_a, lstm_grad.input(params.lstmSize+1:2*params.lstmSize, :), prev_ht, ...
+%             params, decodeInfo.alignWeights, attnSrcHidVecs);
+%           
+%           % update srcHidVecs
+%           grad.srcHidVecs(:, :, startAttnId:endAttnId) = grad.srcHidVecs(:, :, startAttnId:endAttnId) + grad_srcHidVecs(:, :, startHidId:endHidId);
+%           
+%           % update W_a
+%           grad.W_a = grad.W_a + grad_W_a;
+%           
+%           % update the top hidden layer of the previous time step
+%           dh{params.numLayers} = dh{params.numLayers} + grad_attn_ht;
+%         end % if attnFeedInput
 
 %% class-based softmax %%
 % in main method, backprop

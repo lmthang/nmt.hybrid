@@ -47,7 +47,7 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
   end
   
   W = model.W_src;
-  if params.tieEmb
+  if params.tieEmb % tie embeddings
     W_emb = model.W_emb_tie;
   else
     W_emb = model.W_emb_src;
@@ -56,13 +56,11 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
     maskedIds = find(~inputMask(:, tt)); % curBatchSize * 1
     if tt==srcMaxLen % due to implementation in lstmCostGrad, we have to switch to W_tgt here. THIS IS VERY IMPORTANT!
       W = model.W_tgt;
-      
       if params.tieEmb==0
         W_emb = model.W_emb_tgt;
       end
     end
 
-    
     for ll=1:params.numLayers % layer
       % previous-time input
       if tt==1 % first time step
@@ -78,19 +76,6 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
         tgtPos = 1;
         %params.vocab(input(:, t))
         
-        % attention feed input model
-%         if params.attnFeedInput && tt==srcMaxLen
-%           if params.attnRelativePos % relative pos
-%             [srcHidVecs] = computeRelativeSrcHidVecs(data.srcHidVecsAll, srcMaxLen, tgtPos, batchSize, params, 1);
-%           else
-%             srcHidVecs = data.absSrcHidVecs;
-%           end
-%           
-%           % attnForward: h_t -> attnVecs (used the previous hidden state
-%           % here we use the top hidden state
-%           [attnVecs] = attnLayerForward(model.W_a, lstm{params.numLayers}.h_t, srcHidVecs, data.curMask.mask);
-%           x_t = [W_emb(:, input(:, tt)); attnVecs];
-%         else
         if params.sameLength && tt==srcMaxLen
           x_t = [W_emb(:, input(:, tt)); data.srcHidVecsAll(:, :, params.numSrcHidVecs-tgtPos+1)];
         else
@@ -522,6 +507,21 @@ function [srcHidVecs] = duplicateSrcHidVecs(srcHidVecs, batchSize, beamSize)
   srcHidVecs = reshape(srcHidVecs, lstmSize, numPositions, numElements);
   srcHidVecs = permute(srcHidVecs, [1, 3, 2]); % lstmSize * numElements * numPositions
 end
+
+
+%         % attention feed input model
+%         if params.attnFeedInput && tt==srcMaxLen
+%           if params.attnRelativePos % relative pos
+%             [srcHidVecs] = computeRelativeSrcHidVecs(data.srcHidVecsAll, srcMaxLen, tgtPos, batchSize, params, 1);
+%           else
+%             srcHidVecs = data.absSrcHidVecs;
+%           end
+%           
+%           % attnForward: h_t -> attnVecs (used the previous hidden state
+%           % here we use the top hidden state
+%           [attnVecs] = attnLayerForward(model.W_a, lstm{params.numLayers}.h_t, srcHidVecs, data.curMask.mask);
+%           x_t = [W_emb(:, input(:, tt)); attnVecs];
+%         else
 
 %% Code for class-based softmax %%
 %   if params.numClasses == 0 % normal softmax
