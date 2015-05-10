@@ -25,7 +25,6 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   addOptional(p,'gpuDevice', 1, @isnumeric); % choose the gpuDevice to use. 
   addOptional(p,'minLenRatio', 0.5, @isnumeric); % decodeLen >= minLenRatio * srcMaxLen
   addOptional(p,'maxLenRatio', 1.5, @isnumeric); % decodeLen <= maxLenRatio * srcMaxLen
-  addOptional(p,'depParse', 0, @isnumeric); % 1: indicate that we are doing dependency parsing
   addOptional(p,'testPrefix', '', @ischar); % to specify a different file for decoding
 
   p.KeepUnmatched = true;
@@ -104,16 +103,7 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   params.fid = fopen(params.outputFile, 'w');
   params.logId = fopen([outputFile '.log'], 'w');
   printParams(2, params);
-  
-  % dependency parsing
-  if params.depParse 
-    assert(decodeParams.batchSize==1);
-    params.depRootId = find(strcmp(params.tgtVocab, 'R(root)')==1,1);
-    params.depShiftId = find(strcmp(params.tgtVocab, 'S')==1,1);
-    fprintf(2, '## Dependency parsing, rootId for %s=%d, shiftId for %s=%d\n', params.tgtVocab{params.depRootId}, params.depRootId, ...
-      params.tgtVocab{params.depShiftId}, params.depShiftId);
-  end
-  
+    
   % same-length decoder
   if params.sameLength
     assert(decodeParams.batchSize==1);
@@ -158,6 +148,16 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   fclose(params.fid);
   fclose(params.logId);
 end
+
+%   addOptional(p,'depParse', 0, @isnumeric); % 1: indicate that we are doing dependency parsing
+%   % dependency parsing
+%   if params.depParse 
+%     assert(decodeParams.batchSize==1);
+%     params.depRootId = find(strcmp(params.tgtVocab, 'R(root)')==1,1);
+%     params.depShiftId = find(strcmp(params.tgtVocab, 'S')==1,1);
+%     fprintf(2, '## Dependency parsing, rootId for %s=%d, shiftId for %s=%d\n', params.tgtVocab{params.depRootId}, params.depRootId, ...
+%       params.tgtVocab{params.depShiftId}, params.depShiftId);
+%   end
 
 % params.vocab = [params.tgtVocab params.srcVocab];
 
