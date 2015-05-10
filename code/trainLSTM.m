@@ -54,7 +54,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   %% decoding
   addOptional(p,'minLenRatio', 0.5, @isnumeric);
   addOptional(p,'maxLenRatio', 1.5, @isnumeric);
-  addOptional(p,'depParse', 0, @isnumeric); % 1: indicate that we are doing dependency parsing
   
   %% debugging options
   addOptional(p,'isGradCheck', 0, @isnumeric); % set 1 to check the gradient, no need input arguments as toy data is automatically generated.
@@ -199,14 +198,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   
   %% Load vocabs
   [params] = loadBiVocabs(params);
-  % dependency parsing
-  if params.depParse 
-    params.depRootId = find(strcmp(params.tgtVocab, 'R(root)')==1,1);
-    params.depShiftId = find(strcmp(params.tgtVocab, 'S')==1,1);
-    fprintf(2, '# Dependency parsing, rootId for %s=%d, shiftId for %s=%d\n', params.tgtVocab{params.depRootId}, params.depRootId, ...
-      params.tgtVocab{params.depShiftId}, params.depShiftId);
-  end
-  
+    
   %% Init / Load Model Parameters
   params.modelFile = [outDir '/model.mat']; % store those with the best valid perplexity
   params.modelRecentFile = [outDir '/modelRecent.mat'];
@@ -804,6 +796,16 @@ function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab)
   data.srcSents = srcSents;
   data.tgtSents = tgtSents;
 end
+
+%   addOptional(p,'depParse', 0, @isnumeric); % 1: indicate that we are doing dependency parsing
+%   % dependency parsing
+%   if params.depParse 
+%     params.depRootId = find(strcmp(params.tgtVocab, 'R(root)')==1,1);
+%     params.depShiftId = find(strcmp(params.tgtVocab, 'S')==1,1);
+%     fprintf(2, '# Dependency parsing, rootId for %s=%d, shiftId for %s=%d\n', params.tgtVocab{params.depRootId}, params.depRootId, ...
+%       params.tgtVocab{params.depShiftId}, params.depShiftId);
+%   end
+
 
 %% class-based softmax %%
 % addOptional(p,'numClasses', 0, @isnumeric); % >0: class-based softmax
