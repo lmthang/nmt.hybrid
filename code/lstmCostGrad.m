@@ -36,13 +36,14 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   [grad, params] = initGrad(model, params);
   zeroState = zeroMatrix([params.lstmSize, params.curBatchSize], params.isGPU, params.dataType);
   
-  % all h_t, c_t over time
-  all_h_t = cell(params.numLayers, T);
+  % current h_t and c_t over time
+  cur_h_t = cell(params.numLayers, 1);
   all_c_t = cell(params.numLayers, T);
   lstms = cell(params.numLayers, T); % each cell contains intermediate results for that timestep needed for backprop
   for ll=1:params.numLayers
+    cur_h_t{ll} = zeroMatrix([params.lstmSize, curBatchSize], params.isGPU, params.dataType);
+    %all_c_t{ll} = zeroMatrix([params.lstmSize, curBatchSize], params.isGPU, params.dataType);
     for tt=1:T
-      all_h_t{ll, tt} = zeroMatrix([params.lstmSize, curBatchSize], params.isGPU, params.dataType);
       all_c_t{ll, tt} = zeroMatrix([params.lstmSize, curBatchSize], params.isGPU, params.dataType);
     end
   end
@@ -89,7 +90,9 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       endHidId = params.numAttnPositions;
     end
   end
-  %absAttnSrcHidVecs = [];
+  if (params.attnFunc>0 || params.posModel>=2 || params.sameLength==1)
+    trainData.srcHidVecs = zeroMatrix([params.lstmSize, curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);
+  end
   
   % Note: IMPORTANT. For attention-based models or positional models, it it
   % important to build the top hidden states first before moving to the
@@ -123,8 +126,8 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         h_t_1 = zeroState;
         c_t_1 = zeroState;
       else
+        h_t_1 = cur_h_t{ll};
         c_t_1 = all_c_t{ll, tt-1};
-        h_t_1 = all_h_t{ll, tt-1};
       end
 
       % current-time input
@@ -137,6 +140,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         
         if tt>=srcMaxLen % decoder input
           [x_t, allInputInfo{tgtPos}] = getLstmDecoderInput(input(:, tt)', tgtPos, W_emb, softmax_h, trainData, zeroState, params, curMask);
+          
           % pos model predict words
           if params.posModel==2 && mod(tgtPos, 2)==0 
             W = W_tgt_combined;
@@ -147,7 +151,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         
         
       else % subsequent layer, use the previous-layer hidden state
-        x_t = all_h_t{ll-1, tt}; % lstm{ll-1, t}.h_t;
+        x_t = cur_h_t{ll-1};
       end
       
       % masking
@@ -156,12 +160,13 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       c_t_1(:, curMask.maskedIds) = 0;
       
       %% Core LSTM: input -> h_t
-      [lstms{ll, tt}, all_h_t{ll, tt}, all_c_t{ll, tt}] = lstmUnit(W, x_t, h_t_1, c_t_1, ll, tt, srcMaxLen, params, isTest); 
+      [lstms{ll, tt}, cur_h_t{ll}, all_c_t{ll, tt}] = lstmUnit(W, x_t, h_t_1, c_t_1, ll, tt, srcMaxLen, params, isTest); 
       
       %% Loss
       if tt>=srcMaxLen && ll==params.numLayers % decoding phase, tgtPos>=1
         % h_t -> softmax_h
-        [softmax_h, h2sInfoAll{tgtPos}] = hid2softLayerForward(all_h_t{ll, tt}, params, model, trainData, curMask, tgtPos, 0);
+        % TODO: save memory here, h2sInfo.input only keeps track of srcHidVecs or attnVecs, but not h_t.
+        [softmax_h, h2sInfoAll{tgtPos}] = hid2softLayerForward(cur_h_t{ll}, params, model, trainData, curMask, tgtPos, 0);
         
         % softmax_h -> loss
         predWords = trainData.tgtOutput(:, tgtPos)';
@@ -198,10 +203,10 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       
     
       %% Record src hidden states
-      if tt==params.numSrcHidVecs && ll==params.numLayers && (params.attnFunc>0 || params.posModel>=2 || params.sameLength==1)
-        trainData.srcHidVecs = reshape([all_h_t{params.numLayers, 1:params.numSrcHidVecs}], params.lstmSize, curBatchSize, params.numSrcHidVecs);
+      if tt<=params.numSrcHidVecs && ll==params.numLayers && (params.attnFunc>0 || params.posModel>=2 || params.sameLength==1)
+        trainData.srcHidVecs(:, :, tt) = cur_h_t{ll};
         
-        if params.attnFunc && params.attnRelativePos==0 % absolute positions
+        if tt==params.numSrcHidVecs && params.attnFunc && params.attnRelativePos==0 % absolute positions
           trainData.absSrcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
           trainData.absSrcHidVecs(:, :, startHidId:endHidId) = trainData.srcHidVecs;
         end
@@ -210,7 +215,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       
       % assert
       if params.assert
-        assert(sum(sum(abs(all_h_t{ll, tt}(:, curMask.maskedIds))))==0);
+        assert(sum(sum(abs(cur_h_t{ll}(:, curMask.maskedIds))))==0);
         assert(sum(sum(abs(all_c_t{ll, tt}(:, curMask.maskedIds))))==0);
         
         if tt>=srcMaxLen && ll==params.numLayers
