@@ -8,12 +8,6 @@ function [sents, numSents, sentLens] = loadBatchData(fid, baseIndex, batchSize) 
 % Thang Luong @ 2013-2015 <lmthang@stanford.edu>
 %%%
 
-%   if length(varargin)==1
-%     suffix = varargin{1};
-%   else
-%     suffix = [];
-%   end
-  
   sents = cell(1, batchSize);
   sentLens = zeros(1, batchSize);
   numSents = 0;
