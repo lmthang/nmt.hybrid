@@ -9,7 +9,11 @@ function [params] = loadBiVocabs(params)
     end
     
     if params.isBi
-      srcVocab = {'x', 'y'};
+      if params.tieEmb % tie embeddings
+        srcVocab = tgtVocab;
+      else
+        srcVocab = {'x', 'y'};
+      end
     end
   else
     [tgtVocab] = loadVocab(params.tgtVocabFile);    
@@ -24,7 +28,7 @@ function [params] = loadBiVocabs(params)
     
     % add eos, sos, zero
     srcVocab{end+1} = '<s_sos>'; % not learn
-    params.srcZero = length(srcVocab);
+    params.srcSos = length(srcVocab);
     srcVocab{end+1} = '<s_eos>';
     params.srcEos = length(srcVocab);
     
@@ -62,30 +66,35 @@ function [params] = loadBiVocabs(params)
     params.posVocabSize = length(indices) + 1; % include <eos>
     fprintf(2, '# Positional model: posVocabSize=%d, startPosId=%d, zeroPosId=%d\n', params.posVocabSize, params.startPosId, params.zeroPosId);
     fprintf(params.logId, '# Positional model: posVocabSize=%d, startPosId=%d, zeroPosId=%d\n', params.posVocabSize, params.startPosId, params.zeroPosId);
+    
+    % NOTE: purposely add eos first, then sos, so that the positional vocab
+    % (including eos) is contiguous
+    tgtVocab{end+1} = '<t_eos>';
+    params.tgtEos = length(tgtVocab);
+    tgtVocab{end+1} = '<t_sos>';
+    params.tgtSos = length(tgtVocab);
+  else
+    % add eos, sos
+    tgtVocab{end+1} = '<t_sos>';
+    params.tgtSos = length(tgtVocab);
+    tgtVocab{end+1} = '<t_eos>';
+    params.tgtEos = length(tgtVocab);
   end
-  
-  % add eos, sos
-  tgtVocab{end+1} = '<t_sos>';
-  params.tgtSos = length(tgtVocab);
-  tgtVocab{end+1} = '<t_eos>';
-  params.tgtEos = length(tgtVocab);
   params.tgtVocabSize = length(tgtVocab);
+  if params.tieEmb % tie embeddings
+    tgtVocab{params.tgtSos} = srcVocab{params.srcSos};
+    tgtVocab{params.tgtEos} = srcVocab{params.srcEos};
+  end
   
   %% finalize vocab
   if params.isBi
     params.srcVocab = srcVocab;
-    params.tgtVocab = tgtVocab;
-    if params.separateEmb==0
-      params.vocab = [tgtVocab srcVocab];
-      params.srcEos = params.srcEos + params.tgtVocabSize;
-      params.srcZero = params.srcZero + params.tgtVocabSize;
-      params.inVocabSize = params.tgtVocabSize + params.srcVocabSize;
-    end
   else
-    params.inVocabSize = params.tgtVocabSize;
-    params.vocab = tgtVocab;
+    %params.inVocabSize = params.tgtVocabSize;
+    params.srcVocab = [];
   end
-  params.outVocabSize = params.tgtVocabSize;
+  params.tgtVocab = tgtVocab;
+  %params.outVocabSize = params.tgtVocabSize;
   
   if params.assert
     if params.posModel>=1
@@ -113,3 +122,10 @@ end
 %   end
 
 %% Unused
+%     if params.separateEmb==0
+%       params.vocab = [tgtVocab srcVocab];
+%       params.srcEos = params.srcEos + params.tgtVocabSize;
+%       params.srcZero = params.srcZero + params.tgtVocabSize;
+%       params.inVocabSize = params.tgtVocabSize + params.srcVocabSize;
+%     end
+

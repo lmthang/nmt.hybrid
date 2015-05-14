@@ -1,4 +1,4 @@
-function [attnGrad, grad_ht, grad_srcHidVecs] = attnBackprop(model, srcHidVecs, softmax_h, grad_softmax_h, attn_h_concat, alignWeights, attnInput, params, curMask)
+function [inGrad, grad_W_a, grad_srcHidVecs] = attnLayerBackprop(W_a, outGrad, inVec, params, alignWeights, srcHidVecs) %srcHidVecs, softmax_h, grad_softmax_h, attn_h_concat, alignWeights, inVec, params, curMask)
 %%%
 %
 % Compute grad for attention-based models.
@@ -6,37 +6,22 @@ function [attnGrad, grad_ht, grad_srcHidVecs] = attnBackprop(model, srcHidVecs, 
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 %
 %%%
-  %% grad_softmax_h -> grad.W_ah, grad_ah 
-  % attn_h_concat = [attn_t; tgt_h_t]
-  % softmax_h = f(W_ah*attn_h_concat)
-  % f'(softmax_h).*grad_softmax_h
-  tmpResult = params.nonlinear_f_prime(softmax_h).*grad_softmax_h;  
-  % grad.W_ah
-  attnGrad.W_ah = tmpResult*attn_h_concat';
-  % grad_ah
-  grad_ah = model.W_ah'*tmpResult;
   
-  %% grad_ah -> grad_ht, grad_attn
-  % grad_ht
-  grad_ht = grad_ah(params.lstmSize+1:end, :);
-  % grad_attn
-  grad_attn = permute(grad_ah(1:params.lstmSize, :), [1, 2, 3]); % change from lstmSize*curBatchSize -> lstmSize*curBatchSize*1
-
-  %% from grad_attn -> grad_srcHidVecs, grad_alignWeights
+  %% from outGrad -> grad_srcHidVecs, grad_alignWeights
   % Grad formulae:
-  %   attn_t = H_src* a_t
-  %   grad_srcHidVecs: grad_attn * alignWeights'
-  %   grad_alignWeights = H_src' * grad_attn (per example, to scale over multiple examples, i.e., curBatchSize, need to use bsxfun)
+  %   outVec = H_src* a_t
+  %   grad_srcHidVecs: outGrad * alignWeights'
+  %   grad_alignWeights = H_src' * outGrad (per example, to scale over multiple examples, i.e., curBatchSize, need to use bsxfun)
   
   % Sizes:
   %   batchData.srcHidVecs: lstmSize * curBatchSize * numAttnPositions
-  %   grad_attn: lstmSize * curBatchSize * 1
+  %   outGrad: lstmSize * curBatchSize * 1
   %   alignWeights: 1 * curBatchSize * numAttnPositions
   %   attnGrad.srcHidVecs: lstmSize * curBatchSize * numAttnPositions
   %   grad_alignWeights: numAttnPositions * curBatchSize
-
-  grad_srcHidVecs = bsxfun(@times, grad_attn, alignWeights);  
-  grad_alignWeights = squeeze(sum(bsxfun(@times, srcHidVecs, grad_attn), 1))'; % bsxfun along numAttnPositions, sum across lstmSize
+  outGrad = permute(outGrad, [1, 2, 3]); % change from lstmSize*curBatchSize -> lstmSize*curBatchSize*1
+  grad_srcHidVecs = bsxfun(@times, outGrad, alignWeights);  
+  grad_alignWeights = squeeze(sum(bsxfun(@times, srcHidVecs, outGrad), 1))'; % bsxfun along numAttnPositions, sum across lstmSize
 
   if params.assert % numAttnPositions x curBatchSize
     assert(size(grad_alignWeights, 1)==params.numAttnPositions);
@@ -45,7 +30,7 @@ function [attnGrad, grad_ht, grad_srcHidVecs] = attnBackprop(model, srcHidVecs, 
     % compute grad_srcHidVec in a different way
     grad_srcHidVecs1 = zeroMatrix(size(grad_srcHidVecs), params.isGPU, params.dataType);
     for ii=1:params.curBatchSize
-      grad_srcHidVecs1(:, ii, :) = grad_attn(:, ii, 1) * squeeze(alignWeights(1, ii, :))';
+      grad_srcHidVecs1(:, ii, :) = outGrad(:, ii, 1) * squeeze(alignWeights(1, ii, :))';
     end
     assert(sum(sum(sum(abs(grad_srcHidVecs1-grad_srcHidVecs))))==0);
   end
@@ -69,7 +54,9 @@ function [attnGrad, grad_ht, grad_srcHidVecs] = attnBackprop(model, srcHidVecs, 
   grad_scores = tmpResult - bsxfun(@times, alignWeights, sum(tmpResult, 1));
     
   if params.assert
-    assert(sum(sum(abs(attnInput(:, curMask.maskedIds))))==0);
+%     if params.attnFunc~=3 && params.attnFunc~=4
+%       assert(sum(sum(abs(inVec(:, curMask.maskedIds))))==0);
+%     end
     
     % compute grad_scores in a different way
     grad_scores1 = zeroMatrix(size(grad_scores), params.isGPU, params.dataType);
@@ -79,18 +66,13 @@ function [attnGrad, grad_ht, grad_srcHidVecs] = attnBackprop(model, srcHidVecs, 
     assert(sum(sum(abs(grad_scores-grad_scores1)))<1e-10);
   end
   
-  %% grad_scores -> grad.Wa, grad_ht
-  % s_t = W_a * attnInput
-  % here attnInput = h_t
+  %% grad_scores -> grad_W_a, inGrad
+  % s_t = W_a * inVec
+  % here inVec = h_t
   
-  % grad.W_a = grad_scores * attnInput'
-  attnGrad.W_a = grad_scores * attnInput';
-  % grad_attn_input = W_a' * grad_scores
-  grad_attn_input = model.W_a'*grad_scores;
+  % grad.W_a = grad_scores * inVec'
+  grad_W_a = grad_scores * inVec';
   
-  % alignScores = model.W_a*tgt_h_t;
-  grad_ht = grad_ht + grad_attn_input;   
+  % inGrad = W_a' * grad_scores
+  inGrad = W_a'*grad_scores;
 end
-
-%   % since attnInput = [tgt_h_t; srcLens], accumulating grad_ht
-%   grad_ht = grad_ht + grad_attn_input(1:end-1, :);

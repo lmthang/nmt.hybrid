@@ -22,7 +22,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   numSents = length(tgtSents);
   if params.isBi
     srcLens = srcLens + 1; % add eos
-    if isTest==0 || params.attnFunc==1 % limit sent lengths for training or for attention model during both training/testing
+    if isTest==0 || (params.attnFunc==1 || params.attnFunc==3) % limit sent lengths for training or for attention model during both training/testing
       srcLens(srcLens>params.maxSentLen) = params.maxSentLen; 
     end
     srcMaxLen = max(srcLens);
@@ -46,7 +46,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   
   %% input / output
   if params.isBi
-    srcInput = params.srcZero*ones(numSents, srcMaxLen);
+    srcInput = params.srcSos*ones(numSents, srcMaxLen);
   end
   tgtInput = [params.tgtSos*ones(numSents, 1) params.tgtEos*ones(numSents, tgtMaxLen-1)];
   tgtOutput = params.tgtEos*ones(numSents, tgtMaxLen);
@@ -55,13 +55,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
     %% src
     if params.isBi
       srcLen = srcLens(ii);
-      
-      if params.separateEmb==1 % separate vocab
-        srcInput(ii, srcMaxLen-srcLen+1:srcMaxLen-1) = srcSents{ii}(1:srcLen-1);
-      else
-        srcInput(ii, srcMaxLen-srcLen+1:srcMaxLen-1) = srcSents{ii}(1:srcLen-1) + params.tgtVocabSize;
-      end
-      
+      srcInput(ii, srcMaxLen-srcLen+1:srcMaxLen-1) = srcSents{ii}(1:srcLen-1);      
       srcInput(ii, srcMaxLen) = params.srcEos;
     end
     
@@ -76,7 +70,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   
   % mask
   if params.isBi
-    srcMask = srcInput~=params.srcZero;
+    srcMask = srcInput~=params.srcSos;
   end
   tgtMask = tgtInput~=params.tgtEos;
   numWords = sum(tgtMask(:)); 
@@ -94,8 +88,6 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
     data.srcInput = srcInput;
     data.srcMask = srcMask;
     
-%     data.input = [srcInput tgtInput(:, 2:end)];
-%     data.inputMask = [srcMask tgtMask(:, 2:end)];
     data.input = [srcInput(:, 1:end-1) tgtInput]; % tgtInput starts with tgtSos so as to be compatible with mono language models
     data.inputMask = [srcMask(:, 1:end-1) tgtMask];
   else
@@ -123,6 +115,10 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   end
 end
 
+%       if params.separateEmb==1 % separate vocab
+%       else
+%         srcInput(ii, srcMaxLen-srcLen+1:srcMaxLen-1) = srcSents{ii}(1:srcLen-1) + params.tgtVocabSize;
+%       end
 
     %label = 'input';
     %printSent(input(1, :), params.vocab, ['  ', label, ' 1:']);

@@ -63,7 +63,9 @@ function [evalCosts] = evalCost(model, data, params) %input, inputMask, tgtOutpu
     
     trainData.input = data.input(startId:endId, :);
     trainData.inputMask = data.inputMask(startId:endId, :);
-    trainData.srcMask = data.srcMask(startId:endId, :);
+    if params.isBi
+      trainData.srcMask = data.srcMask(startId:endId, :);
+    end
     trainData.tgtMask = data.tgtMask(startId:endId, :);
     trainData.tgtOutput = data.tgtOutput(startId:endId, :);
     trainData.srcLens = data.srcLens(startId:endId);

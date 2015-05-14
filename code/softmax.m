@@ -1,5 +1,4 @@
-function [probs, scores, norms] = softmax(raw, varargin)
-%%%
+%%
 %
 % Efficient (hopefully) softmax implementation.
 % Return normalized probs as well as scores (numerators in log domain) & norms.
@@ -9,7 +8,8 @@ function [probs, scores, norms] = softmax(raw, varargin)
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 % Hieu Pham @ 2015, <hyhieu@cs.stanford.edu>
 %
-%%%
+%%
+function [probs, scores, norms] = softmax(raw, varargin)
   mx = max(raw, [], 1);
   scores = bsxfun(@minus, raw, mx); % subtract max elements 
   probs = exp(scores); % unnormalized probs 

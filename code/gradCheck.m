@@ -6,6 +6,8 @@ function gradCheck(model, params)
 % Thang Luong @ 2014, <lmthang@stanford.edu>
 %
 %%%
+  delta = 0.01; % set to 0.01 to debug on GPU.
+
   % generate pseudo data
   if params.isBi
     srcTrainMaxLen = params.maxSentLen-2;
@@ -45,8 +47,8 @@ function gradCheck(model, params)
     curBatchSize = size(trainData.input, 1);
     params.dropoutMask = (randSimpleMatrix([params.lstmSize curBatchSize], params.isGPU, params.dataType)<params.dropout)/params.dropout;
     
-    if params.posModel==2
-      params.dropoutMaskPos = (randSimpleMatrix([2*params.lstmSize curBatchSize], params.isGPU, params.dataType)<params.dropout)/params.dropout;
+    if params.posModel==2 || params.softmaxFeedInput || params.sameLength
+      params.dropoutMaskInput = (randSimpleMatrix([2*params.lstmSize curBatchSize], params.isGPU, params.dataType)<params.dropout)/params.dropout;
     end
   end
   
@@ -55,22 +57,21 @@ function gradCheck(model, params)
   totalCost = costs.total;
   
   % W_emb
-  if params.separateEmb==1
+  if params.tieEmb % tie embeddings
+    full_grad_W_emb_tie = zeroMatrix(size(model.W_emb_tie), params.isGPU, params.dataType);
+    full_grad_W_emb_tie(:, grad.indices_tie) = grad.W_emb_tie;
+    grad.W_emb_tie = full_grad_W_emb_tie;
+  else
     full_grad_W_emb_src = zeroMatrix(size(model.W_emb_src), params.isGPU, params.dataType);
     full_grad_W_emb_src(:, grad.indices_src) = grad.W_emb_src;
     grad.W_emb_src = full_grad_W_emb_src;
-    
+
     full_grad_W_emb_tgt = zeroMatrix(size(model.W_emb_tgt), params.isGPU, params.dataType);
     full_grad_W_emb_tgt(:, grad.indices_tgt) = grad.W_emb_tgt;
     grad.W_emb_tgt = full_grad_W_emb_tgt;
-  else
-    full_grad_W_emb = zeroMatrix(size(model.W_emb), params.isGPU, params.dataType);
-    full_grad_W_emb(:, grad.indices) = grad.W_emb;
-    grad.W_emb = full_grad_W_emb;
   end
   
   % empirical grad
-  delta = 0.01;
   total_abs_diff = 0;
   numParams = 0;
 
@@ -133,4 +134,12 @@ end
 %       full_grad_W_soft_inclass(:, :, grad.classIndices) = grad.W_soft_inclass;
 %     end
 %     grad.W_soft_inclass = full_grad_W_soft_inclass;
+%   end
+
+%% Unused
+%   if params.separateEmb==1
+%   else
+%     full_grad_W_emb = zeroMatrix(size(model.W_emb), params.isGPU, params.dataType);
+%     full_grad_W_emb(:, grad.indices) = grad.W_emb;
+%     grad.W_emb = full_grad_W_emb;
 %   end

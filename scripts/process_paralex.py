@@ -35,7 +35,7 @@ def process_command_line():
   parser.add_argument('out_file', metavar='out_file', type=str, help='output file') 
 
   # optional arguments
-  parser.add_argument('-o', '--option', dest='opt', type=int, default=0, help='option (default=0)')
+  parser.add_argument('-n', '--num_samples', dest='n', type=int, default=1, help='number of paraphrases sampled per question (default=1)')
   
   args = parser.parse_args()
   return args
@@ -55,7 +55,7 @@ def clean_line(line):
   line = re.sub('(^\s+|\s$)', '', line);
   return line
 
-def process_files(in_file, out_file):
+def process_files(in_file, out_file, num_samples):
   """
   Read data from in_file, and output to out_file
   """
@@ -79,9 +79,17 @@ def process_files(in_file, out_file):
     line = clean_line(line)
     tokens = re.split('\t', line)
     if tokens[0] != prev_ques: # new question
-      if len(paraphrases)>0:
-        src_ouf.write('%s\n' % prev_ques)
-        tgt_ouf.write('%s\n' % paraphrases[random.randint(0, len(paraphrases)-1)])
+      num_paras = len(paraphrases)
+      if num_paras>0:
+        flags = {}
+        for count in xrange(min(num_samples, num_paras-1)):
+          while(1):
+            id = random.randint(0, num_paras-1)
+            if id not in flags:
+              flags[id] = 1
+              break
+          src_ouf.write('%s\n' % prev_ques)
+          tgt_ouf.write('%s\n' % paraphrases[id])
 
         paraphrases = []
 
@@ -100,7 +108,7 @@ def process_files(in_file, out_file):
 
 if __name__ == '__main__':
   args = process_command_line()
-  process_files(args.in_file, args.out_file)
+  process_files(args.in_file, args.out_file, args.n)
 
 #  if in_file == '':
 #    sys.stderr.write('# Input from stdin.\n')

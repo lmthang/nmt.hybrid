@@ -1,4 +1,4 @@
-function [srcPosVecs, linearIndices] = buildSrcPosVecs(t, params, data, predPositions, curMask)
+function [srcPosVecs, linearIndices] = buildSrcPosVecs(tgtPos, params, trainData, predPositions, curMask)
 %%%
 %
 % For positional models, generate src vectors based on the predicted positions.
@@ -8,12 +8,9 @@ function [srcPosVecs, linearIndices] = buildSrcPosVecs(t, params, data, predPosi
 %%%
   unmaskedIds = curMask.unmaskedIds;
 
-  srcMaxLen = data.srcMaxLen;
-  srcHidVecs = data.srcHidVecs;
-  srcLens = data.srcLens(unmaskedIds);
+  srcMaxLen = trainData.srcMaxLen; 
+  srcLens = trainData.srcLens(unmaskedIds);
   
-  srcPosVecs = zeroMatrix([params.lstmSize, params.curBatchSize], params.isGPU, params.dataType);
-  tgtPos = t-srcMaxLen+1;
   predPositions = predPositions(unmaskedIds);
   
  
@@ -26,20 +23,17 @@ function [srcPosVecs, linearIndices] = buildSrcPosVecs(t, params, data, predPosi
   srcPositions(indices) = srcLens(indices)-1;
   
   % get the column indices on the src side
-  if params.isReverse
-    colIndices = srcMaxLen-srcPositions;
-  else
-    colIndices = srcMaxLen-srcLens+srcPositions; % srcLens include <eos>
-  end
+  colIndices = srcMaxLen-srcPositions; % NOTE: important, here we assume src sentences are reversed
 
-  % use the below two lines to verify if you get the alignments correctly
+%   % use the below two lines to verify if you get the alignments correctly
 %   params.vocab(input(sub2ind(size(input), unmaskedIds, colIndices)))
 %   params.vocab(trainData.tgtOutput(unmaskedIds, tgtPos+1))
 
   %% get srcPosVecs
   % topHidVecs: lstmSize * curBatchSize * T
-  [linearIndices] = getTensorLinearIndices(srcHidVecs, unmaskedIds, colIndices);
-  srcPosVecs(:, unmaskedIds) = reshape(srcHidVecs(linearIndices), params.lstmSize, length(unmaskedIds)); 
+  [linearIndices] = getTensorLinearIndices(trainData.srcHidVecs, unmaskedIds, colIndices);
+  srcPosVecs = zeroMatrix([params.lstmSize, params.curBatchSize], params.isGPU, params.dataType);
+  srcPosVecs(:, unmaskedIds) = reshape(trainData.srcHidVecs(linearIndices), params.lstmSize, length(unmaskedIds)); 
   
 
   % assert
@@ -48,6 +42,11 @@ function [srcPosVecs, linearIndices] = buildSrcPosVecs(t, params, data, predPosi
     assert(sum(sum(srcPosVecs(:, curMask.maskedIds)))==0);
   end  
 end
+
+%   if params.isReverse
+%   else
+%     colIndices = srcMaxLen-srcLens+srcPositions; % srcLens include <eos>
+%   end
 
 %assert(sum(srcEmbIndices == params.srcEos)==0);
 

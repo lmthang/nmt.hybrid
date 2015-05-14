@@ -25,9 +25,6 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   addOptional(p,'gpuDevice', 1, @isnumeric); % choose the gpuDevice to use. 
   addOptional(p,'minLenRatio', 0.5, @isnumeric); % decodeLen >= minLenRatio * srcMaxLen
   addOptional(p,'maxLenRatio', 1.5, @isnumeric); % decodeLen <= maxLenRatio * srcMaxLen
-  addOptional(p,'depParse', 0, @isnumeric); % 1: indicate that we are doing dependency parsing
-  addOptional(p,'depRootId', -1, @isnumeric); % 1: indicate that we are doing dependency parsing
-  addOptional(p,'depShiftId', -1, @isnumeric); % 1: indicate that we are doing dependency parsing
   addOptional(p,'testPrefix', '', @ischar); % to specify a different file for decoding
 
   p.KeepUnmatched = true;
@@ -87,7 +84,7 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
     params.separateEmb = 0;
   end
   [params] = loadBiVocabs(params);
-  params.vocab = [params.tgtVocab params.srcVocab];
+  
   % copy fields
   fieldNames = fields(decodeParams);
   for ii=1:length(fieldNames)
@@ -106,18 +103,12 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   params.fid = fopen(params.outputFile, 'w');
   params.logId = fopen([outputFile '.log'], 'w');
   printParams(2, params);
-  
-  
-  
-  % dependency parsing
-  if decodeParams.depParse 
-    fprintf(2, '## Dependency parsing, rootId for %s=%d, shiftId for %s=%d\n', params.vocab{params.depRootId}, params.depRootId, ...
-      params.vocab{params.depShiftId}, params.depShiftId);
+   
+  % same-length decoder
+  if params.sameLength
     assert(decodeParams.batchSize==1);
-    assert(strcmp(params.vocab{params.depRootId}, 'R(root)')==1);
-    assert(strcmp(params.vocab{params.depShiftId}, 'S')==1);
+    fprintf(2, '## Same-length decoding\n');
   end
-  
   
   % load test data
   [srcSents, tgtSents, numSents]  = loadBiData(params, params.testPrefix, params.srcVocab, params.tgtVocab);
@@ -158,6 +149,17 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   fclose(params.logId);
 end
 
+%   addOptional(p,'depParse', 0, @isnumeric); % 1: indicate that we are doing dependency parsing
+%   % dependency parsing
+%   if params.depParse 
+%     assert(decodeParams.batchSize==1);
+%     params.depRootId = find(strcmp(params.tgtVocab, 'R(root)')==1,1);
+%     params.depShiftId = find(strcmp(params.tgtVocab, 'S')==1,1);
+%     fprintf(2, '## Dependency parsing, rootId for %s=%d, shiftId for %s=%d\n', params.tgtVocab{params.depRootId}, params.depRootId, ...
+%       params.tgtVocab{params.depShiftId}, params.depShiftId);
+%   end
+
+% params.vocab = [params.tgtVocab params.srcVocab];
 
 %   addOptional(p,'option', 0, @isnumeric); % 0: normal, 1: depparse, 2: permutation
 %   addOptional(p,'unkId', 1, @isnumeric); % id of unk word
