@@ -1,0 +1,3 @@
+~/lmthang-dl/lstm/lstm.deen.50000.d1000.lr1.max5.d4.init0.1.noClip.reverse.dropout0.8.longer.sort.shuffle basic+reverse+dropout
+~/lmthang-dl/lstm/lstm.deen.50000.d1000.lr1.max5.d4.init0.1.noClip.longer.attn1.reverse.dropout0.8 basic+reverse+dropout+attn
+~/lmthang-dl/lstm/lstm.deen.50000.d1000.lr1.max5.d4.init0.1.noClip.longer.attn1.feedInput.reverse.dropout0.8 basic+reverse+dropout+attn+feedInput
