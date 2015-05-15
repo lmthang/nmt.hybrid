@@ -48,10 +48,6 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
     if params.posModel==2
       W_tgt_combined = [model.W_tgt{1} model.W_tgt_pos];
     end
-    
-    if params.attnFunc==1
-      data.srcHidVecs = zeroMatrix([params.lstmSize, curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);  
-    end
   else
     params.numSrcHidVecs = 0;
   end
@@ -447,7 +443,7 @@ function [logProbs] = softmaxDecode(scores)
 end
 
 function [srcHidVecs] = computeRelativeSrcHidVecs(srcHidVecsAll, srcMaxLen, tgtPos, batchSize, params, beamSize)
-  ] = buildSrcHidVecs(srcHidVecsAll, srcMaxLen, tgtPos, params);
+  [srcHidVecs] = buildSrcHidVecs(srcHidVecsAll, srcMaxLen, tgtPos, params);
 
   % duplicate srcHidVecs along the curBatchSize dimension beamSize times
   if (beamSize>1)
@@ -560,7 +556,6 @@ end
 %           [attnVecs] = attnLayerForward(model, beamStates{params.numLayers}.h_t, srcHidVecs, ones(1, batchSize*beamSize)); % here we use the previous time step mask
 %           x_t = [W_emb(:, words); attnVecs];
 %         else
->>>>>>> lstm7
 
 %% Code for class-based softmax %%
 %   if params.numClasses == 0 % normal softmax
