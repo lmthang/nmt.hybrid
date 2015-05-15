@@ -78,12 +78,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   
   % attentional model
   if params.attnFunc && params.predictPos==0 % soft attention
-    if params.attnRelativePos
-      trainData.startAttnIds = zeros(tgtMaxLen, 1);
-      trainData.endAttnIds = zeros(tgtMaxLen, 1);
-      trainData.startHidIds = zeros(tgtMaxLen, 1);
-      trainData.endHidIds = zeros(tgtMaxLen, 1); 
-    else % absolute pos
+    if params.attnAbsolutePos % absolute pos
       startAttnId = 1;
       endAttnId = params.numSrcHidVecs;
       startHidId = params.numAttnPositions-params.numSrcHidVecs+1;

@@ -402,7 +402,9 @@ function [model] = initLSTM(params)
   %% h_t -> softmax input
   % attention mechanism
   if params.attnFunc>0 
-    model.W_a = randomMatrix(params.initRange, [params.numAttnPositions, params.lstmSize], params.isGPU, params.dataType);
+    if params.predictPos==0 % for soft attention
+      model.W_a = randomMatrix(params.initRange, [params.numAttnPositions, params.lstmSize], params.isGPU, params.dataType);
+    end
     
     % attn_t = H_src * a_t % h_attn_t = f(W_h * [attn_t; h_t])
     model.W_h = randomMatrix(params.initRange, [params.attnSize, 2*params.lstmSize], params.isGPU, params.dataType);
