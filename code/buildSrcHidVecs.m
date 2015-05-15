@@ -21,6 +21,11 @@ function [srcHidVecs, startAttnId, endAttnId, startHidId, endHidId] = buildSrcHi
   srcHidVecs = zeroMatrix([params.lstmSize, batchSize, params.numAttnPositions], params.isGPU, params.dataType);
   
   if startHidId<=endHidId && startAttnId<=endAttnId % in boundary
+    if startHidId<=0 || startHidId>size(srcHidVecs, 3) || endHidId<=0 || endHidId>size(srcHidVecs, 3) ...
+        || startAttnId<=0 || startAttnId>size(srcHidVecsAll,3)|| endAttnId<=0 || endAttnId>size(srcHidVecsAll,3)
+      size(srcHidVecs)
+      size(srcHidVecsAll)
+    end
     srcHidVecs(:, :, startHidId:endHidId) = srcHidVecsAll(:, :, startAttnId:endAttnId);
   else % out of boundary
     startHidId = 1;
@@ -30,8 +35,3 @@ function [srcHidVecs, startAttnId, endAttnId, startHidId, endHidId] = buildSrcHi
   end
 end
 
-%     if startHidId<=0 || startHidId>size(srcHidVecs, 3) || endHidId<=0 || endHidId>size(srcHidVecs, 3) ...
-%         || startAttnId<=0 || startAttnId>size(srcHidVecsAll,3)|| endAttnId<=0 || endAttnId>size(srcHidVecsAll,3)
-%       size(srcHidVecs)
-%       size(srcHidVecsAll)
-%     end

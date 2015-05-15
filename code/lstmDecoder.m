@@ -110,9 +110,8 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
       % h_t -> softmax_h
       if tt==srcMaxLen && ll==params.numLayers
         if params.attnRelativePos % relative position
-          [data.srcHidVecs] = buildSrcHidVecs(data.srcHidVecsAll, srcMaxLen, tgtPos, params);
+          data.srcHidVecs = data.srcHidVecsAll; %buildSrcHidVecs(data.srcHidVecsAll, srcMaxLen, tgtPos, params);
         end
-  
         [softmax_h] = hid2softLayerForward(h_t, params, model, data, curMask, tgtPos); %, 1); 
       end
       
@@ -218,8 +217,12 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, softma
     curBatchSize = numElements;
     curMask.mask = ones(1, curBatchSize);
     curMask.unmaskedIds = 1:curBatchSize;
-    if params.attnFunc && params.attnRelativePos==0 % absolute position
+    
+    % duplicate srcHidVecs
+    if params.attnAbsolutePos % absolute position
       [data.absSrcHidVecs] = duplicateSrcHidVecs(data.absSrcHidVecs, batchSize, beamSize);
+    elseif params.attnRelativePos % relative pos
+      data.srcHidVecs = duplicateSrcHidVecs(data.srcHidVecsAll, batchSize, beamSize);
     end
     
 %     % duplicate srcLens
@@ -302,9 +305,10 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, softma
     end
     
     %% predict the next word
-    if params.attnFunc && params.attnRelativePos % relative pos
-      [data.srcHidVecs] = computeRelativeSrcHidVecs(data.srcHidVecsAll, srcMaxLen, tgtPos, batchSize, params, beamSize);
-    end
+%     if params.attnRelativePos % relative pos
+%       [data.srcHidVecs] = computeRelativeSrcHidVecs(data.srcHidVecsAll, srcMaxLen, tgtPos, batchSize, params, beamSize);
+%     end
+
     if params.sameLength && sentPos == (maxLen-1) % same length decoding
       [~, ~, logProbs] = nextBeamStep(model.(matrixName), softmax_h, beamSize); %beamStates{numLayers}.h_t, beamSize, params, data, curMask, tgtPos);
       allBestScores = logProbs(params.tgtEos, :);
