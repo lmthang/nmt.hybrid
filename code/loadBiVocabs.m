@@ -1,7 +1,7 @@
 function [params] = loadBiVocabs(params)
   %% grad check
   if params.isGradCheck
-    if params.posModel>=0
+    if params.predictPos
       params.posWin = 2;
       tgtVocab = {'a', 'b', '<p_-2>', '<p_-1>', '<p_0>', '<p_1>', '<p_2>'};
     else
@@ -40,7 +40,7 @@ function [params] = loadBiVocabs(params)
     
   %% tgt vocab  
   % positional vocab
-  if params.posModel>0
+  if params.predictPos
     indices = find(strncmp('<p_', tgtVocab, 3));
     assert(length(indices) == (indices(end)-indices(1)+1)); % make sure indices are contiguous
     params.startPosId = indices(1);
@@ -97,7 +97,7 @@ function [params] = loadBiVocabs(params)
   %params.outVocabSize = params.tgtVocabSize;
   
   if params.assert
-    if params.posModel>=1
+    if params.predictPos
       assert(params.tgtEos == (params.startPosId + params.posVocabSize-1));
     end
   end

@@ -36,7 +36,7 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
   
   % attentional / positional models
   W_tgt_combined = 0;
-  if params.attnFunc || params.posModel>=2 || params.sameLength
+  if params.attnFunc || params.sameLength %  || params.posModel>=2
     params.numSrcHidVecs = srcMaxLen-1;
     data.curMask.mask = ones(1, curBatchSize);
     data.curMask.unmaskedIds = 1:curBatchSize;
@@ -44,14 +44,10 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
 
     data.srcHidVecsAll = zeroMatrix([params.lstmSize, curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);  
     
-    % position model 2: feed to input
-    if params.posModel==2
-      W_tgt_combined = [model.W_tgt{1} model.W_tgt_pos];
-    end
-    
-    if params.attnFunc==1
-      data.srcHidVecs = zeroMatrix([params.lstmSize, curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);  
-    end
+%     % position model 2: feed to input
+%     if params.posModel==2
+%       W_tgt_combined = [model.W_tgt{1} model.W_tgt_pos];
+%     end
   else
     params.numSrcHidVecs = 0;
   end
@@ -89,11 +85,11 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
       % current-time input
       if ll==1 % first layer
         if tt==srcMaxLen % decoder input
-          x_t = getLstmDecoderInput(input(:, tt), tgtPos, W_emb, softmax_h, data, zeroState, params, curMask);
-          % pos model predict words
-          if params.posModel==2 && mod(tgtPos, 2)==0 
-            W = W_tgt_combined;
-          end
+          x_t = getLstmDecoderInput(input(:, tt), tgtPos, W_emb, softmax_h, data, zeroState, params); %, curMask);
+%           % pos model predict words
+%           if params.posModel==2 && mod(tgtPos, 2)==0 
+%             W = W_tgt_combined;
+%           end
         else
           x_t = W_emb(:, input(:, tt));
         end
@@ -117,7 +113,7 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
           [data.srcHidVecs] = buildSrcHidVecs(data.srcHidVecsAll, srcMaxLen, tgtPos, params);
         end
   
-        [softmax_h] = hid2softLayerForward(h_t, params, model, data, curMask, tgtPos, 1); 
+        [softmax_h] = hid2softLayerForward(h_t, params, model, data, curMask, tgtPos); %, 1); 
       end
       
       % attentional  models
@@ -185,13 +181,13 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, softma
   %curMask.mask = ones(1, batchSize);
   %tgtPos = 1;
   matrixName = 'W_soft';
-  if params.posModel>=1 % we predict positions
-    matrixName = 'W_softPos';
-  end
+%   if params.posModel>=1 % we predict positions
+%     matrixName = 'W_softPos';
+%   end
   [scores, words] = nextBeamStep(model.(matrixName), softmax_h, beamSize); %lstmStart{numLayers}.h_t, beamSize, params, data, curMask, tgtPos); % scores, words: beamSize * batchSize
-  if params.posModel>=1
-    words = words + params.startPosId - 1;
-  end
+%   if params.posModel>=1
+%     words = words + params.startPosId - 1;
+%   end
   
   % TODO: by right, we should filter out words == params.tgtEos, but I
   % think for good models, we don't have to worry :)
@@ -218,7 +214,7 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, softma
   curMask.mask = ones(1, batchSize);
   curMask.unmaskedIds = 1:batchSize;
   % attentional / positional models
-  if params.attnFunc || params.posModel>=2 || params.sameLength
+  if params.attnFunc || params.sameLength % || params.posModel>=2 
     curBatchSize = numElements;
     curMask.mask = ones(1, curBatchSize);
     curMask.unmaskedIds = 1:curBatchSize;
@@ -226,12 +222,12 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, softma
       [data.absSrcHidVecs] = duplicateSrcHidVecs(data.absSrcHidVecs, batchSize, beamSize);
     end
     
-    % duplicate srcLens
-    if params.posModel>=2
-      params.curBatchSize = batchSize;
-      data.srcLens = reshape(repmat(data.srcLens, beamSize, 1), 1, []);
-      data.srcHidVecs = duplicateSrcHidVecs(data.srcHidVecsAll, batchSize, beamSize);
-    end
+%     % duplicate srcLens
+%     if params.posModel>=2
+%       params.curBatchSize = batchSize;
+%       data.srcLens = reshape(repmat(data.srcLens, beamSize, 1), 1, []);
+%       data.srcHidVecs = duplicateSrcHidVecs(data.srcHidVecsAll, batchSize, beamSize);
+%     end
   end
   
   decodeCompleteCount = 0; % count how many sentences we have completed collecting the translations
@@ -263,14 +259,14 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, softma
     %   (maxLen+1), ending in R(root) <eos>.
     tgtPos = sentPos+1;
     
-    % position models
-    if params.posModel>=1
-      if mod(tgtPos, 2)==1 % positions
-        matrixName = 'W_softPos';
-      else
-        matrixName = 'W_soft';
-      end
-    end
+%     % position models
+%     if params.posModel>=1
+%       if mod(tgtPos, 2)==1 % positions
+%         matrixName = 'W_softPos';
+%       else
+%         matrixName = 'W_soft';
+%       end
+%     end
     
     %% compute next lstm hidden states
     words = beamHistory(sentPos, :);
@@ -278,16 +274,16 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, softma
       W = model.W_tgt{ll};
       % current input
       if ll == 1
-        x_t = getLstmDecoderInput(words, tgtPos, W_emb, softmax_h, data, zeroState, params, curMask);
-        % pos model predict words
-        if params.posModel>0 && mod(tgtPos, 2)==0 
-          if params.posModel==2
-            W = W_tgt_combined;
-          end
-          if params.posModel==3
-            data.positions = words;
-          end
-        end
+        x_t = getLstmDecoderInput(words, tgtPos, W_emb, softmax_h, data, zeroState, params); %, curMask);
+%         % pos model predict words
+%         if params.posModel>0 && mod(tgtPos, 2)==0 
+%           if params.posModel==2
+%             W = W_tgt_combined;
+%           end
+%           if params.posModel==3
+%             data.positions = words;
+%           end
+%         end
       else
         x_t = beamStates{ll-1}.h_t;
       end
@@ -301,7 +297,7 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, softma
       
       % h_t -> softmax_h
       if ll==params.numLayers
-        [softmax_h] = hid2softLayerForward(h_t, params, model, data, curMask, tgtPos, 1); 
+        [softmax_h] = hid2softLayerForward(h_t, params, model, data, curMask, tgtPos); %, 1); 
       end
     end
     
@@ -316,9 +312,9 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, softma
       card = 1;
     else
       [allBestScores, allBestWords] = nextBeamStep(model.(matrixName), softmax_h, beamSize); %beamStates{numLayers}.h_t, beamSize, params, data, curMask, tgtPos); % beamSize * (beamSize*batchSize)
-      if params.posModel>=1 && mod(tgtPos, 2)==1 % positions
-        allBestWords = allBestWords + params.startPosId - 1;
-      end
+%       if params.posModel>=1 && mod(tgtPos, 2)==1 % positions
+%         allBestWords = allBestWords + params.startPosId - 1;
+%       end
       card = beamSize;
     end
     [allBestScores, allBestWords, indices] = addSortScores(allBestScores, allBestWords, beamScores, card, beamSize, batchSize);
@@ -447,7 +443,7 @@ function [logProbs] = softmaxDecode(scores)
 end
 
 function [srcHidVecs] = computeRelativeSrcHidVecs(srcHidVecsAll, srcMaxLen, tgtPos, batchSize, params, beamSize)
-  ] = buildSrcHidVecs(srcHidVecsAll, srcMaxLen, tgtPos, params);
+  [srcHidVecs] = buildSrcHidVecs(srcHidVecsAll, srcMaxLen, tgtPos, params);
 
   % duplicate srcHidVecs along the curBatchSize dimension beamSize times
   if (beamSize>1)
@@ -560,7 +556,6 @@ end
 %           [attnVecs] = attnLayerForward(model, beamStates{params.numLayers}.h_t, srcHidVecs, ones(1, batchSize*beamSize)); % here we use the previous time step mask
 %           x_t = [W_emb(:, words); attnVecs];
 %         else
->>>>>>> lstm7
 
 %% Code for class-based softmax %%
 %   if params.numClasses == 0 % normal softmax

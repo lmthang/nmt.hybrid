@@ -18,15 +18,20 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
     srcLens = cellfun(@(x) length(x), srcSents);
   end
   
+  % positions
+  if params.predictPos % tgt sent: pos1 word1 ... pos_n word_n
+    tgtLens = tgtLens/2;
+  end
+  
   % src
   numSents = length(tgtSents);
   if params.isBi
     srcLens = srcLens + 1; % add eos
-    if isTest==0 || (params.attnFunc==1 || params.attnFunc==3) % limit sent lengths for training or for attention model during both training/testing
+    if isTest==0 || (params.attnAbsolutePos) % limit sent lengths for training or for attention model during both training/testing
       srcLens(srcLens>params.maxSentLen) = params.maxSentLen; 
     end
     srcMaxLen = max(srcLens);
-  else
+  else % mono
     srcMaxLen = 1;
     srcLens = ones(1, numSents);
   end
@@ -34,15 +39,10 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   % tgt
   tgtLens = tgtLens + 1; % add eos
   tgtMaxSentLen = params.maxSentLen;
-  if params.posModel>0
-    tgtMaxSentLen = (tgtMaxSentLen-1)*2 + 1;
-  end
   if isTest==0 % training
     tgtLens(tgtLens>tgtMaxSentLen) = tgtMaxSentLen; % limit sent lengths
-    tgtMaxLen = max(tgtLens);
-  else
-    tgtMaxLen = max(tgtLens);
   end
+  tgtMaxLen = max(tgtLens);
   
   %% input / output
   if params.isBi
@@ -50,22 +50,35 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   end
   tgtInput = [params.tgtSos*ones(numSents, 1) params.tgtEos*ones(numSents, tgtMaxLen-1)];
   tgtOutput = params.tgtEos*ones(numSents, tgtMaxLen);
-  
+  % positions
+  if params.predictPos
+    posOutput = params.tgtEos*ones(numSents, tgtMaxLen);
+  end
   for ii=1:numSents
-    %% src
+    %% IMPORTANT: because we limit sent length, so len(tgtSent) or len(srcSent) 
+    %% can be > tgtLen or srcLen, so do not remove 1:tgtLen or 1:srcLen.
+    
+    % src
     if params.isBi
-      srcLen = srcLens(ii);
-      srcInput(ii, srcMaxLen-srcLen+1:srcMaxLen-1) = srcSents{ii}(1:srcLen-1);      
+      srcLen = srcLens(ii)-1; % exclude eos
+      srcInput(ii, srcMaxLen-srcLen:srcMaxLen-1) = srcSents{ii}(1:srcLen);      
       srcInput(ii, srcMaxLen) = params.srcEos;
     end
     
-    %% tgt
-    tgtSent = tgtSents{ii};
-    tgtLen = tgtLens(ii);
+    % tgt
+    tgtLen = tgtLens(ii)-1; % exclude eos
+    if params.predictPos % positions
+      positions = tgtSents{ii}(1:2:end);
+      posOutput(ii, 1:tgtLen) = positions(1:tgtLen);
+      
+      tgtSent = tgtSents{ii}(2:2:end);
+    else
+      tgtSent = tgtSents{ii};
+    end
     
-    % tgtEos has been prefilled
-    tgtInput(ii, 2:tgtLen) = tgtSent(1:tgtLen-1);
-    tgtOutput(ii, 1:tgtLen-1) = tgtSent(1:tgtLen-1);
+    % tgtEos has been prefilled at the end
+    tgtInput(ii, 2:tgtLen+1) = tgtSent(1:tgtLen); % tgtInput: sos word1 ... word_n
+    tgtOutput(ii, 1:tgtLen) = tgtSent(1:tgtLen); % tgtOutput: word1 ... word_n eos
   end
   
   % mask
@@ -75,12 +88,9 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   tgtMask = tgtInput~=params.tgtEos;
   numWords = sum(tgtMask(:)); 
   
-  % positional models
-  if params.posModel>0
-    % tgt sent: pos1 word1 ... pos_n word_n <eos>. 
-    % posOutput: pos1 ... pos_n <eos>
-    data.posOutput = tgtOutput(:, 1:2:tgtMaxLen);
-    data.posMask = tgtMask(:, 1:2:tgtMaxLen);
+  % positions
+  if params.predictPos
+    data.posOutput = posOutput;
   end
   
   % assign to data struct
@@ -115,12 +125,6 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   end
 end
 
-%       if params.separateEmb==1 % separate vocab
-%       else
-%         srcInput(ii, srcMaxLen-srcLen+1:srcMaxLen-1) = srcSents{ii}(1:srcLen-1) + params.tgtVocabSize;
-%       end
-
-    %label = 'input';
-    %printSent(input(1, :), params.vocab, ['  ', label, ' 1:']);
-    %printSent(input(end, :), params.vocab, ['  ', label, ' end:']);
-    
+%   if params.posModel>0
+%     tgtMaxSentLen = (tgtMaxSentLen-1)*2 + 1;
+%   end
