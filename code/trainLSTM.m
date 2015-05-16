@@ -169,21 +169,21 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       params.attnSize = params.lstmSize;
     end
     
-    % positions
-    if params.attnFunc==1 || params.attnFunc==3 % absolute
-      params.numAttnPositions = params.maxSentLen-1;
+    if params.attnFunc==1 % absolute, soft attention
       params.attnAbsolutePos=1;
-    elseif params.attnFunc==2 || params.attnFunc==4 % relative
-      params.numAttnPositions = 2*params.posWin + 1;
+      params.numAttnPositions = params.maxSentLen-1;
+    elseif params.attnFunc==2 % relative, soft attention
       params.attnRelativePos=1;
-    end
-    
-    % hard attention
-    if params.attnFunc==3 || params.attnFunc==4 
+      params.numAttnPositions = 2*params.posWin + 1;
+    elseif params.attnFunc==3 % absolute, hard attention
+      params.attnAbsolutePos=1;
       params.predictPos = 1;
+      params.numAttnPositions = 1;
+    elseif params.attnFunc==4 % relative, hard attention
+      params.attnRelativePos=1;
+      params.predictPos = 1;
+      params.numAttnPositions = 1;
     end
-    
-    assert((params.attnAbsolutePos+params.attnRelativePos)==1);
   end
   
   
@@ -559,7 +559,7 @@ function [params] = evalSaveDecode(model, validData, testData, params, srcTrainS
   save(params.modelRecentFile, 'model', 'params');
 
   % decode
-  if params.isBi && params.decode==1
+  if params.isBi && params.decode==1 && params.predictPos==0
     validId = randi(validData.numSents);
     testId = randi(testData.numSents);
     decodeSent(srcTrainSents(1), tgtTrainSents(1), model, params);

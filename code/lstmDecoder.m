@@ -112,7 +112,7 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
         if params.attnRelativePos % relative position
           data.srcHidVecs = data.srcHidVecsAll; %buildSrcHidVecs(data.srcHidVecsAll, srcMaxLen, tgtPos, params);
         end
-        [softmax_h] = hid2softLayerForward(h_t, params, model, data, curMask, tgtPos); %, 1); 
+        [softmax_h] = hid2softLayerForward(h_t, params, model, data, curMask, tgtPos); 
       end
       
       % attentional  models
@@ -300,7 +300,7 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, softma
       
       % h_t -> softmax_h
       if ll==params.numLayers
-        [softmax_h] = hid2softLayerForward(h_t, params, model, data, curMask, tgtPos); %, 1); 
+        [softmax_h] = hid2softLayerForward(h_t, params, model, data, curMask, tgtPos); 
       end
     end
     

@@ -34,4 +34,3 @@ function [srcHidVecs, startAttnId, endAttnId, startHidId, endHidId] = buildSrcHi
     endAttnId = 0;
   end
 end
-

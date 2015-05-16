@@ -15,7 +15,12 @@ function [srcPosVecs, linearIndices] = buildSrcPosVecs(tgtPos, params, trainData
   
  
   %% compute aligned src positions
-  srcPositions = tgtPos - (predPositions - params.zeroPosId); % src_pos = tgt_pos - relative_pos
+  if params.attnRelativePos
+    srcPositions = tgtPos - (predPositions - params.zeroPosId); % src_pos = tgt_pos - relative_pos
+  else % absolute position
+    srcPositions = predPositions - params.zeroPosId;
+  end
+    
   % cross left boundary
   srcPositions(srcPositions<=0) = 1; 
   % cross right boundary
@@ -23,11 +28,11 @@ function [srcPosVecs, linearIndices] = buildSrcPosVecs(tgtPos, params, trainData
   srcPositions(indices) = srcLens(indices)-1;
   
   % get the column indices on the src side
-  colIndices = srcMaxLen-srcPositions; % NOTE: important, here we assume src sentences are reversed
+  colIndices = srcMaxLen-srcPositions; % NOTE: IMPORTANT, here we assume src sentences are reversed
 
-%   % use the below two lines to verify if you get the alignments correctly
-%   params.vocab(input(sub2ind(size(input), unmaskedIds, colIndices)))
-%   params.vocab(trainData.tgtOutput(unmaskedIds, tgtPos+1))
+  % use the below two lines to verify if you get the alignments correctly
+  %params.srcVocab(trainData.input(sub2ind(size(trainData.input), unmaskedIds, colIndices)))
+  %params.tgtVocab(trainData.tgtOutput(unmaskedIds, tgtPos))
 
   %% get srcPosVecs
   % topHidVecs: lstmSize * curBatchSize * T

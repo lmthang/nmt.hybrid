@@ -68,7 +68,10 @@ function [evalCosts] = evalCost(model, data, params) %input, inputMask, tgtOutpu
     end
     trainData.tgtMask = data.tgtMask(startId:endId, :);
     trainData.tgtOutput = data.tgtOutput(startId:endId, :);
-    trainData.srcLens = data.srcLens(startId:endId);
+    trainData.srcLens = data.srcLens(startId:endId); 
+    if params.predictPos
+      trainData.posOutput = data.posOutput(startId:endId, :);
+    end
     
     % eval
     costs = lstmCostGrad(model, trainData, params, 1);

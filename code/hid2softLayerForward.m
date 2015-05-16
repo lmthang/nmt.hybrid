@@ -1,4 +1,4 @@
-function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainData, curMask, tgtPos) %, isTest)
+function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainData, curMask, tgtPos)
 %%%
 %
 % From lstm hidden state to softmax hidden state.
@@ -11,25 +11,21 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
   if params.softmaxDim || params.attnFunc %|| (params.posModel==3 && mod(tgtPos, 2)==0)
     if params.softmaxDim % softmax compression: f(W_h * h_t)
       h2sInfo.input = h_t;
-%     elseif params.posModel==3 && mod(tgtPos, 2)==0 % positional model 3: f(W_h * [srcPosVecs; h_t])
-%       if isTest==0
-%         positions = trainData.tgtOutput(:, tgtPos-1)'; % Here we look at the previous time steps for positions
-%       else
-%         positions = trainData.positions;
-%       end
-%       
-%       [srcHidVecs, h2sInfo.linearIndices] = buildSrcPosVecs(tgtPos, params, trainData, positions, curMask);
-%       h2sInfo.input = [srcHidVecs; h_t];
-    elseif params.attnFunc % attention mechanism: f(W_h*[attn_t; tgt_h_t])
-      if params.attnRelativePos % relative
-        [srcHidVecs, h2sInfo.startAttnId, h2sInfo.endAttnId, h2sInfo.startHidId, h2sInfo.endHidId] = buildSrcHidVecs(...
-          trainData.srcHidVecs, trainData.srcMaxLen, tgtPos, params);
-      else
-        srcHidVecs = trainData.absSrcHidVecs;
+    elseif params.attnFunc % attention mechanism: f(W_h*[attn_t; tgt_h_t]), attn_t is the context vector in the paper.
+      if params.predictPos % hard attention
+        [attnVecs, h2sInfo.linearIndices] = buildSrcPosVecs(tgtPos, params, trainData, trainData.positions, curMask);
+      else % soft attention
+        if params.attnRelativePos % relative
+          [srcHidVecs, h2sInfo.startAttnId, h2sInfo.endAttnId, h2sInfo.startHidId, h2sInfo.endHidId] = buildSrcHidVecs(...
+            trainData.srcHidVecs, trainData.srcMaxLen, tgtPos, params);
+        else
+          srcHidVecs = trainData.absSrcHidVecs;
+        end        
+
+        h2sInfo.h_t = h_t;
+        [attnVecs, h2sInfo.alignWeights] = attnLayerForward(model.W_a, h_t, srcHidVecs, curMask.mask);
       end
 
-      h2sInfo.h_t = h_t;
-      [attnVecs, h2sInfo.alignWeights] = attnLayerForward(model.W_a, h_t, srcHidVecs, curMask.mask);
       h2sInfo.input = [attnVecs; h_t];
     end
     
@@ -39,4 +35,14 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
     softmax_h = h_t;
   end
 end
+
+%     elseif params.posModel==3 && mod(tgtPos, 2)==0 % positional model 3: f(W_h * [srcPosVecs; h_t])
+%       if isTest==0
+%         positions = trainData.tgtOutput(:, tgtPos-1)'; % Here we look at the previous time steps for positions
+%       else
+%         positions = trainData.positions;
+%       end
+%       
+%       [srcHidVecs, h2sInfo.linearIndices] = buildSrcPosVecs(tgtPos, params, trainData, positions, curMask);
+%       h2sInfo.input = [srcHidVecs; h_t];
     

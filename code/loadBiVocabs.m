@@ -3,7 +3,11 @@ function [params] = loadBiVocabs(params)
   if params.isGradCheck
     if params.predictPos
       params.posWin = 2;
-      tgtVocab = {'a', 'b', '<p_-2>', '<p_-1>', '<p_0>', '<p_1>', '<p_2>'};
+      if params.attnAbsolutePos
+        tgtVocab = {'a', 'b', '<p_1>', '<p_2>', '<p_3>', '<p_4>', '<p_5>'};
+      else
+        tgtVocab = {'a', 'b', '<p_-2>', '<p_-1>', '<p_0>', '<p_1>', '<p_2>'};
+      end
     else
       tgtVocab = {'a', 'b'};
     end
@@ -58,6 +62,10 @@ function [params] = loadBiVocabs(params)
       end
       
       % assert
+      if params.attnAbsolutePos && ii==1
+        assert(pos==1);
+        params.zeroPosId = indices(ii)-1;
+      end
       assert(~isnan(pos));
       assert(ii==1 || pos==(prevPos+1));
       prevPos = pos;
