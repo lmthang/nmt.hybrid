@@ -419,7 +419,7 @@ function [model] = initLSTM(params)
       % predict weight for the src hidden state: sigmoid(v_pos*f(W_h*h_t))
       model.v_pos = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
       
-      model.W_softPos = randomMatrix(params.initRange, [params.posVocabSize, params.softmaxSize], params.isGPU, params.dataType);
+      %model.W_softPos = randomMatrix(params.initRange, [params.posVocabSize, params.softmaxSize], params.isGPU, params.dataType);
     end
     
     % predict alignment weights

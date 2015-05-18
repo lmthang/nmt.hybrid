@@ -64,9 +64,9 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   
   % attentional model
   if params.attnFunc 
-%     if params.predictPos==1 % hard attention
-%       grad_ht_pos_all = cell(tgtMaxLen, 1);
-%     end
+    if params.predictPos==1 % hard attention
+      grad_ht_pos_all = cell(tgtMaxLen, 1);
+    end
       
     if params.attnAbsolutePos % absolute soft attention
       startAttnId = 1;
@@ -151,20 +151,48 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         %% predicting positions
         if params.predictPos % pos=srcLen*sigmoid(v_pos*f(W_pos*h_t))  
           % h_t -> h_pos=f(W_pos*h_t)
-          [h2sInfo.h_pos] = hiddenLayerForward(model.W_pos, h_t{ll}, params.nonlinear_f);
+          [h_pos] = hiddenLayerForward(model.W_pos, h_t{ll}, params.nonlinear_f);
           
-          % h_pos -> scales
+          % h_pos -> positions
           if params.absolutePos % scales=sigmoid(v_pos*h_pos) in [0, 1]
-            h2sInfo.scales = hiddenLayerForward(model.v_pos, h_t{ll}, params.nonlinear_gate_f);
-            h2sInfo.positions = trainData.srcLens.*h2sInfo.scales;
+            scales = hiddenLayerForward(model.v_pos, h_pos, params.nonlinear_gate_f);
+            positions = trainData.srcLens.*scales;
           else % scales=tanh(v_pos*h_pos) in [-1, 1]
-            h2sInfo.scales = hiddenLayerForward(model.v_pos, h_t{ll}, params.nonlinear_f);
-            h2sInfo.positions = params.posWin.*h2sInfo.scales;
+            scales = hiddenLayerForward(model.v_pos, h_pos, params.nonlinear_f);
+            positions = params.posWin.*scales;
           end
 
           % loss
           h2sInfo.correctPositions = trainData.positions-params.zeroPosId;
-          cost_pos = params.posWeight.*sum((h2sInfo.correctPositions-h2sInfo.positions).^2);
+          posDiff = h2sInfo.correctPositions-positions;
+          cost_pos = params.posWeight.*sum(posDiff.^2);
+          
+          % backprop: position loss -> h_t
+          if isTest==0
+            % loss -> positions
+            grad_positions = 2*params.posWeight*posDiff;
+            
+            % positions -> h_pos
+            if params.absolutePos % scales=sigmoid(v_pos*h_pos) in [0, 1]
+              grad_scales = trainData.srcLens.*grad_positions;
+              [grad_h_pos, grad_v_pos] = hiddenLayerBackprop(model.v_pos, grad_scales, h_pos, params.nonlinear_gate_f_prime, scales);
+            else % scales=tanh(v_pos*h_pos) in [-1, 1]
+              grad_scales = params.posWin.*grad_positions;
+              [grad_h_pos, grad_v_pos] = hiddenLayerBackprop(model.v_pos, grad_scales, h_pos, params.nonlinear_f_prime, scales);
+            end
+            
+            % h_pos -> h_t
+            [grad_ht_pos_all{tgtPos}, grad_W_pos] = hiddenLayerBackprop(model.W_pos, grad_h_pos, h_t{ll}, params.nonlinear_f_prime, h_pos);
+            
+            % update grads
+            if tt==srcMaxLen
+              grad.v_pos = grad_v_pos;
+              grad.W_pos = grad_W_pos;
+            else
+              grad.v_pos = grad.v_pos + grad_v_pos;
+              grad.W_pos = grad.W_pos + grad_W_pos;
+            end
+          end
           
 %           % h_t_pos -> position loss
 %           [cost_pos, probs_pos, scores_pos, scoreIndices_pos] = softmaxLayerForward(model.W_softPos, h_t_pos, trainData.positions-params.startPosId+1, curMask);
@@ -304,10 +332,10 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
     %% softmax_h -> h_t: at the top layer
     if (tt>=srcMaxLen)
       if params.attnFunc || params.softmaxDim>0
-%         % get signals from the softmax layer for positions
-%         if params.predictPos
-%           dh{params.numLayers} = dh{params.numLayers} + params.posWeight*grad_ht_pos_all{tgtPos};
-%         end
+        % get signals from the softmax layer for positions
+        if params.predictPos
+          dh{params.numLayers} = dh{params.numLayers} + grad_ht_pos_all{tgtPos};
+        end
         
         % softmax_h -> h_t
         h2sInfo = h2sInfoAll{tgtPos};
