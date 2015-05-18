@@ -12,21 +12,33 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
     if params.softmaxDim % softmax compression: f(W_h * h_t)
       h2sInfo.input = h_t;
     elseif params.attnFunc % attention mechanism: f(W_h*[attn_t; tgt_h_t]), attn_t is the context vector in the paper.
-      if params.predictPos % hard attention
-        [attnVecs, h2sInfo.linearIndices] = buildSrcPosVecs(tgtPos, params, trainData, trainData.positions, curMask);
-      else % soft attention
-        if params.attnRelativePos % relative
-          [srcHidVecs, h2sInfo.startAttnId, h2sInfo.endAttnId, h2sInfo.startHidId, h2sInfo.endHidId] = buildSrcHidVecs(...
-            trainData.srcHidVecs, trainData.srcMaxLen, tgtPos, params);
-        else
-          srcHidVecs = trainData.absSrcHidVecs;
-        end        
-
-        h2sInfo.h_t = h_t;
-        [attnVecs, h2sInfo.alignWeights] = attnLayerForward(model.W_a, h_t, srcHidVecs, curMask.mask);
-      end
-
+%       if params.predictPos % hard attention
+%           % h_t -> h_pos
+%           [h2sInfo.h_pos] = hiddenLayerForward(model.W_h_pos, h_t, params.nonlinear_f);
+%           
+%           % predict weight for the src hidden state: sigmoid(v_pos'*f(W_h*h_t))
+%           alignScores = model.v_pos*h2sInfo.h_pos;
+%           h2sInfo.alignWeights = params.nonlinear_gate_f(alignScores); % 1*batchSize
+%           
+%           % select alignment vector
+%           [srcHidVecs, h2sInfo.linearIndices, h2sInfo.unmaskedIds] = buildSrcPosVecs(tgtPos, params, trainData, trainData.positions, curMask);
+%           attnVecs = bsxfun(@times,h2sInfo.alignWeights, srcHidVecs);
+%       else % soft attention
+%       end
+      
+      if params.posSignal % use unsupervised alignments
+        [srcHidVecs, h2sInfo.linearIndices, h2sInfo.unmaskedIds, h2sInfo.attnLinearIndices] = buildSrcPosVecs(tgtPos, params, trainData, trainData.positions, curMask);
+      elseif params.attnRelativePos % relative (approximate aligned src position by tgtPos)
+        [srcHidVecs, h2sInfo.startAttnId, h2sInfo.endAttnId, h2sInfo.startHidId, h2sInfo.endHidId] = buildSrcHidVecs(...
+          trainData.srcHidVecs, trainData.srcMaxLen, tgtPos, params);
+      else % absolute
+        srcHidVecs = trainData.absSrcHidVecs;
+      end   
+      [attnVecs, h2sInfo.alignWeights] = attnLayerForward(model.W_a, h_t, srcHidVecs, curMask.mask);
+      
+      % concat
       h2sInfo.input = [attnVecs; h_t];
+      h2sInfo.h_t = h_t;
     end
     
     softmax_h = hiddenLayerForward(model.W_h, h2sInfo.input, params.nonlinear_f);

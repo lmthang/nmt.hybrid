@@ -1,11 +1,10 @@
-function [inGrad, grad_W] = hiddenLayerBackprop(W, outGrad, inVec, nonlinear_f_prime, outVec)
 %% 
 % Forward outVec = f(W*inVec)
 % Compute inGrad, grad_W
 %
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 %%
-  
+function [inGrad, grad_W] = hiddenLayerBackprop(W, outGrad, inVec, nonlinear_f_prime, outVec)  
   % f'(outVec).*outGrad
   tmpResult = nonlinear_f_prime(outVec).*outGrad;  
   

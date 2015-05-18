@@ -1,4 +1,4 @@
-function [srcPosVecs, linearIndices] = buildSrcPosVecs(tgtPos, params, trainData, predPositions, curMask)
+function [srcHidVecs, linearIndices, unmaskedIds, attnLinearIndices] = buildSrcPosVecs(tgtPos, params, trainData, predPositions, curMask)
 %%%
 %
 % For positional models, generate src vectors based on the predicted positions.
@@ -13,19 +13,38 @@ function [srcPosVecs, linearIndices] = buildSrcPosVecs(tgtPos, params, trainData
   
   predPositions = predPositions(unmaskedIds);
   
- 
+  % exclude eos and null
+  excludeIndices = find(predPositions==params.tgtEos | predPositions==params.nullPosId);
+  if ~isempty(excludeIndices)
+    predPositions(excludeIndices) = []; unmaskedIds(excludeIndices) = []; srcLens(excludeIndices) = [];
+  end
+  
   %% compute aligned src positions
   if params.attnRelativePos
     srcPositions = tgtPos - (predPositions - params.zeroPosId); % src_pos = tgt_pos - relative_pos
   else % absolute position
     srcPositions = predPositions - params.zeroPosId;
   end
-    
-  % cross left boundary
-  srcPositions(srcPositions<=0) = 1; 
-  % cross right boundary
-  indices = find(srcPositions>=srcLens); % srcLen here include <eos> which we consider to be out of boundary
-  srcPositions(indices) = srcLens(indices)-1;
+  
+  % exclude those that are greater than params.maxSentLen
+  excludeIndices = find(srcPositions>params.maxSentLen);
+  if ~isempty(excludeIndices)
+    srcPositions(excludeIndices) = []; unmaskedIds(excludeIndices) = []; srcLens(excludeIndices) = [];
+  end
+  
+  if params.assert && params.isGradCheck==0
+    assert(params.isReverse==1);
+    assert(isempty(find(srcPositions<=0, 1)));
+    assert(isempty(find(srcPositions>=srcLens, 1)));
+  elseif params.isGradCheck
+    % TODO generate data with valid positions for grad check
+    % cross left boundary
+    srcPositions(srcPositions<=0) = 1; 
+    % cross right boundary
+    indices = find(srcPositions>=srcLens); % srcLen here include <eos> which we consider to be out of boundary
+    srcPositions(indices) = srcLens(indices)-1;
+  end
+  
   
   % get the column indices on the src side
   colIndices = srcMaxLen-srcPositions; % NOTE: IMPORTANT, here we assume src sentences are reversed
@@ -36,15 +55,39 @@ function [srcPosVecs, linearIndices] = buildSrcPosVecs(tgtPos, params, trainData
 
   %% get srcPosVecs
   % topHidVecs: lstmSize * curBatchSize * T
+  if params.numAttnPositions>1
+    % Here, colIndices derived below are for trainData.srcHidVecs, attnIndices are for srcHidVecs below
+    % trainData.srcHidVecs: lstmSize * curBatchSize * srcMaxLen
+    % srcHidVecs: lstmSize * curBatchSize * numAttnPositions
+    % IMPORTANT: this line needs to go first before unmaskedIds is altered.
+    attnIndices = reshape(repmat((1:params.numAttnPositions)', 1, length(unmaskedIds)), 1, []);
+    
+    unmaskedIds = reshape(repmat(unmaskedIds, params.numAttnPositions, 1), 1, []);
+    startIds = colIndices-params.posWin;
+    
+    % Note: generate multiple sequences of the same lengths without using for loop, see this post for many elegant solutions
+    % http://www.mathworks.com/matlabcentral/answers/217205-fast-ways-to-generate-multiple-sequences-without-using-for-loop
+    % The below version is the only solution that is faster than for loop (3 times).
+    colIndices = reshape(bsxfun(@plus, startIds(:), 0:(params.numAttnPositions-1))', 1, []);  
+    
+    % check those that are out of boundaries
+    excludeIndices = find(colIndices>=srcMaxLen | colIndices<1);
+    if ~isempty(excludeIndices)
+      colIndices(excludeIndices) = []; unmaskedIds(excludeIndices) = []; attnIndices(excludeIndices) = [];
+    end
+    
+  end
   [linearIndices] = getTensorLinearIndices(trainData.srcHidVecs, unmaskedIds, colIndices);
-  srcPosVecs = zeroMatrix([params.lstmSize, params.curBatchSize], params.isGPU, params.dataType);
-  srcPosVecs(:, unmaskedIds) = reshape(trainData.srcHidVecs(linearIndices), params.lstmSize, length(unmaskedIds)); 
+  srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
   
-
+  [attnLinearIndices] = getTensorLinearIndices(srcHidVecs, unmaskedIds, attnIndices);
+  srcHidVecs(attnLinearIndices) = trainData.srcHidVecs(linearIndices);
+  %srcHidVecs(:, unmaskedIds) = reshape(trainData.srcHidVecs(linearIndices), params.lstmSize, length(unmaskedIds)); 
+  
   % assert
   if params.assert
     assert(isempty(find(colIndices>=srcMaxLen, 1)));
-    assert(sum(sum(srcPosVecs(:, curMask.maskedIds)))==0);
+    assert(sum(sum(srcHidVecs(:, curMask.maskedIds)))==0);
   end  
 end
 

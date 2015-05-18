@@ -71,6 +71,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   %           2: soft attention + relative positions
   %           3: hard attention + absolute positions
   %           4: hard attention + relative positions
+  %           5: soft attention + relative positions + predict position
   addOptional(p,'attnFunc', 0, @isnumeric);
   addOptional(p,'attnSize', 0, @isnumeric); % dim of the vector used to input to the final softmax, if 0, use lstmSize
   addOptional(p,'posWin', 20, @isnumeric); % relative window, used for attnFunc 2, 4
@@ -163,7 +164,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   % attentional/positional models
   params.attnRelativePos=0;
   params.attnAbsolutePos=0;
-  params.predictPos = 0;
+  params.posSignal = 0; % 1 -- use unsupervised alignmentss
+  params.predictPos = 0; % 1 -- predict align positions
+  params.absolutePos = 0;
   if params.attnFunc>0
     if params.attnSize==0
       params.attnSize = params.lstmSize;
@@ -175,14 +178,25 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     elseif params.attnFunc==2 % relative, soft attention
       params.attnRelativePos=1;
       params.numAttnPositions = 2*params.posWin + 1;
-    elseif params.attnFunc==3 % absolute, hard attention
-      params.attnAbsolutePos=1;
+%     elseif params.attnFunc==3 % absolute, hard attention
+%       params.attnAbsolutePos=1;
+%       params.predictPos = 1;
+%       params.numAttnPositions = 1;
+%     elseif params.attnFunc==4 % relative, hard attention
+%       params.attnRelativePos=1;
+%       params.predictPos = 1;
+%       params.numAttnPositions = 1;
+    elseif params.attnFunc==5 % relative, soft attention + use unsupervised alignments
+      params.posSignal = 1;
       params.predictPos = 1;
-      params.numAttnPositions = 1;
-    elseif params.attnFunc==4 % relative, hard attention
       params.attnRelativePos=1;
-      params.predictPos = 1;
-      params.numAttnPositions = 1;
+      params.numAttnPositions = 2*params.posWin + 1;
+    else
+      error('Invalid attnFunc option %d\n', params.attnFunc);
+    end
+    
+    if params.predictPos
+      params.posWeight = 1;
     end
   end
   
@@ -392,34 +406,35 @@ function [model] = initLSTM(params)
   else % separate embeddings
     if params.isBi
       model.W_emb_src = randomMatrix(params.initRange, [params.lstmSize, params.srcVocabSize], params.isGPU, params.dataType);
-      %model.W_emb_src(:, params.srcSos) = zeros(params.lstmSize, 1);
-      %model.W_emb_src(:, params.srcEos) = zeros(params.lstmSize, 1);
     end
     model.W_emb_tgt = randomMatrix(params.initRange, [params.lstmSize, params.tgtVocabSize], params.isGPU, params.dataType);
-    %model.W_emb_tgt(:, params.tgtEos) = zeros(params.lstmSize, 1);
   end
   
   %% h_t -> softmax input
-  % attention mechanism
-  if params.attnFunc>0 
-    if params.predictPos==0 % for soft attention
+  if params.attnFunc>0 % attention mechanism
+    if params.predictPos % pos = srcLen*sigmoid(v_pos*f(W_pos*h_t))
+      % transform h_t before feeding into the position softmax
+      model.W_pos = randomMatrix(params.initRange, [params.softmaxSize, params.lstmSize], params.isGPU, params.dataType);
+      
+      % predict weight for the src hidden state: sigmoid(v_pos*f(W_h*h_t))
+      model.v_pos = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
+      
+      model.W_softPos = randomMatrix(params.initRange, [params.posVocabSize, params.softmaxSize], params.isGPU, params.dataType);
+    end
+    
+    % predict alignment weights
+    if params.numAttnPositions>1
       model.W_a = randomMatrix(params.initRange, [params.numAttnPositions, params.lstmSize], params.isGPU, params.dataType);
     end
     
     % attn_t = H_src * a_t % h_attn_t = f(W_h * [attn_t; h_t])
     model.W_h = randomMatrix(params.initRange, [params.attnSize, 2*params.lstmSize], params.isGPU, params.dataType);
-  % compress softmax
-  elseif params.softmaxDim>0 
+  elseif params.softmaxDim>0 % compress softmax
     model.W_h = randomMatrix(params.initRange, [params.softmaxDim, params.lstmSize], params.isGPU, params.dataType);
   end
     
   %% softmax input -> predictions
-  % W_soft
   model.W_soft = randomMatrix(params.initRange, [params.tgtVocabSize, params.softmaxSize], params.isGPU, params.dataType);
-  % predict positions (hard attention)
-  if params.predictPos
-    model.W_softPos = randomMatrix(params.initRange, [params.posVocabSize, params.softmaxSize], params.isGPU, params.dataType);
-  end
 end
 
 %% Things to do after each training iteration %%
@@ -559,7 +574,7 @@ function [params] = evalSaveDecode(model, validData, testData, params, srcTrainS
   save(params.modelRecentFile, 'model', 'params');
 
   % decode
-  if params.isBi && params.decode==1 && params.predictPos==0
+  if params.isBi && params.decode==1 && params.predictPos==0 && params.posSignal==0
     validId = randi(validData.numSents);
     testId = randi(testData.numSents);
     decodeSent(srcTrainSents(1), tgtTrainSents(1), model, params);

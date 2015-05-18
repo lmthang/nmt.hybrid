@@ -68,11 +68,5 @@ function [inGrad, grad_W_a, grad_srcHidVecs] = attnLayerBackprop(W_a, outGrad, i
   
   %% grad_scores -> grad_W_a, inGrad
   % s_t = W_a * inVec
-  % here inVec = h_t
-  
-  % grad.W_a = grad_scores * inVec'
-  grad_W_a = grad_scores * inVec';
-  
-  % inGrad = W_a' * grad_scores
-  inGrad = W_a'*grad_scores;
+  [inGrad, grad_W_a] = linearLayerBackprop(W_a, grad_scores, inVec);  
 end

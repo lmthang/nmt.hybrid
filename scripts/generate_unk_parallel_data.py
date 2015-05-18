@@ -164,8 +164,8 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
       (tgt_words, tgt_vocab_map, tgt_vocab_size) = text.add_word_to_vocab(pos_word, tgt_words, tgt_vocab_map, tgt_vocab_size)
 
     # null alignment
-    #pos_null = '<p_n>'
-    #(tgt_words, tgt_vocab_map, tgt_vocab_size) = text.add_word_to_vocab(pos_null, tgt_words, tgt_vocab_map, tgt_vocab_size)
+    pos_null = '<p_n>'
+    (tgt_words, tgt_vocab_map, tgt_vocab_size) = text.add_word_to_vocab(pos_null, tgt_words, tgt_vocab_map, tgt_vocab_size)
   elif opt==2 or opt==0:
     num_unks = 20
     (src_words, src_vocab_map, src_vocab_size) = add_unks(src_words, src_vocab_map, src_vocab_size, num_unks)
@@ -211,6 +211,7 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
     sys.stderr.write('# Output to %s*\n' % src_tgt_id_file)
 
   debug = True
+  align_debug = True
   for src_line in src_inf:
     src_line = src_line.strip()
     tgt_line = tgt_inf.readline().strip()
@@ -267,35 +268,18 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
 
         # annotate
         if opt==1:
-          #pos_word = pos_null
-          #if best_src_pos !=-1: # aligned word 
           if best_src_pos ==-1: # unaligned, try to approximate using prev/next target words
-            search_count = 0 
-            if tgt_pos>0 and best_src_positions[tgt_pos-1]!=-1:
-              best_src_pos = best_src_positions[tgt_pos-1]
-              search_count = 1
-            
-            if tgt_pos<(len(tgt_tokens)-1) and best_src_positions[tgt_pos+1]!=-1:
-              if search_count==0:
-                best_src_pos = best_src_positions[tgt_pos+1]
-              else:
-                best_src_pos = best_src_pos + best_src_positions[tgt_pos+1]
-              search_count = search_count + 1
-            
-            if search_count>0: # found an approximation
-              best_src_pos = best_src_pos/search_count
-
-              if best_src_pos>(tgt_pos+window):
-                best_src_pos = tgt_pos+window
-              elif best_src_pos<(tgt_pos-window):
-                best_src_pos = tgt_pos-window
-
-            else: # use use the tgt_pos
-              best_src_pos = tgt_pos
-
-          assert best_src_pos >= (tgt_pos-window) and best_src_pos <= (tgt_pos+window)
-          pos_word = '<p_' + str(tgt_pos-best_src_pos) + '>'
-  
+            pos_word = pos_null
+            if debug: sys.stderr.write('  null aligned: %s\n' % (tgt_tokens[tgt_pos]))
+          else:
+            if debug: 
+              sys.stderr.write('  aligned: %s\t%s\n' % (src_tokens[best_src_pos], tgt_tokens[tgt_pos]))
+            if best_src_pos < (tgt_pos-window) or best_src_pos > (tgt_pos+window): # out of boundary, consider null
+              if debug: 
+                sys.stderr.write('  null aligned (out boundary): %s, best_src_pos=%d\n' % (tgt_tokens[tgt_pos], best_src_pos))
+              pos_word = pos_null
+            else:
+              pos_word = '<p_' + str(tgt_pos-best_src_pos) + '>'
 
           # Thang Jan 2015: purposely put pos in front of word
           tgt_unk_tokens.append(pos_word)
@@ -419,4 +403,33 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
 if __name__ == '__main__':
   args = process_command_line()
   process_files(args.in_prefix, args.src_lang, args.tgt_lang, args.out_prefix, args.freq, args.is_reverse_alignment, args.opt, args.dict_file, args.src_vocab_file, args.tgt_vocab_file, args.src_vocab_size, args.tgt_vocab_size, args.src_output_opt, args.is_separate_output, args.is_separate_pos, args.no_eos, args.window)
+
+
+            #search_count = 0 
+            #if tgt_pos>0 and best_src_positions[tgt_pos-1]!=-1:
+            #  best_src_pos = best_src_positions[tgt_pos-1]
+            #  search_count = 1
+            #
+            #if tgt_pos<(len(tgt_tokens)-1) and best_src_positions[tgt_pos+1]!=-1:
+            #  if search_count==0:
+            #    best_src_pos = best_src_positions[tgt_pos+1]
+            #  else:
+            #    best_src_pos = best_src_pos + best_src_positions[tgt_pos+1]
+            #  search_count = search_count + 1
+            #
+            #if search_count>0: # found an approximation
+            #  best_src_pos = best_src_pos/search_count
+
+            #  if best_src_pos>(tgt_pos+window):
+            #    best_src_pos = tgt_pos+window
+            #  elif best_src_pos<(tgt_pos-window):
+            #    best_src_pos = tgt_pos-window
+            #else: # use use the tgt_pos
+            #  best_src_pos = tgt_pos
+            #
+            ## make sure the src pos is valid
+            #if best_src_pos<0:
+            #  best_src_pos=0
+            #elif best_src_pos>(len(src_unk_tokens)-2): # exclude eos
+            #  best_src_pos = len(src_unk_tokens)-2
 

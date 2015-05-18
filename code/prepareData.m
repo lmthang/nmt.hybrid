@@ -19,7 +19,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   end
   
   % positions
-  if params.predictPos % tgt sent: pos1 word1 ... pos_n word_n
+  if params.predictPos || params.posSignal % tgt sent: pos1 word1 ... pos_n word_n
     tgtLens = tgtLens/2;
   end
   
@@ -51,7 +51,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   tgtInput = [params.tgtSos*ones(numSents, 1) params.tgtEos*ones(numSents, tgtMaxLen-1)];
   tgtOutput = params.tgtEos*ones(numSents, tgtMaxLen);
   % positions
-  if params.predictPos
+  if params.predictPos || params.posSignal
     posOutput = params.tgtEos*ones(numSents, tgtMaxLen);
   end
   for ii=1:numSents
@@ -67,7 +67,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
     
     % tgt
     tgtLen = tgtLens(ii)-1; % exclude eos
-    if params.predictPos % positions
+    if params.predictPos || params.posSignal % positions
       positions = tgtSents{ii}(1:2:end);
       posOutput(ii, 1:tgtLen) = positions(1:tgtLen);
       
@@ -89,7 +89,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   numWords = sum(tgtMask(:)); 
   
   % positions
-  if params.predictPos
+  if params.predictPos || params.posSignal
     data.posOutput = posOutput;
   end
   
