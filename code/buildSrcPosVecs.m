@@ -6,17 +6,19 @@ function [srcHidVecs, linearIndices, unmaskedIds, attnLinearIndices] = buildSrcP
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 %
 %%%
-  unmaskedIds = curMask.unmaskedIds;
+  %unmaskedIds = curMask.unmaskedIds;
 
   srcMaxLen = trainData.srcMaxLen; 
-  srcLens = trainData.srcLens(unmaskedIds);
+  srcLens = trainData.srcLens; %(unmaskedIds);
   
-  predPositions = predPositions(unmaskedIds);
+  %predPositions = predPositions(unmaskedIds);
   
   % exclude eos and null
-  excludeIndices = find(predPositions==params.tgtEos | predPositions==params.nullPosId);
-  if ~isempty(excludeIndices)
-    predPositions(excludeIndices) = []; unmaskedIds(excludeIndices) = []; srcLens(excludeIndices) = [];
+  excludeFlags = predPositions==params.tgtEos | predPositions==params.nullPosId | ~curMask.mask | trainData.nullFlags;
+  excludeIds = find(excludeFlags); %  | trainData.nullFlags
+  unmaskedIds = find(~excludeFlags);
+  if ~isempty(excludeIds)
+    predPositions(excludeIds) = []; srcLens(excludeIds) = [];
   end
   
   %% compute aligned src positions
@@ -27,9 +29,9 @@ function [srcHidVecs, linearIndices, unmaskedIds, attnLinearIndices] = buildSrcP
   end
   
   % exclude those that are greater than params.maxSentLen
-  excludeIndices = find(srcPositions>params.maxSentLen);
-  if ~isempty(excludeIndices)
-    srcPositions(excludeIndices) = []; unmaskedIds(excludeIndices) = []; srcLens(excludeIndices) = [];
+  excludeIds = find(srcPositions>params.maxSentLen);
+  if ~isempty(excludeIds)
+    srcPositions(excludeIds) = []; unmaskedIds(excludeIds) = []; srcLens(excludeIds) = [];
   end
   
   if params.assert && params.isGradCheck==0
@@ -71,9 +73,9 @@ function [srcHidVecs, linearIndices, unmaskedIds, attnLinearIndices] = buildSrcP
     colIndices = reshape(bsxfun(@plus, startIds(:), 0:(params.numAttnPositions-1))', 1, []);  
     
     % check those that are out of boundaries
-    excludeIndices = find(colIndices>=srcMaxLen | colIndices<1);
-    if ~isempty(excludeIndices)
-      colIndices(excludeIndices) = []; unmaskedIds(excludeIndices) = []; attnIndices(excludeIndices) = [];
+    excludeIds = find(colIndices>=srcMaxLen | colIndices<1);
+    if ~isempty(excludeIds)
+      colIndices(excludeIds) = []; unmaskedIds(excludeIds) = []; attnIndices(excludeIds) = [];
     end
     
   end

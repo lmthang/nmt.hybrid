@@ -52,7 +52,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   tgtOutput = params.tgtEos*ones(numSents, tgtMaxLen);
   % positions
   if params.predictPos || params.posSignal
-    posOutput = params.tgtEos*ones(numSents, tgtMaxLen);
+    posOutput = params.nullPosId*ones(numSents, tgtMaxLen);
   end
   for ii=1:numSents
     %% IMPORTANT: because we limit sent length, so len(tgtSent) or len(srcSent) 
