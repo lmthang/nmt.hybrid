@@ -20,9 +20,13 @@ function [inGrad, grad_W_a, grad_srcHidVecs] = attnLayerBackprop(W_a, outGrad, i
   %   attnGrad.srcHidVecs: lstmSize * curBatchSize * numAttnPositions
   %   grad_alignWeights: numAttnPositions * curBatchSize
   outGrad = permute(outGrad, [1, 2, 3]); % change from lstmSize*curBatchSize -> lstmSize*curBatchSize*1
-  grad_srcHidVecs = bsxfun(@times, outGrad, alignWeights);  
-  grad_alignWeights = squeeze(sum(bsxfun(@times, srcHidVecs, outGrad), 1))'; % bsxfun along numAttnPositions, sum across lstmSize
-
+  grad_srcHidVecs = bsxfun(@times, outGrad, alignWeights); 
+  if params.numAttnPositions==1
+    grad_alignWeights = sum(srcHidVecs.*outGrad); % sum across lstmSize
+  else
+    grad_alignWeights = squeeze(sum(bsxfun(@times, srcHidVecs, outGrad), 1))'; % bsxfun along numAttnPositions, sum across lstmSize
+  end
+  
   if params.assert % numAttnPositions x curBatchSize
     assert(size(grad_alignWeights, 1)==params.numAttnPositions);
     assert(size(grad_alignWeights, 2)==params.curBatchSize);
@@ -49,7 +53,9 @@ function [inGrad, grad_W_a, grad_srcHidVecs] = attnLayerBackprop(W_a, outGrad, i
   % multiple examples: alpha = sum(a.*grad_a, 1) % 1*curBatchSize
   %     grad_scores = a.*grad - bsxfun(@times, a, alpha)
   % tmpResult = alignWeights.*grad_alignWeights; % numAttnPositions * curBatchSize
-  alignWeights = squeeze(alignWeights)'; % alignWeights now: numAttnPositions * curBatchSize
+  if params.numAttnPositions>1
+    alignWeights = squeeze(alignWeights)'; % alignWeights now: numAttnPositions * curBatchSize
+  end
   tmpResult = alignWeights.*grad_alignWeights; % numAttnPositions * curBatchSize
   grad_scores = tmpResult - bsxfun(@times, alignWeights, sum(tmpResult, 1));
     
@@ -68,5 +74,7 @@ function [inGrad, grad_W_a, grad_srcHidVecs] = attnLayerBackprop(W_a, outGrad, i
   
   %% grad_scores -> grad_W_a, inGrad
   % s_t = W_a * inVec
-  [inGrad, grad_W_a] = linearLayerBackprop(W_a, grad_scores, inVec);  
+  %if params.numAttnPositions>1
+    [inGrad, grad_W_a] = linearLayerBackprop(W_a, grad_scores, inVec);  
+  %end
 end

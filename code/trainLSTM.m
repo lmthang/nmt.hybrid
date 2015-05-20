@@ -422,7 +422,7 @@ function [model] = initLSTM(params)
     end
     
     % predict alignment weights
-    if params.numAttnPositions>1
+    if params.numAttnPositions>=1
       model.W_a = randomMatrix(params.initRange, [params.numAttnPositions, params.lstmSize], params.isGPU, params.dataType);
     end
     

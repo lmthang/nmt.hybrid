@@ -78,7 +78,8 @@ function [srcHidVecs, linearIndices, unmaskedIds, attnLinearIndices] = buildSrcP
     if ~isempty(excludeIds)
       colIndices(excludeIds) = []; unmaskedIds(excludeIds) = []; attnIndices(excludeIds) = [];
     end
-    
+  else
+    attnIndices = ones(1, length(unmaskedIds));
   end
   [linearIndices] = getTensorLinearIndices(trainData.srcHidVecs, unmaskedIds, colIndices);
   srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);

@@ -37,6 +37,12 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
       end   
       [attnVecs, h2sInfo.alignWeights] = attnLayerForward(model.W_a, h_t, srcHidVecs, curMask.mask);
       
+%       if params.numAttnPositions>1  
+%       else
+%         attnVecs = bsxfun(@times, srcHidVecs, curMask.mask);
+%         h2sInfo.alignWeights = ones(1, params.curBatchSize).*curMask.mask;
+%       end
+      
       % concat
       h2sInfo.input = [attnVecs; h_t];
       h2sInfo.h_t = h_t;
