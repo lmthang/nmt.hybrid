@@ -44,17 +44,22 @@ function [grad_ht, hid2softGrad, grad_srcHidVecs] = hid2softLayerBackprop(model,
       if params.attnRelativePos
         % TODO: if our GPUs have lots of memory, then we don't have to
         % regenerate srcHidVecs again :) Unfortuntely not!
-        srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
         if params.predictPos % use unsupervised alignments
           if params.oldSrcVecs % old
+            srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
             srcHidVecs(h2sInfo.attnLinearIndices) = trainData.srcHidVecs(h2sInfo.linearIndices);
           else % new
-            for ii=1:length(h2sInfo.indices)
-              index = h2sInfo.indices(ii);
-              srcHidVecs(:, index, h2sInfo.startIds(index):h2sInfo.endIds(index)) = trainData.srcHidVecs(:, index, h2sInfo.startAttnIds(index):h2sInfo.endAttnIds(index));
-            end
+            srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize*params.numAttnPositions], params.isGPU, params.dataType);
+            trainData.srcHidVecs = reshape(trainData.srcHidVecs, params.lstmSize, []);
+            srcHidVecs(:, h2sInfo.linearIdSub) = trainData.srcHidVecs(:, h2sInfo.linearIdAll);
+            srcHidVecs = reshape(srcHidVecs, [params.lstmSize, params.batchSize, params.numAttnPositions]);
+%             for ii=1:length(h2sInfo.indices)
+%               index = h2sInfo.indices(ii);
+%               srcHidVecs(:, index, h2sInfo.startIds(index):h2sInfo.endIds(index)) = trainData.srcHidVecs(:, index, h2sInfo.startAttnIds(index):h2sInfo.endAttnIds(index));
+%             end
           end          
         elseif params.attnRelativePos % relative (approximate aligned src position by tgtPos)
+          srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
           srcHidVecs(:, :, h2sInfo.startHidId:h2sInfo.endHidId) = trainData.srcHidVecs(:, :, h2sInfo.startAttnId:h2sInfo.endAttnId);
         end
       else

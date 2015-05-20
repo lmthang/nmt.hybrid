@@ -43,7 +43,8 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
           if params.isReverse
             srcPositions = trainData.srcMaxLen - srcPositions;
           end
-          [srcHidVecs, h2sInfo.startAttnIds, h2sInfo.endAttnIds, h2sInfo.startIds, h2sInfo.endIds, h2sInfo.indices] = buildSrcVecs(trainData.srcHidVecs, srcPositions, posFlags, params);
+          %[srcHidVecs, h2sInfo.startAttnIds, h2sInfo.endAttnIds, h2sInfo.startIds, h2sInfo.endIds, h2sInfo.indices] = buildSrcVecs(trainData.srcHidVecs, srcPositions, posFlags, params);
+          [srcHidVecs, h2sInfo.linearIdSub, h2sInfo.linearIdAll] = buildSrcVecs(trainData.srcHidVecs, srcPositions, posFlags, params);
           
           % assert
           if params.assert
