@@ -1,7 +1,7 @@
 function [params] = evalValidTest(model, validData, testData, params)
   startTime = clock;
-  [costValid] = evalCost(model, validData, params); % inputValid, inputValidMask, tgtValidOutput, tgtValidMask, srcValidMaxLen, tgtValidMaxLen, params);
-  [costTest] = evalCost(model, testData, params); %inputTest, inputTestMask, tgtTestOutput, tgtTestMask, srcTestMaxLen, tgtTestMaxLen, params);
+  [costValid] = evalCost(model, validData, params);
+  [costTest] = evalCost(model, testData, params);
   
   costValid.total = costValid.total/validData.numWords;
   costTest.total = costTest.total/testData.numWords;
@@ -10,22 +10,21 @@ function [params] = evalValidTest(model, validData, testData, params)
   timeElapsed = etime(endTime, startTime);
   
   if params.predictPos % positions
-    costValid.pos = costValid.pos*2/validData.numWords;
-    costValid.word = costValid.word*2/validData.numWords;
-    costTest.pos = costTest.pos*2/testData.numWords;
-    costTest.word = costTest.word*2/testData.numWords;
-    fprintf(2, '# eval %.2f, %.2f, %d, %d, %.2fK, %.2f, train=%.4f (%.2f, %.2f), valid=%.4f (%.2f, %.2f), test=%.4f (%.2f, %.2f),%s, time=%.2fs\n', costTest.pos, exp(costTest.word), params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, costValid.total, costValid.pos, costValid.word, costTest.total, costTest.pos, costTest.word, modelStr, timeElapsed);
+    costValid.pos = costValid.pos/validData.numWords;
+    costValid.word = costValid.word/validData.numWords;
+    costTest.pos = costTest.pos/testData.numWords;
+    costTest.word = costTest.word/testData.numWords;
+    params.curTestCostPos = costTest.pos;
+    params.curTestPerplexity = exp(costTest.word);
+    
+    fprintf(2, '# eval %.2f, %.2f, %d, %d, %.2fK, %.2f, train=%.4f (%.2f, %.2f), valid=%.4f (%.2f, %.2f), test=%.4f (%.2f, %.2f),%s, time=%.2fs\n', costTest.pos, params.curTestPerplexity, params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, costValid.total, costValid.pos, costValid.word, costTest.total, costTest.pos, costTest.word, modelStr, timeElapsed);
     fprintf(params.logId, '# eval %.2f, %.2f, %d, %d, %.2fK, %.2f, train=%.4f (%.2f, %.2f), valid=%.4f (%.2f, %.2f), test=%.4f (%.2f, %.2f),%s, time=%.2fs\n', costTest.pos, exp(costTest.word), params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, costValid.total, costValid.pos, costValid.word, costTest.total, costTest.pos, costTest.word, modelStr, timeElapsed);
   else
-    fprintf(2, '# eval %.2f, %d, %d, %.2fK, %.2f, train=%.4f, valid=%.4f, test=%.4f, %s, time=%.2fs\n', exp(costTest.total), params.epoch, params.iter, params.speed, params.lr, params.costTrain, costValid.total, costTest.total, modelStr, timeElapsed);
+    params.curTestPerplexity = exp(costTest.total);
+    fprintf(2, '# eval %.2f, %d, %d, %.2fK, %.2f, train=%.4f, valid=%.4f, test=%.4f, %s, time=%.2fs\n', params.curTestPerplexity, params.epoch, params.iter, params.speed, params.lr, params.costTrain, costValid.total, costTest.total, modelStr, timeElapsed);
     fprintf(params.logId, '# eval %.2f, %d, %d, %.2fK, %.2f, train=%.4f, valid=%.4f, test=%.4f, %s, time=%.2fs\n', exp(costTest.total), params.epoch, params.iter, params.speed, params.lr, params.costTrain, costValid.total, costTest.total, modelStr, timeElapsed);
   end
-    
-  params.curTestPerplexity = exp(costTest.total);
-  if params.predictPos % positions
-    params.curTestPerplexityPos = exp(costTest.pos);
-    params.curTestPerplexityWord = exp(costTest.word);
-  end
+  
   if costValid.total < params.bestCostValid
     params.bestCostValid = costValid.total;
     params.costTest = costTest.total;
@@ -33,8 +32,8 @@ function [params] = evalValidTest(model, validData, testData, params)
     if params.predictPos % positions
       params.bestCostValidPos = costValid.pos;
       params.bestCostValidWord = costValid.word;
-      params.testPerplexityPos = params.curTestPerplexityPos;
-      params.testPerplexityWord = params.curTestPerplexityWord;
+      params.testCostPos = params.curTestCostPos;
+      params.testPerplexity = params.curTestPerplexity;
     end
     fprintf(2, '  save model test perplexity %.2f to %s\n', params.testPerplexity, params.modelFile);
     fprintf(params.logId, '  save model test perplexity %.2f to %s\n', params.testPerplexity, params.modelFile);
@@ -69,7 +68,7 @@ function [evalCosts] = evalCost(model, data, params) %input, inputMask, tgtOutpu
     trainData.tgtMask = data.tgtMask(startId:endId, :);
     trainData.tgtOutput = data.tgtOutput(startId:endId, :);
     trainData.srcLens = data.srcLens(startId:endId); 
-    if params.predictPos || params.posSignal
+    if params.predictPos
       trainData.posOutput = data.posOutput(startId:endId, :);
     end
     

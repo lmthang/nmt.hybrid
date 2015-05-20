@@ -26,8 +26,9 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
 %       else % soft attention
 %       end
       
-      if params.posSignal % use unsupervised alignments
+      if params.predictPos % use unsupervised alignments
         [srcHidVecs, h2sInfo.linearIndices, h2sInfo.unmaskedIds, h2sInfo.attnLinearIndices] = buildSrcPosVecs(tgtPos, params, trainData, trainData.positions, curMask);
+        %[srcHidVecs, h2sInfo.startAttnId, h2sInfo.endAttnId, h2sInfo.startHidId, h2sInfo.endHidId] = buildSrcHidVecs(trainData.srcHidVecs, trainData.srcMaxLen, tgtPos, params);
       elseif params.attnRelativePos % relative (approximate aligned src position by tgtPos)
         [srcHidVecs, h2sInfo.startAttnId, h2sInfo.endAttnId, h2sInfo.startHidId, h2sInfo.endHidId] = buildSrcHidVecs(...
           trainData.srcHidVecs, trainData.srcMaxLen, tgtPos, params);

@@ -14,7 +14,7 @@ function [srcHidVecs, linearIndices, unmaskedIds, attnLinearIndices] = buildSrcP
   %predPositions = predPositions(unmaskedIds);
   
   % exclude eos and null
-  excludeFlags = predPositions==params.tgtEos | predPositions==params.nullPosId | ~curMask.mask | trainData.nullFlags;
+  excludeFlags = predPositions==params.nullPosId | ~curMask.mask; % | predPositions==params.tgtEos | trainData.nullFlags; % TOFIX THIS LINE: no eos, double null check
   excludeIds = find(excludeFlags); %  | trainData.nullFlags
   unmaskedIds = find(~excludeFlags);
   if ~isempty(excludeIds)
@@ -34,17 +34,18 @@ function [srcHidVecs, linearIndices, unmaskedIds, attnLinearIndices] = buildSrcP
     srcPositions(excludeIds) = []; unmaskedIds(excludeIds) = []; srcLens(excludeIds) = [];
   end
   
+  % cross right boundary
+  indices = find(srcPositions>=srcLens); % srcLen here include <eos> which we consider to be out of boundary
+  srcPositions(indices) = srcLens(indices)-1;
+    
   if params.assert && params.isGradCheck==0
     assert(params.isReverse==1);
     assert(isempty(find(srcPositions<=0, 1)));
-    assert(isempty(find(srcPositions>=srcLens, 1)));
+    %assert(isempty(find(srcPositions>=srcLens, 1)));
   elseif params.isGradCheck
     % TODO generate data with valid positions for grad check
     % cross left boundary
     srcPositions(srcPositions<=0) = 1; 
-    % cross right boundary
-    indices = find(srcPositions>=srcLens); % srcLen here include <eos> which we consider to be out of boundary
-    srcPositions(indices) = srcLens(indices)-1;
   end
   
   

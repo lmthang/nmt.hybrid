@@ -164,7 +164,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   % attentional/positional models
   params.attnRelativePos=0;
   params.attnAbsolutePos=0;
-  params.posSignal = 0; % 1 -- use unsupervised alignmentss
   params.predictPos = 0; % 1 -- predict align positions
   params.absolutePos = 0;
   if params.attnFunc>0
@@ -187,7 +186,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
 %       params.predictPos = 1;
 %       params.numAttnPositions = 1;
     elseif params.attnFunc==5 % relative, soft attention + use unsupervised alignments
-      params.posSignal = 1;
       params.predictPos = 1;
       params.attnRelativePos=1;
       params.numAttnPositions = 2*params.posWin + 1;
@@ -454,9 +452,8 @@ function [trainWords, trainCost, params, startTime] = postTrainIter(model, costs
     params.costTrain = trainCost.total/trainWords.total;
     params.speed = trainWords.totalLog*0.001/timeElapsed;
     if params.predictPos
-      params.speed = params.speed/2;
-      params.costTrainPos = trainCost.pos*2/trainWords.total;
-      params.costTrainWord = trainCost.word*2/trainWords.total;
+      params.costTrainPos = trainCost.pos/trainWords.total;
+      params.costTrainWord = trainCost.word/trainWords.total;
       fprintf(2, '%d, %d, %.2fK, %g, %.2f (%.2f, %.2f), gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
       fprintf(params.logId, '%d, %d, %.2fK, %g, %.2f (%.2f, %.2f), gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
     else
@@ -575,7 +572,7 @@ function [params] = evalSaveDecode(model, validData, testData, params, srcTrainS
   save(params.modelRecentFile, 'model', 'params');
 
   % decode
-  if params.isBi && params.decode==1 && params.predictPos==0 && params.posSignal==0
+  if params.isBi && params.decode==1 && params.predictPos==0
     validId = randi(validData.numSents);
     testId = randi(testData.numSents);
     decodeSent(srcTrainSents(1), tgtTrainSents(1), model, params);

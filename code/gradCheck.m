@@ -27,7 +27,7 @@ function gradCheck(model, params)
     end
 
     tgtLen = randi([1, tgtTrainMaxLen-1]);
-    if params.predictPos || params.posSignal % positions: generate pairs of pos/word
+    if params.predictPos % positions: generate pairs of pos/word
       tgtTrainSents{ii} = zeros(1, 2*tgtLen);
       tgtTrainSents{ii}(1:2:2*tgtLen-1) = randi([params.startPosId, params.startPosId + params.posVocabSize-2], 1, tgtLen); % positions (exclude <t_eos> at the end)
       tgtTrainSents{ii}(2:2:2*tgtLen) = randi([1, params.startPosId-1], 1, tgtLen); % words
