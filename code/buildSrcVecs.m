@@ -25,10 +25,11 @@ function [srcVecsSub, linearIdSub, linearIdAll] = buildSrcVecs(srcVecsAll, srcPo
   leftIndices = reshape(repmat((1:numAttnPositions)', 1, length(unmaskedIds)), 1, []);
   unmaskedIds = reshape(repmat(unmaskedIds, numAttnPositions, 1), 1, []);
   
-  
   % Note: generate multiple sequences of the same lengths without using for loop, see this post for many elegant solutions
   % http://www.mathworks.com/matlabcentral/answers/217205-fast-ways-to-generate-multiple-sequences-without-using-for-loop
   % The below version is the only solution that is faster than for loop (3 times).
+  % If startAttnIds = [ 2, 5, 10 ] and numAttnPositions=3
+  % then indicesAll = [ 2, 3, 4, 5, 6, 7, 10, 11, 12 ].
   startAttnIds = srcPositions-posWin;
   indicesAll = reshape(bsxfun(@plus, startAttnIds(:), 0:(numAttnPositions-1))', 1, []); 
   
@@ -47,8 +48,14 @@ function [srcVecsSub, linearIdSub, linearIdAll] = buildSrcVecs(srcVecsAll, srcPo
   srcVecsAll = reshape(srcVecsAll, lstmSize, []);
   srcVecsSub(:, linearIdSub) = srcVecsAll(:, linearIdAll);
   srcVecsSub = reshape(srcVecsSub, [lstmSize, batchSize, numAttnPositions]);
-  
-  
+end
+
+%% old version %%
+%   posWin = params.posWin;
+%   numAttnPositions = 2*posWin+1;
+%   [lstmSize, batchSize, numSrcHidVecs] = size(srcVecsAll);
+%   srcVecs = zeroMatrix([lstmSize, batchSize*numAttnPositions], params.isGPU, params.dataType);
+%   
 %   % these variables access srcVecsAll, lstmSize * batchSize * numSrcHidVecs
 %   % telling us where to pay our attention to.
 %   startAttnIds = srcPositions-posWin;
@@ -58,8 +65,6 @@ function [srcVecsSub, linearIdSub, linearIdAll] = buildSrcVecs(srcVecsAll, srcPo
 %   % numAttnPositions = 2*posWin+1
 %   startIds = ones(1, batchSize);
 %   endIds = numAttnPositions*ones(1, batchSize);
-%   
-%   
 %   
 %   %% boundary condition for startAttnIds
 %   indices = find(startAttnIds<1);
@@ -88,4 +93,3 @@ function [srcVecsSub, linearIdSub, linearIdAll] = buildSrcVecs(srcVecsAll, srcPo
 %       srcVecs(:, index, startIds(index):endIds(index)) = srcVecsAll(:, index, startAttnIds(index):endAttnIds(index));
 %     end
 %   end
-end

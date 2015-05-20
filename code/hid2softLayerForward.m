@@ -27,32 +27,26 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
 %       end
       
       if params.predictPos % use unsupervised alignments
-        if params.oldSrcVecs % old
-          [srcHidVecs, h2sInfo.linearIndices, h2sInfo.unmaskedIds, h2sInfo.attnLinearIndices] = buildSrcVecsOld(tgtPos, params, trainData, trainData.positions, curMask);
-        else % new
-          posFlags = curMask.mask & (trainData.positions~=params.nullPosId);
+        posFlags = curMask.mask & (trainData.positions~=params.nullPosId);
          
-          % TODO move this code out
-          if params.attnRelativePos
-            srcPositions = tgtPos - (trainData.positions - params.zeroPosId); % src_pos = tgt_pos - relative_pos
-          else % absolute position
-            srcPositions = trainData.positions - params.zeroPosId;
-          end
-                
-          % IMPORTANT: since source sentences are reversed we use srcMaxLen-srcPositions
-          if params.isReverse
-            srcPositions = trainData.srcMaxLen - srcPositions;
-          end
-          %[srcHidVecs, h2sInfo.startAttnIds, h2sInfo.endAttnIds, h2sInfo.startIds, h2sInfo.endIds, h2sInfo.indices] = buildSrcVecs(trainData.srcHidVecs, srcPositions, posFlags, params);
-          [srcHidVecs, h2sInfo.linearIdSub, h2sInfo.linearIdAll] = buildSrcVecs(trainData.srcHidVecs, srcPositions, posFlags, params);
-          
-          % assert
-          if params.assert
-            [srcHidVecs1] = buildSrcVecsOld(tgtPos, params, trainData, trainData.positions, curMask);
-            assert(sum(sum(sum(abs(srcHidVecs-srcHidVecs1))))<1e-10);
-          end
+        % TODO move this code out
+        if params.attnRelativePos
+          srcPositions = tgtPos - (trainData.positions - params.zeroPosId); % src_pos = tgt_pos - relative_pos
+        else % absolute position
+          srcPositions = trainData.positions - params.zeroPosId;
         end
-        
+
+        % IMPORTANT: since source sentences are reversed we use srcMaxLen-srcPositions
+        if params.isReverse
+          srcPositions = trainData.srcMaxLen - srcPositions;
+        end
+        [srcHidVecs, h2sInfo.linearIdSub, h2sInfo.linearIdAll] = buildSrcVecs(trainData.srcHidVecs, srcPositions, posFlags, params);
+
+        % assert
+        if params.assert
+          [srcHidVecs1] = buildSrcVecsOld(tgtPos, params, trainData, trainData.positions, curMask);
+          assert(sum(sum(sum(abs(srcHidVecs-srcHidVecs1))))<1e-10);
+        end        
       elseif params.attnRelativePos % relative (approximate aligned src position by tgtPos)
         [srcHidVecs, h2sInfo.startAttnId, h2sInfo.endAttnId, h2sInfo.startHidId, h2sInfo.endHidId] = buildSrcHidVecs(...
           trainData.srcHidVecs, trainData.srcMaxLen, tgtPos, params);
@@ -78,6 +72,11 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
     softmax_h = h_t;
   end
 end
+%         if params.oldSrcVecs % old
+%           [srcHidVecs, h2sInfo.linearIndices, h2sInfo.unmaskedIds, h2sInfo.attnLinearIndices] = buildSrcVecsOld(tgtPos, params, trainData, trainData.positions, curMask);
+%         else % new
+%         end
+
 
 %     elseif params.posModel==3 && mod(tgtPos, 2)==0 % positional model 3: f(W_h * [srcPosVecs; h_t])
 %       if isTest==0

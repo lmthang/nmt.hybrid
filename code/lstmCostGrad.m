@@ -373,11 +373,6 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
               grad_srcHidVecs = reshape(grad_srcHidVecs, params.lstmSize, []);
               grad.srcHidVecs(:, h2sInfo.linearIdAll) = grad.srcHidVecs(:, h2sInfo.linearIdAll) + grad_srcHidVecs(:, h2sInfo.linearIdSub);
               grad.srcHidVecs = reshape(grad.srcHidVecs, [params.lstmSize, params.curBatchSize, params.numSrcHidVecs]);
-%               for ii=1:length(h2sInfo.indices)
-%                 index = h2sInfo.indices(ii);
-%                 grad.srcHidVecs(:, index, h2sInfo.startAttnIds(index):h2sInfo.endAttnIds(index)) = grad.srcHidVecs(:, index, h2sInfo.startAttnIds(index):h2sInfo.endAttnIds(index)) ...
-%                   + grad_srcHidVecs(:, index, h2sInfo.startIds(index):h2sInfo.endIds(index));
-%               end
             end
 
           else % soft attention
