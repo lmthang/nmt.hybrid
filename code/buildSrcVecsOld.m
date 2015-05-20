@@ -1,4 +1,4 @@
-function [srcHidVecs, linearIndices, unmaskedIds, attnLinearIndices] = buildSrcPosVecs(tgtPos, params, trainData, predPositions, curMask)
+function [srcHidVecs, linearIndices, unmaskedIds, attnLinearIndices] = buildSrcVecsOld(tgtPos, params, trainData, predPositions, curMask)
 %%%
 %
 % For positional models, generate src vectors based on the predicted positions.
@@ -9,7 +9,7 @@ function [srcHidVecs, linearIndices, unmaskedIds, attnLinearIndices] = buildSrcP
   %unmaskedIds = curMask.unmaskedIds;
 
   srcMaxLen = trainData.srcMaxLen; 
-  srcLens = trainData.srcLens; %(unmaskedIds);
+  %srcLens = trainData.srcLens; %(unmaskedIds);
   
   %predPositions = predPositions(unmaskedIds);
   
@@ -18,7 +18,7 @@ function [srcHidVecs, linearIndices, unmaskedIds, attnLinearIndices] = buildSrcP
   excludeIds = find(excludeFlags); %  | trainData.nullFlags
   unmaskedIds = find(~excludeFlags);
   if ~isempty(excludeIds)
-    predPositions(excludeIds) = []; srcLens(excludeIds) = [];
+    predPositions(excludeIds) = []; %srcLens(excludeIds) = [];
   end
   
   %% compute aligned src positions
@@ -28,24 +28,24 @@ function [srcHidVecs, linearIndices, unmaskedIds, attnLinearIndices] = buildSrcP
     srcPositions = predPositions - params.zeroPosId;
   end
   
-  % exclude those that are greater than params.maxSentLen
-  excludeIds = find(srcPositions>params.maxSentLen);
-  if ~isempty(excludeIds)
-    srcPositions(excludeIds) = []; unmaskedIds(excludeIds) = []; srcLens(excludeIds) = [];
-  end
-  
-  % cross right boundary
-  indices = find(srcPositions>=srcLens); % srcLen here include <eos> which we consider to be out of boundary
-  srcPositions(indices) = srcLens(indices)-1;
+%   % exclude those that are greater than params.maxSentLen
+%   excludeIds = find(srcPositions>params.maxSentLen);
+%   if ~isempty(excludeIds)
+%     srcPositions(excludeIds) = []; unmaskedIds(excludeIds) = []; %srcLens(excludeIds) = [];
+%   end
     
   if params.assert && params.isGradCheck==0
     assert(params.isReverse==1);
     assert(isempty(find(srcPositions<=0, 1)));
     %assert(isempty(find(srcPositions>=srcLens, 1)));
-  elseif params.isGradCheck
-    % TODO generate data with valid positions for grad check
-    % cross left boundary
-    srcPositions(srcPositions<=0) = 1; 
+%   elseif params.isGradCheck
+%     % TODO generate data with valid positions for grad check
+%     % cross left boundary
+%     srcPositions(srcPositions<=0) = 1;
+%     
+%     % cross right boundary
+%     indices = find(srcPositions>=srcLens); % srcLen here include <eos> which we consider to be out of boundary
+%     srcPositions(indices) = srcLens(indices)-1;
   end
   
   

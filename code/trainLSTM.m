@@ -166,6 +166,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.attnAbsolutePos=0;
   params.predictPos = 0; % 1 -- predict align positions
   params.absolutePos = 0;
+  params.oldSrcVecs = 0;
   if params.attnFunc>0
     if params.attnSize==0
       params.attnSize = params.lstmSize;

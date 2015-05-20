@@ -366,14 +366,16 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         % attention models: srcHidVecs
         if params.attnFunc
           if params.predictPos % use unsupervised alignments
-            grad.srcHidVecs(h2sInfo.linearIndices) = grad.srcHidVecs(h2sInfo.linearIndices) + grad_srcHidVecs(h2sInfo.attnLinearIndices);
-%             if params.attnRelativePos % relative
-%               startAttnId = h2sInfo.startAttnId;
-%               endAttnId = h2sInfo.endAttnId;
-%               startHidId = h2sInfo.startHidId;
-%               endHidId = h2sInfo.endHidId;
-%             end
-%             grad.srcHidVecs(:, :, startAttnId:endAttnId) = grad.srcHidVecs(:, :, startAttnId:endAttnId) + grad_srcHidVecs(:, :, startHidId:endHidId);
+            if params.oldSrcVecs % old
+              grad.srcHidVecs(h2sInfo.linearIndices) = grad.srcHidVecs(h2sInfo.linearIndices) + grad_srcHidVecs(h2sInfo.attnLinearIndices);
+            else % new
+              for ii=1:length(h2sInfo.indices)
+                index = h2sInfo.indices(ii);
+                grad.srcHidVecs(:, index, h2sInfo.startAttnIds(index):h2sInfo.endAttnIds(index)) = grad.srcHidVecs(:, index, h2sInfo.startAttnIds(index):h2sInfo.endAttnIds(index)) ...
+                  + grad_srcHidVecs(:, index, h2sInfo.startIds(index):h2sInfo.endIds(index));
+              end
+            end
+
           else % soft attention
             if params.attnRelativePos % relative
               startAttnId = h2sInfo.startAttnId;
