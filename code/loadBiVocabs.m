@@ -2,11 +2,7 @@ function [params] = loadBiVocabs(params)
   %% grad check
   if params.isGradCheck
     if params.predictPos
-      if params.attnAbsolutePos
-        tgtVocab = {'a', 'b', '<p_1>', '<p_2>', '<p_3>', '<p_4>', '<p_5>', '<p_n>'};
-      else
-        tgtVocab = {'a', 'b', '<p_-2>', '<p_-1>', '<p_0>', '<p_1>', '<p_2>', '<p_n>'};
-      end
+      tgtVocab = {'a', 'b', '<p_1>', '<p_2>', '<p_3>', '<p_4>', '<p_5>', '<p_n>'};
     else
       tgtVocab = {'a', 'b'};
     end
@@ -64,7 +60,7 @@ function [params] = loadBiVocabs(params)
         end
 
         % assert
-        if params.attnAbsolutePos && ii==1
+        if ii==1 % params.absolutePos && 
           assert(pos==1);
           params.zeroPosId = indices(ii)-1;
         end
@@ -115,6 +111,11 @@ function [params] = loadBiVocabs(params)
     end
   end
 end
+
+%       if params.absolutePos
+%       else
+%         tgtVocab = {'a', 'b', '<p_-2>', '<p_-1>', '<p_0>', '<p_1>', '<p_2>', '<p_n>'};
+%       end
 
 
 %% class-based softmax %%

@@ -67,14 +67,12 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'softmaxDim', 0, @isnumeric); % softmaxDim>0 convert hidden state into an intermediate representation of size softmaxDim before going through the softmax
   % attnFunc=0: no attention.
   %          >0: a_t = softmax(W_a * [tgt_h_t; srcLens])  
-  %           1: soft attention + absolute positions
-  %           2: soft attention + relative positions
-  %           3: hard attention + absolute positions
-  %           4: hard attention + relative positions
-  %           5: soft attention + relative positions + predict position
+  %           1: soft attention
+  %           2: hard attention + monotonic alignments
+  %           3: hard attention + unsupervised alignments
   addOptional(p,'attnFunc', 0, @isnumeric);
   addOptional(p,'attnSize', 0, @isnumeric); % dim of the vector used to input to the final softmax, if 0, use lstmSize
-  addOptional(p,'posWin', 20, @isnumeric); % relative window, used for attnFunc 2, 4
+  addOptional(p,'posWin', 20, @isnumeric); % relative window, used for attnFunc 2, 3
 
   %% research options  
   addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
@@ -162,36 +160,36 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   
   %% set more params
   % attentional/positional models
-  params.attnRelativePos=0;
-  params.attnAbsolutePos=0;
+%   params.attnRelativePos=0;
+%   params.attnAbsolutePos=0;
+  params.attnGlobal=0; % 1: for attnFunc=1, 0: for other attnFunc
+%  params.attnLocal=0; % for other attnFunc
   params.predictPos = 0; % 1 -- predict align positions
-  params.absolutePos = 0;
+%   params.absolutePos = 0; % 1 -- predicting absolute positions
   params.oldSrcVecs = 0;
   if params.attnFunc>0
     if params.attnSize==0
       params.attnSize = params.lstmSize;
     end
     
-    if params.attnFunc==1 % absolute, soft attention
-      params.attnAbsolutePos=1;
-      params.numAttnPositions = params.maxSentLen-1;
-    elseif params.attnFunc==2 % relative, soft attention
-      params.attnRelativePos=1;
-      params.numAttnPositions = 2*params.posWin + 1;
-%     elseif params.attnFunc==3 % absolute, hard attention
-%       params.attnAbsolutePos=1;
-%       params.predictPos = 1;
-%       params.numAttnPositions = 1;
-%     elseif params.attnFunc==4 % relative, hard attention
-%       params.attnRelativePos=1;
-%       params.predictPos = 1;
-%       params.numAttnPositions = 1;
-    elseif params.attnFunc==5 % relative, soft attention + use unsupervised alignments
+    if params.attnFunc==1 % soft attention
+      params.predictPos = 0;
+      params.attnGlobal = 1;
+    elseif params.attnFunc==2 % hard attention + monotonic alignment
+      params.predictPos = 0;
+      params.attnGlobal = 0;
+    elseif params.attnFunc==3 % hard attention + unsupervised alignments
       params.predictPos = 1;
-      params.attnRelativePos=1;
-      params.numAttnPositions = 2*params.posWin + 1;
+      params.attnGlobal = 0;
     else
       error('Invalid attnFunc option %d\n', params.attnFunc);
+    end
+    
+    % numAttnPositions
+    if params.attnGlobal % global
+      params.numAttnPositions = params.maxSentLen-1;
+    else % local
+      params.numAttnPositions = 2*params.posWin + 1;
     end
     
     if params.predictPos

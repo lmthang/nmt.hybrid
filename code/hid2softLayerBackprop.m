@@ -14,7 +14,46 @@ function [grad_ht, hid2softGrad, grad_srcHidVecs] = hid2softLayerBackprop(model,
     
     if params.softmaxDim % softmax compression: f(W_h * h_t)
       grad_ht = grad_input;
-    elseif params.attnFunc>0 % attention model f(W_h*[attn_t; tgt_h_t])
+    elseif params.attnFunc>0 % attention model f(W_h*[attn_t; tgt_h_t])      
+      if params.attnGlobal % soft attention
+        srcHidVecs = trainData.absSrcHidVecs;
+      else % hard attention
+        % TODO: if our GPUs have lots of memory, then we don't have to
+        % regenerate srcHidVecs again :) Unfortuntely not!
+        if params.predictPos % use unsupervised alignments
+          srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize*params.numAttnPositions], params.isGPU, params.dataType);
+          trainData.srcHidVecs = reshape(trainData.srcHidVecs, params.lstmSize, []);
+          srcHidVecs(:, h2sInfo.linearIdSub) = trainData.srcHidVecs(:, h2sInfo.linearIdAll);
+          srcHidVecs = reshape(srcHidVecs, [params.lstmSize, params.curBatchSize, params.numAttnPositions]);
+        else % use monotonic alignments
+          srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
+          srcHidVecs(:, :, h2sInfo.startHidId:h2sInfo.endHidId) = trainData.srcHidVecs(:, :, h2sInfo.startAttnId:h2sInfo.endAttnId);
+        end
+      end
+      
+      % grad_attn -> grad_ht, grad_W_a, grad_srcHidVecs
+      [grad_ht, hid2softGrad.W_a, grad_srcHidVecs] = attnLayerBackprop(model.W_a, grad_input(1:params.lstmSize, :), h2sInfo.h_t, params, ...
+        h2sInfo.alignWeights, srcHidVecs);  
+      
+      % grad_ht
+      grad_ht = grad_ht + grad_input(params.lstmSize+1:end, :);
+    end
+  end
+end
+
+%           if params.oldSrcVecs % old
+%             srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
+%             srcHidVecs(h2sInfo.attnLinearIndices) = trainData.srcHidVecs(h2sInfo.linearIndices);
+%           else % new  
+%           end          
+
+%     elseif params.posModel==3 && isPredictPos==0 % positional model 3 f(W_h * [srcPosVecs; h_t])
+%       % grad srcPosVecs
+%       grad_srcHidVecs = grad_input(1:params.lstmSize, :);
+% 
+%       % grad_ht: this line needs to come after the above line
+%       grad_ht = grad_input(params.lstmSize+1:end, :);
+
 %       if params.predictPos % hard attention
 %         % grad_attn
 %         grad_attn = grad_input(1:params.lstmSize, :);
@@ -40,41 +79,3 @@ function [grad_ht, hid2softGrad, grad_srcHidVecs] = hid2softLayerBackprop(model,
 %         [grad_ht, hid2softGrad.W_h_pos] = hiddenLayerBackprop(model.W_h_pos, grad_h_pos, h2sInfo.h_t, params.nonlinear_f_prime, h2sInfo.h_pos);
 %       else % soft attention
 %       end
-      
-      if params.attnRelativePos
-        % TODO: if our GPUs have lots of memory, then we don't have to
-        % regenerate srcHidVecs again :) Unfortuntely not!
-        if params.predictPos % use unsupervised alignments
-          srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize*params.numAttnPositions], params.isGPU, params.dataType);
-          trainData.srcHidVecs = reshape(trainData.srcHidVecs, params.lstmSize, []);
-          srcHidVecs(:, h2sInfo.linearIdSub) = trainData.srcHidVecs(:, h2sInfo.linearIdAll);
-          srcHidVecs = reshape(srcHidVecs, [params.lstmSize, params.curBatchSize, params.numAttnPositions]);
-        elseif params.attnRelativePos % relative (approximate aligned src position by tgtPos)
-          srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
-          srcHidVecs(:, :, h2sInfo.startHidId:h2sInfo.endHidId) = trainData.srcHidVecs(:, :, h2sInfo.startAttnId:h2sInfo.endAttnId);
-        end
-      else
-        srcHidVecs = trainData.absSrcHidVecs;
-      end
-      % grad_attn -> grad_ht, grad_W_a, grad_srcHidVecs
-      [grad_ht, hid2softGrad.W_a, grad_srcHidVecs] = attnLayerBackprop(model.W_a, grad_input(1:params.lstmSize, :), h2sInfo.h_t, params, ...
-        h2sInfo.alignWeights, srcHidVecs);  
-      
-      % grad_ht
-      grad_ht = grad_ht + grad_input(params.lstmSize+1:end, :);
-    end
-  end
-end
-
-%           if params.oldSrcVecs % old
-%             srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
-%             srcHidVecs(h2sInfo.attnLinearIndices) = trainData.srcHidVecs(h2sInfo.linearIndices);
-%           else % new  
-%           end          
-
-%     elseif params.posModel==3 && isPredictPos==0 % positional model 3 f(W_h * [srcPosVecs; h_t])
-%       % grad srcPosVecs
-%       grad_srcHidVecs = grad_input(1:params.lstmSize, :);
-% 
-%       % grad_ht: this line needs to come after the above line
-%       grad_ht = grad_input(params.lstmSize+1:end, :);

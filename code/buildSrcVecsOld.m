@@ -6,13 +6,10 @@ function [srcHidVecs, linearIndices, unmaskedIds, attnLinearIndices] = buildSrcV
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 %
 %%%
-  %unmaskedIds = curMask.unmaskedIds;
 
   srcMaxLen = trainData.srcMaxLen; 
   %srcLens = trainData.srcLens; %(unmaskedIds);
-  
-  %predPositions = predPositions(unmaskedIds);
-  
+    
   % exclude eos and null
   excludeFlags = predPositions==params.nullPosId | ~curMask.mask; % | predPositions==params.tgtEos | trainData.nullFlags; % TOFIX THIS LINE: no eos, double null check
   excludeIds = find(excludeFlags); %  | trainData.nullFlags
@@ -22,11 +19,8 @@ function [srcHidVecs, linearIndices, unmaskedIds, attnLinearIndices] = buildSrcV
   end
   
   %% compute aligned src positions
-  if params.attnRelativePos
-    srcPositions = tgtPos - (predPositions - params.zeroPosId); % src_pos = tgt_pos - relative_pos
-  else % absolute position
-    srcPositions = predPositions - params.zeroPosId;
-  end
+  srcPositions = predPositions - params.zeroPosId;
+  % srcPositions = tgtPos - (predPositions - params.zeroPosId); % src_pos = tgt_pos - relative_pos
   
 %   % exclude those that are greater than params.maxSentLen
 %   excludeIds = find(srcPositions>params.maxSentLen);
@@ -86,7 +80,6 @@ function [srcHidVecs, linearIndices, unmaskedIds, attnLinearIndices] = buildSrcV
   
   [attnLinearIndices] = getTensorLinearIndices(srcHidVecs, unmaskedIds, attnIndices);
   srcHidVecs(attnLinearIndices) = trainData.srcHidVecs(linearIndices);
-  %srcHidVecs(:, unmaskedIds) = reshape(trainData.srcHidVecs(linearIndices), params.lstmSize, length(unmaskedIds)); 
   
   % assert
   if params.assert
