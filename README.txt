@@ -88,9 +88,17 @@ trainLSTM('../data/ptb/id/ptb.train', '../data/ptb/id/ptb.valid', '../data/ptb/i
 (g) Train hard attention model on posAll data:
 * Prepare data
 ./scripts/compute_word_dict.py -f 5 -o 1 ./data/train.10k en de ./data/train.10k.f5 > ./data/train.10k.f5.stderr 2>&1 &
+
 ./scripts/generate_unk_parallel_data.py --no_eos --separate_output --dict ./data/train.10k.f5.en-de.dict --src_output_opt 1 --reverse_alignment --src_vocab_size 1000 --tgt_vocab_size 1000 ./data/train.10k en de ./data/posAll/train 1
 ./scripts/generate_unk_parallel_data.py --no_eos --separate_output --dict ./data/train.10k.f5.en-de.dict --src_output_opt 1 --reverse_alignment --src_vocab ./data/train.10k.en.vocab.1000 --tgt_vocab ./data/train.10k.de.vocab.1000 ./data/valid.100 en de ./data/posAll/valid 1
 ./scripts/generate_unk_parallel_data.py --no_eos --separate_output --dict ./data/train.10k.f5.en-de.dict --src_output_opt 1 --reverse_alignment --src_vocab ./data/train.10k.en.vocab.1000 --tgt_vocab ./data/train.10k.de.vocab.1000 ./data/test.100 en de ./data/posAll/test 1
+
+~/lstm/scripts/reverse.py ~/lstm/data/posAll/test.id.en ~/lstm/data/posAll/test.id.reversed.en
+~/lstm/scripts/reverse.py ~/lstm/data/posAll/valid.id.en ~/lstm/data/posAll/valid.id.reversed.en
+~/lstm/scripts/reverse.py ~/lstm/data/posAll/train.id.en ~/lstm/data/posAll/train.id.reversed.en
+
+To generate data with absolute positions, use the flag --absolute
+
 * train
 trainLSTM('../data/posAll/train.id','../data/posAll/valid.id','../data/posAll/test.id','en','de','../data/posAll/train.vocab.en','../data/posAll/train.vocab.de','../output',0,'logFreq',1,'isClip',0,'numLayers',1,'attnFunc',4,'isResume',0, 'isReverse', 1)
 (here we use attnFunc=4 since the data contains relative positions)

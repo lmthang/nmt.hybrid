@@ -44,6 +44,7 @@ def process_command_line():
   parser.add_argument('--freq', dest='freq', type=int, default=0, help='freq (default=5)')
   parser.add_argument('--window', dest='window', type=int, default=7, help='distance window (default=7)')
   parser.add_argument('--separate_output', dest='is_separate_output', action='store_true', default=False, help='output src and tgt indices into separate files (default=False)')
+  parser.add_argument('--absolute', dest='is_absolute', action='store_true', default=False, help='output absolute positions instead of relative positions (default=False)')
   parser.add_argument('--separate_pos', dest='is_separate_pos', action='store_true', default=False, help='output tgt words and positions into separate files (default=False)')
   parser.add_argument('--no_eos', dest='no_eos', action='store_true', default=False, help='no eos (default=False)')
   
@@ -96,7 +97,7 @@ def add_unks(words, vocab_map, vocab_size, num_unks):
     (words, vocab_map, vocab_size) = text.add_word_to_vocab(unk, words, vocab_map, vocab_size)
   return (words, vocab_map, vocab_size)
 
-def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_alignment, opt, dict_file, src_vocab_file, tgt_vocab_file, src_vocab_size, tgt_vocab_size, src_output_opt, is_separate_output, is_separate_pos, no_eos, window, eos = '</s>', delim='*', unk_symbol='<unk>'):
+def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_alignment, opt, dict_file, src_vocab_file, tgt_vocab_file, src_vocab_size, tgt_vocab_size, src_output_opt, is_separate_output, is_separate_pos, no_eos, window, is_absolute, eos = '</s>', delim='*', unk_symbol='<unk>'):
   """
   """
   
@@ -146,26 +147,24 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
     
   if opt==1:
     num_unks = 0
-    (src_words, src_vocab_map, src_vocab_size) = add_unks(src_words, src_vocab_map, src_vocab_size, num_unks)
- 
-    # relative position = tgt_pos - src_pos
-    # positions -window ... -1
-    for i in xrange(window, 0, -1): 
-      pos_word = '<p_' + str(-i) + '>'
-      (tgt_words, tgt_vocab_map, tgt_vocab_size) = text.add_word_to_vocab(pos_word, tgt_words, tgt_vocab_map, tgt_vocab_size)
+    if is_absolute==False: # relative position = tgt_pos - src_pos
+      # positions -window ... -1
+      for i in xrange(window, 0, -1): 
+        pos_word = '<p_' + str(-i) + '>'
+        (tgt_words, tgt_vocab_map, tgt_vocab_size) = text.add_word_to_vocab(pos_word, tgt_words, tgt_vocab_map, tgt_vocab_size)
 
-    # position 0
-    pos_word = '<p_0>'
-    (tgt_words, tgt_vocab_map, tgt_vocab_size) = text.add_word_to_vocab(pos_word, tgt_words, tgt_vocab_map, tgt_vocab_size)
-    
-    # 1 ... window
-    for i in xrange(window): 
-      pos_word = '<p_' + str(i+1) + '>'
+      # position 0
+      pos_word = '<p_0>'
       (tgt_words, tgt_vocab_map, tgt_vocab_size) = text.add_word_to_vocab(pos_word, tgt_words, tgt_vocab_map, tgt_vocab_size)
+      
+      # 1 ... window
+      for i in xrange(window): 
+        pos_word = '<p_' + str(i+1) + '>'
+        (tgt_words, tgt_vocab_map, tgt_vocab_size) = text.add_word_to_vocab(pos_word, tgt_words, tgt_vocab_map, tgt_vocab_size)
 
-    # null alignment
-    pos_null = '<p_n>'
-    (tgt_words, tgt_vocab_map, tgt_vocab_size) = text.add_word_to_vocab(pos_null, tgt_words, tgt_vocab_map, tgt_vocab_size)
+      # null alignment
+      pos_null = '<p_n>'
+      (tgt_words, tgt_vocab_map, tgt_vocab_size) = text.add_word_to_vocab(pos_null, tgt_words, tgt_vocab_map, tgt_vocab_size)
   elif opt==2 or opt==0:
     num_unks = 20
     (src_words, src_vocab_map, src_vocab_size) = add_unks(src_words, src_vocab_map, src_vocab_size, num_unks)
@@ -174,7 +173,6 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
     num_unks = 0
   elif opt==4: # for opt 4, use <unk_0>, <unk+1>, <unk-1>, etc. for the target 
     num_unks = 0
-    #(src_words, src_vocab_map, src_vocab_size) = add_unks(src_words, src_vocab_map, src_vocab_size, num_unks)
 
     # add relative unk position words to tgt vocab
     for i in xrange(window): 
@@ -239,6 +237,8 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
     elif opt==1 or opt==4: # annotating unks with aligned positions
       assert dict_size > 0
       tgt_unk_tokens = []
+      if is_absolute: # positions
+        tgt_unk_positions = []
 
       new_tgt_tokens = []
       best_src_positions = []
@@ -268,21 +268,51 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
 
         # annotate
         if opt==1:
-          if best_src_pos ==-1: # unaligned, try to approximate using prev/next target words
-            pos_word = pos_null
-            if debug: sys.stderr.write('  null aligned: %s\n' % (tgt_tokens[tgt_pos]))
-          else:
-            if debug: 
-              sys.stderr.write('  aligned: %s\t%s\n' % (src_tokens[best_src_pos], tgt_tokens[tgt_pos]))
-            if best_src_pos < (tgt_pos-window) or best_src_pos > (tgt_pos+window): # out of boundary, consider null
-              if debug: 
-                sys.stderr.write('  null aligned (out boundary): %s, best_src_pos=%d\n' % (tgt_tokens[tgt_pos], best_src_pos))
-              pos_word = pos_null
-            else:
-              pos_word = '<p_' + str(tgt_pos-best_src_pos) + '>'
+          if is_absolute: # absolute
+            if best_src_pos==-1: # try to approximate it
+              if tgt_pos>0 and best_src_positions[tgt_pos-1]!=-1: # look left
+                best_src_pos = best_src_positions[tgt_pos-1]
+                search_count = 1
+              
+              if tgt_pos<(len(tgt_tokens)-1) and best_src_positions[tgt_pos+1]!=-1: # look right
+                if search_count==0:
+                  best_src_pos = best_src_positions[tgt_pos+1]
+                else:
+                  best_src_pos = best_src_pos + best_src_positions[tgt_pos+1]
+                search_count = search_count + 1
+              
+              if search_count>0: # found an approximation
+                best_src_pos = best_src_pos/search_count
 
-          # Thang Jan 2015: purposely put pos in front of word
-          tgt_unk_tokens.append(pos_word)
+                if best_src_pos>(tgt_pos+window):
+                  best_src_pos = tgt_pos+window
+                elif best_src_pos<(tgt_pos-window):
+                  best_src_pos = tgt_pos-window
+              else: # no approximation, use use the tgt_pos
+                best_src_pos = tgt_pos
+              
+              # make sure the src pos is valid
+              if best_src_pos<0:
+                best_src_pos=0
+              elif best_src_pos>(len(src_unk_tokens)-2): # exclude eos
+                best_src_pos = len(src_unk_tokens)-2
+
+            tgt_unk_positions.append(str(best_src_pos))
+          else: # relative
+            if best_src_pos ==-1: # unaligned
+              pos_word = pos_null
+              if debug: sys.stderr.write('  null aligned: %s\n' % (tgt_tokens[tgt_pos]))
+            else:
+              if debug: 
+                sys.stderr.write('  aligned: %s\t%s\n' % (src_tokens[best_src_pos], tgt_tokens[tgt_pos]))
+              if best_src_pos < (tgt_pos-window) or best_src_pos > (tgt_pos+window): # out of boundary, consider null
+                if debug: 
+                  sys.stderr.write('  null aligned (out boundary): %s, best_src_pos=%d\n' % (tgt_tokens[tgt_pos], best_src_pos))
+                pos_word = pos_null
+              else:
+                pos_word = '<p_' + str(tgt_pos-best_src_pos) + '>'
+            tgt_unk_tokens.append(pos_word)
+
           tgt_unk_tokens.append(tgt_token)
         else: # opt=4
           if tgt_token==unk_symbol:
@@ -340,16 +370,34 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
       src_ouf.write('%s\n' %  (' '.join(src_unk_tokens[0:-1])))
     else:
       src_ouf.write('%s\n' %  (' '.join(src_unk_tokens)))
-    tgt_ouf.write('%s\n' %  (' '.join(tgt_unk_tokens))) # this one doesn't have <eos> at the end
 
     # convert to integers
-    tgt_unk_tokens.append(eos)
     if is_separate_output: # for separate output, we don't increase indices by tgt_vocab_size
       src_indices = text.to_id(src_unk_tokens, src_vocab_map)
     else:
       src_indices = text.to_id(src_unk_tokens, src_vocab_map, tgt_vocab_size)
 
+    if is_absolute:
+      new_tgt_tokens = []
+      # combine positions and tgt word indices
+      for ii in xrange(len(tgt_unk_tokens)):
+        new_tgt_tokens.append(tgt_unk_positions[ii])
+        new_tgt_tokens.append(tgt_unk_tokens[ii])
+      tgt_ouf.write('%s\n' %  (' '.join(new_tgt_tokens))) # this one doesn't have <eos> at the end
+    else:  
+      tgt_ouf.write('%s\n' %  (' '.join(tgt_unk_tokens))) # this one doesn't have <eos> at the end
+
+    tgt_unk_tokens.append(eos)
     tgt_indices = text.to_id(tgt_unk_tokens, tgt_vocab_map)
+    if is_absolute:
+      new_tgt_indices = []
+      # combine positions and tgt word indices
+      for ii in xrange(len(tgt_indices)-1):
+        new_tgt_indices.append(tgt_unk_positions[ii])
+        new_tgt_indices.append(tgt_indices[ii])
+      new_tgt_indices.append(tgt_indices[-1])
+      tgt_indices = new_tgt_indices
+
     if is_separate_output:
       if no_eos:
         src_id_ouf.write('%s\n' %  (' '.join(src_indices[0:-1]))) 
@@ -402,7 +450,7 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
 
 if __name__ == '__main__':
   args = process_command_line()
-  process_files(args.in_prefix, args.src_lang, args.tgt_lang, args.out_prefix, args.freq, args.is_reverse_alignment, args.opt, args.dict_file, args.src_vocab_file, args.tgt_vocab_file, args.src_vocab_size, args.tgt_vocab_size, args.src_output_opt, args.is_separate_output, args.is_separate_pos, args.no_eos, args.window)
+  process_files(args.in_prefix, args.src_lang, args.tgt_lang, args.out_prefix, args.freq, args.is_reverse_alignment, args.opt, args.dict_file, args.src_vocab_file, args.tgt_vocab_file, args.src_vocab_size, args.tgt_vocab_size, args.src_output_opt, args.is_separate_output, args.is_separate_pos, args.no_eos, args.window, args.is_absolute)
 
 
             #search_count = 0 

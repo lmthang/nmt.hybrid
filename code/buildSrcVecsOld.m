@@ -1,4 +1,4 @@
-function [srcHidVecs, linearIndices, unmaskedIds, attnLinearIndices] = buildSrcVecsOld(tgtPos, params, trainData, predPositions, curMask)
+function [srcHidVecs, linearIndices, unmaskedIds, attnLinearIndices] = buildSrcVecsOld(params, trainData, predPositions, curMask)
 %%%
 %
 % For positional models, generate src vectors based on the predicted positions.
@@ -11,7 +11,7 @@ function [srcHidVecs, linearIndices, unmaskedIds, attnLinearIndices] = buildSrcV
   %srcLens = trainData.srcLens; %(unmaskedIds);
     
   % exclude eos and null
-  excludeFlags = predPositions==params.nullPosId | ~curMask.mask; % | predPositions==params.tgtEos | trainData.nullFlags; % TOFIX THIS LINE: no eos, double null check
+  excludeFlags = ~curMask.mask; % predPositions==params.nullPosId |
   excludeIds = find(excludeFlags); %  | trainData.nullFlags
   unmaskedIds = find(~excludeFlags);
   if ~isempty(excludeIds)
@@ -19,7 +19,8 @@ function [srcHidVecs, linearIndices, unmaskedIds, attnLinearIndices] = buildSrcV
   end
   
   %% compute aligned src positions
-  srcPositions = predPositions - params.zeroPosId;
+  srcPositions = predPositions;
+  %srcPositions = predPositions - params.zeroPosId;
   % srcPositions = tgtPos - (predPositions - params.zeroPosId); % src_pos = tgt_pos - relative_pos
   
 %   % exclude those that are greater than params.maxSentLen

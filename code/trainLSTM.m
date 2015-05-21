@@ -251,8 +251,13 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     printSent(2, srcTrainSents{1}, params.srcVocab, '  src 1:');
     printSent(2, srcTrainSents{end}, params.srcVocab, '  src end:');
   end
-  printSent(2, tgtTrainSents{1}, params.tgtVocab, '  tgt:');
-  printSent(2, tgtTrainSents{end}, params.tgtVocab, '  tgt end:');
+  if params.predictPos
+    printSentPos(2, tgtTrainSents{1}, params.tgtVocab, '  tgt:');
+    printSentPos(2, tgtTrainSents{end}, params.tgtVocab, '  tgt end:');
+  else
+    printSent(2, tgtTrainSents{1}, params.tgtVocab, '  tgt:');
+    printSent(2, tgtTrainSents{end}, params.tgtVocab, '  tgt end:');
+  end
   printTrainBatch(trainBatches{1}, params);
   
   
@@ -416,8 +421,8 @@ function [model] = initLSTM(params)
       % predict weight for the src hidden state: sigmoid(v_pos*f(W_h*h_t))
       model.v_pos = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
       
-      % predict if an alignment is null or non-null: 1 non-null, 2: null
-      model.W_softNull = randomMatrix(params.initRange, [2, params.softmaxSize], params.isGPU, params.dataType);
+%       % predict if an alignment is null or non-null: 1 non-null, 2: null
+%       model.W_softNull = randomMatrix(params.initRange, [2, params.softmaxSize], params.isGPU, params.dataType);
     end
     
     % predict alignment weights
@@ -453,8 +458,8 @@ function [trainWords, trainCost, params, startTime] = postTrainIter(model, costs
     if params.predictPos
       params.costTrainPos = trainCost.pos/trainWords.total;
       params.costTrainWord = trainCost.word/trainWords.total;
-      fprintf(2, '%d, %d, %.2fK, %g, %.2f (%.2f, %.2f), gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
-      fprintf(params.logId, '%d, %d, %.2fK, %g, %.2f (%.2f, %.2f), gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
+      fprintf(2, '%d, %d, %.2fK, %g, %.2f (%.4f, %.2f), gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
+      fprintf(params.logId, '%d, %d, %.2fK, %g, %.2f (%.4f, %.2f), gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
     else
       fprintf(2, '%d, %d, %.2fK, %g, %.2f, gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
       fprintf(params.logId, '%d, %d, %.2fK, %g, %.2f, gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, datestr(now)); % , wInfo(indNorms, 1)

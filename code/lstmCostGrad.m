@@ -152,57 +152,55 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         %% predicting positions
         if params.predictPos 
           curPosOutput = trainData.posOutput(:, tgtPos)';
-          
-          %% decide null or non-null alignment
-          nullFlags = curPosOutput==params.nullPosId;
-          nullLabels = nullFlags+1; % 1: non-null, 2: null
-          [cost_null, probs_null, scores_null, scoreIndices_null] = softmaxLayerForward(model.W_softNull, h_t{ll}, nullLabels, curMask);
-          costs.total = costs.total + params.posWeight*cost_null;
-          costs.null = costs.null + params.posWeight*cost_null;
-          
-          % assert
-          if params.assert
-            assert(sum(sum(abs(scores_null(:, curMask.maskedIds))))==0);
-          end
-          
-          if isTest==0 % backprop
-            % loss -> h_t_pos
-            [grad_W_softNull, grad_ht] = softmaxLayerBackprop(model.W_softNull, h_t{ll}, probs_null, scoreIndices_null);
-            
-            % assert
-            if params.assert
-              assert(sum(sum(abs(grad_ht(:, curMask.maskedIds))))==0);
-            end
-            
-            % update grads
-            grad_ht_pos_all{tgtPos} = params.posWeight*grad_ht;
-            if tt==srcMaxLen
-              grad.W_softNull = params.posWeight*grad_W_softNull;
-            else
-              grad.W_softNull = grad.W_softNull + params.posWeight*grad_W_softNull;
-            end
-          end
-          
-          %% predict positions
-          %h_t -> scales (relative positions)
           top_ht = h_t{ll};
-          top_ht(:, nullFlags) = 0; % ignore <p_n>
+          
+%           %% decide null or non-null alignment
+%           nullFlags = curPosOutput==params.nullPosId;
+%           nullLabels = nullFlags+1; % 1: non-null, 2: null
+%           [cost_null, probs_null, scores_null, scoreIndices_null] = softmaxLayerForward(model.W_softNull, top_ht, nullLabels, curMask);
+%           costs.total = costs.total + params.posWeight*cost_null;
+%           costs.null = costs.null + params.posWeight*cost_null;
+%           
+%           % assert
+%           if params.assert
+%             assert(sum(sum(abs(scores_null(:, curMask.maskedIds))))==0);
+%           end
+%           
+%           if isTest==0 % backprop
+%             % loss -> h_t_pos
+%             [grad_W_softNull, grad_ht] = softmaxLayerBackprop(model.W_softNull, top_ht, probs_null, scoreIndices_null);
+%             
+%             % assert
+%             if params.assert
+%               assert(sum(sum(abs(grad_ht(:, curMask.maskedIds))))==0);
+%             end
+%             
+%             % update grads
+%             grad_ht_pos_all{tgtPos} = params.posWeight*grad_ht;
+%             if tt==srcMaxLen
+%               grad.W_softNull = params.posWeight*grad_W_softNull;
+%             else
+%               grad.W_softNull = grad.W_softNull + params.posWeight*grad_W_softNull;
+%             end
+%           end
+%           top_ht(:, nullFlags) = 0; % ignore <p_n>
+
+          %% predict positions
+          %h_t -> scales (relative positions)          
           [scales, forwardData] = posLayerForward(model.W_pos, model.v_pos, top_ht, params);
           
           %% loss
           % TODO: can use arrayfun here for GPUs
-          refScales = (curPosOutput-params.zeroPosId)./trainData.srcLens; % from unsupervised alignments
+          refScales = curPosOutput./trainData.srcLens; %(curPosOutput-params.zeroPosId)./trainData.srcLens; % from unsupervised alignments
           posDiff = scales-refScales;
           
           % masking
-          trainData.posFlags = curMask.mask & ~nullFlags;
+          trainData.posFlags = curMask.mask; % & ~nullFlags;
           posDiff(~trainData.posFlags) = 0;
           
           % assert
           if params.assert
-            if params.isGradCheck==0
-              assert(isempty(find(refScales<0 | refScales>1, 1))); % we assume that the reference positions are in [0, 1].
-            end
+            assert(isempty(find(refScales<0 | refScales>1, 1))); % we assume that the reference positions are in [0, 1].
           end
           
           % cost
@@ -216,10 +214,11 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
             grad_scales = 2*params.posWeight*posDiff;
             
             % positions -> h_t
-            [grad_ht, grad_W_pos, grad_v_pos] = posLayerBackprop(model.W_pos, model.v_pos, grad_scales, top_ht, scales, forwardData, params);
+            % IMPORTANT: CAREFUL about overriding grad_ht_pos_all{tgtPos}
+            [grad_ht_pos_all{tgtPos}, grad_W_pos, grad_v_pos] = posLayerBackprop(model.W_pos, model.v_pos, grad_scales, top_ht, scales, forwardData, params);
+            %grad_ht_pos_all{tgtPos} = grad_ht_pos_all{tgtPos} + grad_ht;
             
             % update grads
-            grad_ht_pos_all{tgtPos} = grad_ht_pos_all{tgtPos} + grad_ht;
             if tt==srcMaxLen
               grad.v_pos = grad_v_pos;
               grad.W_pos = grad_W_pos;
@@ -231,7 +230,11 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
           
           
           % round positions
-          trainData.positions = curPosOutput; %floor(positions) + params.zeroPosId; % those that correspond to nullIndices will be ignored in hid2softLayerForward, params.zeroPosId*ones(1, params.curBatchSize); %
+          if isTest % use predicted positions at test time
+            trainData.positions = floor(scales.*trainData.srcLens) + 1;
+          else % use gold positions, at training time
+            trainData.positions = curPosOutput;
+          end
           
         end % if predictPos
         
