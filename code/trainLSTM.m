@@ -73,6 +73,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'attnFunc', 0, @isnumeric);
   addOptional(p,'attnSize', 0, @isnumeric); % dim of the vector used to input to the final softmax, if 0, use lstmSize
   addOptional(p,'posWin', 20, @isnumeric); % relative window, used for attnFunc 2, 3
+  addOptional(p,'posWeight', 1.0, @isnumeric); % weight the cost objective
 
   %% research options  
   addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
@@ -190,10 +191,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       params.numAttnPositions = params.maxSentLen-1;
     else % local
       params.numAttnPositions = 2*params.posWin + 1;
-    end
-    
-    if params.predictPos
-      params.posWeight = 1;
     end
   end
   
