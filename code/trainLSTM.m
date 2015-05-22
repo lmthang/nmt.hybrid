@@ -73,8 +73,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   %           4: hard attention + unsupervised alignments + classification for relative pos 
   addOptional(p,'attnFunc', 0, @isnumeric);
   addOptional(p,'attnSize', 0, @isnumeric); % dim of the vector used to input to the final softmax, if 0, use lstmSize
-  addOptional(p,'posWin', 20, @isnumeric); % relative window, used for attnFunc 2, 3
-  addOptional(p,'posWeight', 1.0, @isnumeric); % weight the cost objective
+  addOptional(p,'posWin', 5, @isnumeric); % relative window, used for attnFunc~=1
+  addOptional(p,'maxRelDist', 20, @isnumeric); % we don't want to change this much (depends on how the training data was generated), this is for attnFunc 4 to determine the posVocabSize=2*maxRelDis + 1 + 1 (for eos).
+  addOptional(p,'posWeight', 1.0, @isnumeric); % weight the pos cost objective
 
   %% research options  
   addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
@@ -158,6 +159,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     params.batchId = 1;
     params.maxSentLen = 7;
     params.posWin = 1;
+    params.maxRelDist = 2;
   end
   
   %% set more params
@@ -248,7 +250,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     printSent(2, srcTrainSents{1}, params.srcVocab, '  src 1:');
     printSent(2, srcTrainSents{end}, params.srcVocab, '  src end:');
   end
-  if params.predictPos==1
+  if params.predictPos
     printSentPos(2, tgtTrainSents{1}, params.tgtVocab, '  tgt:');
     printSentPos(2, tgtTrainSents{end}, params.tgtVocab, '  tgt end:');
   else

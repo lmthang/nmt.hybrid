@@ -89,19 +89,21 @@ trainLSTM('../data/ptb/id/ptb.train', '../data/ptb/id/ptb.valid', '../data/ptb/i
 * Prepare data
 ./scripts/compute_word_dict.py -f 5 -o 1 ./data/train.10k en de ./data/train.10k.f5 > ./data/train.10k.f5.stderr 2>&1 &
 
-./scripts/generate_unk_parallel_data.py --no_eos --separate_output --dict ./data/train.10k.f5.en-de.dict --src_output_opt 1 --reverse_alignment --src_vocab_size 1000 --tgt_vocab_size 1000 ./data/train.10k en de ./data/posAll/train 1
-./scripts/generate_unk_parallel_data.py --no_eos --separate_output --dict ./data/train.10k.f5.en-de.dict --src_output_opt 1 --reverse_alignment --src_vocab ./data/train.10k.en.vocab.1000 --tgt_vocab ./data/train.10k.de.vocab.1000 ./data/valid.100 en de ./data/posAll/valid 1
-./scripts/generate_unk_parallel_data.py --no_eos --separate_output --dict ./data/train.10k.f5.en-de.dict --src_output_opt 1 --reverse_alignment --src_vocab ./data/train.10k.en.vocab.1000 --tgt_vocab ./data/train.10k.de.vocab.1000 ./data/test.100 en de ./data/posAll/test 1
+./scripts/generate_unk_parallel_data.py --no_eos --separate_output --dict ./data/train.10k.f5.en-de.dict --src_output_opt 1 --reverse_alignment --src_vocab_size 1000 --tgt_vocab_size 1000 ./data/train.10k en de ./data/posAll.rel/train 1
+./scripts/generate_unk_parallel_data.py --no_eos --separate_output --dict ./data/train.10k.f5.en-de.dict --src_output_opt 1 --reverse_alignment --src_vocab ./data/train.10k.en.vocab.1000 --tgt_vocab ./data/train.10k.de.vocab.1000 ./data/valid.100 en de ./data/posAll.rel/valid 1
+./scripts/generate_unk_parallel_data.py --no_eos --separate_output --dict ./data/train.10k.f5.en-de.dict --src_output_opt 1 --reverse_alignment --src_vocab ./data/train.10k.en.vocab.1000 --tgt_vocab ./data/train.10k.de.vocab.1000 ./data/test.100 en de ./data/posAll.rel/test 1
 
-~/lstm/scripts/reverse.py ~/lstm/data/posAll/test.id.en ~/lstm/data/posAll/test.id.reversed.en
-~/lstm/scripts/reverse.py ~/lstm/data/posAll/valid.id.en ~/lstm/data/posAll/valid.id.reversed.en
-~/lstm/scripts/reverse.py ~/lstm/data/posAll/train.id.en ~/lstm/data/posAll/train.id.reversed.en
+~/lstm/scripts/reverse.py ~/lstm/data/posAll.rel/test.id.en ~/lstm/data/posAll.rel/test.id.reversed.en
+~/lstm/scripts/reverse.py ~/lstm/data/posAll.rel/valid.id.en ~/lstm/data/posAll.rel/valid.id.reversed.en
+~/lstm/scripts/reverse.py ~/lstm/data/posAll.rel/train.id.en ~/lstm/data/posAll.rel/train.id.reversed.en
 
-To generate data with absolute positions, use the flag --absolute
+To generate data with absolute positions, use the flag --absolute. The directory posAll was generated with that flag.
 
 * train
-trainLSTM('../data/posAll/train.id','../data/posAll/valid.id','../data/posAll/test.id','en','de','../data/posAll/train.vocab.en','../data/posAll/train.vocab.de','../output',0,'logFreq',1,'isClip',0,'numLayers',1,'attnFunc',4,'isResume',0, 'isReverse', 1)
-(here we use attnFunc=4 since the data contains relative positions)
+trainLSTM('../data/posAll.rel/train.id','../data/posAll.rel/valid.id','../data/posAll.rel/test.id','en','de','../data/posAll.rel/train.vocab.en','../data/posAll.rel/train.vocab.de','../output',0,'logFreq',1,'isClip',0,'numLayers',1,'attnFunc',4,'isResume',0, 'isReverse', 1)
+(here we use attnFunc=4 since the data contains relative positions. For attnFunc 3, needs to use absolute positions)
+
+trainLSTM('../data/posAll/train.id','../data/posAll/valid.id','../data/posAll/test.id','en','de','../data/posAll/train.vocab.en','../data/posAll/train.vocab.de','../output',0,'logFreq',1,'isClip',0,'numLayers',1,'attnFunc',3,'isResume',0, 'isReverse', 1)
 
 (h) Train attention-based models:
 trainLSTM('../data/id.1000/train.10k', '../data/id.1000/valid.100', '../data/id.1000/test.100', 'de', 'en', '../data/train.10k.de.vocab.1000', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1, 'isResume', 0, 'attnFunc', 1, 'isReverse', 1)

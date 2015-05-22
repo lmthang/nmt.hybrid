@@ -1,4 +1,4 @@
-function [srcHidVecs, linearIndices, unmaskedIds, attnLinearIndices] = buildSrcVecsOld(params, trainData, predPositions, curMask)
+function [srcHidVecs, linearIndices, unmaskedIds, attnLinearIndices] = buildSrcVecsOld(params, trainData, predPositions, posFlags)
 %%%
 %
 % For positional models, generate src vectors based on the predicted positions.
@@ -11,11 +11,11 @@ function [srcHidVecs, linearIndices, unmaskedIds, attnLinearIndices] = buildSrcV
   %srcLens = trainData.srcLens; %(unmaskedIds);
     
   % exclude eos and null
-  excludeFlags = ~curMask.mask; % predPositions==params.nullPosId |
-  excludeIds = find(excludeFlags); %  | trainData.nullFlags
-  unmaskedIds = find(~excludeFlags);
-  if ~isempty(excludeIds)
-    predPositions(excludeIds) = []; %srcLens(excludeIds) = [];
+  excludeFlags = ~posFlags; % predPositions==params.nullPosId |
+  maskedIds = find(excludeFlags); %  | trainData.nullFlags
+  unmaskedIds = find(posFlags);
+  if ~isempty(maskedIds)
+    predPositions(maskedIds) = []; %srcLens(excludeIds) = [];
   end
   
   %% compute aligned src positions
@@ -85,7 +85,7 @@ function [srcHidVecs, linearIndices, unmaskedIds, attnLinearIndices] = buildSrcV
   % assert
   if params.assert
     assert(isempty(find(colIndices>=srcMaxLen, 1)));
-    assert(sum(sum(srcHidVecs(:, curMask.maskedIds)))==0);
+    assert(sum(sum(sum(srcHidVecs(:, maskedIds, :))))==0);
   end  
 end
 
