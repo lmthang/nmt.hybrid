@@ -27,7 +27,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   numSents = length(tgtSents);
   if params.isBi
     srcLens = srcLens + 1; % add eos
-    if isTest==0 || (params.attnGlobal) % limit sent lengths for training or for attention model during both training/testing
+    if isTest==0 || params.attnGlobal % limit sent lengths for training or for attention model during both training/testing
       srcLens(srcLens>params.maxSentLen) = params.maxSentLen; 
     end
     srcMaxLen = max(srcLens);
@@ -51,8 +51,10 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   tgtInput = [params.tgtSos*ones(numSents, 1) params.tgtEos*ones(numSents, tgtMaxLen-1)];
   tgtOutput = params.tgtEos*ones(numSents, tgtMaxLen);
   % positions
-  if params.predictPos
-    posOutput = zeros(numSents, tgtMaxLen); %params.nullPosId*ones(numSents, tgtMaxLen);
+  if params.predictPos==1 % raw positions
+    posOutput = zeros(numSents, tgtMaxLen);
+  elseif params.predictPos==2 % position vocab
+    posOutput = params.tgtEos*ones(numSents, tgtMaxLen);
   end
   for ii=1:numSents
     %% IMPORTANT: because we limit sent length, so len(tgtSent) or len(srcSent) 

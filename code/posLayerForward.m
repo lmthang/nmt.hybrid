@@ -11,7 +11,7 @@ function [scales, forwardData] = posLayerForward(W_pos, v_pos, h_t, params)
   % h_t -> h_pos=f(W_pos*h_t)
   forwardData.h_pos = hiddenLayerForward(W_pos, h_t, params.nonlinear_f);
   
-  % h_pos -> positions: scales=sigmoid(v_pos*h_pos) in [0, 1]
+  % h_pos -> scales=sigmoid(v_pos*h_pos) in [0, 1]
   scales = hiddenLayerForward(v_pos, forwardData.h_pos, params.nonlinear_gate_f);
 end
 

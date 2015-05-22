@@ -69,7 +69,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   %          >0: a_t = softmax(W_a * [tgt_h_t; srcLens])  
   %           1: soft attention
   %           2: hard attention + monotonic alignments
-  %           3: hard attention + unsupervised alignments
+  %           3: hard attention + unsupervised alignments + regression for absolute pos
+  %           4: hard attention + unsupervised alignments + classification for relative pos 
   addOptional(p,'attnFunc', 0, @isnumeric);
   addOptional(p,'attnSize', 0, @isnumeric); % dim of the vector used to input to the final softmax, if 0, use lstmSize
   addOptional(p,'posWin', 20, @isnumeric); % relative window, used for attnFunc 2, 3
@@ -120,7 +121,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   end
   
   % params assertions
-  if params.attnFunc>0 || params.sameLength==1
+  if params.attnFunc==1 || params.attnFunc==2 || params.sameLength==1
     assert(params.isReverse==1);
   end
   if params.softmaxDim>0
@@ -161,26 +162,25 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   
   %% set more params
   % attentional/positional models
-%   params.attnRelativePos=0;
-%   params.attnAbsolutePos=0;
   params.attnGlobal=0; % 1: for attnFunc=1, 0: for other attnFunc
-%  params.attnLocal=0; % for other attnFunc
-  params.predictPos = 0; % 1 -- predict align positions
-%   params.absolutePos = 0; % 1 -- predicting absolute positions
+  params.predictPos = 0; % 1 -- regression for absolute positions, 2 -- classification for relative positions
   params.oldSrcVecs = 0;
   if params.attnFunc>0
     if params.attnSize==0
       params.attnSize = params.lstmSize;
     end
     
-    if params.attnFunc==1 % soft attention
+    if params.attnFunc==1 % global attention
       params.predictPos = 0;
       params.attnGlobal = 1;
-    elseif params.attnFunc==2 % hard attention + monotonic alignment
+    elseif params.attnFunc==2 % local attention + monotonic alignment
       params.predictPos = 0;
       params.attnGlobal = 0;
-    elseif params.attnFunc==3 % hard attention + unsupervised alignments
+    elseif params.attnFunc==3 % local attention + unsupervised alignments + regression for absolute positions
       params.predictPos = 1;
+      params.attnGlobal = 0;
+    elseif params.attnFunc==4 % local attention + unsupervised alignments + classification for relative positions
+      params.predictPos = 2;
       params.attnGlobal = 0;
     else
       error('Invalid attnFunc option %d\n', params.attnFunc);
@@ -248,7 +248,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     printSent(2, srcTrainSents{1}, params.srcVocab, '  src 1:');
     printSent(2, srcTrainSents{end}, params.srcVocab, '  src end:');
   end
-  if params.predictPos
+  if params.predictPos==1
     printSentPos(2, tgtTrainSents{1}, params.tgtVocab, '  tgt:');
     printSentPos(2, tgtTrainSents{end}, params.tgtVocab, '  tgt end:');
   else
@@ -411,15 +411,15 @@ function [model] = initLSTM(params)
   
   %% h_t -> softmax input
   if params.attnFunc>0 % attention mechanism
-    if params.predictPos % pos = srcLen*sigmoid(v_pos*f(W_pos*h_t))
-      % transform h_t before feeding into the position softmax
+    if params.predictPos % predict positions with unsupervised alignments
+      % transform h_t into h_pos = f(W_pos*h_t)
       model.W_pos = randomMatrix(params.initRange, [params.softmaxSize, params.lstmSize], params.isGPU, params.dataType);
       
-      % predict weight for the src hidden state: sigmoid(v_pos*f(W_h*h_t))
-      model.v_pos = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
-      
-%       % predict if an alignment is null or non-null: 1 non-null, 2: null
-%       model.W_softNull = randomMatrix(params.initRange, [2, params.softmaxSize], params.isGPU, params.dataType);
+      if params.predictPos==1 % regression, scale=sigmoid(v_pos*h_pos)
+        model.v_pos = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
+      elseif params.predictPos==2 % classification: softmax(W_softPos*h_pos)
+        model.W_softPos = randomMatrix(params.initRange, [params.posVocabSize, params.softmaxSize], params.isGPU, params.dataType);
+      end
     end
     
     % predict alignment weights
@@ -455,8 +455,8 @@ function [trainWords, trainCost, params, startTime] = postTrainIter(model, costs
     if params.predictPos
       params.costTrainPos = trainCost.pos/trainWords.total;
       params.costTrainWord = trainCost.word/trainWords.total;
-      fprintf(2, '%d, %d, %.2fK, %g, %.2f (%.4f, %.2f), gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
-      fprintf(params.logId, '%d, %d, %.2fK, %g, %.2f (%.4f, %.2f), gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
+      fprintf(2, '%d, %d, %.2fK, %g, %.2f (%.4f, %.2f), gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, gradNorm, datestr(now));
+      fprintf(params.logId, '%d, %d, %.2fK, %g, %.2f (%.4f, %.2f), gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, gradNorm, datestr(now));
     else
       fprintf(2, '%d, %d, %.2fK, %g, %.2f, gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
       fprintf(params.logId, '%d, %d, %.2fK, %g, %.2f, gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
@@ -805,6 +805,9 @@ function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab)
 end
 
 %% positional model %%
+%       % predict if an alignment is null or non-null: 1 non-null, 2: null
+%       model.W_softNull = randomMatrix(params.initRange, [2, params.softmaxSize], params.isGPU, params.dataType);
+
 %   % positional models: predict pos, then word, use a separate softmax for pos
 %   % 0: separately print out pos/word perplexities
 %   % 1: predict pos/word with a separate softmax W_softPos
