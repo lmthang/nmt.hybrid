@@ -18,6 +18,7 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
   inputMask = data.inputMask; 
   srcMaxLen = data.srcMaxLen;
   curBatchSize = size(input, 1);
+  data.curBatchSize = curBatchSize;
   
   %printSent(2, input(1, 1:srcMaxLen), params.vocab, 'src 1: ');
   %printSent(2, input(1, srcMaxLen:end), params.vocab, 'tgt 1: ');
@@ -109,16 +110,20 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
       
       % h_t -> softmax_h
       if tt==srcMaxLen && ll==params.numLayers
-        if params.attnRelativePos % relative position
-          data.srcHidVecs = data.srcHidVecsAll; %buildSrcHidVecs(data.srcHidVecsAll, srcMaxLen, tgtPos, params);
+        if params.attnGlobal==0 % relative position
+          data.srcHidVecs = data.srcHidVecsAll;
         end
+        
+        % masking
+        [data.posMask] = createPosMask(tgtPos, params, data, curMask);
+        
         [softmax_h] = hid2softLayerForward(h_t, params, model, data, curMask, tgtPos); 
       end
       
       % attentional  models
       if tt<=params.numSrcHidVecs && ll==params.numLayers
         data.srcHidVecsAll(:, :, tt) = h_t;
-        if tt==params.numSrcHidVecs && params.attnFunc && params.attnRelativePos==0 % absolute positions 
+        if tt==params.numSrcHidVecs && params.attnGlobal % absolute positions 
           data.absSrcHidVecs = zeroMatrix([params.lstmSize, batchSize, params.numAttnPositions], params.isGPU, params.dataType);
           data.absSrcHidVecs(:, :, params.numAttnPositions-params.numSrcHidVecs+1:end) = data.srcHidVecsAll;
         end
@@ -217,20 +222,14 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, softma
     curBatchSize = numElements;
     curMask.mask = ones(1, curBatchSize);
     curMask.unmaskedIds = 1:curBatchSize;
+    data.curBatchSize = curBatchSize;
     
     % duplicate srcHidVecs
-    if params.attnAbsolutePos % absolute position
+    if params.attnGlobal % soft, global
       [data.absSrcHidVecs] = duplicateSrcHidVecs(data.absSrcHidVecs, batchSize, beamSize);
-    elseif params.attnRelativePos % relative pos
+    else % hard, local
       data.srcHidVecs = duplicateSrcHidVecs(data.srcHidVecsAll, batchSize, beamSize);
     end
-    
-%     % duplicate srcLens
-%     if params.posModel>=2
-%       params.curBatchSize = batchSize;
-%       data.srcLens = reshape(repmat(data.srcLens, beamSize, 1), 1, []);
-%       data.srcHidVecs = duplicateSrcHidVecs(data.srcHidVecsAll, batchSize, beamSize);
-%     end
   end
   
   decodeCompleteCount = 0; % count how many sentences we have completed collecting the translations
@@ -300,6 +299,9 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, softma
       
       % h_t -> softmax_h
       if ll==params.numLayers
+        % pos masking. TODO: FIX HERE for attn 3, 4, ...
+        [data.posMask] = createPosMask(tgtPos, params, data, curMask);
+        
         [softmax_h] = hid2softLayerForward(h_t, params, model, data, curMask, tgtPos); 
       end
     end
@@ -446,14 +448,14 @@ function [logProbs] = softmaxDecode(scores)
   logProbs = bsxfun(@minus, scores, log(sum(exp(scores))));
 end
 
-function [srcHidVecs] = computeRelativeSrcHidVecs(srcHidVecsAll, srcMaxLen, tgtPos, batchSize, params, beamSize)
-  [srcHidVecs] = buildSrcHidVecs(srcHidVecsAll, srcMaxLen, tgtPos, params);
-
-  % duplicate srcHidVecs along the curBatchSize dimension beamSize times
-  if (beamSize>1)
-    [srcHidVecs] = duplicateSrcHidVecs(srcHidVecs, batchSize, beamSize);
-  end
-end
+% function [srcHidVecs] = computeRelativeSrcHidVecs(srcHidVecsAll, srcMaxLen, tgtPos, batchSize, params, beamSize)
+%   [srcHidVecs] = buildSrcHidVecs(srcHidVecsAll, srcMaxLen, tgtPos, params);
+% 
+%   % duplicate srcHidVecs along the curBatchSize dimension beamSize times
+%   if (beamSize>1)
+%     [srcHidVecs] = duplicateSrcHidVecs(srcHidVecs, batchSize, beamSize);
+%   end
+% end
 
 function [srcHidVecs] = duplicateSrcHidVecs(srcHidVecs, batchSize, beamSize)
   numElements = batchSize*beamSize;
@@ -467,6 +469,14 @@ function [srcHidVecs] = duplicateSrcHidVecs(srcHidVecs, batchSize, beamSize)
 end
 
 %%%%%%%%%%%%%
+    
+%     % duplicate srcLens
+%     if params.posModel>=2
+%       params.curBatchSize = batchSize;
+%       data.srcLens = reshape(repmat(data.srcLens, beamSize, 1), 1, []);
+%       data.srcHidVecs = duplicateSrcHidVecs(data.srcHidVecsAll, batchSize, beamSize);
+%     end
+
 %   if params.depParse % dependency parsing
 %     minLen = (srcMaxLen-1)*2; % srcMaxLen include eos, we want our dependency parse will have length = 2 * input (no eos) length 
 %     maxLen = minLen;

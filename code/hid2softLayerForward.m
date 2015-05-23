@@ -12,27 +12,34 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
     if params.softmaxDim % softmax compression: f(W_h * h_t)
       h2sInfo.input = h_t;
     elseif params.attnFunc % attention
-      if params.attnGlobal % soft attention
+      if params.attnGlobal % soft, global
         srcHidVecs = trainData.absSrcHidVecs;
-      else % hard attention
-        if params.predictPos % use unsupervised alignments
-          %posFlags = curMask.mask & (trainData.positions~=params.nullPosId);
-          %srcPositions = trainData.positions - params.zeroPosId;
+      else % hard, local
+        % positions
+        if params.predictPos % unsupervised alignments
+          srcPositions = trainData.positions;
+        else % monotonic alignments
+          srcPositions = tgtPos*ones(1, trainData.curBatchSize);
+        end
+        
+        % reverse
+        if params.isReverse
+          srcPositions = trainData.srcMaxLen - srcPositions;
+        end
+        
+        % build context vectors
+        [srcHidVecs, h2sInfo.linearIdSub, h2sInfo.linearIdAll] = buildSrcVecs(trainData.srcHidVecs, srcPositions, trainData.posMask, params);
 
-          % IMPORTANT: since source sentences are reversed we use srcMaxLen-srcPositions
-          if params.isReverse
-            srcPositions = trainData.srcMaxLen - trainData.positions;
-          end
-          [srcHidVecs, h2sInfo.linearIdSub, h2sInfo.linearIdAll] = buildSrcVecs(trainData.srcHidVecs, srcPositions, trainData.posMask, params);
-
-          % assert
-          if params.assert
+        % assert
+        if params.assert
+          if params.predictPos % use unsupervised alignments
             [srcHidVecs1] = buildSrcVecsOld(params, trainData, srcPositions, trainData.posMask);
             assert(sum(sum(sum(abs(srcHidVecs-srcHidVecs1))))<1e-10);
-          end        
-        else % use monotonic alignments
-          [srcHidVecs, h2sInfo.startAttnId, h2sInfo.endAttnId, h2sInfo.startHidId, h2sInfo.endHidId] = buildSrcHidVecs(...
-            trainData.srcHidVecs, trainData.srcMaxLen, tgtPos, params);
+          else
+            [srcHidVecs1, h2sInfo.startAttnId, h2sInfo.endAttnId, h2sInfo.startHidId, h2sInfo.endHidId] = buildSrcHidVecsOld(...
+              trainData.srcHidVecs, trainData.srcMaxLen, tgtPos, params);
+            assert(sum(sum(sum(abs(srcHidVecs(:, curMask.unmaskedIds)-srcHidVecs1(:, curMask.unmaskedIds)))))<1e-10);
+          end
         end   
       end
       

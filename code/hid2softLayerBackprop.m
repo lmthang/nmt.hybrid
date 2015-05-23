@@ -20,15 +20,10 @@ function [grad_ht, hid2softGrad, grad_srcHidVecs] = hid2softLayerBackprop(model,
       else % hard attention
         % TODO: if our GPUs have lots of memory, then we don't have to
         % regenerate srcHidVecs again :) Unfortuntely not!
-        if params.predictPos % use unsupervised alignments
-          srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize*params.numAttnPositions], params.isGPU, params.dataType);
-          trainData.srcHidVecs = reshape(trainData.srcHidVecs, params.lstmSize, []);
-          srcHidVecs(:, h2sInfo.linearIdSub) = trainData.srcHidVecs(:, h2sInfo.linearIdAll);
-          srcHidVecs = reshape(srcHidVecs, [params.lstmSize, params.curBatchSize, params.numAttnPositions]);
-        else % use monotonic alignments
-          srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
-          srcHidVecs(:, :, h2sInfo.startHidId:h2sInfo.endHidId) = trainData.srcHidVecs(:, :, h2sInfo.startAttnId:h2sInfo.endAttnId);
-        end
+        srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize*params.numAttnPositions], params.isGPU, params.dataType);
+        trainData.srcHidVecs = reshape(trainData.srcHidVecs, params.lstmSize, []);
+        srcHidVecs(:, h2sInfo.linearIdSub) = trainData.srcHidVecs(:, h2sInfo.linearIdAll);
+        srcHidVecs = reshape(srcHidVecs, [params.lstmSize, params.curBatchSize, params.numAttnPositions]);
       end
       
       % grad_attn -> grad_ht, grad_W_a, grad_srcHidVecs
@@ -40,6 +35,12 @@ function [grad_ht, hid2softGrad, grad_srcHidVecs] = hid2softLayerBackprop(model,
     end
   end
 end
+
+%         if params.predictPos % use unsupervised alignments
+%         else % use monotonic alignments
+%           srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
+%           srcHidVecs(:, :, h2sInfo.startHidId:h2sInfo.endHidId) = trainData.srcHidVecs(:, :, h2sInfo.startAttnId:h2sInfo.endAttnId);
+%         end
 
 %           if params.oldSrcVecs % old
 %             srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);

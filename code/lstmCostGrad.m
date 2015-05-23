@@ -29,6 +29,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   trainData.isTest = isTest;
   trainData.T = T;
   trainData.srcMaxLen = srcMaxLen;
+  trainData.curBatchSize = curBatchSize;
   
   params.curBatchSize = curBatchSize;
   params.srcMaxLen = srcMaxLen;
@@ -149,9 +150,14 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       %% Loss
       if tt>=srcMaxLen && ll==params.numLayers % decoding phase, tgtPos>=1
         
+        % masking
+        [trainData.posMask] = createPosMask(tgtPos, params, trainData, curMask);
+        
         %% predicting positions
         if params.predictPos 
-          curPosOutput = trainData.posOutput(:, tgtPos)';
+          % null predictions
+          if params.predictNull
+          end
           
           % h_t -> h_pos=f(W_pos*h_t)
           h_pos = hiddenLayerForward(model.W_pos, h_t{ll}, params.nonlinear_f);
@@ -164,12 +170,6 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
             % TODO: can use arrayfun here for GPUs
             refScales = curPosOutput./trainData.srcLens; %(curPosOutput-params.zeroPosId)./trainData.srcLens; % from unsupervised alignments
             posDiff = scales-refScales;
-
-            % masking
-            trainData.posMask.mask = curMask.mask & curPosOutput~=params.nullPosId;
-            trainData.posMask.unmaskedIds = find(trainData.posMask.mask);
-            trainData.posMask.maskedIds = find(~trainData.posMask.mask);
-            
             posDiff(~trainData.posMask.mask) = 0;
 
             % assert
@@ -205,11 +205,6 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
 %             else % use gold positions, at training time
 %             end
           else
-            % masking
-            trainData.posMask.mask = curMask.mask & curPosOutput~=params.nullPosId & curPosOutput~=params.tgtEos;
-            trainData.posMask.unmaskedIds = find(trainData.posMask.mask);
-            trainData.posMask.maskedIds = find(~trainData.posMask.mask);
-            
             % h_t_pos -> position loss
             softmaxPositions = curPosOutput-params.startPosId+1; %+params.maxRelDist+1; % curPosOutput is in [-params.maxRelDist, params.maxRelDist]. the value params.maxRelDist+1 in curPosOutput marks eos.
             [cost_pos, probs_pos, ~, scoreIndices_pos] = softmaxLayerForward(model.W_softPos, h_pos, softmaxPositions, trainData.posMask);
@@ -393,19 +388,13 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
 
         % attention models: srcHidVecs
         if params.attnFunc
-          if params.predictPos % use unsupervised alignments
+          if params.attnGlobal
+            grad.srcHidVecs(:, :, startAttnId:endAttnId) = grad.srcHidVecs(:, :, startAttnId:endAttnId) + grad_srcHidVecs(:, :, startHidId:endHidId);
+          else
             grad.srcHidVecs = reshape(grad.srcHidVecs, params.lstmSize, []);
             grad_srcHidVecs = reshape(grad_srcHidVecs, params.lstmSize, []);
             grad.srcHidVecs(:, h2sInfo.linearIdAll) = grad.srcHidVecs(:, h2sInfo.linearIdAll) + grad_srcHidVecs(:, h2sInfo.linearIdSub);
             grad.srcHidVecs = reshape(grad.srcHidVecs, [params.lstmSize, params.curBatchSize, params.numSrcHidVecs]);
-          else % soft attention
-            if params.attnGlobal==0 % relative
-              startAttnId = h2sInfo.startAttnId;
-              endAttnId = h2sInfo.endAttnId;
-              startHidId = h2sInfo.startHidId;
-              endHidId = h2sInfo.endHidId;
-            end
-            grad.srcHidVecs(:, :, startAttnId:endAttnId) = grad.srcHidVecs(:, :, startAttnId:endAttnId) + grad_srcHidVecs(:, :, startHidId:endHidId);
           end
         end
       else
@@ -550,6 +539,17 @@ end
 
 
 %% Positional models %%
+%           if params.predictPos % use unsupervised alignments  
+%           else % soft attention
+%             if params.attnGlobal==0 % relative
+%               startAttnId = h2sInfo.startAttnId;
+%               endAttnId = h2sInfo.endAttnId;
+%               startHidId = h2sInfo.startHidId;
+%               endHidId = h2sInfo.endHidId;
+%             end
+%             grad.srcHidVecs(:, :, startAttnId:endAttnId) = grad.srcHidVecs(:, :, startAttnId:endAttnId) + grad_srcHidVecs(:, :, startHidId:endHidId);
+%           end
+
 %           %% decide null or non-null alignment
 %           nullFlags = curPosOutput==params.nullPosId;
 %           nullLabels = nullFlags+1; % 1: non-null, 2: null

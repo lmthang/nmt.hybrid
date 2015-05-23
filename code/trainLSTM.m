@@ -75,7 +75,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'attnSize', 0, @isnumeric); % dim of the vector used to input to the final softmax, if 0, use lstmSize
   addOptional(p,'posWin', 5, @isnumeric); % relative window, used for attnFunc~=1
   addOptional(p,'maxRelDist', 20, @isnumeric); % we don't want to change this much (depends on how the training data was generated), this is for attnFunc 4 to determine the posVocabSize=2*maxRelDis + 1 + 1 (for eos).
-  addOptional(p,'posWeight', 1.0, @isnumeric); % weight the pos cost objective
+  addOptional(p,'posWeight', 1.0, @isnumeric); % weight the pos cost objective, for attn3, 4
+  addOptional(p,'predictNull', 0, @isnumeric); % 1: predicting null symbols
 
   %% research options  
   addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
@@ -413,7 +414,13 @@ function [model] = initLSTM(params)
   
   %% h_t -> softmax input
   if params.attnFunc>0 % attention mechanism
-    if params.predictPos % predict positions with unsupervised alignments
+    % predict if an alignment is null or non-null: 1 non-null, 2: null
+    if params.predictNull
+      model.W_softNull = randomMatrix(params.initRange, [2, params.softmaxSize], params.isGPU, params.dataType);
+    end
+  
+    % predict positions with unsupervised alignments
+    if params.predictPos
       % transform h_t into h_pos = f(W_pos*h_t)
       model.W_pos = randomMatrix(params.initRange, [params.softmaxSize, params.lstmSize], params.isGPU, params.dataType);
       
@@ -434,7 +441,7 @@ function [model] = initLSTM(params)
   elseif params.softmaxDim>0 % compress softmax
     model.W_h = randomMatrix(params.initRange, [params.softmaxDim, params.lstmSize], params.isGPU, params.dataType);
   end
-    
+  
   %% softmax input -> predictions
   model.W_soft = randomMatrix(params.initRange, [params.tgtVocabSize, params.softmaxSize], params.isGPU, params.dataType);
 end
@@ -807,8 +814,7 @@ function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab)
 end
 
 %% positional model %%
-%       % predict if an alignment is null or non-null: 1 non-null, 2: null
-%       model.W_softNull = randomMatrix(params.initRange, [2, params.softmaxSize], params.isGPU, params.dataType);
+
 
 %   % positional models: predict pos, then word, use a separate softmax for pos
 %   % 0: separately print out pos/word perplexities

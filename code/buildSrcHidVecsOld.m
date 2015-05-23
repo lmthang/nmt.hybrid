@@ -1,4 +1,4 @@
-function [srcHidVecs, startAttnId, endAttnId, startHidId, endHidId] = buildSrcHidVecs(srcHidVecsAll, srcMaxLen, tgtPos, params)
+function [srcHidVecs, startAttnId, endAttnId, startHidId, endHidId] = buildSrcHidVecsOld(srcHidVecsAll, srcMaxLen, tgtPos, params)
 
   startAttnId = (srcMaxLen-tgtPos)-params.posWin;
   endAttnId = (srcMaxLen-tgtPos) + params.posWin;
