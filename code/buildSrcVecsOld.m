@@ -19,9 +19,9 @@ function [srcHidVecs, linearIndices, unmaskedIds, attnLinearIndices] = buildSrcV
   end
   
   %% compute aligned src positions
-  %srcPositions = predPositions;
+  srcPositions = predPositions;
   %srcPositions = predPositions - params.zeroPosId;
-  srcPositions = tgtPos - (predPositions - params.zeroPosId); % src_pos = tgt_pos - relative_pos
+  %srcPositions = tgtPos - (predPositions - params.zeroPosId); % src_pos = tgt_pos - relative_pos
   
 %   % exclude those that are greater than params.maxSentLen
 %   excludeIds = find(srcPositions>params.maxSentLen);
@@ -29,10 +29,10 @@ function [srcHidVecs, linearIndices, unmaskedIds, attnLinearIndices] = buildSrcV
 %     srcPositions(excludeIds) = []; unmaskedIds(excludeIds) = []; %srcLens(excludeIds) = [];
 %   end
     
-  if params.assert && params.isGradCheck==0
-    assert(params.isReverse==1);
-    assert(isempty(find(srcPositions<=0, 1)));
-    %assert(isempty(find(srcPositions>=srcLens, 1)));
+%   if params.assert && params.isGradCheck==0
+%     assert(params.isReverse==1);
+%     assert(isempty(find(srcPositions<=0, 1)));
+%     %assert(isempty(find(srcPositions>=srcLens, 1)));
 %   elseif params.isGradCheck
 %     % TODO generate data with valid positions for grad check
 %     % cross left boundary
@@ -41,11 +41,12 @@ function [srcHidVecs, linearIndices, unmaskedIds, attnLinearIndices] = buildSrcV
 %     % cross right boundary
 %     indices = find(srcPositions>=srcLens); % srcLen here include <eos> which we consider to be out of boundary
 %     srcPositions(indices) = srcLens(indices)-1;
-  end
+%   end
   
   
   % get the column indices on the src side
-  colIndices = srcMaxLen-srcPositions; % NOTE: IMPORTANT, here we assume src sentences are reversed
+%   colIndices = srcMaxLen-srcPositions; % NOTE: IMPORTANT, here we assume src sentences are reversed
+  colIndices = srcPositions;
 
   % use the below two lines to verify if you get the alignments correctly
   %params.srcVocab(trainData.input(sub2ind(size(trainData.input), unmaskedIds, colIndices)))

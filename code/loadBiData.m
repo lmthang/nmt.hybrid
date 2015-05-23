@@ -27,7 +27,7 @@ function [sents, numSents] = loadMonoData(file, numSents, baseIndex, vocab, pred
   fid = fopen(file, 'r');
   [sents, numSents] = loadBatchData(fid, baseIndex, numSents); %, eos);
   fclose(fid);
-  if predictPos
+  if predictPos==1
     printSentPos(2, sents{1}, vocab, ['  ', label, ' 1:']);
     printSentPos(2, sents{end}, vocab, ['  ', label, ' end:']);
   else

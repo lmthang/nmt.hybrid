@@ -34,11 +34,11 @@ function gradCheck(model, params)
         tgtTrainSents{ii}(1:2:2*tgtLen-1) = randi([1, srcLen], 1, tgtLen); % positions (exclude <t_eos> at the end)
         tgtTrainSents{ii}(2:2:2*tgtLen) = randi([1, params.tgtVocabSize-2], 1, tgtLen); % words, exclude <t_eos> and  <t_sos>
       elseif params.predictPos==2 % classification, relative positions
-        %tgtTrainSents{ii}(1:2:2*tgtLen-1) = randi([params.startPosId, params.startPosId + params.posVocabSize-2], 1, tgtLen); % positions (exclude <t_eos> at the end)
-        %tgtTrainSents{ii}(2:2:2*tgtLen) = randi([1, params.startPosId-1], 1, tgtLen); % words
-        range = min(srcLen, params.maxRelDist);
-        tgtTrainSents{ii}(1:2:2*tgtLen-1) = randi([0, 2*range], 1, tgtLen)-range; % positions (exclude <t_eos> at the end)
-        tgtTrainSents{ii}(2:2:2*tgtLen) = randi([1, params.tgtVocabSize-2], 1, tgtLen); % words, exclude <t_eos> and  <t_sos>
+        tgtTrainSents{ii}(1:2:2*tgtLen-1) = randi([params.startPosId, params.startPosId + params.posVocabSize-2], 1, tgtLen); % positions (exclude <t_eos> at the end)
+        tgtTrainSents{ii}(2:2:2*tgtLen) = randi([1, params.startPosId-1], 1, tgtLen); % words
+%         range = min(srcLen, params.maxRelDist);
+%         tgtTrainSents{ii}(1:2:2*tgtLen-1) = randi([0, 2*range], 1, tgtLen)-range; % positions (exclude <t_eos> at the end)
+%         tgtTrainSents{ii}(2:2:2*tgtLen) = randi([1, params.tgtVocabSize-2], 1, tgtLen); % words, exclude <t_eos> and  <t_sos>
       end
     else
       tgtTrainSents{ii} = randi([1, params.tgtVocabSize-2], 1, tgtLen); % exclude <t_sos> and <t_eos>

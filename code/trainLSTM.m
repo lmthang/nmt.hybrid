@@ -250,7 +250,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     printSent(2, srcTrainSents{1}, params.srcVocab, '  src 1:');
     printSent(2, srcTrainSents{end}, params.srcVocab, '  src end:');
   end
-  if params.predictPos
+  if params.predictPos==1
     printSentPos(2, tgtTrainSents{1}, params.tgtVocab, '  tgt:');
     printSentPos(2, tgtTrainSents{end}, params.tgtVocab, '  tgt end:');
   else

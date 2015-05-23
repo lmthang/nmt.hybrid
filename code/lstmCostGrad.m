@@ -184,18 +184,14 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
               % loss -> scales
               grad_scales = 2*params.posWeight*posDiff;
 
-              % positions -> h_t
-              % IMPORTANT: CAREFUL about overriding grad_ht_pos_all{tgtPos}
-              [grad_ht_pos_all{tgtPos}, grad_W_pos, grad_v_pos] = posLayerBackprop(model.W_pos, model.v_pos, grad_scales, h_t{ll}, scales, h_pos, params);
-              %grad_ht_pos_all{tgtPos} = grad_ht_pos_all{tgtPos} + grad_ht;
+              % scales -> h_pos
+              [grad_h_pos, grad_v_pos] = hiddenLayerBackprop(model.v_pos, grad_scales, h_pos, params.nonlinear_gate_f_prime, scales);
 
               % update grads
               if tt==srcMaxLen
                 grad.v_pos = grad_v_pos;
-                grad.W_pos = grad_W_pos;
               else
                 grad.v_pos = grad.v_pos + grad_v_pos;
-                grad.W_pos = grad.W_pos + grad_W_pos;
               end
             end
 
@@ -215,21 +211,17 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
               assert(sum(sum(abs(scores_pos(:, curMask.maskedIds))))==0);
             end
 
-            % backprop: position loss -> h_t
+            % backprop: position loss -> h_pos
             if isTest==0
-              % loss -> h_t_pos
+              % loss -> h_pos
               [grad_W_soft, grad_h_pos] = softmaxLayerBackprop(model.W_softPos, h_pos, probs_pos, scoreIndices_pos);
 
-              % h_t_pos -> h_t
-              [grad_ht_pos_all{tgtPos}, grad_W_pos] = hiddenLayerBackprop(model.W_pos, grad_h_pos, h_t{ll}, params.nonlinear_f_prime, h_pos);
-
               if tt==srcMaxLen
-                grad.W_pos = params.posWeight*grad_W_pos;
                 grad.W_softPos = params.posWeight*grad_W_soft;
               else
-                grad.W_pos = grad.W_pos + params.posWeight*grad_W_pos;
                 grad.W_softPos = grad.W_softPos + params.posWeight*grad_W_soft;
               end
+              grad_h_pos = params.posWeight*grad_h_pos;
             end
             
             % set positions
@@ -237,8 +229,18 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
             
             %% TODO: do argmax positions here when isTest==1
             trainData.positions = (tgtPos+params.zeroPosId) - curPosOutput; %  = tgtPos - (curPosOutput-startPosId)  = srcPos = tgtPos - relative distance
-          end
+          end          
           
+          if isTest==0
+            % h_t_pos -> h_t
+            [grad_ht_pos_all{tgtPos}, grad_W_pos] = hiddenLayerBackprop(model.W_pos, grad_h_pos, h_t{ll}, params.nonlinear_f_prime, h_pos);
+
+            if tt==srcMaxLen
+              grad.W_pos = grad_W_pos;
+            else
+              grad.W_pos = grad.W_pos + grad_W_pos;
+            end
+          end
           
         end % if predictPos
         
