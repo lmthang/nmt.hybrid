@@ -19,9 +19,9 @@ function [srcHidVecs, linearIndices, unmaskedIds, attnLinearIndices] = buildSrcV
   end
   
   %% compute aligned src positions
-  srcPositions = predPositions;
+  %srcPositions = predPositions;
   %srcPositions = predPositions - params.zeroPosId;
-  % srcPositions = tgtPos - (predPositions - params.zeroPosId); % src_pos = tgt_pos - relative_pos
+  srcPositions = tgtPos - (predPositions - params.zeroPosId); % src_pos = tgt_pos - relative_pos
   
 %   % exclude those that are greater than params.maxSentLen
 %   excludeIds = find(srcPositions>params.maxSentLen);

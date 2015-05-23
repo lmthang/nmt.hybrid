@@ -147,24 +147,24 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
     
   if opt==1:
     num_unks = 0
-    #if is_absolute==False: # relative position = tgt_pos - src_pos
-    #  # positions -window ... -1
-    #  for i in xrange(window, 0, -1): 
-    #    pos_word = '<p_' + str(-i) + '>'
-    #    (tgt_words, tgt_vocab_map, tgt_vocab_size) = text.add_word_to_vocab(pos_word, tgt_words, tgt_vocab_map, tgt_vocab_size)
+    if is_absolute==False: # relative position = tgt_pos - src_pos
+      # positions -window ... -1
+      for i in xrange(window, 0, -1): 
+        pos_word = '<p_' + str(-i) + '>'
+        (tgt_words, tgt_vocab_map, tgt_vocab_size) = text.add_word_to_vocab(pos_word, tgt_words, tgt_vocab_map, tgt_vocab_size)
 
-    #  # position 0
-    #  pos_word = '<p_0>'
-    #  (tgt_words, tgt_vocab_map, tgt_vocab_size) = text.add_word_to_vocab(pos_word, tgt_words, tgt_vocab_map, tgt_vocab_size)
-    #  
-    #  # 1 ... window
-    #  for i in xrange(window): 
-    #    pos_word = '<p_' + str(i+1) + '>'
-    #    (tgt_words, tgt_vocab_map, tgt_vocab_size) = text.add_word_to_vocab(pos_word, tgt_words, tgt_vocab_map, tgt_vocab_size)
+      # position 0
+      pos_word = '<p_0>'
+      (tgt_words, tgt_vocab_map, tgt_vocab_size) = text.add_word_to_vocab(pos_word, tgt_words, tgt_vocab_map, tgt_vocab_size)
+      
+      # 1 ... window
+      for i in xrange(window): 
+        pos_word = '<p_' + str(i+1) + '>'
+        (tgt_words, tgt_vocab_map, tgt_vocab_size) = text.add_word_to_vocab(pos_word, tgt_words, tgt_vocab_map, tgt_vocab_size)
 
-    #  # null alignment
-    #  pos_null = '<p_n>'
-    #  (tgt_words, tgt_vocab_map, tgt_vocab_size) = text.add_word_to_vocab(pos_null, tgt_words, tgt_vocab_map, tgt_vocab_size)
+      # null alignment
+      pos_null = '<p_n>'
+      (tgt_words, tgt_vocab_map, tgt_vocab_size) = text.add_word_to_vocab(pos_null, tgt_words, tgt_vocab_map, tgt_vocab_size)
   elif opt==2 or opt==0:
     num_unks = 20
     (src_words, src_vocab_map, src_vocab_size) = add_unks(src_words, src_vocab_map, src_vocab_size, num_unks)
@@ -210,11 +210,12 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
   align_debug = True
   
   num_global_unks = 0
-  approx_align_found = 0
-  approx_align_notfound = 0
+  #approx_align_found = 0
+  #approx_align_notfound = 0
   global_forw_dist = 0
   global_back_dist = 0
   num_aligns = 0
+  num_noaligns = 0
   for src_line in src_inf:
     src_line = src_line.strip()
     tgt_line = tgt_inf.readline().strip()
@@ -274,37 +275,37 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
         # annotate
         if opt==1:
           if best_src_pos==-1: # try to approximate it
-            if tgt_pos>0 and best_src_positions[tgt_pos-1]!=-1: # look left
-              best_src_pos = best_src_positions[tgt_pos-1]
-              search_count = 1
-            
-            if tgt_pos<(len(tgt_tokens)-1) and best_src_positions[tgt_pos+1]!=-1: # look right
-              if search_count==0:
-                best_src_pos = best_src_positions[tgt_pos+1]
-              else:
-                best_src_pos = best_src_pos + best_src_positions[tgt_pos+1]
-              search_count = search_count + 1
-            
-            if search_count>0: # found an approximation
-              best_src_pos = best_src_pos/search_count
-              approx_align_found = approx_align_found+1 
+            num_noaligns = num_noaligns + 1
+            #if tgt_pos>0 and best_src_positions[tgt_pos-1]!=-1: # look left
+            #  best_src_pos = best_src_positions[tgt_pos-1]
+            #  search_count = 1
+            #
+            #if tgt_pos<(len(tgt_tokens)-1) and best_src_positions[tgt_pos+1]!=-1: # look right
+            #  if search_count==0:
+            #    best_src_pos = best_src_positions[tgt_pos+1]
+            #  else:
+            #    best_src_pos = best_src_pos + best_src_positions[tgt_pos+1]
+            #  search_count = search_count + 1
+            #
+            #if search_count>0: # found an approximation
+            #  best_src_pos = best_src_pos/search_count
+            #  approx_align_found = approx_align_found+1 
 
-            else: # no approximation, use use the tgt_pos
-              approx_align_notfound = approx_align_notfound+1 
-              best_src_pos = tgt_pos
+            #else: # no approximation, use use the tgt_pos
+            #  approx_align_notfound = approx_align_notfound+1 
+            #  best_src_pos = tgt_pos
             
+            ## make sure the best_src_pos is valid
+            #if best_src_pos<0:
+            #  best_src_pos=0
+            #elif best_src_pos>(len(src_unk_tokens)-2): # exclude eos
+            #  best_src_pos = len(src_unk_tokens)-2
           else:
             num_aligns = num_aligns + 1
             if tgt_pos>=best_src_pos: # forward movement
               global_forw_dist += tgt_pos-best_src_pos
             else:
               global_back_dist -= tgt_pos-best_src_pos
-
-          # make sure the best_src_pos is valid
-          if best_src_pos<0:
-            best_src_pos=0
-          elif best_src_pos>(len(src_unk_tokens)-2): # exclude eos
-            best_src_pos = len(src_unk_tokens)-2
 
           # make sure best_src_pos is within the window
           if is_absolute==0:
@@ -316,21 +317,20 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
           if is_absolute: # absolute
             tgt_unk_positions.append(str(best_src_pos))
           else: # relative
-            tgt_unk_positions.append(str(tgt_pos-best_src_pos))
-
-            #if best_src_pos ==-1: # unaligned
-            #  pos_word = pos_null
-            #  if debug: sys.stderr.write('  null aligned: %s\n' % (tgt_tokens[tgt_pos]))
-            #else:
-            #  if debug: 
-            #    sys.stderr.write('  aligned: %s\t%s\n' % (src_tokens[best_src_pos], tgt_tokens[tgt_pos]))
-            #  if best_src_pos < (tgt_pos-window) or best_src_pos > (tgt_pos+window): # out of boundary, consider null
-            #    if debug: 
-            #      sys.stderr.write('  null aligned (out boundary): %s, best_src_pos=%d\n' % (tgt_tokens[tgt_pos], best_src_pos))
-            #    pos_word = pos_null
-            #  else:
-            #    pos_word = '<p_' + str(tgt_pos-best_src_pos) + '>'
-            #tgt_unk_tokens.append(pos_word)
+            #tgt_unk_positions.append(str(tgt_pos-best_src_pos))
+            if best_src_pos ==-1: # unaligned
+              pos_word = pos_null
+              if debug: sys.stderr.write('  null aligned: %s\n' % (tgt_tokens[tgt_pos]))
+            else:
+              if debug: 
+                sys.stderr.write('  aligned: %s\t%s\n' % (src_tokens[best_src_pos], tgt_tokens[tgt_pos]))
+              if best_src_pos < (tgt_pos-window) or best_src_pos > (tgt_pos+window): # out of boundary, consider null
+                if debug: 
+                  sys.stderr.write('  null aligned (out boundary): %s, best_src_pos=%d\n' % (tgt_tokens[tgt_pos], best_src_pos))
+                pos_word = pos_null
+              else:
+                pos_word = '<p_' + str(tgt_pos-best_src_pos) + '>'
+            tgt_unk_tokens.append(pos_word)
 
           tgt_unk_tokens.append(tgt_token)
         else: # opt=4
@@ -396,7 +396,7 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
     else:
       src_indices = text.to_id(src_unk_tokens, src_vocab_map, tgt_vocab_size)
 
-    if opt==1:
+    if opt==1 and is_absolute:
       new_tgt_tokens = []
       # combine positions and tgt word indices
       for ii in xrange(len(tgt_unk_tokens)):
@@ -408,7 +408,7 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
 
     tgt_unk_tokens.append(eos)
     tgt_indices = text.to_id(tgt_unk_tokens, tgt_vocab_map)
-    if opt==1:
+    if opt==1 and is_absolute:
       new_tgt_indices = []
       # combine positions and tgt word indices
       for ii in xrange(len(tgt_indices)-1):
@@ -453,7 +453,7 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
     if (line_id % 10000 == 0):
       sys.stderr.write(' (%d) ' % line_id)
 
-  sys.stderr.write('  num lines = %d, unk=%.2f, forw dist=%.2f, back dist=%.2f, num_aligns=%d, approx_align_found=%d, approx_align_notfound=%d\n' % (line_id, float(num_global_unks)/line_id, float(global_forw_dist)/line_id, float(global_back_dist)/line_id, num_aligns, approx_align_found, approx_align_notfound))
+  sys.stderr.write('  num lines = %d, unk=%.2f, forw dist=%.2f, back dist=%.2f, num_aligns=%d, num_noaligns=%d\n' % (line_id, float(num_global_unks)/line_id, float(global_forw_dist)/line_id, float(global_back_dist)/line_id, num_aligns, num_noaligns)) #approx_align_found=%d, approx_align_notfound=%d, , approx_align_found, approx_align_notfound
   #sys.stderr.write('  num lines = %d, unk=%.2f, aligned unk=%.2f, unaligned unk=%.2f, forw dist=%.2f, back dist=%.2f, num_aligns=%d, approx_align_found=%d, approx_align_notfound=%d\n' % (line_id, float(num_global_unks)/line_id, float(num_global_aligned_unks)/line_id, float(num_global_unaligned_unks)/line_id, float(global_forw_dist)/line_id, float(global_back_dist)/line_id, num_aligns, approx_align_found, approx_align_notfound))
   src_inf.close()
   tgt_inf.close()

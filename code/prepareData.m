@@ -54,7 +54,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   if params.predictPos==1 % raw positions
     posOutput = zeros(numSents, tgtMaxLen);
   elseif params.predictPos==2 % position vocab
-    posOutput = (params.maxRelDist+1)*ones(numSents, tgtMaxLen);
+    posOutput = params.tgtEos*ones(numSents, tgtMaxLen); % (params.maxRelDist+1)
   end
   for ii=1:numSents
     %% IMPORTANT: because we limit sent length, so len(tgtSent) or len(srcSent) 

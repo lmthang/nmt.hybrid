@@ -166,7 +166,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
             posDiff = scales-refScales;
 
             % masking
-            trainData.posFlags = curMask.mask; % & ~nullFlags;
+            trainData.posFlags = curMask.mask & curPosOutput~=params.nullPosId;
             posDiff(~trainData.posFlags) = 0;
 
             % assert
@@ -207,7 +207,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
 %             end
           else            
             % h_t_pos -> position loss
-            softmaxPositions = curPosOutput+params.maxRelDist+1; % curPosOutput is in [-params.maxRelDist, params.maxRelDist]. the value params.maxRelDist+1 in curPosOutput marks eos.
+            softmaxPositions = curPosOutput-params.startPosId+1; %+params.maxRelDist+1; % curPosOutput is in [-params.maxRelDist, params.maxRelDist]. the value params.maxRelDist+1 in curPosOutput marks eos.
             [cost_pos, probs_pos, scores_pos, scoreIndices_pos] = softmaxLayerForward(model.W_softPos, h_pos, softmaxPositions, curMask);
             costs.total = costs.total + params.posWeight*cost_pos;
             costs.pos = costs.pos + params.posWeight*cost_pos;
@@ -233,11 +233,13 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
             end
             
             % set positions
-            trainData.posFlags = curMask.mask & curPosOutput~=params.posEos;
-            trainData.positions = tgtPos - curPosOutput; % srcPos = tgtPos - relative distance
+            trainData.posFlags = curMask.mask & curPosOutput~=params.nullPosId & curPosOutput~=params.tgtEos;
+            
+            %% TODO: do argmax positions here when isTest==1
+            trainData.positions = (tgtPos+params.zeroPosId) - curPosOutput; %  = tgtPos - (curPosOutput-startPosId)  = srcPos = tgtPos - relative distance
           end
           
-          %% TODO: set trainData.positions here, approximate positions for tgtEos
+          
         end % if predictPos
         
         %% predicting words

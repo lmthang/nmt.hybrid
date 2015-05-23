@@ -103,7 +103,7 @@ To generate data with absolute positions, use the flag --absolute. The directory
 trainLSTM('../data/posAll.rel/train.id','../data/posAll.rel/valid.id','../data/posAll.rel/test.id','en','de','../data/posAll.rel/train.vocab.en','../data/posAll.rel/train.vocab.de','../output',0,'logFreq',1,'isClip',0,'numLayers',1,'attnFunc',4,'isResume',0, 'isReverse', 1)
 (here we use attnFunc=4 since the data contains relative positions. For attnFunc 3, needs to use absolute positions)
 
-trainLSTM('../data/posAll/train.id','../data/posAll/valid.id','../data/posAll/test.id','en','de','../data/posAll/train.vocab.en','../data/posAll/train.vocab.de','../output',0,'logFreq',1,'isClip',0,'numLayers',1,'attnFunc',3,'isResume',0, 'isReverse', 1)
+trainLSTM('../data/posAll.abs/train.id','../data/posAll.abs/valid.id','../data/posAll.abs/test.id','en','de','../data/posAll.abs/train.vocab.en','../data/posAll.abs/train.vocab.de','../output',0,'logFreq',1,'isClip',0,'numLayers',1,'attnFunc',3,'isResume',0, 'isReverse', 1)
 
 (h) Train attention-based models:
 trainLSTM('../data/id.1000/train.10k', '../data/id.1000/valid.100', '../data/id.1000/test.100', 'de', 'en', '../data/train.10k.de.vocab.1000', '../data/train.10k.en.vocab.1000', '../output', 0, 'logFreq', 1, 'isResume', 0, 'attnFunc', 1, 'isReverse', 1)
