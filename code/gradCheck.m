@@ -54,7 +54,7 @@ function gradCheck(model, params)
     curBatchSize = size(trainData.input, 1);
     params.dropoutMask = (randSimpleMatrix([params.lstmSize curBatchSize], params.isGPU, params.dataType)<params.dropout)/params.dropout;
     
-    if params.posModel==2 || params.softmaxFeedInput || params.sameLength
+    if params.softmaxFeedInput || params.sameLength
       params.dropoutMaskInput = (randSimpleMatrix([2*params.lstmSize curBatchSize], params.isGPU, params.dataType)<params.dropout)/params.dropout;
     end
   end
@@ -130,6 +130,7 @@ function gradCheck(model, params)
   fprintf(2, '# Num params=%d, abs_diff=%g\n', numParams, total_abs_diff);
 end
 
+% params.posModel==2 || 
 
 %% class-based softmax %%
 %   % W_soft_inclass
