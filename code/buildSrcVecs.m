@@ -12,14 +12,14 @@
 % TODO move srcMaxLen out
 % IMPORTANT: we assume the sentences are reversed here
 % srcPositions = srcMaxLen - srcPositions
-function [srcVecsSub, linearIdSub, linearIdAll] = buildSrcVecs(srcVecsAll, srcPositions, flags, params) % startAttnIds, endAttnIds, startIds, endIds, indices
+function [srcVecsSub, linearIdSub, linearIdAll] = buildSrcVecs(srcVecsAll, srcPositions, curMask, params) % startAttnIds, endAttnIds, startIds, endIds, indices
   posWin = params.posWin;
   numAttnPositions = 2*posWin+1;
   [lstmSize, batchSize, numSrcHidVecs] = size(srcVecsAll);
   
   % masking
-  srcPositions(~flags) = [];
-  unmaskedIds = find(flags);
+  srcPositions(~curMask.mask) = [];
+  unmaskedIds = curMask.unmaskedIds;
   
   % init. IMPORTANT: don't swap these two lines
   leftIndices = reshape(repmat((1:numAttnPositions)', 1, length(unmaskedIds)), 1, []);

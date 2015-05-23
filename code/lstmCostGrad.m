@@ -166,8 +166,11 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
             posDiff = scales-refScales;
 
             % masking
-            trainData.posFlags = curMask.mask & curPosOutput~=params.nullPosId;
-            posDiff(~trainData.posFlags) = 0;
+            trainData.posMask.mask = curMask.mask & curPosOutput~=params.nullPosId;
+            trainData.posMask.unmaskedIds = find(trainData.posMask.mask);
+            trainData.posMask.maskedIds = find(~trainData.posMask.mask);
+            
+            posDiff(~trainData.posMask.mask) = 0;
 
             % assert
             if params.assert
@@ -201,21 +204,28 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
 %               trainData.positions = floor(scales.*trainData.srcLens) + 1;
 %             else % use gold positions, at training time
 %             end
-          else            
+          else
+            % masking
+            trainData.posMask.mask = curMask.mask & curPosOutput~=params.nullPosId & curPosOutput~=params.tgtEos;
+            trainData.posMask.unmaskedIds = find(trainData.posMask.mask);
+            trainData.posMask.maskedIds = find(~trainData.posMask.mask);
+            
             % h_t_pos -> position loss
             softmaxPositions = curPosOutput-params.startPosId+1; %+params.maxRelDist+1; % curPosOutput is in [-params.maxRelDist, params.maxRelDist]. the value params.maxRelDist+1 in curPosOutput marks eos.
-            [cost_pos, probs_pos, scores_pos, scoreIndices_pos] = softmaxLayerForward(model.W_softPos, h_pos, softmaxPositions, curMask);
+            [cost_pos, probs_pos, ~, scoreIndices_pos] = softmaxLayerForward(model.W_softPos, h_pos, softmaxPositions, trainData.posMask);
             costs.total = costs.total + params.posWeight*cost_pos;
             costs.pos = costs.pos + params.posWeight*cost_pos;
-            if params.assert
-              assert(sum(sum(abs(scores_pos(:, curMask.maskedIds))))==0);
-            end
 
             % backprop: position loss -> h_pos
             if isTest==0
               % loss -> h_pos
               [grad_W_soft, grad_h_pos] = softmaxLayerBackprop(model.W_softPos, h_pos, probs_pos, scoreIndices_pos);
-
+              
+              % assert
+              if params.assert
+                assert(sum(sum(abs(grad_h_pos(:, trainData.posMask.maskedIds))))==0);
+              end
+              
               if tt==srcMaxLen
                 grad.W_softPos = params.posWeight*grad_W_soft;
               else
@@ -224,17 +234,19 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
               grad_h_pos = params.posWeight*grad_h_pos;
             end
             
-            % set positions
-            trainData.posFlags = curMask.mask & curPosOutput~=params.nullPosId & curPosOutput~=params.tgtEos;
-            
             %% TODO: do argmax positions here when isTest==1
-            trainData.positions = (tgtPos+params.zeroPosId) - curPosOutput; %  = tgtPos - (curPosOutput-startPosId)  = srcPos = tgtPos - relative distance
+            trainData.positions = (tgtPos+params.zeroPosId) - curPosOutput; %  = tgtPos - (curPosOutput-zeroPosId)  = srcPos = tgtPos - relative distance
           end          
           
           if isTest==0
             % h_t_pos -> h_t
             [grad_ht_pos_all{tgtPos}, grad_W_pos] = hiddenLayerBackprop(model.W_pos, grad_h_pos, h_t{ll}, params.nonlinear_f_prime, h_pos);
 
+            % assert
+            if params.assert
+              assert(sum(sum(abs(grad_ht_pos_all{tgtPos}(:, trainData.posMask.maskedIds))))==0);
+            end
+              
             if tt==srcMaxLen
               grad.W_pos = grad_W_pos;
             else

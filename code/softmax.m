@@ -16,6 +16,7 @@ function [probs, scores, norms] = softmax(raw, varargin)
   norms = sum(probs, 1); % normalization factors
   if length(varargin)==1
     mask = varargin{1};
+    scores = bsxfun(@times, scores, mask);
     probs = bsxfun(@times, probs, mask./norms); % normalize and zero out at masked positions
   else
     probs = bsxfun(@rdivide, probs, norms); % normalized probs

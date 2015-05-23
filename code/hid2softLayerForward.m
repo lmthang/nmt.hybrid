@@ -23,11 +23,11 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
           if params.isReverse
             srcPositions = trainData.srcMaxLen - trainData.positions;
           end
-          [srcHidVecs, h2sInfo.linearIdSub, h2sInfo.linearIdAll] = buildSrcVecs(trainData.srcHidVecs, srcPositions, trainData.posFlags, params);
+          [srcHidVecs, h2sInfo.linearIdSub, h2sInfo.linearIdAll] = buildSrcVecs(trainData.srcHidVecs, srcPositions, trainData.posMask, params);
 
           % assert
           if params.assert
-            [srcHidVecs1] = buildSrcVecsOld(params, trainData, srcPositions, trainData.posFlags);
+            [srcHidVecs1] = buildSrcVecsOld(params, trainData, srcPositions, trainData.posMask);
             assert(sum(sum(sum(abs(srcHidVecs-srcHidVecs1))))<1e-10);
           end        
         else % use monotonic alignments

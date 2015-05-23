@@ -1,4 +1,4 @@
-function [srcHidVecs, linearIndices, unmaskedIds, attnLinearIndices] = buildSrcVecsOld(params, trainData, predPositions, posFlags)
+function [srcHidVecs, linearIndices, unmaskedIds, attnLinearIndices] = buildSrcVecsOld(params, trainData, predPositions, curMask)
 %%%
 %
 % For positional models, generate src vectors based on the predicted positions.
@@ -11,9 +11,8 @@ function [srcHidVecs, linearIndices, unmaskedIds, attnLinearIndices] = buildSrcV
   %srcLens = trainData.srcLens; %(unmaskedIds);
     
   % exclude eos and null
-  excludeFlags = ~posFlags; % predPositions==params.nullPosId |
-  maskedIds = find(excludeFlags); %  | trainData.nullFlags
-  unmaskedIds = find(posFlags);
+  maskedIds = find(~curMask.mask);
+  unmaskedIds = curMask.unmaskedIds;
   if ~isempty(maskedIds)
     predPositions(maskedIds) = []; %srcLens(excludeIds) = [];
   end
