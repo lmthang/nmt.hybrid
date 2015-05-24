@@ -70,7 +70,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   %           1: soft attention
   %           2: hard attention + monotonic alignments
   %           3: hard attention + unsupervised alignments + regression for absolute pos
-  %           4: hard attention + unsupervised alignments + classification for relative pos 
+  %           4: hard attention + unsupervised alignments + classification for relative pos
+  %           5: hard attention
   addOptional(p,'attnFunc', 0, @isnumeric);
   addOptional(p,'attnSize', 0, @isnumeric); % dim of the vector used to input to the final softmax, if 0, use lstmSize
   addOptional(p,'posWin', 5, @isnumeric); % relative window, used for attnFunc~=1
@@ -168,24 +169,29 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   % attentional/positional models
   params.attnGlobal=0; % 1: for attnFunc=1, 0: for other attnFunc
   params.predictPos = 0; % 1 -- regression for absolute positions, 2 -- classification for relative positions
+  params.attnHard = 0; % 1 -- hard attention
   params.oldSrcVecs = 0;
   if params.attnFunc>0
     if params.attnSize==0
       params.attnSize = params.lstmSize;
     end
     
-    if params.attnFunc==1 % global attention
+    if params.attnFunc==1 % global, soft attention
       params.predictPos = 0;
       params.attnGlobal = 1;
-    elseif params.attnFunc==2 % local attention + monotonic alignment
+    elseif params.attnFunc==2 % local, hard attention + monotonic alignment
       params.predictPos = 0;
       params.attnGlobal = 0;
-    elseif params.attnFunc==3 % local attention + unsupervised alignments + regression for absolute positions
+    elseif params.attnFunc==3 % local, hard attention + unsupervised alignments + regression for absolute positions
       params.predictPos = 1;
       params.attnGlobal = 0;
-    elseif params.attnFunc==4 % local attention + unsupervised alignments + classification for relative positions
+    elseif params.attnFunc==4 % local, hard attention + unsupervised alignments + classification for relative positions
       params.predictPos = 2;
       params.attnGlobal = 0;
+    elseif params.attnFunc==5 % local, hard attention
+      params.predictPos = 0;
+      params.attnGlobal = 0;
+      params.attnHard = 1;
     else
       error('Invalid attnFunc option %d\n', params.attnFunc);
     end
@@ -265,12 +271,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   %%%%%%%%%%%%%%
   %% Training %%
   %%%%%%%%%%%%%%
-  trainCost.total = 0; trainWords.total = 0;
-  trainWords.totalLog = 0;
-  if params.predictPos
-    trainCost.pos = 0;
-    trainCost.word = 0;
-  end
+  params.totalLog = 0;
   params.evalFreq = params.logFreq*10;
 
   % profile
@@ -360,7 +361,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       end
       
       %% logging, eval, save, decode, fine-tuning, etc.
-      [trainWords, trainCost, params, startTime] = postTrainIter(model, costs, gradNorm, trainData, validData, testData, trainWords, trainCost, params, startTime, srcTrainSents, tgtTrainSents);
+      [params, startTime] = postTrainIter(model, costs, gradNorm, trainData, validData, testData, params, startTime, srcTrainSents, tgtTrainSents);
     end % end for batchId
 
     %% read more data
@@ -368,7 +369,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     
     %% end of an epoch
     if numTrainSents == 0 
-      [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents, startTime, params] = postTrainEpoch(model, validData, testData, startTime, trainWords, trainCost, params);
+      [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents, startTime, params] = postTrainEpoch(model, validData, testData, startTime, params);
       
       if params.epoch > params.numEpoches
         break; 
@@ -416,7 +417,7 @@ function [model] = initLSTM(params)
   %% h_t -> softmax input
   if params.attnFunc>0 % attention mechanism
     % predict positions with unsupervised alignments
-    if params.predictPos
+    if params.predictPos || params.attnHard
       % transform h_t into h_pos = f(W_pos*h_t)
       model.W_pos = randomMatrix(params.initRange, [params.softmaxSize, params.lstmSize], params.isGPU, params.dataType);
 
@@ -430,6 +431,8 @@ function [model] = initLSTM(params)
       elseif params.predictPos==2 % classification: softmax(W_softPos*h_pos)
         model.W_softPos = randomMatrix(params.initRange, [params.posVocabSize, params.softmaxSize], params.isGPU, params.dataType);
       end
+      if params.attnHard % hard attention
+      end  
     end
     
     % predict alignment weights
@@ -448,32 +451,27 @@ function [model] = initLSTM(params)
 end
 
 %% Things to do after each training iteration %%
-function [trainWords, trainCost, params, startTime] = postTrainIter(model, costs, gradNorm, trainData, validData, testData, trainWords, trainCost, params, startTime, srcTrainSents, tgtTrainSents)
+function [params, startTime] = postTrainIter(model, costs, gradNorm, trainData, validData, testData, params, startTime, srcTrainSents, tgtTrainSents)
   %% log info
-  trainWords.total = trainWords.total + trainData.numWords;
-  trainCost.total = trainCost.total + costs.total;
-  trainWords.totalLog = trainWords.totalLog + trainData.numWords; % to compute speed
-  if params.predictPos
-    trainCost.pos = trainCost.pos + costs.pos;
-    trainCost.word = trainCost.word + costs.word;
-  end
+  params.trainCounts = updateCounts(params.trainCounts, trainData, params);
+  params.totalLog = params.totalLog + trainData.numWords; % to compute speed
+  
+  [params.trainCosts] = updateCosts(params.trainCosts, costs, params);
+  
   if mod(params.iter, params.logFreq) == 0
     endTime = clock;
     timeElapsed = etime(endTime, startTime);
-    params.costTrain = trainCost.total/trainWords.total;
-    params.speed = trainWords.totalLog*0.001/timeElapsed;
-    if params.predictPos
-      params.costTrainPos = trainCost.pos/trainWords.total;
-      params.costTrainWord = trainCost.word/trainWords.total;
-      fprintf(2, '%d, %d, %.2fK, %g, %.2f (%.4f, %.2f), gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, gradNorm, datestr(now));
-      fprintf(params.logId, '%d, %d, %.2fK, %g, %.2f (%.4f, %.2f), gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, gradNorm, datestr(now));
-    else
-      fprintf(2, '%d, %d, %.2fK, %g, %.2f, gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
-      fprintf(params.logId, '%d, %d, %.2fK, %g, %.2f, gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
-    end
-
+    params.speed = params.totalLog*0.001/timeElapsed;
+    
+    [params.scaleTrainCosts] = scaleCosts(params.trainCosts, params.trainCounts, params);
+    logStr = sprintf('%d, %d, %.2fK, %g, %s, gN=%.2f, %s', params.epoch, params.iter, params.speed, params.lr, ...
+        getCostStr(params.scaleTrainCosts), gradNorm, datestr(now));
+    
+    fprintf(2, '%s\n', logStr);
+    fprintf(params.logId, '%s\n', logStr);
+  
     % reset
-    trainWords.totalLog = 0;
+    params.totalLog = 0;
     startTime = clock;
   end
 
@@ -509,7 +507,7 @@ function [trainWords, trainCost, params, startTime] = postTrainIter(model, costs
 end
 
 %% Things to do at the end of each training epoch %%
-function [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents, startTime, params] = postTrainEpoch(model, validData, testData, startTime, trainWords, trainCost, params)
+function [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents, startTime, params] = postTrainEpoch(model, validData, testData, startTime, params)
   % seek to the beginning
   if params.isBi
     fseek(params.srcTrainId, 0, 'bof');
@@ -520,9 +518,9 @@ function [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents,
   if ~isfield(params, 'costTrain') || ~isfield(params, 'speed')
     endTime = clock;
     timeElapsed = etime(endTime, startTime);
-    params.costTrain = trainCost.total/trainWords.total;
-    params.speed = trainWords.totalLog*0.001/timeElapsed;
-    trainWords.totalLog = 0;
+    params.costTrain = params.trainCosts.total/params.trainCounts.total;
+    params.speed = params.totalLog*0.001/timeElapsed;
+    params.totalLog = 0;
     startTime = clock;
   end
   
@@ -578,8 +576,8 @@ function [params] = evalSaveDecode(model, validData, testData, params, srcTrainS
   [params] = evalValidTest(model, validData, testData, params);
 
   % save
-  fprintf(2, '  save model cur test perplexity %.2f to %s\n', params.curTestPerplexity, params.modelRecentFile);
-  fprintf(params.logId, '  save model cur test perplexity %.2f to %s\n', params.curTestPerplexity, params.modelRecentFile);
+  fprintf(2, '  save model cur test perplexity %.2f to %s\n', params.curTestPerpWord, params.modelRecentFile);
+  fprintf(params.logId, '  save model cur test perplexity %.2f to %s\n', params.curTestPerpWord, params.modelRecentFile);
   save(params.modelRecentFile, 'model', 'params');
 
   % decode
@@ -731,12 +729,13 @@ function [model, params] = initLoadModel(params)
     params.epoch = 1;
     params.bestCostValid = 1e5;
     params.testPerplexity = 1e5;
-    params.curTestPerplexity = 1e5;
+    params.curTestPerpWord = 1e5;
     params.startIter = 0;
     params.iter = 0;  % number of batches we have processed
     params.epochBatchCount = 0;
     params.finetuneCount = 0;
-    
+    params.trainCounts = initCosts(params);
+    params.trainCosts = initCosts(params);
     
     %% mono-bootstrap
     if strcmp(params.monoFile, '')==0

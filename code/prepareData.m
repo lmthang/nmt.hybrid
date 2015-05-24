@@ -51,9 +51,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   tgtInput = [params.tgtSos*ones(numSents, 1) params.tgtEos*ones(numSents, tgtMaxLen-1)];
   tgtOutput = params.tgtEos*ones(numSents, tgtMaxLen);
   % positions
-  if params.predictPos==1 % raw positions
-    posOutput = zeros(numSents, tgtMaxLen);
-  elseif params.predictPos==2 % position vocab
+  if params.predictPos
     posOutput = params.tgtEos*ones(numSents, tgtMaxLen); % (params.maxRelDist+1)
   end
   for ii=1:numSents
@@ -93,6 +91,10 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   % positions
   if params.predictPos
     data.posOutput = posOutput;
+    data.numPositions = sum(sum(posOutput~=params.nullPosId & posOutput~=params.tgtEos));
+    if params.predictNull
+      data.numNulls = sum(sum(posOutput==params.nullPosId));
+    end
   end
   
   % assign to data struct

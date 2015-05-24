@@ -648,7 +648,7 @@ end
 %   end
    
 
-%       data.srcHidVecs = zeroMatrix([params.lstmSize, batchSize, params.numAttnPositions], params.isGPU, params.dataType);
+%       data.srcHidVecs = zeroMatrix([params.lstmSize, batchSize, params.numAttnPosi  tions], params.isGPU, params.dataType);
 %       [startAttnId, endAttnId, startHidId, endHidId] = buildSrcHidVecs(srcMaxLen, tgtPos, params);
 %       data.srcHidVecs(:, :, startHidId:endHidId) = data.srcHidVecsAll(:, :, startAttnId:endAttnId);
 %       

@@ -1,0 +1,12 @@
+function [curCosts] = updateCosts(curCosts, costs, params)
+  curCosts.total = curCosts.total + costs.total;
+  curCosts.word = curCosts.word + costs.word;
+
+  if params.predictPos % positions
+    curCosts.pos = curCosts.pos + costs.pos;
+    
+    if params.predictNull
+      curCosts.null = curCosts.null + costs.null;
+    end
+  end
+end

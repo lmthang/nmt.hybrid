@@ -50,9 +50,13 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   
   % init costs
   costs.total = zeroMatrix([1, 1], params.isGPU, params.dataType);
+  costs.word = zeroMatrix([1, 1], params.isGPU, params.dataType);
   if params.predictPos
     costs.pos = zeroMatrix([1, 1], params.isGPU, params.dataType);
-    costs.null = zeroMatrix([1, 1], params.isGPU, params.dataType);
+    
+    if params.predictNull
+      costs.null = zeroMatrix([1, 1], params.isGPU, params.dataType);
+    end
   end
   
   %%%%%%%%%%%%%%%%%%%%
@@ -307,6 +311,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         predWords = trainData.tgtOutput(:, tgtPos)';
         [cost, probs, scores, scoreIndices] = softmaxLayerForward(model.W_soft, softmax_h, predWords, curMask);
         costs.total = costs.total + cost;
+        costs.word = costs.word + cost;
                 
         % backprop: loss -> softmax_h
         if isTest==0
@@ -350,17 +355,17 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   end
   
   
-  %% costs
-  if params.isGPU    
-    costs.total = gather(costs.total);
-    if params.predictPos
-      costs.pos = gather(costs.pos);
-      costs.null = gather(costs.null);
-    end
-  end
-  if params.predictPos
-    costs.word = costs.total-costs.pos-costs.null;
-  end
+%   %% costs
+%   if params.isGPU    
+%     costs.total = gather(costs.total);
+%     costs.word = gather(costs.word);
+%     if params.predictPos
+%       costs.pos = gather(costs.pos);
+%       if predictNull
+%         costs.null = gather(costs.null);
+%       end
+%     end
+%   end
   if isTest==1 % don't compute grad
     return;
   end
