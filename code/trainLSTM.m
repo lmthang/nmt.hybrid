@@ -77,6 +77,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'maxRelDist', 20, @isnumeric); % we don't want to change this much (depends on how the training data was generated), this is for attnFunc 4 to determine the posVocabSize=2*maxRelDis + 1 + 1 (for eos).
   addOptional(p,'posWeight', 1.0, @isnumeric); % weight the pos cost objective, for attn3, 4
   addOptional(p,'predictNull', 0, @isnumeric); % 1: predicting null symbols
+  addOptional(p,'nullWeight', 1.0, @isnumeric); % 1: predicting null symbols
 
   %% research options  
   addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
@@ -414,16 +415,16 @@ function [model] = initLSTM(params)
   
   %% h_t -> softmax input
   if params.attnFunc>0 % attention mechanism
-    % predict if an alignment is null or non-null: 1 non-null, 2: null
-    if params.predictNull
-      model.W_softNull = randomMatrix(params.initRange, [2, params.softmaxSize], params.isGPU, params.dataType);
-    end
-  
     % predict positions with unsupervised alignments
     if params.predictPos
       % transform h_t into h_pos = f(W_pos*h_t)
       model.W_pos = randomMatrix(params.initRange, [params.softmaxSize, params.lstmSize], params.isGPU, params.dataType);
-      
+
+      % predict if an alignment is null or non-null: 1 non-null, 2: null
+      if params.predictNull
+        model.W_null = randomMatrix(params.initRange, [params.softmaxSize, params.lstmSize], params.isGPU, params.dataType);
+        model.W_softNull = randomMatrix(params.initRange, [2, params.softmaxSize], params.isGPU, params.dataType);
+      end
       if params.predictPos==1 % regression, scale=sigmoid(v_pos*h_pos)
         model.v_pos = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
       elseif params.predictPos==2 % classification: softmax(W_softPos*h_pos)

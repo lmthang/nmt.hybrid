@@ -155,10 +155,9 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         
         %% predicting positions
         if params.predictPos 
-          % null predictions
-          if params.predictNull
-          end
+          curPosOutput = trainData.posOutput(:, tgtPos)';
           
+          %% position predictions
           % h_t -> h_pos=f(W_pos*h_t)
           h_pos = hiddenLayerForward(model.W_pos, h_t{ll}, params.nonlinear_f);
           
@@ -234,7 +233,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
           end          
           
           if isTest==0
-            % h_t_pos -> h_t
+            % h_pos -> h_t
             [grad_ht_pos_all{tgtPos}, grad_W_pos] = hiddenLayerBackprop(model.W_pos, grad_h_pos, h_t{ll}, params.nonlinear_f_prime, h_pos);
 
             % assert
@@ -248,6 +247,54 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
               grad.W_pos = grad.W_pos + grad_W_pos;
             end
           end
+          
+          
+          %% null predictions
+          if params.predictNull
+            % h_t -> h_null=f(W_null*h_t)
+            h_null = hiddenLayerForward(model.W_null, h_t{ll}, params.nonlinear_f);
+          
+            nullMask.mask = curMask.mask & curPosOutput==params.nullPosId;
+            nullMask.unmaskedIds = find(nullMask.mask);
+            nullMask.maskedIds = find(~nullMask.mask);
+            nullLabels = nullMask.mask+1; % 1: non-null, 2: null
+            [cost_null, probs_null, ~, scoreIndices_null] = softmaxLayerForward(model.W_softNull, h_null, nullLabels, nullMask);
+            costs.total = costs.total + params.nullWeight*cost_null;
+            costs.null = costs.null + params.nullWeight*cost_null;
+
+            if isTest==0 % backprop
+              % loss -> h_null
+              [grad_W_softNull, grad_h_null] = softmaxLayerBackprop(model.W_softNull, h_null, probs_null, scoreIndices_null);
+              grad_h_null = params.nullWeight*grad_h_null;
+              
+              % assert
+              if params.assert
+                assert(sum(sum(abs(grad_h_null(:, nullMask.maskedIds))))==0);
+              end
+
+              % update grads
+              if tt==srcMaxLen
+                grad.W_softNull = params.nullWeight*grad_W_softNull;
+              else
+                grad.W_softNull = grad.W_softNull + params.nullWeight*grad_W_softNull;
+              end
+              
+              % h_null -> h_t
+              [grad_ht, grad_W_null] = hiddenLayerBackprop(model.W_null, grad_h_null, h_t{ll}, params.nonlinear_f_prime, h_null);
+
+              % assert
+              if params.assert
+                assert(sum(sum(abs(grad_ht(:, nullMask.maskedIds))))==0);
+              end
+              grad_ht_pos_all{tgtPos} = grad_ht_pos_all{tgtPos} + params.nullWeight*grad_ht;
+
+              if tt==srcMaxLen
+                grad.W_null = grad_W_null;
+              else
+                grad.W_null = grad.W_null + grad_W_null;
+              end
+            end
+          end % end predictNull
           
         end % if predictPos
         
