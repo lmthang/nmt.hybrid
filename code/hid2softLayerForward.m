@@ -68,7 +68,7 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
         h2sInfo.sigAbs = sqrt(h2sInfo.variances);
         h2sInfo.scaledPositions = (h2sInfo.indicesAll-h2sInfo.mu)./h2sInfo.sigAbs;
         if params.isGPU
-          h2sInfo.alignWeights(h2sInfo.linearIdSub) = arrayfun(@(x,y) gaussProb(x, y, params.sqrt2pi), h2sInfo.scaledPositions, h2sInfo.sigAbs);
+          h2sInfo.alignWeights(h2sInfo.linearIdSub) = arrayfun(@gaussProb, h2sInfo.scaledPositions, h2sInfo.sigAbs);
         else
           h2sInfo.alignWeights(h2sInfo.linearIdSub) = exp(-0.5*h2sInfo.scaledPositions.^2)./(params.sqrt2pi*h2sInfo.sigAbs);
         end
@@ -92,9 +92,9 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
 end
 
 % x is already scaled x = (x_orig - mu)/sigAbs
-function [prob] = gaussProb(scaledX, sigAbs, sqrt2pi)
+function [prob] = gaussProb(scaledX, sigAbs)
   %prob = exp(-0.5*(x-mu)^2/variance)/sqrt(2*pi*variance);
-  prob = exp(-0.5*scaledX^2)/(sqrt2pi*sigAbs);
+  prob = exp(-0.5*scaledX^2)/(sqrt(2*pi)*sigAbs);
 end
       
 %       if params.numAttnPositions>1  
