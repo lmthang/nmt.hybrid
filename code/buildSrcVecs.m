@@ -12,18 +12,27 @@
 % TODO move srcMaxLen out
 % IMPORTANT: we assume the sentences are reversed here
 % srcPositions = srcMaxLen - srcPositions
-function [srcVecsSub, linearIdSub, linearIdAll] = buildSrcVecs(srcVecsAll, srcPositions, curMask, params) % startAttnIds, endAttnIds, startIds, endIds, indices
+function [srcVecsSub, h2sInfo] = buildSrcVecs(srcVecsAll, srcPositions, curMask, params, h2sInfo) % startAttnIds, endAttnIds, startIds, endIds, indices
   posWin = params.posWin;
   numAttnPositions = 2*posWin+1;
   [lstmSize, batchSize, numSrcHidVecs] = size(srcVecsAll);
   
   % masking
-  srcPositions(~curMask.mask) = [];
+  srcPositions(curMask.maskedIds) = [];
   unmaskedIds = curMask.unmaskedIds;
   
   % init. IMPORTANT: don't swap these two lines
   leftIndices = reshape(repmat((1:numAttnPositions)', 1, length(unmaskedIds)), 1, []);
   unmaskedIds = reshape(repmat(unmaskedIds, numAttnPositions, 1), 1, []);
+  
+  
+  if params.predictPos==3
+    h2sInfo.mu(curMask.maskedIds) = [];
+    h2sInfo.sigSquares(curMask.maskedIds) = [];
+    
+    h2sInfo.mu = reshape(repmat(h2sInfo.mu, numAttnPositions, 1), 1, []);
+    h2sInfo.sigSquares = reshape(repmat(h2sInfo.sigSquares, numAttnPositions, 1), 1, []);
+  end
   
   % Note: generate multiple sequences of the same lengths without using for loop, see this post for many elegant solutions
   % http://www.mathworks.com/matlabcentral/answers/217205-fast-ways-to-generate-multiple-sequences-without-using-for-loop
@@ -37,17 +46,24 @@ function [srcVecsSub, linearIdSub, linearIdAll] = buildSrcVecs(srcVecsAll, srcPo
   excludeIds = find(indicesAll>numSrcHidVecs | indicesAll<1);
   if ~isempty(excludeIds)
     indicesAll(excludeIds) = []; unmaskedIds(excludeIds) = []; leftIndices(excludeIds) = [];
+    
+    if params.predictPos==3
+      h2sInfo.mu(excludeIds) = []; h2sInfo.sigSquares(excludeIds) = [];
+    end
   end
   
   % create linear indices
-  linearIdSub = sub2ind([batchSize, numAttnPositions], unmaskedIds, leftIndices);
-  linearIdAll = sub2ind([batchSize, numSrcHidVecs], unmaskedIds, indicesAll);
+  h2sInfo.linearIdSub = sub2ind([batchSize, numAttnPositions], unmaskedIds, leftIndices);
+  h2sInfo.linearIdAll = sub2ind([batchSize, numSrcHidVecs], unmaskedIds, indicesAll);
   
   % create srcVecs
   srcVecsSub = zeroMatrix([lstmSize, batchSize*numAttnPositions], params.isGPU, params.dataType);
   srcVecsAll = reshape(srcVecsAll, lstmSize, []);
-  srcVecsSub(:, linearIdSub) = srcVecsAll(:, linearIdAll);
+  srcVecsSub(:, h2sInfo.linearIdSub) = srcVecsAll(:, h2sInfo.linearIdAll);
   srcVecsSub = reshape(srcVecsSub, [lstmSize, batchSize, numAttnPositions]);
+  
+  h2sInfo.indicesAll = indicesAll;
+  h2sInfo.unmaskedIds = unmaskedIds;
 end
 
 %% old version %%

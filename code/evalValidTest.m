@@ -17,7 +17,7 @@ function [params] = evalValidTest(model, validData, testData, params)
   
   params.curTestPerpWord = exp(testCosts.word);
   
-  if params.predictPos % positions
+  if params.posSignal % positions
     params.curTestCostPos = testCosts.pos;
     
     if params.predictPos==1 % regression
@@ -43,7 +43,7 @@ function [params] = evalValidTest(model, validData, testData, params)
     params.bestCostValid = validCosts.total;
     params.costTest = testCosts.total;
     params.testPerplexity = params.curTestPerpWord;
-    if params.predictPos % positions
+    if params.posSignal
       params.bestCostValidPos = validCosts.pos;
       params.bestCostValidWord = validCosts.word;
       params.testCostPos = params.curTestCostPos;
@@ -78,7 +78,7 @@ function [evalCosts] = evalCost(model, data, params) %input, inputMask, tgtOutpu
     trainData.tgtMask = data.tgtMask(startId:endId, :);
     trainData.tgtOutput = data.tgtOutput(startId:endId, :);
     trainData.srcLens = data.srcLens(startId:endId); 
-    if params.predictPos
+    if params.posSignal
       trainData.posOutput = data.posOutput(startId:endId, :);
     end
     

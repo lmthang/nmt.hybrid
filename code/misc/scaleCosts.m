@@ -2,7 +2,7 @@ function [curCosts] = scaleCosts(curCosts, counts, params)
   curCosts.total = curCosts.total/counts.total;
   curCosts.word = curCosts.word/counts.word;
 
-  if params.predictPos % positions
+  if params.posSignal
     curCosts.pos = curCosts.pos/counts.pos;
     
     if params.predictNull

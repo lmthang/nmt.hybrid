@@ -3,7 +3,7 @@ function gradCheck(model, params)
 %
 % Perform gradient check.
 %
-% Thang Luong @ 2014, <lmthang@stanford.edu>
+% Thang Luong @ 2014, 2015 <lmthang@stanford.edu>
 %
 %%%
   delta = 0.01; % set to 0.01 to debug on GPU.
@@ -27,11 +27,11 @@ function gradCheck(model, params)
     end
 
     tgtLen = randi([1, tgtTrainMaxLen-1]);
-    if params.predictPos % positions: generate pairs of pos/word
+    if params.posSignal % positions: generate pairs of pos/word
       tgtTrainSents{ii} = zeros(1, 2*tgtLen);
       
       if params.predictPos==1 % regression, absolute positions
-        tgtTrainSents{ii}(1:2:2*tgtLen-1) = randi([1, srcLen], 1, tgtLen); % positions (exclude <t_eos> at the end)
+        tgtTrainSents{ii}(1:2:2*tgtLen-1) = randi([0, srcLen], 1, tgtLen); % positions (exclude <t_eos> at the end)
         tgtTrainSents{ii}(2:2:2*tgtLen) = randi([1, params.tgtVocabSize-2], 1, tgtLen); % words, exclude <t_eos> and  <t_sos>
       elseif params.predictPos==2 % classification, relative positions
         tgtTrainSents{ii}(1:2:2*tgtLen-1) = randi([params.startPosId, params.startPosId + params.posVocabSize-2], 1, tgtLen); % positions (exclude <t_eos> at the end)

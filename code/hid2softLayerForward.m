@@ -16,8 +16,21 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
         srcHidVecs = trainData.absSrcHidVecs;
       else % hard, local
         % positions
-        if params.predictPos % unsupervised alignments
+        if params.posSignal % unsupervised alignments
           srcPositions = trainData.positions;
+        elseif params.predictPos==3 % predict positions by regression
+          % h_t -> scales=sigmoid(v_pos*h_pos) in [0, 1]
+          [h2sInfo.scales, h2sInfo.posForwData] = posLayerForward(model.W_pos, model.v_pos, h_t, params);
+          h2sInfo.mu = h2sInfo.scales.*trainData.srcLens;
+          
+          % h_t -> h_sig=f(W_sig*h_t)
+          h2sInfo.h_sig = hiddenLayerForward(model.W_sig, h_t, params.nonlinear_f);
+          % sigValues = (v_sig*h_sig).^2
+          h2sInfo.sig = model.v_sig*h2sInfo.h_sig;
+          h2sInfo.sigSquares = h2sInfo.sig.^2;
+          
+          % scales -> srcPositions
+          srcPositions = floor(h2sInfo.mu) + 1;
         else % monotonic alignments
           srcPositions = tgtPos*ones(1, trainData.curBatchSize);
         end
@@ -28,7 +41,7 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
         end
         
         % build context vectors
-        [srcHidVecs, h2sInfo.linearIdSub, h2sInfo.linearIdAll] = buildSrcVecs(trainData.srcHidVecs, srcPositions, trainData.posMask, params);
+        [srcHidVecs, h2sInfo] = buildSrcVecs(trainData.srcHidVecs, srcPositions, trainData.posMask, params, h2sInfo);
 
         % assert
         if params.assert
@@ -44,7 +57,27 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
       end
       
       % f(W_h*[attn_t; tgt_h_t]), attn_t is the context vector in the paper.
-      [attnVecs, h2sInfo.alignWeights] = attnLayerForward(model.W_a, h_t, srcHidVecs, curMask.mask);
+      if params.predictPos==3
+        if params.isReverse % get back correct source positions
+          h2sInfo.indicesAll = trainData.srcMaxLen - h2sInfo.indicesAll;
+        end
+        
+        h2sInfo.alignWeights = zeroMatrix([params.numAttnPositions, trainData.curBatchSize], params.isGPU, params.dataType);
+        
+        % for computing the guassian probs faster
+        h2sInfo.sigAbs = sqrt(h2sInfo.sigSquares);
+        h2sInfo.scaledPositions = (h2sInfo.indicesAll-h2sInfo.mu)./h2sInfo.sigAbs;
+        if params.isGPU
+          h2sInfo.alignWeights(h2sInfo.linearIdSub) = arrayfun(@(x,y) gaussProb(x, y, params.sqrt2pi), h2sInfo.scaledPositions, h2sInfo.sigAbs);
+        else
+          h2sInfo.alignWeights1(h2sInfo.linearIdSub) = exp(-0.5*h2sInfo.scaledPositions.^2)./(params.sqrt2pi*h2sInfo.sigAbs);
+        end
+        
+        h2sInfo.alignWeights = permute(h2sInfo.alignWeights, [3, 2, 1]);
+        attnVecs = squeeze(sum(bsxfun(@times, srcHidVecs, h2sInfo.alignWeights), 3));
+      else
+        [attnVecs, h2sInfo.alignWeights] = attnLayerForward(model.W_a, h_t, srcHidVecs, curMask.mask);
+      end
 
       % concat
       h2sInfo.input = [attnVecs; h_t];
@@ -58,6 +91,11 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
   end
 end
 
+% x is already scaled x = (x_orig - mu)/sigAbs
+function [prob] = gaussProb(scaledX, sigAbs, sqrt2pi)
+  %prob = exp(-0.5*(x-mu)^2/sigSquare)/sqrt(2*pi*sigSquare);
+  prob = exp(-0.5*scaledX^2)/(sqrt2pi*sigAbs);
+end
       
 %       if params.numAttnPositions>1  
 %       else

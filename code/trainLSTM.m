@@ -113,6 +113,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.nonlinear_f = @tanh;
   params.nonlinear_f_prime = @tanhPrime;
  
+  params.sqrt2pi = sqrt(2*pi);
+  
   % decode params
   params.beamSize = 12;
   params.stackSize = 100;
@@ -169,8 +171,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   % attentional/positional models
   params.attnGlobal=0; % 1: for attnFunc=1, 0: for other attnFunc
   params.predictPos = 0; % 1 -- regression for absolute positions, 2 -- classification for relative positions
-  params.attnHard = 0; % 1 -- hard attention
-  params.oldSrcVecs = 0;
+  params.posSignal = 0; % 1 -- use unsupervised alignments
+  %params.attnRegression = 0; % 1 -- use regression
+  %params.attnGauss = 0; % use Gaussian distribution for predicting positions
   if params.attnFunc>0
     if params.attnSize==0
       params.attnSize = params.lstmSize;
@@ -179,19 +182,24 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     if params.attnFunc==1 % global, soft attention
       params.predictPos = 0;
       params.attnGlobal = 1;
-    elseif params.attnFunc==2 % local, hard attention + monotonic alignment
+      params.posSignal = 0;
+    elseif params.attnFunc==2 % local, hard attention + monotonic alignments
       params.predictPos = 0;
       params.attnGlobal = 0;
+      params.posSignal = 0;
     elseif params.attnFunc==3 % local, hard attention + unsupervised alignments + regression for absolute positions
       params.predictPos = 1;
       params.attnGlobal = 0;
+      params.posSignal = 1;
     elseif params.attnFunc==4 % local, hard attention + unsupervised alignments + classification for relative positions
       params.predictPos = 2;
       params.attnGlobal = 0;
+      params.posSignal = 1;
     elseif params.attnFunc==5 % local, hard attention
-      params.predictPos = 0;
+      params.predictPos = 3;
       params.attnGlobal = 0;
-      params.attnHard = 1;
+      params.posSignal = 0;
+      %params.attnGauss = 1;
     else
       error('Invalid attnFunc option %d\n', params.attnFunc);
     end
@@ -417,7 +425,7 @@ function [model] = initLSTM(params)
   %% h_t -> softmax input
   if params.attnFunc>0 % attention mechanism
     % predict positions with unsupervised alignments
-    if params.predictPos || params.attnHard
+    if params.predictPos
       % transform h_t into h_pos = f(W_pos*h_t)
       model.W_pos = randomMatrix(params.initRange, [params.softmaxSize, params.lstmSize], params.isGPU, params.dataType);
 
@@ -426,13 +434,16 @@ function [model] = initLSTM(params)
         model.W_null = randomMatrix(params.initRange, [params.softmaxSize, params.lstmSize], params.isGPU, params.dataType);
         model.W_softNull = randomMatrix(params.initRange, [2, params.softmaxSize], params.isGPU, params.dataType);
       end
-      if params.predictPos==1 % regression, scale=sigmoid(v_pos*h_pos)
+      if params.predictPos==1 || params.predictPos==3 % regression, scale=sigmoid(v_pos*h_pos)
         model.v_pos = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
+        
+        if params.predictPos==3 % predict sigma = (v_sig*f(W_sig*h_t))^2
+          model.W_sig = randomMatrix(params.initRange, [params.softmaxSize, params.lstmSize], params.isGPU, params.dataType);
+          model.v_sig = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
+        end
       elseif params.predictPos==2 % classification: softmax(W_softPos*h_pos)
         model.W_softPos = randomMatrix(params.initRange, [params.posVocabSize, params.softmaxSize], params.isGPU, params.dataType);
       end
-      if params.attnHard % hard attention
-      end  
     end
     
     % predict alignment weights

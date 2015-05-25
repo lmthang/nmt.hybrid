@@ -1,5 +1,5 @@
 function [posMask] = createPosMask(tgtPos, params, trainData, curMask)
-  if params.predictPos
+  if params.posSignal
     curPosOutput = trainData.posOutput(:, tgtPos)';
     posMask.mask = curMask.mask & curPosOutput~=params.nullPosId & curPosOutput~=params.tgtEos;
   else

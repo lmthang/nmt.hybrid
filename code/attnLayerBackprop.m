@@ -60,10 +60,6 @@ function [inGrad, grad_W_a, grad_srcHidVecs] = attnLayerBackprop(W_a, outGrad, i
   grad_scores = tmpResult - bsxfun(@times, alignWeights, sum(tmpResult, 1));
     
   if params.assert
-%     if params.attnFunc~=3 && params.attnFunc~=4
-%       assert(sum(sum(abs(inVec(:, curMask.maskedIds))))==0);
-%     end
-    
     % compute grad_scores in a different way
     grad_scores1 = zeroMatrix(size(grad_scores), params.isGPU, params.dataType);
     for ii=1:params.curBatchSize
@@ -74,7 +70,5 @@ function [inGrad, grad_W_a, grad_srcHidVecs] = attnLayerBackprop(W_a, outGrad, i
   
   %% grad_scores -> grad_W_a, inGrad
   % s_t = W_a * inVec
-  %if params.numAttnPositions>1
-    [inGrad, grad_W_a] = linearLayerBackprop(W_a, grad_scores, inVec);  
-  %end
+  [inGrad, grad_W_a] = linearLayerBackprop(W_a, grad_scores, inVec);  
 end
