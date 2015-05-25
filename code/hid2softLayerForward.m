@@ -23,11 +23,11 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
           [h2sInfo.scales, h2sInfo.posForwData] = posLayerForward(model.W_pos, model.v_pos, h_t, params);
           h2sInfo.mu = h2sInfo.scales.*trainData.srcLens;
           
-          % h_t -> h_sig=f(W_sig*h_t)
-          h2sInfo.h_sig = hiddenLayerForward(model.W_sig, h_t, params.nonlinear_f);
-          % sigValues = (v_sig*h_sig).^2
-          h2sInfo.sig = model.v_sig*h2sInfo.h_sig;
-          h2sInfo.sigSquares = h2sInfo.sig.^2;
+          % h_t -> h_var=f(W_var*h_t)
+          h2sInfo.h_var = hiddenLayerForward(model.W_var, h_t, params.nonlinear_f);
+          % variances = sigmoid(v_var*h_var)
+          h2sInfo.variances = hiddenLayerForward(model.v_var, h2sInfo.h_var, params.nonlinear_gate_f);
+          h2sInfo.origVariances = h2sInfo.variances;
           
           % scales -> srcPositions
           srcPositions = floor(h2sInfo.mu) + 1;
@@ -62,18 +62,18 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
           h2sInfo.indicesAll = trainData.srcMaxLen - h2sInfo.indicesAll;
         end
         
-        h2sInfo.alignWeights = zeroMatrix([params.numAttnPositions, trainData.curBatchSize], params.isGPU, params.dataType);
+        h2sInfo.alignWeights = zeroMatrix([trainData.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
         
         % for computing the guassian probs faster
-        h2sInfo.sigAbs = sqrt(h2sInfo.sigSquares);
+        h2sInfo.sigAbs = sqrt(h2sInfo.variances);
         h2sInfo.scaledPositions = (h2sInfo.indicesAll-h2sInfo.mu)./h2sInfo.sigAbs;
         if params.isGPU
           h2sInfo.alignWeights(h2sInfo.linearIdSub) = arrayfun(@(x,y) gaussProb(x, y, params.sqrt2pi), h2sInfo.scaledPositions, h2sInfo.sigAbs);
         else
-          h2sInfo.alignWeights1(h2sInfo.linearIdSub) = exp(-0.5*h2sInfo.scaledPositions.^2)./(params.sqrt2pi*h2sInfo.sigAbs);
+          h2sInfo.alignWeights(h2sInfo.linearIdSub) = exp(-0.5*h2sInfo.scaledPositions.^2)./(params.sqrt2pi*h2sInfo.sigAbs);
         end
         
-        h2sInfo.alignWeights = permute(h2sInfo.alignWeights, [3, 2, 1]);
+        h2sInfo.alignWeights = permute(h2sInfo.alignWeights, [3, 1, 2]);
         attnVecs = squeeze(sum(bsxfun(@times, srcHidVecs, h2sInfo.alignWeights), 3));
       else
         [attnVecs, h2sInfo.alignWeights] = attnLayerForward(model.W_a, h_t, srcHidVecs, curMask.mask);
@@ -93,7 +93,7 @@ end
 
 % x is already scaled x = (x_orig - mu)/sigAbs
 function [prob] = gaussProb(scaledX, sigAbs, sqrt2pi)
-  %prob = exp(-0.5*(x-mu)^2/sigSquare)/sqrt(2*pi*sigSquare);
+  %prob = exp(-0.5*(x-mu)^2/variance)/sqrt(2*pi*variance);
   prob = exp(-0.5*scaledX^2)/(sqrt2pi*sigAbs);
 end
       

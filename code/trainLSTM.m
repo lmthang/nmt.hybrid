@@ -437,9 +437,9 @@ function [model] = initLSTM(params)
       if params.predictPos==1 || params.predictPos==3 % regression, scale=sigmoid(v_pos*h_pos)
         model.v_pos = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
         
-        if params.predictPos==3 % predict sigma = (v_sig*f(W_sig*h_t))^2
-          model.W_sig = randomMatrix(params.initRange, [params.softmaxSize, params.lstmSize], params.isGPU, params.dataType);
-          model.v_sig = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
+        if params.predictPos==3 % predict variance = sigmoid(v_sig*f(W_sig*h_t))
+          model.W_var = randomMatrix(params.initRange, [params.softmaxSize, params.lstmSize], params.isGPU, params.dataType);
+          model.v_var = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
         end
       elseif params.predictPos==2 % classification: softmax(W_softPos*h_pos)
         model.W_softPos = randomMatrix(params.initRange, [params.posVocabSize, params.softmaxSize], params.isGPU, params.dataType);
@@ -447,7 +447,7 @@ function [model] = initLSTM(params)
     end
     
     % predict alignment weights
-    if params.numAttnPositions>=1
+    if params.numAttnPositions>=1 && params.predictPos~=3
       model.W_a = randomMatrix(params.initRange, [params.numAttnPositions, params.lstmSize], params.isGPU, params.dataType);
     end
     

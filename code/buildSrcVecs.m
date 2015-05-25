@@ -28,10 +28,10 @@ function [srcVecsSub, h2sInfo] = buildSrcVecs(srcVecsAll, srcPositions, curMask,
   
   if params.predictPos==3
     h2sInfo.mu(curMask.maskedIds) = [];
-    h2sInfo.sigSquares(curMask.maskedIds) = [];
+    h2sInfo.variances(curMask.maskedIds) = [];
     
     h2sInfo.mu = reshape(repmat(h2sInfo.mu, numAttnPositions, 1), 1, []);
-    h2sInfo.sigSquares = reshape(repmat(h2sInfo.sigSquares, numAttnPositions, 1), 1, []);
+    h2sInfo.variances = reshape(repmat(h2sInfo.variances, numAttnPositions, 1), 1, []);
   end
   
   % Note: generate multiple sequences of the same lengths without using for loop, see this post for many elegant solutions
@@ -48,7 +48,7 @@ function [srcVecsSub, h2sInfo] = buildSrcVecs(srcVecsAll, srcPositions, curMask,
     indicesAll(excludeIds) = []; unmaskedIds(excludeIds) = []; leftIndices(excludeIds) = [];
     
     if params.predictPos==3
-      h2sInfo.mu(excludeIds) = []; h2sInfo.sigSquares(excludeIds) = [];
+      h2sInfo.mu(excludeIds) = []; h2sInfo.variances(excludeIds) = [];
     end
   end
   

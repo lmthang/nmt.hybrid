@@ -37,19 +37,28 @@ function [grad_ht, hid2softGrad, grad_srcHidVecs] = hid2softLayerBackprop(model,
           grad_alignWeights = squeeze(sum(bsxfun(@times, srcHidVecs, outGrad), 1))'; % bsxfun along numAttnPositions, sum across lstmSize
         end
         
-        % grad_alignWeights -> grad_sigSquares
-        % 0.5*p*(scaleX^2/sigSquare - 1/sigAbs)
+        grad_alignWeights = grad_alignWeights';
+        h2sInfo.alignWeights = squeeze(h2sInfo.alignWeights);
+        if params.assert
+          assert(size(grad_alignWeights, 1)==trainData.curBatchSize);
+          assert(size(grad_alignWeights, 2)==params.numAttnPositions);
+          assert(size(h2sInfo.alignWeights, 1)==trainData.curBatchSize);
+          assert(size(h2sInfo.alignWeights, 2)==params.numAttnPositions);
+        end
+        
+        % grad_alignWeights -> grad_variances
+        % 0.5*p*(scaleX^2/variance - 1/sigAbs)
         if params.isGPU
-          grad_sigSquares = arrayfun(@gradSigSquare, grad_alignWeights(h2sInfo.linearIdSub), ...
-            h2sInfo.alignWeights(h2sInfo.linearIdSub), h2sInfo.scaledPositions, h2sInfo.sigSquares, h2sInfo.sigAbs);
+          grad_variances = arrayfun(@gradSigSquare, grad_alignWeights(h2sInfo.linearIdSub), ...
+            h2sInfo.alignWeights(h2sInfo.linearIdSub), h2sInfo.scaledPositions, h2sInfo.variances, h2sInfo.sigAbs);
         else
-          grad_sigSquares = 0.5*grad_alignWeights(h2sInfo.linearIdSub).*h2sInfo.alignWeights(h2sInfo.linearIdSub).*...
-            (h2sInfo.scaledPositions.^2./h2sInfo.sigSquares-1./h2sInfo.sigAbs);
-          %assert(sum(sum(abs(grad_sigSquares-grad_sigSquares1)))==0);
+          grad_variances = 0.5*grad_alignWeights(h2sInfo.linearIdSub).*h2sInfo.alignWeights(h2sInfo.linearIdSub).*...
+            (h2sInfo.scaledPositions.^2./h2sInfo.variances-1./h2sInfo.sigAbs);
+          %assert(sum(sum(abs(grad_variances-grad_variances1)))==0);
         end
         
         % grad_alignWeights -> grad_mu
-        % 0.5*p*(scaleX^2/sigSquare - 1/sigAbs)
+        % 0.5*p*(scaleX^2/variance - 1/sigAbs)
         if params.isGPU
           grad_mu = arrayfun(@gradMu, grad_alignWeights(h2sInfo.linearIdSub), h2sInfo.alignWeights(h2sInfo.linearIdSub), ...
             h2sInfo.scaledPositions, h2sInfo.sigAbs);
@@ -58,23 +67,21 @@ function [grad_ht, hid2softGrad, grad_srcHidVecs] = hid2softLayerBackprop(model,
           %assert(sum(sum(abs(grad_mu-grad_mu1)))==0);
         end
         
-        % accumulate grad_sigSquares, grad_mu
-        [grad_sigSquares_accum, indices_sigSquares] = aggregateMatrix(grad_sigSquares, h2sInfo.unmaskedIds, params.isGPU, params.dataType);
+        % accumulate grad_variances, grad_mu
+        [grad_variances_accum, indices_variances] = aggregateMatrix(grad_variances, h2sInfo.unmaskedIds, params.isGPU, params.dataType);
         [grad_mu_accum, indices_mu] = aggregateMatrix(grad_mu, h2sInfo.unmaskedIds, params.isGPU, params.dataType);
-        %assert(sum(sum(abs(indices_sigSquares-indices_mu)))==0);
-        grad_sigSquares = zeroMatrix([1, trainData.curBatchSize], params.isGPU, params.dataType);
-        grad_sigSquares(indices_sigSquares) = grad_sigSquares_accum;
+        %assert(sum(sum(abs(indices_variances-indices_mu)))==0);
+        grad_variances = zeroMatrix([1, trainData.curBatchSize], params.isGPU, params.dataType);
+        grad_variances(indices_variances) = grad_variances_accum;
         grad_mu = zeroMatrix([1, trainData.curBatchSize], params.isGPU, params.dataType);
         grad_mu(indices_mu) = grad_mu_accum;
         
-        % grad_sigSquares -> grad_sig
-        grad_sig = 2*h2sInfo.sig.*grad_sigSquares;
+        % grad_variances -> grad_v_var, grad_h_var: variance=sigmoid(v_var*h_var)
+        [grad_h_var, hid2softGrad.v_var] = hiddenLayerBackprop(model.v_var, grad_variances, h2sInfo.h_var, ...
+          params.nonlinear_gate_f_prime, h2sInfo.origVariances);
         
-        % grad_sig -> grad_v_sig, grad_h_sig
-        [grad_h_sig, hid2softGrad.v_sig] = linearLayerBackprop(model.v_sig, grad_sig, h2sInfo.h_sig);
-        
-        % grad_h_sig -> grad_h_t, grad_W_sig
-        [grad_ht, hid2softGrad.W_sig] = hiddenLayerBackprop(model.W_sig, grad_h_sig, h2sInfo.h_t, params.nonlinear_f_prime, h2sInfo.h_sig);
+        % grad_h_var -> grad_h_t, grad_W_var: h_var=f(W_var*h_t)
+        [grad_ht, hid2softGrad.W_var] = hiddenLayerBackprop(model.W_var, grad_h_var, h2sInfo.h_t, params.nonlinear_f_prime, h2sInfo.h_var);
         
         % grad_mu -> grad_scales
         grad_scales = trainData.srcLens.*grad_mu;
@@ -93,8 +100,8 @@ function [grad_ht, hid2softGrad, grad_srcHidVecs] = hid2softLayerBackprop(model,
   end
 end
 
-function [grad_sigSquare] = gradSigSquare(grad_align, alignWeight, scaledX, sigSquare, sigAbs)
-  grad_sigSquare = 0.5*grad_align*alignWeight*(scaledX^2/sigSquare-1/sigAbs);
+function [grad_variance] = gradSigSquare(grad_align, alignWeight, scaledX, variance, sigAbs)
+  grad_variance = 0.5*grad_align*alignWeight*(scaledX^2/variance-1/sigAbs);
 end
 
 function [grad_mu] = gradMu(grad_align, alignWeight, scaledX, sigAbs)
