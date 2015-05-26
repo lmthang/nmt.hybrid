@@ -23,12 +23,12 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
           [h2sInfo.scales, h2sInfo.posForwData] = posLayerForward(model.W_pos, model.v_pos, h_t, params);
           
           % h_t -> variances=sigmoid(v_var*f(W_pos*h_t))
-          [h2sInfo.variances, h2sInfo.varForwData] = posLayerForward(model.W_var, model.v_var, h_t, params);
-          h2sInfo.origVariances = h2sInfo.variances;
+          [h2sInfo.origVariances, h2sInfo.varForwData] = posLayerForward(model.W_var, model.v_var, h_t, params);
+          %h2sInfo.origVariances = h2sInfo.variances;
           
           % scales -> srcPositions
-          h2sInfo.mu = h2sInfo.scales.*trainData.srcLens;
-          srcPositions = floor(h2sInfo.mu) + 1;
+          mu = h2sInfo.scales.*trainData.srcLens;
+          srcPositions = floor(mu) + 1;
         else % monotonic alignments
           srcPositions = tgtPos*ones(1, trainData.curBatchSize);
         end
@@ -63,10 +63,11 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
         h2sInfo.alignWeights = zeroMatrix([trainData.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
         
         % for computing the guassian probs faster
+        h2sInfo.variances = h2sInfo.origVariances(h2sInfo.unmaskedIds);
         h2sInfo.sigAbs = sqrt(h2sInfo.variances);
-        h2sInfo.scaledPositions = (srcPositions-h2sInfo.mu)./h2sInfo.sigAbs;
+        h2sInfo.scaledPositions = (srcPositions-mu(h2sInfo.unmaskedIds))./h2sInfo.sigAbs;
         if params.isGPU
-          h2sInfo.alignWeights(h2sInfo.linearIdSub) = arrayfun(@gaussProb, h2sInfo.scaledPositions, h2sInfo.sigAbs);
+          h2sInfo.alignWeights(h2sInfo.linearIdSub) = arrayfun(@gaussProb, h2sInfo.scaledPositions, sqrt(2*pi)*h2sInfo.sigAbs);
         else
           h2sInfo.alignWeights(h2sInfo.linearIdSub) = exp(-0.5*h2sInfo.scaledPositions.^2)./(params.sqrt2pi*h2sInfo.sigAbs);
         end
@@ -90,9 +91,9 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
 end
 
 % x is already scaled x = (x_orig - mu)/sigAbs
-function [prob] = gaussProb(scaledX, sigAbs)
+function [prob] = gaussProb(scaledX, norm)
   %prob = exp(-0.5*(x-mu)^2/variance)/sqrt(2*pi*variance);
-  prob = exp(-0.5*scaledX^2)/(sqrt(2*pi)*sigAbs);
+  prob = exp(-0.5*scaledX^2)/norm;
 end
       
 %       if params.numAttnPositions>1  

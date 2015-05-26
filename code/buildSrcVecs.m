@@ -24,17 +24,17 @@ function [srcVecsSub, h2sInfo] = buildSrcVecs(srcVecsAll, srcPositions, curMask,
   % flatten matrices of size batchSize*numAttnPositions (not exactly batch size but close)
   % init. IMPORTANT: don't swap these two lines
   % assume unmaskedIds = [1, 2, 3, 4, 5], numAttnPositions=3
-  leftIndices = reshape(repmat(1:numAttnPositions, length(unmaskedIds), 1), 1, []); % 1 1 1 1 1 2 2 2 2 2 3 3 3 3 3
+  indicesSub = reshape(repmat(1:numAttnPositions, length(unmaskedIds), 1), 1, []); % 1 1 1 1 1 2 2 2 2 2 3 3 3 3 3
   unmaskedIds = repmat(unmaskedIds, 1, numAttnPositions); % 1 2 3 4 5 1 2 3 4 5 1 2 3 4 5
   
   
-  if params.predictPos==3
-    h2sInfo.mu(curMask.maskedIds) = [];
-    h2sInfo.variances(curMask.maskedIds) = [];
-    
-    h2sInfo.mu = repmat(h2sInfo.mu, 1, numAttnPositions);
-    h2sInfo.variances = repmat(h2sInfo.variances, 1, numAttnPositions);
-  end
+%   if params.predictPos==3
+%     h2sInfo.mu(curMask.maskedIds) = [];
+%     h2sInfo.variances(curMask.maskedIds) = [];
+%     
+%     h2sInfo.mu = repmat(h2sInfo.mu, 1, numAttnPositions);
+%     h2sInfo.variances = repmat(h2sInfo.variances, 1, numAttnPositions);
+%   end
   
   % Note: generate multiple sequences of the same lengths without using for loop, see this post for many elegant solutions
   % http://www.mathworks.com/matlabcentral/answers/217205-fast-ways-to-generate-multiple-sequences-without-using-for-loop
@@ -47,11 +47,11 @@ function [srcVecsSub, h2sInfo] = buildSrcVecs(srcVecsAll, srcPositions, curMask,
   % check those that are out of boundaries
   excludeIds = find(indicesAll>numSrcHidVecs | indicesAll<1);
   if ~isempty(excludeIds)
-    indicesAll(excludeIds) = []; unmaskedIds(excludeIds) = []; leftIndices(excludeIds) = [];
+    indicesAll(excludeIds) = []; unmaskedIds(excludeIds) = []; indicesSub(excludeIds) = [];
     
-    if params.predictPos==3
-      h2sInfo.mu(excludeIds) = []; h2sInfo.variances(excludeIds) = [];
-    end
+%     if params.predictPos==3
+%       h2sInfo.mu(excludeIds) = []; h2sInfo.variances(excludeIds) = [];
+%     end
   end
   
   h2sInfo.indicesAll = indicesAll;
@@ -60,7 +60,7 @@ function [srcVecsSub, h2sInfo] = buildSrcVecs(srcVecsAll, srcPositions, curMask,
     srcVecsSub = zeroMatrix([lstmSize, batchSize*numAttnPositions], params.isGPU, params.dataType);
     
     % create linear indices
-    h2sInfo.linearIdSub = sub2ind([batchSize, numAttnPositions], unmaskedIds, leftIndices);
+    h2sInfo.linearIdSub = sub2ind([batchSize, numAttnPositions], unmaskedIds, indicesSub);
     h2sInfo.linearIdAll = sub2ind([batchSize, numSrcHidVecs], unmaskedIds, indicesAll);
 
     % create srcVecs

@@ -38,11 +38,10 @@ function [grad_ht, hid2softGrad, grad_srcHidVecs] = hid2softLayerBackprop(model,
         if params.numAttnPositions==1
           grad_alignWeights = sum(srcHidVecs.*outGrad); % sum across lstmSize
         else
-          grad_alignWeights = squeeze(sum(bsxfun(@times, srcHidVecs, outGrad), 1))'; % bsxfun along numAttnPositions, sum across lstmSize
+          grad_alignWeights = squeeze(sum(bsxfun(@times, srcHidVecs, outGrad), 1)); % bsxfun along numAttnPositions, sum across lstmSize
         end
-        
-        grad_alignWeights = grad_alignWeights';
         h2sInfo.alignWeights = squeeze(h2sInfo.alignWeights);
+        
         if params.assert
           assert(size(grad_alignWeights, 1)==trainData.curBatchSize);
           assert(size(grad_alignWeights, 2)==params.numAttnPositions);
