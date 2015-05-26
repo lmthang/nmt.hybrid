@@ -57,14 +57,14 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
       % f(W_h*[attn_t; tgt_h_t]), attn_t is the context vector in the paper.
       if params.predictPos==3
         if params.isReverse % get back correct source positions
-          h2sInfo.indicesAll = trainData.srcMaxLen - h2sInfo.indicesAll;
+          srcPositions = trainData.srcMaxLen - h2sInfo.indicesAll;
         end
         
         h2sInfo.alignWeights = zeroMatrix([trainData.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
         
         % for computing the guassian probs faster
         h2sInfo.sigAbs = sqrt(h2sInfo.variances);
-        h2sInfo.scaledPositions = (h2sInfo.indicesAll-h2sInfo.mu)./h2sInfo.sigAbs;
+        h2sInfo.scaledPositions = (srcPositions-h2sInfo.mu)./h2sInfo.sigAbs;
         if params.isGPU
           h2sInfo.alignWeights(h2sInfo.linearIdSub) = arrayfun(@gaussProb, h2sInfo.scaledPositions, h2sInfo.sigAbs);
         else

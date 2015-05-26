@@ -20,10 +20,14 @@ function [grad_ht, hid2softGrad, grad_srcHidVecs] = hid2softLayerBackprop(model,
       else % hard attention
         % TODO: if our GPUs have lots of memory, then we don't have to
         % regenerate srcHidVecs again :) Unfortuntely not!
-        srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize*params.numAttnPositions], params.isGPU, params.dataType);
-        trainData.srcHidVecs = reshape(trainData.srcHidVecs, params.lstmSize, []);
-        srcHidVecs(:, h2sInfo.linearIdSub) = trainData.srcHidVecs(:, h2sInfo.linearIdAll);
-        srcHidVecs = reshape(srcHidVecs, [params.lstmSize, params.curBatchSize, params.numAttnPositions]);
+        if ~isempty(h2sInfo.linearIdSub)
+          srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize*params.numAttnPositions], params.isGPU, params.dataType);
+          trainData.srcHidVecs = reshape(trainData.srcHidVecs, params.lstmSize, []);
+          srcHidVecs(:, h2sInfo.linearIdSub) = trainData.srcHidVecs(:, h2sInfo.linearIdAll);
+          srcHidVecs = reshape(srcHidVecs, [params.lstmSize, params.curBatchSize, params.numAttnPositions]);
+        else
+          srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
+        end
       end
       
       % grad_attn -> grad_ht, grad_W_a, grad_srcHidVecs
