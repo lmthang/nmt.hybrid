@@ -688,6 +688,8 @@ function [model, params, oldParams, loaded] = loadModel(modelFile, params)
   params.epochBatchCount = oldParams.epochBatchCount;
   params.bestCostValid = oldParams.bestCostValid;
   params.testPerplexity = oldParams.testPerplexity;
+  params.trainCounts = oldParams.trainCounts;
+  params.trainCosts = oldParams.trainCosts;
   if isfield(oldParams, 'finetuneCount')
     params.finetuneCount = oldParams.finetuneCount;
   else
