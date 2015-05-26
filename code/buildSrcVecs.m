@@ -52,18 +52,23 @@ function [srcVecsSub, h2sInfo] = buildSrcVecs(srcVecsAll, srcPositions, curMask,
     end
   end
   
-  % create linear indices
-  h2sInfo.linearIdSub = sub2ind([batchSize, numAttnPositions], unmaskedIds, leftIndices);
-  h2sInfo.linearIdAll = sub2ind([batchSize, numSrcHidVecs], unmaskedIds, indicesAll);
-  
-  % create srcVecs
-  srcVecsSub = zeroMatrix([lstmSize, batchSize*numAttnPositions], params.isGPU, params.dataType);
-  srcVecsAll = reshape(srcVecsAll, lstmSize, []);
-  srcVecsSub(:, h2sInfo.linearIdSub) = srcVecsAll(:, h2sInfo.linearIdAll);
-  srcVecsSub = reshape(srcVecsSub, [lstmSize, batchSize, numAttnPositions]);
-  
   h2sInfo.indicesAll = indicesAll;
   h2sInfo.unmaskedIds = unmaskedIds;
+  if ~isempty(unmaskedIds)
+    srcVecsSub = zeroMatrix([lstmSize, batchSize*numAttnPositions], params.isGPU, params.dataType);
+    
+    % create linear indices
+    h2sInfo.linearIdSub = sub2ind([batchSize, numAttnPositions], unmaskedIds, leftIndices);
+    h2sInfo.linearIdAll = sub2ind([batchSize, numSrcHidVecs], unmaskedIds, indicesAll);
+
+    % create srcVecs
+    srcVecsAll = reshape(srcVecsAll, lstmSize, []);
+    srcVecsSub(:, h2sInfo.linearIdSub) = srcVecsAll(:, h2sInfo.linearIdAll);
+    srcVecsSub = reshape(srcVecsSub, [lstmSize, batchSize, numAttnPositions]);
+  else
+    srcVecsSub = zeroMatrix([lstmSize, batchSize, numAttnPositions], params.isGPU, params.dataType);
+  end
+  
 end
 
 %% old version %%

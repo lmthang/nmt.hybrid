@@ -76,17 +76,15 @@ function [grad_ht, hid2softGrad, grad_srcHidVecs] = hid2softLayerBackprop(model,
         grad_mu = zeroMatrix([1, trainData.curBatchSize], params.isGPU, params.dataType);
         grad_mu(indices_mu) = grad_mu_accum;
         
-        % grad_variances -> grad_v_var, grad_h_var: variance=sigmoid(v_var*h_var)
-        [grad_h_var, hid2softGrad.v_var] = hiddenLayerBackprop(model.v_var, grad_variances, h2sInfo.h_var, ...
-          params.nonlinear_gate_f_prime, h2sInfo.origVariances);
         
-        % grad_h_var -> grad_h_t, grad_W_var: h_var=f(W_var*h_t)
-        [grad_ht, hid2softGrad.W_var] = hiddenLayerBackprop(model.W_var, grad_h_var, h2sInfo.h_t, params.nonlinear_f_prime, h2sInfo.h_var);
+        % grad_variances -> grad_h_t, grad_W_var, grad_v_var, scales=sigmoid(v_pos*f(W_pos*h_t)) in [0, 1]
+        [grad_ht, hid2softGrad.W_var, hid2softGrad.v_var] = posLayerBackprop(model.W_var, model.v_var, grad_variances, h2sInfo.h_t, ...
+          h2sInfo.origVariances, h2sInfo.varForwData, params);
         
         % grad_mu -> grad_scales
         grad_scales = trainData.srcLens.*grad_mu;
         
-        % grad_scales -> grad_ht1, grad_W_pos, grad_v_pos
+        % grad_scales -> grad_ht, grad_W_pos, grad_v_pos
         [grad_ht1, hid2softGrad.W_pos, hid2softGrad.v_pos] = posLayerBackprop(model.W_pos, model.v_pos, grad_scales, h2sInfo.h_t, h2sInfo.scales, h2sInfo.posForwData, params);
         grad_ht = grad_ht + grad_ht1;
       else

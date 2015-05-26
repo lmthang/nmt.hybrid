@@ -19,17 +19,15 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
         if params.posSignal % unsupervised alignments
           srcPositions = trainData.positions;
         elseif params.predictPos==3 % predict positions by regression
-          % h_t -> scales=sigmoid(v_pos*h_pos) in [0, 1]
+          % h_t -> scales=sigmoid(v_pos*f(W_pos*h_t)) in [0, 1]
           [h2sInfo.scales, h2sInfo.posForwData] = posLayerForward(model.W_pos, model.v_pos, h_t, params);
-          h2sInfo.mu = h2sInfo.scales.*trainData.srcLens;
           
-          % h_t -> h_var=f(W_var*h_t)
-          h2sInfo.h_var = hiddenLayerForward(model.W_var, h_t, params.nonlinear_f);
-          % variances = sigmoid(v_var*h_var)
-          h2sInfo.variances = hiddenLayerForward(model.v_var, h2sInfo.h_var, params.nonlinear_gate_f);
+          % h_t -> variances=sigmoid(v_var*f(W_pos*h_t))
+          [h2sInfo.variances, h2sInfo.varForwData] = posLayerForward(model.W_var, model.v_var, h_t, params);
           h2sInfo.origVariances = h2sInfo.variances;
           
           % scales -> srcPositions
+          h2sInfo.mu = h2sInfo.scales.*trainData.srcLens;
           srcPositions = floor(h2sInfo.mu) + 1;
         else % monotonic alignments
           srcPositions = tgtPos*ones(1, trainData.curBatchSize);
@@ -73,7 +71,7 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
           h2sInfo.alignWeights(h2sInfo.linearIdSub) = exp(-0.5*h2sInfo.scaledPositions.^2)./(params.sqrt2pi*h2sInfo.sigAbs);
         end
         
-        h2sInfo.alignWeights = permute(h2sInfo.alignWeights, [3, 1, 2]);
+        h2sInfo.alignWeights = permute(h2sInfo.alignWeights, [3, 1, 2]); % 1*curBatchSize*numAttnPositions
         attnVecs = squeeze(sum(bsxfun(@times, srcHidVecs, h2sInfo.alignWeights), 3));
       else
         [attnVecs, h2sInfo.alignWeights] = attnLayerForward(model.W_a, h_t, srcHidVecs, curMask.mask);
