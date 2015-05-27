@@ -72,6 +72,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   %           3: hard attention + unsupervised alignments + regression for absolute pos
   %           4: hard attention + unsupervised alignments + classification for relative pos
   %           5: hard attention
+  %           6: Bengio's model
   addOptional(p,'attnFunc', 0, @isnumeric);
   addOptional(p,'attnSize', 0, @isnumeric); % dim of the vector used to input to the final softmax, if 0, use lstmSize
   addOptional(p,'posWin', 5, @isnumeric); % relative window, used for attnFunc~=1

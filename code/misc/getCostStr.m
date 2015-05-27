@@ -6,7 +6,7 @@ function [costStr] = getCostStr(costStruct)
   for ii=1:length(fields)
     field = fields{ii};
     if isfield(costStruct, field)
-      costStr = sprintf('%s%.2f, ', costStr, costStruct.(field));
+      costStr = sprintf('%s%.4f, ', costStr, costStruct.(field));
       count = count+1;
     end
   end
