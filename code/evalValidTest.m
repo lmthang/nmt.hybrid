@@ -21,7 +21,7 @@ function [params] = evalValidTest(model, validData, testData, params)
     params.curTestCostPos = testCosts.pos;
     
     if params.predictPos==1 % regression
-      logStr = sprintf('%.2f, ', testCosts.pos);
+      logStr = sprintf('%.4f, ', testCosts.pos);
     elseif params.predictPos==2 % classification
       logStr = sprintf('%.2f, ', exp(testCosts.pos));
     end
