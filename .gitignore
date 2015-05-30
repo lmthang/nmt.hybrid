@@ -1,6 +1,6 @@
 code/output/*
 monoOutput/*
-models.txt
+models*.txt
 code/translations.txt
 *\.nfs*
 *.pyc
