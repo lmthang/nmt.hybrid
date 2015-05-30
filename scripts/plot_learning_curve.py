@@ -77,22 +77,26 @@ def process_files(in_file, out_file):
   line_id = 0
   sys.stderr.write('# Processing file %s ...\n' % (in_file))
    
-  eval_pattern = re.compile('# eval (.+), train=([\d\.]+), valid=([\d\.]+), test=([\d\.]+),')
+  eval_pattern = re.compile('# eval (.+), train=([\d\.]+).*, valid=([\d\.]+).*, test=([\d\.]+).*,')
   models = []
   train_stats = {}
   test_stats = {}
+  model_count = 0
   for line in inf:
     tokens = line.split()
     file_name = tokens[0]
-    model = tokens[1]
+    model_count = model_count + 1
+    if len(tokens)>1:
+      model = tokens[1]
+    else:
+      model = 'model' + str(model_count)
     # log
     log_file = os.path.expanduser(file_name + '/log')
     if os.path.exists(log_file):
       log_inf = codecs.open(log_file, 'r', 'utf-8')
-      #model = os.path.basename(file_name)
       models.append(model)
       train_stats[model] = {}
-      sys.stderr.write('# model %s\n%s\n' % (model, file_name))
+      sys.stderr.write('# model %s\n%s\n' % (model, log_file))
       ouf.write('\t%s' % model)
       
       for line in log_inf:
@@ -101,7 +105,7 @@ def process_files(in_file, out_file):
         if eval_m != None:
           eval_stat = eval_m.group(1)
           tokens = re.split(', ', eval_stat)
-          iter = int(tokens[2])
+          iter = int(tokens[-3])
           train_cost = eval_m.group(2)
           test_cost = eval_m.group(4)
           #if iter not in train_stats[model]:
@@ -131,6 +135,12 @@ def process_files(in_file, out_file):
     
   inf.close()
   ouf.close()
+
+  # save image
+  os.chdir('/home/lmthang/bin/misc')
+  command = '/afs/cs/software/bin/matlab_r2014b -nodesktop -nodisplay -nosplash -r \"plotData(\'%s\',1,1,1,\'outFile\',\'%s.png\');exit;\"' % (out_file, out_file)
+  sys.stderr.write('# Executing: %s\n' % command)
+  os.system(command)
 
 if __name__ == '__main__':
   args = process_command_line()
