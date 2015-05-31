@@ -149,8 +149,8 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, opt, src_voca
       # print
       src_token = src_words[src_id]
       tgt_token = tgt_words[tgt_id]
-      #dict_ouf.write('%s %s %g %g %g %g %g\n' % (src_token, tgt_token, (p_src_given_tgt+p_tgt_given_src)/2, p_src_given_tgt, p_tgt_given_src, pmi, npmi))
-      dict_ouf.write('%s %s %g\n' % (src_token, tgt_token, (p_src_given_tgt+p_tgt_given_src)/2))
+      dict_ouf.write('%s %s %g %g %g %g %g\n' % (src_token, tgt_token, p_tgt_given_src, p_src_given_tgt, (p_src_given_tgt+p_tgt_given_src)/2, pmi, npmi))
+      #dict_ouf.write('%s %s %g\n' % (src_token, tgt_token, (p_src_given_tgt+p_tgt_given_src)/2))
 
   #text.write_vocab(out_prefix + '.vocab.' + src_lang, src_words)
   #text.write_vocab(out_prefix + '.vocab.' + tgt_lang, tgt_words)

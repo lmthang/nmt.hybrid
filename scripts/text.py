@@ -5,6 +5,48 @@ import sys
 import re
 import codecs
 
+def load_text(in_file):
+  sys.stderr.write('# Load file %s.\n' % (in_file))
+  inf = codecs.open(in_file, 'r', 'utf-8')
+  lines = []
+  line_id = 0
+  for line in inf:
+    lines.append(line.strip())
+    line_id += 1
+  sys.stderr.write('  Done! Num lines = %d\n' % line_id)
+  inf.close()
+  return lines
+
+def find_src_pos(tgt_pos, src_tokens, tgt_tokens, t2s, dict_map, window):
+  best_src_pos = -1
+  src_token = ''
+  tgt_token = tgt_tokens[tgt_pos]
+  
+  if tgt_pos in t2s: # aligned word
+    src_positions = t2s[tgt_pos]
+  
+    # find the best aligned src word
+    best_src_prob = -1
+    for src_pos in src_positions:
+      if src_pos < (tgt_pos-window) or src_pos > (tgt_pos+window): continue # out of range
+      if src_pos>=len(src_tokens):
+        sys.stderr.write('! wrong alignment: src_pos>=len(src_tokens)\n')
+        print(src_pos)
+        print(src_tokens)
+        print(tgt_pos)
+        print(tgt_tokens)
+        sys.exit(1)
+      
+      src_token = src_tokens[src_pos]
+      prob = 0
+      if src_token in dict_map and tgt_token in dict_map[src_token]:
+        prob = dict_map[src_token][tgt_token] 
+      if prob > best_src_prob:
+        best_src_pos = src_pos
+        best_src_prob = prob
+    
+  return (best_src_pos, src_token)
+
 def aggregate_alignments(align_line):
   align_tokens = re.split('\s+', align_line.strip())
   s2t = {}
