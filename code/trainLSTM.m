@@ -66,20 +66,20 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'dropout', 1, @isnumeric); % dropout prob: 1 no dropout, <1: dropout
   addOptional(p,'softmaxDim', 0, @isnumeric); % softmaxDim>0 convert hidden state into an intermediate representation of size softmaxDim before going through the softmax
   % attnFunc=0: no attention.
-  %          >0: a_t = softmax(W_a * [tgt_h_t; srcLens])  
-  %           1: soft attention
-  %           2: hard attention + monotonic alignments
-  %           3: hard attention + unsupervised alignments + regression for absolute pos
-  %           4: hard attention + unsupervised alignments + classification for relative pos
-  %           5: hard attention
-  %           6: Bengio's model
+  %          1: soft attention
+  %          2: hard attention + monotonic alignments
+  %          3: hard attention + unsupervised alignments + regression for absolute pos
+  %          4: hard attention + unsupervised alignments + classification for relative pos
+  %          5: hard attention
   addOptional(p,'attnFunc', 0, @isnumeric);
+  % attnOpt: decide how we generate the alignment weights:
+  %          0: a_t = softmax(W_a * h_t)
+  %          1: a_t = softmax(H_src * h_t)
+  addOptional(p,'attnOpt', 0, @isnumeric);
   addOptional(p,'attnSize', 0, @isnumeric); % dim of the vector used to input to the final softmax, if 0, use lstmSize
   addOptional(p,'posWin', 5, @isnumeric); % relative window, used for attnFunc~=1
-  addOptional(p,'maxRelDist', 20, @isnumeric); % we don't want to change this much (depends on how the training data was generated), this is for attnFunc 4 to determine the posVocabSize=2*maxRelDis + 1 + 1 (for eos).
+  addOptional(p,'maxRelDist', 20, @isnumeric); % attnFunc 4 to determine the posVocabSize=2*maxRelDis + 1 + 1 (for eos). we don't want to change this much (depends on how the training data was generated)
   addOptional(p,'posWeight', 1.0, @isnumeric); % weight the pos cost objective, for attn3, 4
-  addOptional(p,'predictNull', 0, @isnumeric); % 1: predicting null symbols
-  addOptional(p,'nullWeight', 1.0, @isnumeric); % 1: predicting null symbols
 
   %% research options  
   addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
@@ -173,8 +173,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.attnGlobal=0; % 1: for attnFunc=1, 0: for other attnFunc
   params.predictPos = 0; % 1 -- regression for absolute positions, 2 -- classification for relative positions
   params.posSignal = 0; % 1 -- use unsupervised alignments
-  %params.attnRegression = 0; % 1 -- use regression
-  %params.attnGauss = 0; % use Gaussian distribution for predicting positions
   if params.attnFunc>0
     if params.attnSize==0
       params.attnSize = params.lstmSize;
@@ -200,14 +198,16 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       params.predictPos = 3;
       params.attnGlobal = 0;
       params.posSignal = 0;
-      %params.attnGauss = 1;
+      assert(params.attnOpt==0); % we can't use attnOpt==1 since our alignment weights are from the Gaussian
     else
       error('Invalid attnFunc option %d\n', params.attnFunc);
     end
     
     % numAttnPositions
     if params.attnGlobal % global
-      params.numAttnPositions = params.maxSentLen-1;
+      if params.attnOpt==0 % for attnOpt==1, we use variable-length alignment vectors
+        params.numAttnPositions = params.maxSentLen-1;
+      end
     else % local
       params.numAttnPositions = 2*params.posWin + 1;
     end
@@ -425,16 +425,12 @@ function [model] = initLSTM(params)
   
   %% h_t -> softmax input
   if params.attnFunc>0 % attention mechanism
-    % predict positions with unsupervised alignments
+    % predict positions
     if params.predictPos
       % transform h_t into h_pos = f(W_pos*h_t)
       model.W_pos = randomMatrix(params.initRange, [params.softmaxSize, params.lstmSize], params.isGPU, params.dataType);
 
-      % predict if an alignment is null or non-null: 1 non-null, 2: null
-      if params.predictNull
-        model.W_null = randomMatrix(params.initRange, [params.softmaxSize, params.lstmSize], params.isGPU, params.dataType);
-        model.W_softNull = randomMatrix(params.initRange, [2, params.softmaxSize], params.isGPU, params.dataType);
-      end
+      % predict pos
       if params.predictPos==1 || params.predictPos==3 % regression, scale=sigmoid(v_pos*h_pos)
         model.v_pos = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
         
@@ -448,7 +444,7 @@ function [model] = initLSTM(params)
     end
     
     % predict alignment weights
-    if params.numAttnPositions>=1 && params.predictPos~=3
+    if params.attnOpt==0 && params.numAttnPositions>=1 && params.predictPos~=3
       model.W_a = randomMatrix(params.initRange, [params.numAttnPositions, params.lstmSize], params.isGPU, params.dataType);
     end
     
@@ -827,9 +823,18 @@ function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab)
   data.tgtSents = tgtSents;
 end
 
+
+%% null predictions
+%   addOptional(p,'predictNull', 0, @isnumeric); % 1: predicting null symbols
+%   addOptional(p,'nullWeight', 1.0, @isnumeric); % 1: predicting null symbols
+%       % predict if an alignment is null or non-null: 1 non-null, 2: null
+%       if params.predictNull
+%         model.W_null = randomMatrix(params.initRange, [params.softmaxSize, params.lstmSize], params.isGPU, params.dataType);
+%         model.W_softNull = randomMatrix(params.initRange, [2, params.softmaxSize], params.isGPU, params.dataType);
+%       end
+
+
 %% positional model %%
-
-
 %   % positional models: predict pos, then word, use a separate softmax for pos
 %   % 0: separately print out pos/word perplexities
 %   % 1: predict pos/word with a separate softmax W_softPos

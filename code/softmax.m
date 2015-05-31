@@ -10,9 +10,11 @@
 %
 %%
 function [probs, scores, norms] = softmax(raw, varargin)
+  % raw: numClasses * batchSize
   mx = max(raw, [], 1);
   scores = bsxfun(@minus, raw, mx); % subtract max elements 
   probs = exp(scores); % unnormalized probs 
+  % TODO: use two-dimensional mask
   norms = sum(probs, 1); % normalization factors
   if length(varargin)==1
     mask = varargin{1};

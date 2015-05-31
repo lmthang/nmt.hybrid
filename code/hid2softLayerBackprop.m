@@ -81,14 +81,14 @@ function [grad_ht, hid2softGrad, grad_srcHidVecs] = hid2softLayerBackprop(model,
         
         
         % grad_variances -> grad_h_t, grad_W_var, grad_v_var, scales=sigmoid(v_pos*f(W_pos*h_t)) in [0, 1]
-        [grad_ht, hid2softGrad.W_var, hid2softGrad.v_var] = posLayerBackprop(model.W_var, model.v_var, grad_variances, h2sInfo.h_t, ...
+        [grad_ht, hid2softGrad.W_var, hid2softGrad.v_var] = scaleLayerBackprop(model.W_var, model.v_var, grad_variances, h2sInfo.h_t, ...
           h2sInfo.origVariances, h2sInfo.varForwData, params);
         
         % grad_mu -> grad_scales
         grad_scales = trainData.srcLens.*grad_mu;
         
         % grad_scales -> grad_ht, grad_W_pos, grad_v_pos
-        [grad_ht1, hid2softGrad.W_pos, hid2softGrad.v_pos] = posLayerBackprop(model.W_pos, model.v_pos, grad_scales, h2sInfo.h_t, h2sInfo.scales, h2sInfo.posForwData, params);
+        [grad_ht1, hid2softGrad.W_pos, hid2softGrad.v_pos] = scaleLayerBackprop(model.W_pos, model.v_pos, grad_scales, h2sInfo.h_t, h2sInfo.scales, h2sInfo.posForwData, params);
         grad_ht = grad_ht + grad_ht1;
       else
         [grad_ht, hid2softGrad.W_a, grad_srcHidVecs] = attnLayerBackprop(model.W_a, grad_input(1:params.lstmSize, :), h2sInfo.h_t, params, ...

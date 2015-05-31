@@ -19,15 +19,7 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
         if params.posSignal % unsupervised alignments
           srcPositions = trainData.positions;
         elseif params.predictPos==3 % predict positions by regression
-          % h_t -> scales=sigmoid(v_pos*f(W_pos*h_t)) in [0, 1]
-          [h2sInfo.scales, h2sInfo.posForwData] = posLayerForward(model.W_pos, model.v_pos, h_t, params);
-          
-          % h_t -> variances=sigmoid(v_var*f(W_pos*h_t))
-          [h2sInfo.origVariances, h2sInfo.varForwData] = posLayerForward(model.W_var, model.v_var, h_t, params);
-          %h2sInfo.origVariances = h2sInfo.variances;
-          
-          % scales -> srcPositions
-          mu = h2sInfo.scales.*trainData.srcLens;
+          [mu, h2sInfo] = regressPositions(model, h_t, trainData.srcLens, params);
           srcPositions = floor(mu) + 1;
         else % monotonic alignments
           srcPositions = tgtPos*ones(1, trainData.curBatchSize);
@@ -40,42 +32,17 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
         
         % build context vectors
         [srcHidVecs, h2sInfo] = buildSrcVecs(trainData.srcHidVecs, srcPositions, trainData.posMask, params, h2sInfo);
-
-        % assert
-        if params.assert
-          if params.predictPos % use unsupervised alignments
-            [srcHidVecs1] = buildSrcVecsOld(params, trainData, srcPositions, trainData.posMask);
-            assert(sum(sum(sum(abs(srcHidVecs-srcHidVecs1))))<1e-10);
-          else
-            [srcHidVecs1, h2sInfo.startAttnId, h2sInfo.endAttnId, h2sInfo.startHidId, h2sInfo.endHidId] = buildSrcHidVecsOld(...
-              trainData.srcHidVecs, trainData.srcMaxLen, tgtPos, params);
-            assert(sum(sum(sum(abs(srcHidVecs(:, curMask.unmaskedIds)-srcHidVecs1(:, curMask.unmaskedIds)))))<1e-10);
-          end
-        end   
-      end
+      end % end else if attnGlobal
       
       % f(W_h*[attn_t; tgt_h_t]), attn_t is the context vector in the paper.
       if params.predictPos==3
-        if params.isReverse % get back correct source positions
-          srcPositions = trainData.srcMaxLen - h2sInfo.indicesAll;
-        end
-        
-        h2sInfo.alignWeights = zeroMatrix([trainData.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
-        
-        % for computing the guassian probs faster
-        h2sInfo.variances = h2sInfo.origVariances(h2sInfo.unmaskedIds);
-        h2sInfo.sigAbs = sqrt(h2sInfo.variances);
-        h2sInfo.scaledPositions = (srcPositions-mu(h2sInfo.unmaskedIds))./h2sInfo.sigAbs;
-        if params.isGPU
-          h2sInfo.alignWeights(h2sInfo.linearIdSub) = arrayfun(@gaussProb, h2sInfo.scaledPositions, sqrt(2*pi)*h2sInfo.sigAbs);
-        else
-          h2sInfo.alignWeights(h2sInfo.linearIdSub) = exp(-0.5*h2sInfo.scaledPositions.^2)./(params.sqrt2pi*h2sInfo.sigAbs);
-        end
-        
-        h2sInfo.alignWeights = permute(h2sInfo.alignWeights, [3, 1, 2]); % 1*curBatchSize*numAttnPositions
-        attnVecs = squeeze(sum(bsxfun(@times, srcHidVecs, h2sInfo.alignWeights), 3));
+        [attnVecs, h2sInfo] = gaussAttnVecs(mu, srcHidVecs, h2sInfo, trainData, params);
       else
-        [attnVecs, h2sInfo.alignWeights] = attnLayerForward(model.W_a, h_t, srcHidVecs, curMask.mask);
+        if params.attnGlobal && params.attnOpt==1
+          TODO: DOT PRODUCT, REMEMBER TO MULTIPLY MASKS TO THE ALIGNMENT WEIGHTS
+        else
+          [attnVecs, h2sInfo.alignWeights] = attnLayerForward(model.W_a, h_t, srcHidVecs, curMask.mask);
+        end
       end
 
       % concat
@@ -90,12 +57,59 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
   end
 end
 
+function [mu, h2sInfo] = regressPositions(model, h_t, srcLens, params)
+  % h_t -> scales=sigmoid(v_pos*f(W_pos*h_t)) in [0, 1]
+  [h2sInfo.scales, h2sInfo.posForwData] = scaleLayerForward(model.W_pos, model.v_pos, h_t, params);
+
+  % h_t -> variances=sigmoid(v_var*f(W_pos*h_t))
+  [h2sInfo.origVariances, h2sInfo.varForwData] = scaleLayerForward(model.W_var, model.v_var, h_t, params);
+  %h2sInfo.origVariances = h2sInfo.variances;
+
+  % scales -> srcPositions
+  mu = h2sInfo.scales.*srcLens;
+end
+
+% Use gaussian probabilities to weight src hidden states
+function [attnVecs, h2sInfo] = gaussAttnVecs(mu, srcHidVecs, h2sInfo, trainData, params)
+  if params.isReverse % get back correct source positions
+    srcPositions = trainData.srcMaxLen - h2sInfo.indicesAll;
+  end
+
+  h2sInfo.alignWeights = zeroMatrix([trainData.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
+
+  % for computing the guassian probs faster
+  h2sInfo.variances = h2sInfo.origVariances(h2sInfo.unmaskedIds);
+  h2sInfo.sigAbs = sqrt(h2sInfo.variances);
+  h2sInfo.scaledPositions = (srcPositions-mu(h2sInfo.unmaskedIds))./h2sInfo.sigAbs;
+  if params.isGPU
+    h2sInfo.alignWeights(h2sInfo.linearIdSub) = arrayfun(@gaussProb, h2sInfo.scaledPositions, sqrt(2*pi)*h2sInfo.sigAbs);
+  else
+    h2sInfo.alignWeights(h2sInfo.linearIdSub) = exp(-0.5*h2sInfo.scaledPositions.^2)./(params.sqrt2pi*h2sInfo.sigAbs);
+  end
+
+  h2sInfo.alignWeights = permute(h2sInfo.alignWeights, [3, 1, 2]); % 1*curBatchSize*numAttnPositions
+  attnVecs = squeeze(sum(bsxfun(@times, srcHidVecs, h2sInfo.alignWeights), 3));
+end
+
 % x is already scaled x = (x_orig - mu)/sigAbs
 function [prob] = gaussProb(scaledX, norm)
   %prob = exp(-0.5*(x-mu)^2/variance)/sqrt(2*pi*variance);
   prob = exp(-0.5*scaledX^2)/norm;
 end
-      
+
+%         % assert
+%         if params.assert
+%           if params.predictPos % use unsupervised alignments
+%             [srcHidVecs1] = buildSrcVecsOld(params, trainData, srcPositions, trainData.posMask);
+%             assert(sum(sum(sum(abs(srcHidVecs-srcHidVecs1))))<1e-10);
+%           else
+%             [srcHidVecs1, h2sInfo.startAttnId, h2sInfo.endAttnId, h2sInfo.startHidId, h2sInfo.endHidId] = buildSrcHidVecsOld(...
+%               trainData.srcHidVecs, trainData.srcMaxLen, tgtPos, params);
+%             assert(sum(sum(sum(abs(srcHidVecs(:, curMask.unmaskedIds)-srcHidVecs1(:, curMask.unmaskedIds)))))<1e-10);
+%           end
+%         end   
+
+
 %       if params.numAttnPositions>1  
 %       else
 %         attnVecs = bsxfun(@times, srcHidVecs, curMask.mask);

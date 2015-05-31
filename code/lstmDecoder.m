@@ -19,6 +19,7 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
   srcMaxLen = data.srcMaxLen;
   curBatchSize = size(input, 1);
   data.curBatchSize = curBatchSize;
+  params.curBatchSize = curBatchSize;
   
   %printSent(2, input(1, 1:srcMaxLen), params.vocab, 'src 1: ');
   %printSent(2, input(1, srcMaxLen:end), params.vocab, 'tgt 1: ');
@@ -43,12 +44,7 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
     data.curMask.unmaskedIds = 1:curBatchSize;
     data.curMask.maskedIds = [];
 
-    data.srcHidVecsAll = zeroMatrix([params.lstmSize, curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);  
-    
-%     % position model 2: feed to input
-%     if params.posModel==2
-%       W_tgt_combined = [model.W_tgt{1} model.W_tgt_pos];
-%     end
+    data.srcHidVecsOrig = zeroMatrix([params.lstmSize, curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);  
   else
     params.numSrcHidVecs = 0;
   end
@@ -87,10 +83,6 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
       if ll==1 % first layer
         if tt==srcMaxLen % decoder input
           x_t = getLstmDecoderInput(input(:, tt), tgtPos, W_emb, softmax_h, data, zeroState, params); %, curMask);
-%           % pos model predict words
-%           if params.posModel==2 && mod(tgtPos, 2)==0 
-%             W = W_tgt_combined;
-%           end
         else
           x_t = W_emb(:, input(:, tt));
         end
@@ -110,10 +102,6 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
       
       % h_t -> softmax_h
       if tt==srcMaxLen && ll==params.numLayers
-        if params.attnGlobal==0 % relative position
-          data.srcHidVecs = data.srcHidVecsAll;
-        end
-        
         % masking
         [data.posMask] = createPosMask(tgtPos, params, data, curMask);
         
@@ -121,11 +109,12 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
       end
       
       % attentional  models
-      if tt<=params.numSrcHidVecs && ll==params.numLayers
-        data.srcHidVecsAll(:, :, tt) = h_t;
-        if tt==params.numSrcHidVecs && params.attnGlobal % absolute positions 
-          data.absSrcHidVecs = zeroMatrix([params.lstmSize, batchSize, params.numAttnPositions], params.isGPU, params.dataType);
-          data.absSrcHidVecs(:, :, params.numAttnPositions-params.numSrcHidVecs+1:end) = data.srcHidVecsAll;
+      if tt<=params.numSrcHidVecs && ll==params.numLayers && (params.attnFunc>0 || params.sameLength==1)
+        data.srcHidVecsOrig(:, :, tt) = h_t;
+        
+        % done generating all srcHidVecs, collect
+        if tt==params.numSrcHidVecs
+          [data] = updateDataSrcVecs(data, params);
         end
       end
       
@@ -228,7 +217,7 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, softma
     if params.attnGlobal % soft, global
       [data.absSrcHidVecs] = duplicateSrcHidVecs(data.absSrcHidVecs, batchSize, beamSize);
     else % hard, local
-      data.srcHidVecs = duplicateSrcHidVecs(data.srcHidVecsAll, batchSize, beamSize);
+      data.srcHidVecs = duplicateSrcHidVecs(data.srcHidVecsOrig, batchSize, beamSize);
     end
   end
   
@@ -308,7 +297,7 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, softma
     
     %% predict the next word
 %     if params.attnRelativePos % relative pos
-%       [data.srcHidVecs] = computeRelativeSrcHidVecs(data.srcHidVecsAll, srcMaxLen, tgtPos, batchSize, params, beamSize);
+%       [data.srcHidVecs] = computeRelativeSrcHidVecs(data.srcHidVecsOrig, srcMaxLen, tgtPos, batchSize, params, beamSize);
 %     end
 
     if params.sameLength && sentPos == (maxLen-1) % same length decoding
@@ -448,8 +437,8 @@ function [logProbs] = softmaxDecode(scores)
   logProbs = bsxfun(@minus, scores, log(sum(exp(scores))));
 end
 
-% function [srcHidVecs] = computeRelativeSrcHidVecs(srcHidVecsAll, srcMaxLen, tgtPos, batchSize, params, beamSize)
-%   [srcHidVecs] = buildSrcHidVecs(srcHidVecsAll, srcMaxLen, tgtPos, params);
+% function [srcHidVecs] = computeRelativeSrcHidVecs(srcHidVecsOrig, srcMaxLen, tgtPos, batchSize, params, beamSize)
+%   [srcHidVecs] = buildSrcHidVecs(srcHidVecsOrig, srcMaxLen, tgtPos, params);
 % 
 %   % duplicate srcHidVecs along the curBatchSize dimension beamSize times
 %   if (beamSize>1)
@@ -474,7 +463,7 @@ end
 %     if params.posModel>=2
 %       params.curBatchSize = batchSize;
 %       data.srcLens = reshape(repmat(data.srcLens, beamSize, 1), 1, []);
-%       data.srcHidVecs = duplicateSrcHidVecs(data.srcHidVecsAll, batchSize, beamSize);
+%       data.srcHidVecs = duplicateSrcHidVecs(data.srcHidVecsOrig, batchSize, beamSize);
 %     end
 
 %   if params.depParse % dependency parsing
@@ -546,7 +535,7 @@ end
 %         % attention feed input model
 %         if params.attnFeedInput && tt==srcMaxLen
 %           if params.attnRelativePos % relative pos
-%             [srcHidVecs] = computeRelativeSrcHidVecs(data.srcHidVecsAll, srcMaxLen, tgtPos, batchSize, params, 1);
+%             [srcHidVecs] = computeRelativeSrcHidVecs(data.srcHidVecsOrig, srcMaxLen, tgtPos, batchSize, params, 1);
 %           else
 %             srcHidVecs = data.absSrcHidVecs;
 %           end
@@ -560,7 +549,7 @@ end
 %         % attention model 3, 4
 %         if params.attnFeedInput
 %           if params.attnRelativePos % relative position
-%             srcHidVecs = computeRelativeSrcHidVecs(data.srcHidVecsAll, srcMaxLen, tgtPos, batchSize, params, 1);
+%             srcHidVecs = computeRelativeSrcHidVecs(data.srcHidVecsOrig, srcMaxLen, tgtPos, batchSize, params, 1);
 %           else
 %             srcHidVecs = data.absSrcHidVecs;
 %           end
@@ -650,7 +639,7 @@ end
 
 %       data.srcHidVecs = zeroMatrix([params.lstmSize, batchSize, params.numAttnPosi  tions], params.isGPU, params.dataType);
 %       [startAttnId, endAttnId, startHidId, endHidId] = buildSrcHidVecs(srcMaxLen, tgtPos, params);
-%       data.srcHidVecs(:, :, startHidId:endHidId) = data.srcHidVecsAll(:, :, startAttnId:endAttnId);
+%       data.srcHidVecs(:, :, startHidId:endHidId) = data.srcHidVecsOrig(:, :, startAttnId:endAttnId);
 %       
 %       % duplicate srcHidVecs along the curBatchSize dimension beamSize times
 %       data.srcHidVecs = permute(data.srcHidVecs, [1, 3, 2]); % lstmSize * numAttnPositions * batchSize
