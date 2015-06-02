@@ -36,17 +36,37 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
       
       % f(W_h*[attn_t; tgt_h_t]), attn_t is the context vector in the paper.
       if params.predictPos==3
-        [attnVecs, h2sInfo] = gaussAttnVecs(mu, srcHidVecs, h2sInfo, trainData, params);
+        [contextVecs, h2sInfo] = gaussAttnVecs(mu, srcHidVecs, h2sInfo, trainData, params);
       else
         if params.attnGlobal && params.attnOpt==1
-          TODO: DOT PRODUCT, REMEMBER TO MULTIPLY MASKS TO THE ALIGNMENT WEIGHTS
+          % TODO: DOT PRODUCT, REMEMBER TO MULTIPLY MASKS TO THE ALIGNMENT WEIGHTS
+          % srcHidVecs: lstmSize * curBatchSize * numSrcHidVecs
+          % h_t: lstmSize * curBatchSize
+          alignScores = squeeze(sum(bsxfun(@times, srcHidVecs, h_t), 1))'; % numSrcHidVecs * curBatchSize
+          alignMask = trainData.srcMask(:, 1:params.numSrcHidVecs)'; % numSrcHidVecs * curBatchSize
+          alignLinearIds = find(alignMask==1);
+          h2sInfo.alignWeights = softmaxMask(alignScores, alignLinearIds, params); % numSrcHidVecs * curBatchSize
+          
+          [contextVecs] = contextLayerForward(h2sInfo.alignWeights, srcHidVecs);
         else
-          [attnVecs, h2sInfo.alignWeights] = attnLayerForward(model.W_a, h_t, srcHidVecs, curMask.mask);
+          [contextVecs, h2sInfo.alignWeights] = attnLayerForward(model.W_a, h_t, srcHidVecs, curMask.mask);
         end
+      end
+      
+      % assert
+      if params.assert
+        if params.attnGlobal && params.attnOpt==1
+          assert(isequal(size(h2sInfo.alignWeights), [params.numSrcHidVecs, params.curBatchSize]));
+          assert(isequal(size(h2sInfo.alignWeights), size(alignMask)));
+          assert(isequal(size(h2sInfo.alignWeights), size(alignScores)));
+        else
+          assert(isequal(size(h2sInfo.alignWeights), [params.numAttnPositions, params.curBatchSize]));
+        end
+        assert(isequal(size(h_t), size(contextVecs))); % lstmSize * curBatchSize
       end
 
       % concat
-      h2sInfo.input = [attnVecs; h_t];
+      h2sInfo.input = [contextVecs; h_t];
       h2sInfo.h_t = h_t;
     end
     
@@ -70,11 +90,12 @@ function [mu, h2sInfo] = regressPositions(model, h_t, srcLens, params)
 end
 
 % Use gaussian probabilities to weight src hidden states
-function [attnVecs, h2sInfo] = gaussAttnVecs(mu, srcHidVecs, h2sInfo, trainData, params)
+function [contextVecs, h2sInfo] = gaussAttnVecs(mu, srcHidVecs, h2sInfo, trainData, params)
   if params.isReverse % get back correct source positions
     srcPositions = trainData.srcMaxLen - h2sInfo.indicesAll;
   end
 
+  % since linearIdSub is for matrix of size [curBatchSize, numAttnPositions], we need to create alignWeights with this size first
   h2sInfo.alignWeights = zeroMatrix([trainData.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
 
   % for computing the guassian probs faster
@@ -87,8 +108,8 @@ function [attnVecs, h2sInfo] = gaussAttnVecs(mu, srcHidVecs, h2sInfo, trainData,
     h2sInfo.alignWeights(h2sInfo.linearIdSub) = exp(-0.5*h2sInfo.scaledPositions.^2)./(params.sqrt2pi*h2sInfo.sigAbs);
   end
 
-  h2sInfo.alignWeights = permute(h2sInfo.alignWeights, [3, 1, 2]); % 1*curBatchSize*numAttnPositions
-  attnVecs = squeeze(sum(bsxfun(@times, srcHidVecs, h2sInfo.alignWeights), 3));
+  h2sInfo.alignWeights = h2sInfo.alignWeights'; % numAttnPositions * curBatchSize
+  contextVecs = contextLayerForward(h2sInfo.alignWeights, srcHidVecs);
 end
 
 % x is already scaled x = (x_orig - mu)/sigAbs
@@ -96,6 +117,10 @@ function [prob] = gaussProb(scaledX, norm)
   %prob = exp(-0.5*(x-mu)^2/variance)/sqrt(2*pi*variance);
   prob = exp(-0.5*scaledX^2)/norm;
 end
+
+
+%   h2sInfo.alignWeights = permute(h2sInfo.alignWeights, [3, 1, 2]); % 1*curBatchSize*numAttnPositions
+%   contextVecs = squeeze(sum(bsxfun(@times, srcHidVecs, h2sInfo.alignWeights), 3));
 
 %         % assert
 %         if params.assert

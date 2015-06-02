@@ -8,36 +8,7 @@ function [inGrad, grad_W_a, grad_srcHidVecs] = attnLayerBackprop(W_a, outGrad, i
 %%%
   
   %% from outGrad -> grad_srcHidVecs, grad_alignWeights
-  % Grad formulae:
-  %   outVec = H_src* a_t
-  %   grad_srcHidVecs: outGrad * alignWeights'
-  %   grad_alignWeights = H_src' * outGrad (per example, to scale over multiple examples, i.e., curBatchSize, need to use bsxfun)
-  
-  % Sizes:
-  %   batchData.srcHidVecs: lstmSize * curBatchSize * numAttnPositions
-  %   outGrad: lstmSize * curBatchSize * 1
-  %   alignWeights: 1 * curBatchSize * numAttnPositions
-  %   attnGrad.srcHidVecs: lstmSize * curBatchSize * numAttnPositions
-  %   grad_alignWeights: numAttnPositions * curBatchSize
-  outGrad = permute(outGrad, [1, 2, 3]); % change from lstmSize*curBatchSize -> lstmSize*curBatchSize*1
-  grad_srcHidVecs = bsxfun(@times, outGrad, alignWeights); 
-  if params.numAttnPositions==1
-    grad_alignWeights = sum(srcHidVecs.*outGrad); % sum across lstmSize
-  else
-    grad_alignWeights = squeeze(sum(bsxfun(@times, srcHidVecs, outGrad), 1))'; % bsxfun along numAttnPositions, sum across lstmSize
-  end
-  
-  if params.assert % numAttnPositions x curBatchSize
-    assert(size(grad_alignWeights, 1)==params.numAttnPositions);
-    assert(size(grad_alignWeights, 2)==params.curBatchSize);
-    
-    % compute grad_srcHidVec in a different way
-    grad_srcHidVecs1 = zeroMatrix(size(grad_srcHidVecs), params.isGPU, params.dataType);
-    for ii=1:params.curBatchSize
-      grad_srcHidVecs1(:, ii, :) = outGrad(:, ii, 1) * squeeze(alignWeights(1, ii, :))';
-    end
-    assert(sum(sum(sum(abs(grad_srcHidVecs1-grad_srcHidVecs))))==0);
-  end
+  [grad_alignWeights, grad_srcHidVecs] = contextLayerBackprop(outGrad, alignWeights, srcHidVecs, params);
 
   %% from grad_alignWeights -> grad_scores
   % alignWeights a = softmax(scores)
@@ -53,9 +24,6 @@ function [inGrad, grad_W_a, grad_srcHidVecs] = attnLayerBackprop(W_a, outGrad, i
   % multiple examples: alpha = sum(a.*grad_a, 1) % 1*curBatchSize
   %     grad_scores = a.*grad - bsxfun(@times, a, alpha)
   % tmpResult = alignWeights.*grad_alignWeights; % numAttnPositions * curBatchSize
-  if params.numAttnPositions>1
-    alignWeights = squeeze(alignWeights)'; % alignWeights now: numAttnPositions * curBatchSize
-  end
   tmpResult = alignWeights.*grad_alignWeights; % numAttnPositions * curBatchSize
   grad_scores = tmpResult - bsxfun(@times, alignWeights, sum(tmpResult, 1));
     
@@ -72,3 +40,33 @@ function [inGrad, grad_W_a, grad_srcHidVecs] = attnLayerBackprop(W_a, outGrad, i
   % s_t = W_a * inVec
   [inGrad, grad_W_a] = linearLayerBackprop(W_a, grad_scores, inVec);  
 end
+
+  
+%   % Sizes:
+%   %   batchData.srcHidVecs: lstmSize * curBatchSize * numAttnPositions
+%   %   outGrad: lstmSize * curBatchSize * 1
+%   %   alignWeights: 1 * curBatchSize * numAttnPositions
+%   %   attnGrad.srcHidVecs: lstmSize * curBatchSize * numAttnPositions
+%   %   grad_alignWeights: numAttnPositions * curBatchSize
+%   outGrad = permute(outGrad, [1, 2, 3]); % change from lstmSize*curBatchSize -> lstmSize*curBatchSize*1
+%   grad_srcHidVecs = bsxfun(@times, outGrad, alignWeights); 
+%   if params.numAttnPositions==1
+%     grad_alignWeights = sum(srcHidVecs.*outGrad); % sum across lstmSize
+%   else
+%     grad_alignWeights = squeeze(sum(bsxfun(@times, srcHidVecs, outGrad), 1))'; % bsxfun along numAttnPositions, sum across lstmSize
+%   end
+%   
+%   if params.assert % numAttnPositions x curBatchSize
+%     assert(size(grad_alignWeights, 1)==params.numAttnPositions);
+%     assert(size(grad_alignWeights, 2)==params.curBatchSize);
+%     
+%     % compute grad_srcHidVec in a different way
+%     grad_srcHidVecs1 = zeroMatrix(size(grad_srcHidVecs), params.isGPU, params.dataType);
+%     for ii=1:params.curBatchSize
+%       grad_srcHidVecs1(:, ii, :) = outGrad(:, ii, 1) * squeeze(alignWeights(1, ii, :))';
+%     end
+%     assert(sum(sum(sum(abs(grad_srcHidVecs1-grad_srcHidVecs))))==0);
+%   end
+%   if params.numAttnPositions>1
+%     alignWeights = squeeze(alignWeights)'; % alignWeights now: numAttnPositions * curBatchSize
+%   end

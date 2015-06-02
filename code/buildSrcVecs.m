@@ -65,15 +65,6 @@ function [srcVecsSub, h2sInfo] = buildSrcVecs(srcVecsAll, srcPositions, curMask,
 
     % create srcVecs
     srcVecsAll = reshape(srcVecsAll, lstmSize, []);
-    %if isempty(h2sInfo.linearIdAll) || isempty(h2sInfo.linearIdSub)
-    %  unmaskedIds
-    %  indicesSub
-    %  indicesAll
-    %  curMask
-    %  srcPositions
-    %  numAttnPositions
-    %  numSrcHidVecs
-    %end
     srcVecsSub(:, h2sInfo.linearIdSub) = srcVecsAll(:, h2sInfo.linearIdAll);
     srcVecsSub = reshape(srcVecsSub, [lstmSize, batchSize, numAttnPositions]);
   else

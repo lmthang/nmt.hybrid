@@ -33,22 +33,19 @@ function [grad_ht, hid2softGrad, grad_srcHidVecs] = hid2softLayerBackprop(model,
       % grad_attn -> grad_ht, grad_W_a, grad_srcHidVecs
       if params.predictPos==3
         % grad_attn -> grad_srcHidVecs, grad_alignWeights
-        outGrad = permute(grad_input(1:params.lstmSize, :), [1, 2, 3]); % change from lstmSize*curBatchSize -> lstmSize*curBatchSize*1
-        grad_srcHidVecs = bsxfun(@times, outGrad, h2sInfo.alignWeights); 
-        if params.numAttnPositions==1
-          grad_alignWeights = sum(srcHidVecs.*outGrad); % sum across lstmSize
-        else
-          grad_alignWeights = squeeze(sum(bsxfun(@times, srcHidVecs, outGrad), 1)); % bsxfun along numAttnPositions, sum across lstmSize
-        end
+        [grad_alignWeights, grad_srcHidVecs] = contextLayerBackprop(grad_input(1:params.lstmSize, :), h2sInfo.alignWeights, srcHidVecs, params);
+        
+        % since linearIdSub is for matrix of size [curBatchSize, numAttnPositions], 
+        % we need to transpose grad_alignWeights to be of that size.
+        grad_alignWeights = grad_alignWeights';
+        h2sInfo.alignWeights = h2sInfo.alignWeights';
+        
         h2sInfo.alignWeights = squeeze(h2sInfo.alignWeights);
-        
         if params.assert
-          assert(size(grad_alignWeights, 1)==trainData.curBatchSize);
-          assert(size(grad_alignWeights, 2)==params.numAttnPositions);
-          assert(size(h2sInfo.alignWeights, 1)==trainData.curBatchSize);
-          assert(size(h2sInfo.alignWeights, 2)==params.numAttnPositions);
+          assert(isequal(size(grad_alignWeights), [trainData.curBatchSize, params.numAttnPositions]));
+          assert(isequal(size(grad_alignWeights), size(h2sInfo.alignWeights)));
         end
-        
+
         % grad_alignWeights -> grad_variances
         % 0.5*p*(scaleX^2/variance - 1/sigAbs)
         if params.isGPU
