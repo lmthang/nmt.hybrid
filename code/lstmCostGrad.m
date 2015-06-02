@@ -72,6 +72,10 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       startHidId = params.numAttnPositions-params.numSrcHidVecs+1;
       endHidId = params.numAttnPositions;
     end
+    
+    if params.attnGlobal && params.attnOpt==1
+      trainData.alignMask = trainData.srcMask(:, 1:params.numSrcHidVecs)'; % numSrcHidVecs * curBatchSize
+    end
   end
   if (params.attnFunc>0 || params.sameLength==1)
     trainData.srcHidVecsOrig = zeroMatrix([params.lstmSize, curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);
@@ -342,8 +346,12 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
 
         % attention models: srcHidVecs
         if params.attnFunc
-          if params.attnGlobal
-            grad.srcHidVecs(:, :, startAttnId:endAttnId) = grad.srcHidVecs(:, :, startAttnId:endAttnId) + grad_srcHidVecs(:, :, startHidId:endHidId);
+          if params.attnGlobal 
+            if params.attnOpt==0 % fixed
+              grad.srcHidVecs(:, :, startAttnId:endAttnId) = grad.srcHidVecs(:, :, startAttnId:endAttnId) + grad_srcHidVecs(:, :, startHidId:endHidId);
+            else % variable
+              grad.srcHidVecs = grad.srcHidVecs + grad_srcHidVecs;
+            end
           else
             grad.srcHidVecs = reshape(grad.srcHidVecs, params.lstmSize, []);
             grad_srcHidVecs = reshape(grad_srcHidVecs, params.lstmSize, []);

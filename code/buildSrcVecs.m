@@ -27,15 +27,6 @@ function [srcVecsSub, h2sInfo] = buildSrcVecs(srcVecsAll, srcPositions, curMask,
   indicesSub = reshape(repmat(1:numAttnPositions, length(unmaskedIds), 1), 1, []); % 1 1 1 1 1 2 2 2 2 2 3 3 3 3 3
   unmaskedIds = repmat(unmaskedIds, 1, numAttnPositions); % 1 2 3 4 5 1 2 3 4 5 1 2 3 4 5
   
-  
-%   if params.predictPos==3
-%     h2sInfo.mu(curMask.maskedIds) = [];
-%     h2sInfo.variances(curMask.maskedIds) = [];
-%     
-%     h2sInfo.mu = repmat(h2sInfo.mu, 1, numAttnPositions);
-%     h2sInfo.variances = repmat(h2sInfo.variances, 1, numAttnPositions);
-%   end
-  
   % Note: generate multiple sequences of the same lengths without using for loop, see this post for many elegant solutions
   % http://www.mathworks.com/matlabcentral/answers/217205-fast-ways-to-generate-multiple-sequences-without-using-for-loop
   % The below version is the only solution that is faster than for loop (3 times).
@@ -48,10 +39,6 @@ function [srcVecsSub, h2sInfo] = buildSrcVecs(srcVecsAll, srcPositions, curMask,
   excludeIds = find(indicesAll>numSrcHidVecs | indicesAll<1);
   if ~isempty(excludeIds)
     indicesAll(excludeIds) = []; unmaskedIds(excludeIds) = []; indicesSub(excludeIds) = [];
-    
-%     if params.predictPos==3
-%       h2sInfo.mu(excludeIds) = []; h2sInfo.variances(excludeIds) = [];
-%     end
   end
   
   h2sInfo.indicesAll = indicesAll;

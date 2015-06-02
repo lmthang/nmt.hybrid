@@ -4,8 +4,8 @@ function [costs] = initCosts(params)
   if params.posSignal % positions
     costs.pos = 0;
     
-    if params.predictNull
-      costs.null = 0;
-    end
+%     if params.predictNull
+%       costs.null = 0;
+%     end
   end
 end

@@ -30,52 +30,19 @@ function [grad_ht, hid2softGrad, grad_srcHidVecs] = hid2softLayerBackprop(model,
         end
       end
       
-      % grad_attn -> grad_ht, grad_W_a, grad_srcHidVecs
+      % grad_contextVecs -> grad_srcHidVecs, grad_alignWeights
+      grad_contextVecs = grad_input(1:params.lstmSize, :);
+      [grad_alignWeights, grad_srcHidVecs] = contextLayerBackprop(grad_contextVecs, h2sInfo.alignWeights, srcHidVecs, params);
+      
+      % grad_contextVecs -> grad_ht, grad_W_a, grad_srcHidVecs
       if params.predictPos==3
-        % grad_attn -> grad_srcHidVecs, grad_alignWeights
-        [grad_alignWeights, grad_srcHidVecs] = contextLayerBackprop(grad_input(1:params.lstmSize, :), h2sInfo.alignWeights, srcHidVecs, params);
-        
         % since linearIdSub is for matrix of size [curBatchSize, numAttnPositions], 
         % we need to transpose grad_alignWeights to be of that size.
         grad_alignWeights = grad_alignWeights';
         h2sInfo.alignWeights = h2sInfo.alignWeights';
         
-        h2sInfo.alignWeights = squeeze(h2sInfo.alignWeights);
-        if params.assert
-          assert(isequal(size(grad_alignWeights), [trainData.curBatchSize, params.numAttnPositions]));
-          assert(isequal(size(grad_alignWeights), size(h2sInfo.alignWeights)));
-        end
-
-        % grad_alignWeights -> grad_variances
-        % 0.5*p*(scaleX^2/variance - 1/sigAbs)
-        if params.isGPU
-          grad_variances = arrayfun(@gradSigSquare, grad_alignWeights(h2sInfo.linearIdSub), ...
-            h2sInfo.alignWeights(h2sInfo.linearIdSub), h2sInfo.scaledPositions, h2sInfo.variances, h2sInfo.sigAbs);
-        else
-          grad_variances = 0.5*grad_alignWeights(h2sInfo.linearIdSub).*h2sInfo.alignWeights(h2sInfo.linearIdSub).*...
-            (h2sInfo.scaledPositions.^2./h2sInfo.variances-1./h2sInfo.sigAbs);
-          %assert(sum(sum(abs(grad_variances-grad_variances1)))==0);
-        end
-        
-        % grad_alignWeights -> grad_mu
-        % 0.5*p*(scaleX^2/variance - 1/sigAbs)
-        if params.isGPU
-          grad_mu = arrayfun(@gradMu, grad_alignWeights(h2sInfo.linearIdSub), h2sInfo.alignWeights(h2sInfo.linearIdSub), ...
-            h2sInfo.scaledPositions, h2sInfo.sigAbs);
-        else
-          grad_mu = grad_alignWeights(h2sInfo.linearIdSub).*h2sInfo.alignWeights(h2sInfo.linearIdSub).*h2sInfo.scaledPositions./h2sInfo.sigAbs;
-          %assert(sum(sum(abs(grad_mu-grad_mu1)))==0);
-        end
-        
-        % accumulate grad_variances, grad_mu
-        [grad_variances_accum, indices_variances] = aggregateMatrix(grad_variances, h2sInfo.unmaskedIds, params.isGPU, params.dataType);
-        [grad_mu_accum, indices_mu] = aggregateMatrix(grad_mu, h2sInfo.unmaskedIds, params.isGPU, params.dataType);
-        %assert(sum(sum(abs(indices_variances-indices_mu)))==0);
-        grad_variances = zeroMatrix([1, trainData.curBatchSize], params.isGPU, params.dataType);
-        grad_variances(indices_variances) = grad_variances_accum;
-        grad_mu = zeroMatrix([1, trainData.curBatchSize], params.isGPU, params.dataType);
-        grad_mu(indices_mu) = grad_mu_accum;
-        
+        % grad_alignWeights -> grad_variances, grad_mu
+        [grad_mu, grad_variances] = gaussLayerBackprop(grad_alignWeights, h2sInfo, params);
         
         % grad_variances -> grad_h_t, grad_W_var, grad_v_var, scales=sigmoid(v_pos*f(W_pos*h_t)) in [0, 1]
         [grad_ht, hid2softGrad.W_var, hid2softGrad.v_var] = scaleLayerBackprop(model.W_var, model.v_var, grad_variances, h2sInfo.h_t, ...
@@ -88,8 +55,21 @@ function [grad_ht, hid2softGrad, grad_srcHidVecs] = hid2softLayerBackprop(model,
         [grad_ht1, hid2softGrad.W_pos, hid2softGrad.v_pos] = scaleLayerBackprop(model.W_pos, model.v_pos, grad_scales, h2sInfo.h_t, h2sInfo.scales, h2sInfo.posForwData, params);
         grad_ht = grad_ht + grad_ht1;
       else
-        [grad_ht, hid2softGrad.W_a, grad_srcHidVecs] = attnLayerBackprop(model.W_a, grad_input(1:params.lstmSize, :), h2sInfo.h_t, params, ...
-          h2sInfo.alignWeights, srcHidVecs);  
+        % grad_alignWeights -> grad_scores
+        [grad_scores] = normLayerBackprop(grad_alignWeights, h2sInfo.alignWeights, params);
+
+        if params.attnGlobal && params.attnOpt==1
+          % srcHidVecs: lstmSize * batchSize * numPositions
+          % grad_scores: numPositions * batchSize
+          % h_t: lstmSize * batchSize
+          grad_scores = permute(grad_scores, [3, 2, 1]); % batchSize * numPositions
+          grad_ht = sum(bsxfun(@times, srcHidVecs, grad_scores), 3); % sum along numPositions: lstmSize * batchSize
+          grad_srcHidVecs = grad_srcHidVecs + bsxfun(@times, h2sInfo.h_t, grad_scores); % add to the existing grad_srcHidVecs
+        else
+          % grad_scores -> grad_W_a, inGrad
+          % s_t = W_a * h_t
+          [grad_ht, hid2softGrad.W_a] = linearLayerBackprop(model.W_a, grad_scores, h2sInfo.h_t);  
+        end
       end
       
       % grad_ht
@@ -98,13 +78,6 @@ function [grad_ht, hid2softGrad, grad_srcHidVecs] = hid2softLayerBackprop(model,
   end
 end
 
-function [grad_variance] = gradSigSquare(grad_align, alignWeight, scaledX, variance, sigAbs)
-  grad_variance = 0.5*grad_align*alignWeight*(scaledX^2/variance-1/sigAbs);
-end
-
-function [grad_mu] = gradMu(grad_align, alignWeight, scaledX, sigAbs)
-  grad_mu = grad_align*alignWeight*scaledX/sigAbs;
-end
 
 %         if params.predictPos % use unsupervised alignments
 %         else % use monotonic alignments
@@ -126,17 +99,17 @@ end
 %       grad_ht = grad_input(params.lstmSize+1:end, :);
 
 %       if params.predictPos % hard attention
-%         % grad_attn
-%         grad_attn = grad_input(1:params.lstmSize, :);
+%         % grad_contextVecs
+%         grad_contextVecs = grad_input(1:params.lstmSize, :);
 %         
 %         % grad srcHidVecs
 %         % attn_t = alignWeights*srcHidVecs;
-%         grad_srcHidVecs = bsxfun(@times, h2sInfo.alignWeights, grad_attn); % alignWeights*grad_attn
+%         grad_srcHidVecs = bsxfun(@times, h2sInfo.alignWeights, grad_contextVecs); % alignWeights*grad_contextVecs
 %         
-%         % grad_align_weights = srcHidVecs' * grad_attn
+%         % grad_align_weights = srcHidVecs' * grad_contextVecs
 %         srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize], params.isGPU, params.dataType);
 %         srcHidVecs(:, h2sInfo.unmaskedIds) = reshape(trainData.srcHidVecs(h2sInfo.linearIndices), params.lstmSize, length(h2sInfo.unmaskedIds)); 
-%         grad_alignWeights = sum(srcHidVecs.*grad_attn);
+%         grad_alignWeights = sum(srcHidVecs.*grad_contextVecs);
 %         
 %         % align_weights = sigmoid(align_scores)
 %         

@@ -45,6 +45,9 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
     data.curMask.maskedIds = [];
 
     data.srcHidVecsOrig = zeroMatrix([params.lstmSize, curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);  
+    if params.attnGlobal && params.attnOpt==1
+      data.alignMask = data.srcMask(:, 1:params.numSrcHidVecs)'; % numSrcHidVecs * curBatchSize
+    end
   else
     params.numSrcHidVecs = 0;
   end
@@ -174,14 +177,8 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, softma
   %curMask.mask = ones(1, batchSize);
   %tgtPos = 1;
   matrixName = 'W_soft';
-%   if params.posModel>=1 % we predict positions
-%     matrixName = 'W_softPos';
-%   end
   [scores, words] = nextBeamStep(model.(matrixName), softmax_h, beamSize); %lstmStart{numLayers}.h_t, beamSize, params, data, curMask, tgtPos); % scores, words: beamSize * batchSize
-%   if params.posModel>=1
-%     words = words + params.startPosId - 1;
-%   end
-  
+
   % TODO: by right, we should filter out words == params.tgtEos, but I
   % think for good models, we don't have to worry :)
   
@@ -212,10 +209,17 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, softma
     curMask.mask = ones(1, curBatchSize);
     curMask.unmaskedIds = 1:curBatchSize;
     data.curBatchSize = curBatchSize;
+    params.curBatchSize = curBatchSize;
     
     % duplicate srcHidVecs
     if params.attnGlobal % soft, global
-      [data.absSrcHidVecs] = duplicateSrcHidVecs(data.absSrcHidVecs, batchSize, beamSize);
+      data.absSrcHidVecs = duplicateSrcHidVecs(data.absSrcHidVecs, batchSize, beamSize);
+      
+      if params.attnOpt==1
+         % alignMask: batchSize * numSrcHidVecs
+         % alignMask: numSrcHidVecs * (batchSize*beamSize), mask columns of the same sentence are nearby
+         data.alignMask = reshape(repmat(data.alignMask, 1, beamSize)', params.numSrcHidVecs, numElements);
+      end
     else % hard, local
       data.srcHidVecs = duplicateSrcHidVecs(data.srcHidVecsOrig, batchSize, beamSize);
     end
@@ -250,15 +254,6 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, softma
     %   (maxLen+1), ending in R(root) <eos>.
     tgtPos = sentPos+1;
     
-%     % position models
-%     if params.posModel>=1
-%       if mod(tgtPos, 2)==1 % positions
-%         matrixName = 'W_softPos';
-%       else
-%         matrixName = 'W_soft';
-%       end
-%     end
-    
     %% compute next lstm hidden states
     words = beamHistory(sentPos, :);
     for ll = 1 : numLayers
@@ -266,15 +261,6 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, softma
       % current input
       if ll == 1
         x_t = getLstmDecoderInput(words, tgtPos, W_emb, softmax_h, data, zeroState, params); %, curMask);
-%         % pos model predict words
-%         if params.posModel>0 && mod(tgtPos, 2)==0 
-%           if params.posModel==2
-%             W = W_tgt_combined;
-%           end
-%           if params.posModel==3
-%             data.positions = words;
-%           end
-%         end
       else
         x_t = beamStates{ll-1}.h_t;
       end
@@ -296,9 +282,6 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, softma
     end
     
     %% predict the next word
-%     if params.attnRelativePos % relative pos
-%       [data.srcHidVecs] = computeRelativeSrcHidVecs(data.srcHidVecsOrig, srcMaxLen, tgtPos, batchSize, params, beamSize);
-%     end
 
     if params.sameLength && sentPos == (maxLen-1) % same length decoding
       [~, ~, logProbs] = nextBeamStep(model.(matrixName), softmax_h, beamSize); %beamStates{numLayers}.h_t, beamSize, params, data, curMask, tgtPos);
@@ -307,9 +290,6 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, softma
       card = 1;
     else
       [allBestScores, allBestWords] = nextBeamStep(model.(matrixName), softmax_h, beamSize); %beamStates{numLayers}.h_t, beamSize, params, data, curMask, tgtPos); % beamSize * (beamSize*batchSize)
-%       if params.posModel>=1 && mod(tgtPos, 2)==1 % positions
-%         allBestWords = allBestWords + params.startPosId - 1;
-%       end
       card = beamSize;
     end
     [allBestScores, allBestWords, indices] = addSortScores(allBestScores, allBestWords, beamScores, card, beamSize, batchSize);

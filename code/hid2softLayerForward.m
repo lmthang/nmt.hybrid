@@ -39,13 +39,14 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
         [contextVecs, h2sInfo] = gaussAttnVecs(mu, srcHidVecs, h2sInfo, trainData, params);
       else
         if params.attnGlobal && params.attnOpt==1
-          % TODO: DOT PRODUCT, REMEMBER TO MULTIPLY MASKS TO THE ALIGNMENT WEIGHTS
           % srcHidVecs: lstmSize * curBatchSize * numSrcHidVecs
           % h_t: lstmSize * curBatchSize
           alignScores = squeeze(sum(bsxfun(@times, srcHidVecs, h_t), 1))'; % numSrcHidVecs * curBatchSize
-          alignMask = trainData.srcMask(:, 1:params.numSrcHidVecs)'; % numSrcHidVecs * curBatchSize
-          alignLinearIds = find(alignMask==1);
-          h2sInfo.alignWeights = softmaxMask(alignScores, alignLinearIds, params); % numSrcHidVecs * curBatchSize
+          if params.curBatchSize==1 % because after squeeze also make the dim curBatchSize disapppears
+            alignScores = alignScores';
+          end
+          alignLinearIds = find(trainData.alignMask==1);
+          h2sInfo.alignWeights = normLayerForward(alignScores, alignLinearIds, params); % numSrcHidVecs * curBatchSize
           
           [contextVecs] = contextLayerForward(h2sInfo.alignWeights, srcHidVecs);
         else
@@ -57,7 +58,7 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
       if params.assert
         if params.attnGlobal && params.attnOpt==1
           assert(isequal(size(h2sInfo.alignWeights), [params.numSrcHidVecs, params.curBatchSize]));
-          assert(isequal(size(h2sInfo.alignWeights), size(alignMask)));
+          assert(isequal(size(h2sInfo.alignWeights), size(trainData.alignMask)));
           assert(isequal(size(h2sInfo.alignWeights), size(alignScores)));
         else
           assert(isequal(size(h2sInfo.alignWeights), [params.numAttnPositions, params.curBatchSize]));
