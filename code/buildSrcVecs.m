@@ -14,26 +14,26 @@
 % srcPositions = srcMaxLen - srcPositions
 function [srcVecsSub, h2sInfo] = buildSrcVecs(srcVecsAll, srcPositions, curMask, params, h2sInfo) % startAttnIds, endAttnIds, startIds, endIds, indices
   posWin = params.posWin;
-  numAttnPositions = 2*posWin+1;
+  numPositions = 2*posWin+1;
   [lstmSize, batchSize, numSrcHidVecs] = size(srcVecsAll);
   
   % masking
   srcPositions(curMask.maskedIds) = [];
   unmaskedIds = curMask.unmaskedIds;
   
-  % flatten matrices of size batchSize*numAttnPositions (not exactly batch size but close)
+  % flatten matrices of size batchSize*numPositions (not exactly batch size but close)
   % init. IMPORTANT: don't swap these two lines
-  % assume unmaskedIds = [1, 2, 3, 4, 5], numAttnPositions=3
-  indicesSub = reshape(repmat(1:numAttnPositions, length(unmaskedIds), 1), 1, []); % 1 1 1 1 1 2 2 2 2 2 3 3 3 3 3
-  unmaskedIds = repmat(unmaskedIds, 1, numAttnPositions); % 1 2 3 4 5 1 2 3 4 5 1 2 3 4 5
+  % assume unmaskedIds = [1, 2, 3, 4, 5], numPositions=3
+  indicesSub = reshape(repmat(1:numPositions, length(unmaskedIds), 1), 1, []); % 1 1 1 1 1 2 2 2 2 2 3 3 3 3 3
+  unmaskedIds = repmat(unmaskedIds, 1, numPositions); % 1 2 3 4 5 1 2 3 4 5 1 2 3 4 5
   
   % Note: generate multiple sequences of the same lengths without using for loop, see this post for many elegant solutions
   % http://www.mathworks.com/matlabcentral/answers/217205-fast-ways-to-generate-multiple-sequences-without-using-for-loop
   % The below version is the only solution that is faster than for loop (3 times).
-  % If startAttnIds = [ 2 4 6 8 10 ] and numAttnPositions=3
+  % If startAttnIds = [ 2 4 6 8 10 ] and numPositions=3
   % then indicesAll = [ 2 4 6 8 10 3 5 7 9 11 4 6 8 10 12 ].
   startAttnIds = srcPositions-posWin;
-  indicesAll = reshape(bsxfun(@plus, startAttnIds(:), 0:(numAttnPositions-1)), 1, []); 
+  indicesAll = reshape(bsxfun(@plus, startAttnIds(:), 0:(numPositions-1)), 1, []); 
   
   % check those that are out of boundaries
   excludeIds = find(indicesAll>numSrcHidVecs | indicesAll<1);
@@ -43,40 +43,50 @@ function [srcVecsSub, h2sInfo] = buildSrcVecs(srcVecsAll, srcPositions, curMask,
   
   h2sInfo.indicesAll = indicesAll;
   h2sInfo.unmaskedIds = unmaskedIds;
+  
   if ~isempty(unmaskedIds)
-    srcVecsSub = zeroMatrix([lstmSize, batchSize*numAttnPositions], params.isGPU, params.dataType);
+    srcVecsSub = zeroMatrix([lstmSize, batchSize*numPositions], params.isGPU, params.dataType);
     
     % create linear indices
-    h2sInfo.linearIdSub = sub2ind([batchSize, numAttnPositions], unmaskedIds, indicesSub);
+    h2sInfo.linearIdSub = sub2ind([batchSize, numPositions], unmaskedIds, indicesSub);
     h2sInfo.linearIdAll = sub2ind([batchSize, numSrcHidVecs], unmaskedIds, indicesAll);
 
     % create srcVecs
     srcVecsAll = reshape(srcVecsAll, lstmSize, []);
     srcVecsSub(:, h2sInfo.linearIdSub) = srcVecsAll(:, h2sInfo.linearIdAll);
-    srcVecsSub = reshape(srcVecsSub, [lstmSize, batchSize, numAttnPositions]);
+    srcVecsSub = reshape(srcVecsSub, [lstmSize, batchSize, numPositions]);
   else
-    srcVecsSub = zeroMatrix([lstmSize, batchSize, numAttnPositions], params.isGPU, params.dataType);
+    srcVecsSub = zeroMatrix([lstmSize, batchSize, numPositions], params.isGPU, params.dataType);
     h2sInfo.linearIdSub = [];
     h2sInfo.linearIdAll = [];
   end
   
+  if params.attnOpt==1 % compare with src hidden states
+    h2sInfo.alignMask = zeroMatrix([batchSize, numPositions], params.isGPU, params.dataType);
+    h2sInfo.alignMask(h2sInfo.linearIdSub) = 1;
+    h2sInfo.alignMask = h2sInfo.alignMask'; % numPositions * batchSize
+    
+    if params.assert
+      assert(isequal(size(h2sInfo.alignMask), [numPositions, batchSize])==1);
+    end
+  end
 end
 
 %% old version %%
 %   posWin = params.posWin;
-%   numAttnPositions = 2*posWin+1;
+%   numPositions = 2*posWin+1;
 %   [lstmSize, batchSize, numSrcHidVecs] = size(srcVecsAll);
-%   srcVecs = zeroMatrix([lstmSize, batchSize*numAttnPositions], params.isGPU, params.dataType);
+%   srcVecs = zeroMatrix([lstmSize, batchSize*numPositions], params.isGPU, params.dataType);
 %   
 %   % these variables access srcVecsAll, lstmSize * batchSize * numSrcHidVecs
 %   % telling us where to pay our attention to.
 %   startAttnIds = srcPositions-posWin;
 %   endAttnIds = srcPositions + posWin;
 %   
-%   % these variables are for srcVecs, lstmSize * batchSize * numAttnPositions
-%   % numAttnPositions = 2*posWin+1
+%   % these variables are for srcVecs, lstmSize * batchSize * numPositions
+%   % numPositions = 2*posWin+1
 %   startIds = ones(1, batchSize);
-%   endIds = numAttnPositions*ones(1, batchSize);
+%   endIds = numPositions*ones(1, batchSize);
 %   
 %   %% boundary condition for startAttnIds
 %   indices = find(startAttnIds<1);
@@ -88,7 +98,7 @@ end
 %   indices = find(endAttnIds>numSrcHidVecs);
 %   endIds(indices) = endIds(indices) - (endAttnIds(indices)-numSrcHidVecs);
 %   endAttnIds(indices) = numSrcHidVecs; % Note: don't swap these two lines
-%   % here, we are sure that endHidId<=numAttnPositions, endAttnId<=numSrcHidVecs
+%   % here, we are sure that endHidId<=numPositions, endAttnId<=numSrcHidVecs
 %   
 %   %% last boundary condition checks
 %   flags = startIds<=endIds & startAttnIds<=endAttnIds & flags;

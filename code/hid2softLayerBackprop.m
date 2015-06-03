@@ -58,17 +58,17 @@ function [grad_ht, hid2softGrad, grad_srcHidVecs] = hid2softLayerBackprop(model,
         % grad_alignWeights -> grad_scores
         [grad_scores] = normLayerBackprop(grad_alignWeights, h2sInfo.alignWeights, params);
 
-        if params.attnGlobal && params.attnOpt==1
+        if params.attnOpt==0 % no src compare
+          % grad_scores -> grad_W_a, inGrad
+          % s_t = W_a * h_t
+          [grad_ht, hid2softGrad.W_a] = linearLayerBackprop(model.W_a, grad_scores, h2sInfo.h_t);  
+        elseif params.attnOpt==1
           % srcHidVecs: lstmSize * batchSize * numPositions
           % grad_scores: numPositions * batchSize
           % h_t: lstmSize * batchSize
           grad_scores = permute(grad_scores, [3, 2, 1]); % batchSize * numPositions
           grad_ht = sum(bsxfun(@times, srcHidVecs, grad_scores), 3); % sum along numPositions: lstmSize * batchSize
           grad_srcHidVecs = grad_srcHidVecs + bsxfun(@times, h2sInfo.h_t, grad_scores); % add to the existing grad_srcHidVecs
-        else
-          % grad_scores -> grad_W_a, inGrad
-          % s_t = W_a * h_t
-          [grad_ht, hid2softGrad.W_a] = linearLayerBackprop(model.W_a, grad_scores, h2sInfo.h_t);  
         end
       end
       

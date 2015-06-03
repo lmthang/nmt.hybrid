@@ -38,17 +38,22 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
       if params.predictPos==3
         [h2sInfo] = gaussLayerForward(mu, h2sInfo, trainData, params);
       else
-        if params.attnGlobal && params.attnOpt==1
+        if params.attnOpt==0 % no src state comparison
+          h2sInfo.alignWeights = softmax(model.W_a*h_t); % numAttnPositions*curBatchSize
+        elseif params.attnOpt==1 % src state comparison
           % srcHidVecs: lstmSize * curBatchSize * numSrcHidVecs
           % h_t: lstmSize * curBatchSize
           alignScores = squeeze(sum(bsxfun(@times, srcHidVecs, h_t), 1))'; % numSrcHidVecs * curBatchSize
           if params.curBatchSize==1 % because after squeeze also make the dim curBatchSize disapppears
             alignScores = alignScores';
           end
+          
+          if params.attnGlobal==0
+            trainData.alignMask = h2sInfo.alignMask;
+          end
+          
           alignLinearIds = find(trainData.alignMask==1);
           h2sInfo.alignWeights = normLayerForward(alignScores, alignLinearIds, params); % numSrcHidVecs * curBatchSize
-        else
-          h2sInfo.alignWeights = softmax(model.W_a*h_t); % numAttnPositions*curBatchSize
         end
       end
       
