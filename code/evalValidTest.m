@@ -24,12 +24,7 @@ function [params] = evalValidTest(model, validData, testData, params)
       logStr = sprintf('%.4f, ', testCosts.pos);
     elseif params.predictPos==2 % classification
       logStr = sprintf('%.2f, ', exp(testCosts.pos));
-    end
-    
-    if params.predictNull
-      params.curTestPerpNull = exp(testCosts.null);
-      logStr = sprintf('%s%.2f, ', logStr, params.curTestPerpNull);
-    end
+    end    
   else
     logStr = '';
   end
@@ -87,3 +82,9 @@ function [evalCosts] = evalCost(model, data, params) %input, inputMask, tgtOutpu
     [evalCosts] = updateCosts(evalCosts, costs, params);
   end
 end
+
+%     if params.predictNull
+%       params.curTestPerpNull = exp(testCosts.null);
+%       logStr = sprintf('%s%.2f, ', logStr, params.curTestPerpNull);
+%     end
+

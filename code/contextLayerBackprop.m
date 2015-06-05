@@ -24,7 +24,11 @@ function [grad_alignWeights, grad_srcHidVecs] = contextLayerBackprop(grad_contex
   grad_srcHidVecs = bsxfun(@times, grad_contextVecs, permute(alignWeights, [3, 2, 1])); % change alignWeights -> 1 * batchSize * numPositions
   
   %% grad_alignWeights
-  grad_alignWeights = squeeze(sum(bsxfun(@times, srcHidVecs, grad_contextVecs), 1))'; % sum across lstmSize: numPositions * batchSize
+  if size(srcHidVecs, 3)==1
+    grad_alignWeights = sum(bsxfun(@times, srcHidVecs, grad_contextVecs), 1); % sum across lstmSize: numPositions * batchSize
+  else
+    grad_alignWeights = squeeze(sum(bsxfun(@times, srcHidVecs, grad_contextVecs), 1))'; % sum across lstmSize: numPositions * batchSize
+  end
   
   
   %% assert

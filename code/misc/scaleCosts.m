@@ -4,9 +4,9 @@ function [curCosts] = scaleCosts(curCosts, counts, params)
 
   if params.posSignal
     curCosts.pos = curCosts.pos/counts.pos;
-    
-    if params.predictNull
-      curCosts.null = curCosts.null/counts.null;
-    end
   end
 end
+
+%     if params.predictNull
+%       curCosts.null = curCosts.null/counts.null;
+%     end

@@ -3,10 +3,10 @@ function [curCosts] = updateCosts(curCosts, costs, params)
   curCosts.word = curCosts.word + costs.word;
 
   if params.posSignal % positions
-    curCosts.pos = curCosts.pos + costs.pos;
-    
-    if params.predictNull
-      curCosts.null = curCosts.null + costs.null;
-    end
+    curCosts.pos = curCosts.pos + costs.pos;    
   end
 end
+
+%     if params.predictNull
+%       curCosts.null = curCosts.null + costs.null;
+%     end
