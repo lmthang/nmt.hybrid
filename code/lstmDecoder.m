@@ -17,19 +17,22 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
   input = data.input;
   inputMask = data.inputMask; 
   srcMaxLen = data.srcMaxLen;
-  curBatchSize = size(input, 1);
-  data.curBatchSize = curBatchSize;
-  params.curBatchSize = curBatchSize;
+  batchSize = size(input, 1);
+  data.curBatchSize = batchSize;
+  params.curBatchSize = batchSize;
   
   %printSent(2, input(1, 1:srcMaxLen), params.vocab, 'src 1: ');
   %printSent(2, input(1, srcMaxLen:end), params.vocab, 'tgt 1: ');
   %printSent(2, input(end, 1:srcMaxLen), params.vocab, 'src end: ');
       
   %% init
-  batchSize = size(input, 1);
   zeroState = zeroMatrix([params.lstmSize, batchSize], params.isGPU, params.dataType);
   fprintf(2, '# Decoding batch of %d sents, srcMaxLen=%d, %s\n', batchSize, srcMaxLen, datestr(now));
   fprintf(params.logId, '# Decoding batch of %d sents, srcMaxLen=%d, %s\n', batchSize, srcMaxLen, datestr(now));
+  
+  curMask.mask = ones(1, batchSize);
+  curMask.unmaskedIds = 1:batchSize;
+  curMask.maskedIds = [];
   
   %%%%%%%%%%%%
   %% encode %%
@@ -40,11 +43,9 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
   W_tgt_combined = 0;
   if params.attnFunc || params.sameLength %  || params.posModel>=2
     params.numSrcHidVecs = srcMaxLen-1;
-    data.curMask.mask = ones(1, curBatchSize);
-    data.curMask.unmaskedIds = 1:curBatchSize;
-    data.curMask.maskedIds = [];
+    data.curMask = curMask;
 
-    data.srcHidVecsOrig = zeroMatrix([params.lstmSize, curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);  
+    data.srcHidVecsOrig = zeroMatrix([params.lstmSize, batchSize, params.numSrcHidVecs], params.isGPU, params.dataType);  
     if params.attnGlobal && params.attnOpt==1
       data.alignMask = data.srcMask(:, 1:params.numSrcHidVecs)'; % numSrcHidVecs * curBatchSize
     end
@@ -53,8 +54,7 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
   end
   
   softmax_h = zeroState;
-  curMask.mask = ones(1, batchSize);
-  curMask.unmaskedIds = 1:batchSize;
+  
   W = model.W_src;
   if params.tieEmb % tie embeddings
     W_emb = model.W_emb_tie;
@@ -106,8 +106,31 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
       % h_t -> softmax_h
       if tt==srcMaxLen && ll==params.numLayers
         % masking
-        [data.posMask] = createPosMask(tgtPos, params, data, curMask);
+        %[data.posMask] = createPosMask(tgtPos, params, data, curMask);
         
+        
+        % position predictions
+        if params.predictPos==1 % regression
+          % h_t -> scales=sigmoid(v_pos*h_pos) in [0, 1]
+          scales = scaleLayerForward(model.W_pos, model.v_pos, h_t, params);
+          data.positions = floor(data.srcLens.*scales);
+          data.posMask = curMask;
+        elseif params.predictPos==2 % classification
+          % h_t -> h_pos=f(W_pos*h_t)
+          h_pos = hiddenLayerForward(model.W_pos, h_t, params.nonlinear_f);
+
+          % h_pos -> predictions
+          [probs] = softmax(model.W_softPos*h_pos, curMask.mask);
+  
+          [~, maxIndices] = max(probs, [], 1);
+          curPosOutput = maxIndices + params.startPosId-1;
+          data.posMask.mask = curMask.mask & curPosOutput~=params.nullPosId & curPosOutput~=params.tgtEos;
+          data.posMask.unmaskedIds = find(data.posMask.mask);
+          data.posMask.maskedIds = find(~data.posMask.mask);
+  
+          data.positions = (tgtPos+params.zeroPosId) - curPosOutput; %  = tgtPos - (curPosOutput-zeroPosId)  = srcPos = tgtPos - relative distance
+        end          
+
         [softmax_h] = hid2softLayerForward(h_t, params, model, data, curMask, tgtPos); 
       end
       
@@ -203,13 +226,13 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, softma
   
   curMask.mask = ones(1, batchSize);
   curMask.unmaskedIds = 1:batchSize;
+  curMask.maskedIds = [];
   % attentional / positional models
   if params.attnFunc || params.sameLength % || params.posModel>=2 
-    curBatchSize = numElements;
-    curMask.mask = ones(1, curBatchSize);
-    curMask.unmaskedIds = 1:curBatchSize;
-    data.curBatchSize = curBatchSize;
-    params.curBatchSize = curBatchSize;
+    curMask.mask = ones(1, numElements);
+    curMask.unmaskedIds = 1:numElements;
+    data.curBatchSize = numElements;
+    params.curBatchSize = numElements;
     
     % duplicate srcHidVecs
     if params.attnGlobal % soft, global
@@ -275,7 +298,30 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, softma
       % h_t -> softmax_h
       if ll==params.numLayers
         % pos masking. TODO: FIX HERE for attn 3, 4, ...
-        [data.posMask] = createPosMask(tgtPos, params, data, curMask);
+        %[data.posMask] = createPosMask(tgtPos, params, data, curMask);
+        
+        
+        % position predictions
+        if params.predictPos==1 % regression
+          % h_t -> scales=sigmoid(v_pos*h_pos) in [0, 1]
+          scales = scaleLayerForward(model.W_pos, model.v_pos, h_t, params);
+          data.positions = floor(data.srcLens.*scales);
+          data.posMask = curMask;
+        elseif params.predictPos==2 % classification
+          % h_t -> h_pos=f(W_pos*h_t)
+          h_pos = hiddenLayerForward(model.W_pos, h_t, params.nonlinear_f);
+
+          % h_pos -> predictions
+          [probs] = softmax(model.W_softPos*h_pos, curMask.mask);
+  
+          [~, maxIndices] = max(probs, [], 1);
+          curPosOutput = maxIndices + params.startPosId-1;
+          data.posMask.mask = curMask.mask & curPosOutput~=params.nullPosId & curPosOutput~=params.tgtEos;
+          data.posMask.unmaskedIds = find(data.posMask.mask);
+          data.posMask.maskedIds = find(~data.posMask.mask);
+          
+          data.positions = (tgtPos+params.zeroPosId) - curPosOutput; %  = tgtPos - (curPosOutput-zeroPosId)  = srcPos = tgtPos - relative distance
+        end          
         
         [softmax_h] = hid2softLayerForward(h_t, params, model, data, curMask, tgtPos); 
       end

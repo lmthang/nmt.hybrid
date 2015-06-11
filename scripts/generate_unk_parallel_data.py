@@ -195,11 +195,6 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
   text.write_vocab(out_prefix + '.vocab.' + src_lang, src_words)
   text.write_vocab(out_prefix + '.vocab.' + tgt_lang, tgt_words)
 
- 
-  # unk stats on the target side
-  #num_global_aligned_unks = 0
-  #num_global_unaligned_unks = 0
- 
   line_id = 0
   if is_separate_output:
     sys.stderr.write('# Output to %s* and %s*\n' % (src_id_file, tgt_id_file))
@@ -210,8 +205,6 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
   align_debug = True
   
   num_global_unks = 0
-  #approx_align_found = 0
-  #approx_align_notfound = 0
   global_forw_dist = 0
   global_back_dist = 0
   num_aligns = 0
@@ -234,9 +227,6 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
     src_unk_tokens.append(eos)
 
     ### annotate tgt side
-    #num_aligned_unks = 0
-    #forw_dist = 0
-    #back_dist = 0
     if opt==0 or opt==3: # not using the alignment
       (tgt_unk_tokens, tgt_num_unk_tokens, tgt_num_unk_types) = text.annotate_unk(tgt_tokens, tgt_vocab_map, num_unks)
 
@@ -260,46 +250,11 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
         # stats
         if tgt_token == unk_symbol:
           num_global_unks += 1
-        #  if best_src_pos == -1:
-        #    num_global_unaligned_unks += 1
-        #    num_aligned_unks += 1
-        #  else:
-        #    num_global_aligned_unks += 1
-        #    if tgt_pos>=best_src_pos: # forward movement
-        #      forw_dist += tgt_pos-best_src_pos
-        #      global_forw_dist += tgt_pos-best_src_pos
-        #    else:
-        #      back_dist -= tgt_pos-best_src_pos
-        #      global_back_dist -= tgt_pos-best_src_pos
 
         # annotate
         if opt==1:
-          if best_src_pos==-1: # try to approximate it
+          if best_src_pos==-1:
             num_noaligns = num_noaligns + 1
-            #if tgt_pos>0 and best_src_positions[tgt_pos-1]!=-1: # look left
-            #  best_src_pos = best_src_positions[tgt_pos-1]
-            #  search_count = 1
-            #
-            #if tgt_pos<(len(tgt_tokens)-1) and best_src_positions[tgt_pos+1]!=-1: # look right
-            #  if search_count==0:
-            #    best_src_pos = best_src_positions[tgt_pos+1]
-            #  else:
-            #    best_src_pos = best_src_pos + best_src_positions[tgt_pos+1]
-            #  search_count = search_count + 1
-            #
-            #if search_count>0: # found an approximation
-            #  best_src_pos = best_src_pos/search_count
-            #  approx_align_found = approx_align_found+1 
-
-            #else: # no approximation, use use the tgt_pos
-            #  approx_align_notfound = approx_align_notfound+1 
-            #  best_src_pos = tgt_pos
-            
-            ## make sure the best_src_pos is valid
-            #if best_src_pos<0:
-            #  best_src_pos=0
-            #elif best_src_pos>(len(src_unk_tokens)-2): # exclude eos
-            #  best_src_pos = len(src_unk_tokens)-2
           else:
             num_aligns = num_aligns + 1
             if tgt_pos>=best_src_pos: # forward movement
@@ -471,6 +426,50 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, is_reverse_al
 if __name__ == '__main__':
   args = process_command_line()
   process_files(args.in_prefix, args.src_lang, args.tgt_lang, args.out_prefix, args.freq, args.is_reverse_alignment, args.opt, args.dict_file, args.src_vocab_file, args.tgt_vocab_file, args.src_vocab_size, args.tgt_vocab_size, args.src_output_opt, args.is_separate_output, args.is_separate_pos, args.no_eos, args.window, args.is_absolute)
+
+
+
+    #num_aligned_unks = 0
+    #forw_dist = 0
+    #back_dist = 0
+
+        #  if best_src_pos == -1:
+        #    num_global_unaligned_unks += 1
+        #    num_aligned_unks += 1
+        #  else:
+        #    num_global_aligned_unks += 1
+        #    if tgt_pos>=best_src_pos: # forward movement
+        #      forw_dist += tgt_pos-best_src_pos
+        #      global_forw_dist += tgt_pos-best_src_pos
+        #    else:
+        #      back_dist -= tgt_pos-best_src_pos
+        #      global_back_dist -= tgt_pos-best_src_pos
+
+            #if tgt_pos>0 and best_src_positions[tgt_pos-1]!=-1: # look left
+            #  best_src_pos = best_src_positions[tgt_pos-1]
+            #  search_count = 1
+            #
+            #if tgt_pos<(len(tgt_tokens)-1) and best_src_positions[tgt_pos+1]!=-1: # look right
+            #  if search_count==0:
+            #    best_src_pos = best_src_positions[tgt_pos+1]
+            #  else:
+            #    best_src_pos = best_src_pos + best_src_positions[tgt_pos+1]
+            #  search_count = search_count + 1
+            #
+            #if search_count>0: # found an approximation
+            #  best_src_pos = best_src_pos/search_count
+            #  approx_align_found = approx_align_found+1 
+
+            #else: # no approximation, use use the tgt_pos
+            #  approx_align_notfound = approx_align_notfound+1 
+            #  best_src_pos = tgt_pos
+            
+            ## make sure the best_src_pos is valid
+            #if best_src_pos<0:
+            #  best_src_pos=0
+            #elif best_src_pos>(len(src_unk_tokens)-2): # exclude eos
+            #  best_src_pos = len(src_unk_tokens)-2
+
 
 
             #search_count = 0 
