@@ -156,64 +156,29 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         %% predicting positions
         if params.posSignal
           curPosOutput = trainData.posOutput(:, tgtPos)';
-          
-          %% position predictions
-          if params.predictPos==1 % regression
-            % h_t -> scales=sigmoid(v_pos*h_pos) in [0, 1]
-            [scales, posForwData] = scaleLayerForward(model.W_pos, model.v_pos, h_t{ll}, params);
-            
-            % scales -> L2 loss -> scales
-            refScales = curPosOutput./trainData.srcLens; % from unsupervised alignments
-            [cost_pos, grad_scales] = l2CostGrad(scales, refScales, params.posWeight, trainData.posMask.maskedIds, isTest);
-            costs.total = costs.total + cost_pos;
-            costs.pos = costs.pos + cost_pos;
+          % h_t -> scales=sigmoid(v_pos*h_pos) in [0, 1]
+          [scales, posForwData] = scaleLayerForward(model.W_pos, model.v_pos, h_t{ll}, params);
 
-            % backprop: position loss -> h_t
-            if isTest==0
-              [grad_ht_pos_all{tgtPos}, grad_W_pos, grad_v_pos] = scaleLayerBackprop(model.W_pos, model.v_pos, grad_scales, h_t{ll}, scales, posForwData, params);
+          % scales -> L2 loss -> scales
+          refScales = curPosOutput./trainData.srcLens; % from unsupervised alignments
+          [cost_pos, grad_scales] = l2CostGrad(scales, refScales, params.posWeight, trainData.posMask.maskedIds, isTest);
+          costs.total = costs.total + cost_pos;
+          costs.pos = costs.pos + cost_pos;
 
-              % update grads
-              grad.v_pos = grad.v_pos + grad_v_pos;
-            end
+          % backprop: position loss -> h_t
+          if isTest==0
+            [grad_ht_pos_all{tgtPos}, grad_W_pos, grad_v_pos] = scaleLayerBackprop(model.W_pos, model.v_pos, grad_scales, h_t{ll}, scales, posForwData, params);
 
-            trainData.positions = curPosOutput; % NOTE: by using this at test time, we compute an oracle word perplexity
+            % update grads
+            grad.v_pos = grad.v_pos + grad_v_pos;
+          end
 
-            % assert
-            if params.assert
-              assert(isempty(find(refScales(trainData.posMask.unmaskedIds)<0 | refScales(trainData.posMask.unmaskedIds)>1, 1))); % we assume that the reference positions are in [0, 1].
-            end
-          elseif params.predictPos==2 % classification
-            % h_t -> h_pos=f(W_pos*h_t)
-            h_pos = hiddenLayerForward(model.W_pos, h_t{ll}, params.nonlinear_f);
-          
-            % h_t_pos -> position loss
-            softmaxPositions = curPosOutput-params.startPosId+1; %+params.maxRelDist+1; % curPosOutput is in [-params.maxRelDist, params.maxRelDist]. the value params.maxRelDist+1 in curPosOutput marks eos.
-            [cost_pos, probs_pos, ~, scoreIndices_pos] = softmaxLayerForward(model.W_softPos, h_pos, softmaxPositions, trainData.posMask);
-            costs.total = costs.total + params.posWeight*cost_pos;
-            costs.pos = costs.pos + params.posWeight*cost_pos;
+          trainData.positions = floor(trainData.srcLens.*refScales); %curPosOutput; % NOTE: by using this at test time, we compute an oracle word perplexity
 
-            % backprop: position loss -> h_pos
-            if isTest==0
-              % loss -> h_pos
-              [grad_W_soft, grad_h_pos] = softmaxLayerBackprop(model.W_softPos, h_pos, probs_pos, scoreIndices_pos);
-              grad_h_pos = params.posWeight*grad_h_pos;
-              grad_W_soft = params.posWeight*grad_W_soft;
-              
-              % h_pos -> h_t
-              [grad_ht_pos_all{tgtPos}, grad_W_pos] = hiddenLayerBackprop(model.W_pos, grad_h_pos, h_t{ll}, params.nonlinear_f_prime, h_pos);
-
-              % update grads
-              grad.W_softPos = grad.W_softPos + grad_W_soft;
-              
-              % assert
-              if params.assert
-                assert(sum(sum(abs(grad_h_pos(:, trainData.posMask.maskedIds))))==0);
-              end
-            end
-            
-            %% TODO: do argmax positions here when isTest==1
-            trainData.positions = (tgtPos+params.zeroPosId) - curPosOutput; %  = tgtPos - (curPosOutput-zeroPosId)  = srcPos = tgtPos - relative distance
-          end          
+          % assert
+          if params.assert
+            assert(isempty(find(refScales(trainData.posMask.unmaskedIds)<0 | refScales(trainData.posMask.unmaskedIds)>1, 1))); % we assume that the reference positions are in [0, 1].
+          end
           
           if isTest==0
             % update grads
@@ -498,6 +463,43 @@ function [grad, params] = initGrad(model, params)
     params.numSrcHidVecs = 0;
   end
 end
+
+%           %% position predictions
+%           if params.predictPos==1 % regression
+%             
+%           elseif params.predictPos==2 % classification
+%             % h_t -> h_pos=f(W_pos*h_t)
+%             h_pos = hiddenLayerForward(model.W_pos, h_t{ll}, params.nonlinear_f);
+%           
+%             % h_t_pos -> position loss
+%             softmaxPositions = curPosOutput-params.startPosId+1; %+params.maxRelDist+1; % curPosOutput is in [-params.maxRelDist, params.maxRelDist]. the value params.maxRelDist+1 in curPosOutput marks eos.
+%             [cost_pos, probs_pos, ~, scoreIndices_pos] = softmaxLayerForward(model.W_softPos, h_pos, softmaxPositions, trainData.posMask);
+%             costs.total = costs.total + params.posWeight*cost_pos;
+%             costs.pos = costs.pos + params.posWeight*cost_pos;
+% 
+%             % backprop: position loss -> h_pos
+%             if isTest==0
+%               % loss -> h_pos
+%               [grad_W_soft, grad_h_pos] = softmaxLayerBackprop(model.W_softPos, h_pos, probs_pos, scoreIndices_pos);
+%               grad_h_pos = params.posWeight*grad_h_pos;
+%               grad_W_soft = params.posWeight*grad_W_soft;
+%               
+%               % h_pos -> h_t
+%               [grad_ht_pos_all{tgtPos}, grad_W_pos] = hiddenLayerBackprop(model.W_pos, grad_h_pos, h_t{ll}, params.nonlinear_f_prime, h_pos);
+% 
+%               % update grads
+%               grad.W_softPos = grad.W_softPos + grad_W_soft;
+%               
+%               % assert
+%               if params.assert
+%                 assert(sum(sum(abs(grad_h_pos(:, trainData.posMask.maskedIds))))==0);
+%               end
+%             end
+%             
+%             %% TODO: do argmax positions here when isTest==1
+%             trainData.positions = (tgtPos+params.zeroPosId) - curPosOutput; %  = tgtPos - (curPosOutput-zeroPosId)  = srcPos = tgtPos - relative distance
+%           end          
+
 
 %           %% null predictions
 %           if params.predictNull

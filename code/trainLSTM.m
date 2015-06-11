@@ -190,10 +190,10 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       params.predictPos = 1;
       params.attnGlobal = 0;
       params.posSignal = 1;
-    elseif params.attnFunc==4 % local, hard attention + unsupervised alignments + classification for relative positions
-      params.predictPos = 2;
-      params.attnGlobal = 0;
-      params.posSignal = 1;
+%     elseif params.attnFunc==4 % local, hard attention + unsupervised alignments + classification for relative positions
+%       params.predictPos = 2;
+%       params.attnGlobal = 0;
+%       params.posSignal = 1;
     elseif params.attnFunc==5 % local, hard attention
       params.predictPos = 3;
       params.attnGlobal = 0;
@@ -438,8 +438,8 @@ function [model] = initLSTM(params)
           model.W_var = randomMatrix(params.initRange, [params.softmaxSize, params.lstmSize], params.isGPU, params.dataType);
           model.v_var = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
         end
-      elseif params.predictPos==2 % classification: softmax(W_softPos*h_pos)
-        model.W_softPos = randomMatrix(params.initRange, [params.posVocabSize, params.softmaxSize], params.isGPU, params.dataType);
+%       elseif params.predictPos==2 % classification: softmax(W_softPos*h_pos)
+%         model.W_softPos = randomMatrix(params.initRange, [params.posVocabSize, params.softmaxSize], params.isGPU, params.dataType);
       end
     end
     
