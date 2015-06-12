@@ -105,12 +105,13 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
       
       % h_t -> softmax_h
       if tt==srcMaxLen && ll==params.numLayers
+        data.posMask = curMask;
+        
         % position predictions
         if params.posSignal
           % h_t -> scales=sigmoid(v_pos*h_pos) in [0, 1]
           scales = scaleLayerForward(model.W_pos, model.v_pos, h_t, params);
           data.positions = floor(data.srcLens.*scales);
-          data.posMask = curMask;
         end
         
         [softmax_h] = hid2softLayerForward(h_t, params, model, data, curMask, tgtPos); 
@@ -279,12 +280,13 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, softma
       
       % h_t -> softmax_h
       if ll==params.numLayers
+        data.posMask = curMask;
+        
         % position predictions
         if params.posSignal
           % h_t -> scales=sigmoid(v_pos*h_pos) in [0, 1]
           scales = scaleLayerForward(model.W_pos, model.v_pos, h_t, params);
           data.positions = floor(data.srcLens.*scales);
-          data.posMask = curMask;
         end
         
         [softmax_h] = hid2softLayerForward(h_t, params, model, data, curMask, tgtPos); 
