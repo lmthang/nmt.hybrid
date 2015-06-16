@@ -1,4 +1,4 @@
-function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainData, curMask, tgtPos)
+function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainData, tgtPos)
 %%%
 %
 % From lstm hidden state to softmax hidden state.

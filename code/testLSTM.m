@@ -77,6 +77,9 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
       if strfind(params.(field), '/afs/cs.stanford.edu/u/lmthang') ==1
         params.(field) = strrep(params.(field), '/afs/cs.stanford.edu/u/lmthang', '~');
       end
+      if strfind(params.(field), '/home/lmthang') ==1
+        params.(field) = strrep(params.(field), '/home/lmthang', '~');
+      end    
     end
   end
   

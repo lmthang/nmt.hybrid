@@ -114,7 +114,7 @@ function [candidates, candScores] = lstmDecoder(model, data, params)
           data.positions = floor(data.srcLens.*scales);
         end
         
-        [softmax_h] = hid2softLayerForward(h_t, params, model, data, curMask, tgtPos); 
+        [softmax_h] = hid2softLayerForward(h_t, params, model, data, tgtPos); 
       end
       
       % attentional  models
@@ -289,7 +289,7 @@ function [candidates, candScores] = decodeBatch(model, params, lstmStart, softma
           data.positions = floor(data.srcLens.*scales);
         end
         
-        [softmax_h] = hid2softLayerForward(h_t, params, model, data, curMask, tgtPos); 
+        [softmax_h] = hid2softLayerForward(h_t, params, model, data, tgtPos); 
       end
     end
     

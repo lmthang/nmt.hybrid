@@ -194,7 +194,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         %% predicting words
         % h_t -> softmax_h
         % TODO: save memory here, h2sInfo.input only keeps track of srcHidVecs or attnVecs, but not h_t.
-        [softmax_h, h2sInfoAll{tgtPos}] = hid2softLayerForward(h_t{ll}, params, model, trainData, curMask, tgtPos);
+        [softmax_h, h2sInfoAll{tgtPos}] = hid2softLayerForward(h_t{ll}, params, model, trainData, tgtPos);
         
         % softmax_h -> loss
         predWords = trainData.tgtOutput(:, tgtPos)';
