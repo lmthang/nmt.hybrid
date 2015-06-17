@@ -32,28 +32,27 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
         
         % build context vectors
         [srcHidVecs, h2sInfo] = buildSrcVecs(trainData.srcHidVecs, srcPositions, trainData.posMask, params, h2sInfo);
+        
+        
+        if params.attnGlobal==0 && params.attnOpt==1
+          trainData.alignMask = h2sInfo.alignMask;
+        end
       end % end else if attnGlobal
       
       % f(W_h*[attn_t; tgt_h_t]), attn_t is the context vector in the paper.
       if params.predictPos==3
-        [h2sInfo] = gaussLayerForward(mu, h2sInfo, trainData, params);
+        [distWeights, h2sInfo] = gaussLayerForward(mu, h2sInfo, trainData, params);
+        
+        if params.attnOpt==0 % no src state comparison
+          h2sInfo.alignWeights = distWeights; % numAttnPositions*curBatchSize
+        elseif params.attnOpt==1 % src state comparison
+          h2sInfo.alignWeights = compareSrcStates(srcHidVecs, h_t, trainData.alignMask, params) .* distWeights; % weighted by distances
+        end
       else
         if params.attnOpt==0 % no src state comparison
           h2sInfo.alignWeights = softmax(model.W_a*h_t); % numAttnPositions*curBatchSize
         elseif params.attnOpt==1 % src state comparison
-          % srcHidVecs: lstmSize * curBatchSize * numSrcHidVecs
-          % h_t: lstmSize * curBatchSize
-          alignScores = squeeze(sum(bsxfun(@times, srcHidVecs, h_t), 1))'; % numSrcHidVecs * curBatchSize
-          if params.curBatchSize==1 % because after squeeze also make the dim curBatchSize disapppears
-            alignScores = alignScores';
-          end
-          
-          if params.attnGlobal==0
-            trainData.alignMask = h2sInfo.alignMask;
-          end
-          
-          alignLinearIds = find(trainData.alignMask==1);
-          h2sInfo.alignWeights = normLayerForward(alignScores, alignLinearIds, params); % numSrcHidVecs * curBatchSize
+          [h2sInfo.alignWeights] = compareSrcStates(srcHidVecs, h_t, trainData.alignMask, params);
         end
       end
       
@@ -64,8 +63,6 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
       if params.assert
         if params.attnGlobal && params.attnOpt==1
           assert(isequal(size(h2sInfo.alignWeights), [params.numSrcHidVecs, params.curBatchSize]));
-          assert(isequal(size(h2sInfo.alignWeights), size(trainData.alignMask)));
-          assert(isequal(size(h2sInfo.alignWeights), size(alignScores)));
         else
           assert(isequal(size(h2sInfo.alignWeights), [params.numAttnPositions, params.curBatchSize]));
         end
