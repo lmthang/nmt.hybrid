@@ -198,7 +198,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       params.predictPos = 3;
       params.attnGlobal = 0;
       params.posSignal = 0;
-      assert(params.attnOpt==0); % we can't use attnOpt==1 since our alignment weights are from the Gaussian
     else
       error('Invalid attnFunc option %d\n', params.attnFunc);
     end
