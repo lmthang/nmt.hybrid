@@ -136,11 +136,11 @@ def process_files(in_file, out_file):
   inf.close()
   ouf.close()
 
-  # save image
-  os.chdir('/home/lmthang/bin/misc')
-  command = '/afs/cs/software/bin/matlab_r2014b -nodesktop -nodisplay -nosplash -r \"plotData(\'%s\',1,1,1,\'outFile\',\'%s.png\');exit;\"' % (out_file, out_file)
-  sys.stderr.write('# Executing: %s\n' % command)
-  os.system(command)
+  ## save image
+  #os.chdir('/home/lmthang/bin/misc')
+  #command = '/afs/cs/software/bin/matlab_r2014b -nodesktop -nodisplay -nosplash -r \"plotData(\'%s\',1,1,1,\'outFile\',\'%s.png\');exit;\"' % (out_file, out_file)
+  #sys.stderr.write('# Executing: %s\n' % command)
+  #os.system(command)
 
 if __name__ == '__main__':
   args = process_command_line()

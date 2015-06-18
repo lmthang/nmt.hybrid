@@ -135,7 +135,7 @@ def process_files(in_prefix, src_lang, tgt_lang, out_prefix, freq, opt, src_voca
   for src_id in bi_counts.keys():
     for tgt_id in bi_counts[src_id].keys():
       bi_count = bi_counts[src_id][tgt_id]
-      if bi_count<100: continue
+      if bi_count<10: continue
       p_src_given_tgt = float(bi_count)/float(tgt_counts[tgt_id])
       p_tgt_given_src = float(bi_count)/float(src_counts[src_id])
       
