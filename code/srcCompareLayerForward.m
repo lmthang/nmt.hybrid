@@ -10,7 +10,7 @@
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 %
 %%% 
-function [alignWeights] = compareSrcStates(srcHidVecs, h_t, alignMask, params)
+function [alignWeights] = srcCompareLayerForward(srcHidVecs, h_t, alignMask, params)
   alignScores = squeeze(sum(bsxfun(@times, srcHidVecs, h_t), 1))'; % numSrcHidVecs * curBatchSize
   if params.curBatchSize==1 || size(srcHidVecs, 3)==1 % handle special cases that causing squeezing to transpose row/col vectors.
     alignScores = alignScores';

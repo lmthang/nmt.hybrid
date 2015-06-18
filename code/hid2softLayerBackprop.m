@@ -8,7 +8,7 @@
 function [grad_ht, hid2softGrad, grad_srcHidVecs] = hid2softLayerBackprop(model, grad_softmax_h, trainData, h2sInfo, params) %isPredictPos, params)
   grad_srcHidVecs = [];
   
-  if params.softmaxDim || params.attnFunc %|| (params.posModel==3 && isPredictPos==0)
+  if params.softmaxDim || params.attnFunc
     % softmax_h -> h_t
     [grad_input, hid2softGrad.W_h] = hiddenLayerBackprop(model.W_h, grad_softmax_h, h2sInfo.input, params.nonlinear_f_prime, h2sInfo.softmax_h);
     
@@ -36,17 +36,38 @@ function [grad_ht, hid2softGrad, grad_srcHidVecs] = hid2softLayerBackprop(model,
       
       % grad_contextVecs -> grad_ht, grad_W_a, grad_srcHidVecs
       if params.predictPos==3
-        % since linearIdSub is for matrix of size [curBatchSize, numAttnPositions], 
-        % we need to transpose grad_alignWeights to be of that size.
-        grad_alignWeights = grad_alignWeights';
-        h2sInfo.alignWeights = h2sInfo.alignWeights';
-        
-        % grad_alignWeights -> grad_variances, grad_mu
-        [grad_mu, grad_variances] = gaussLayerBackprop(grad_alignWeights, h2sInfo, params);
-        
-        % grad_variances -> grad_h_t, grad_W_var, grad_v_var, scales=sigmoid(v_pos*f(W_pos*h_t)) in [0, 1]
-        [grad_ht, hid2softGrad.W_var, hid2softGrad.v_var] = scaleLayerBackprop(model.W_var, model.v_var, grad_variances, h2sInfo.h_t, ...
-          h2sInfo.origVariances, h2sInfo.varForwData, params);
+        if params.attnOpt==0 
+          % since linearIdSub is for matrix of size [curBatchSize, numAttnPositions], 
+          % we need to transpose grad_alignWeights to be of that size.
+          grad_alignWeights = grad_alignWeights';
+          h2sInfo.alignWeights = h2sInfo.alignWeights';
+          
+          % grad_alignWeights -> grad_variances, grad_mu
+          [grad_mu, grad_variances] = gaussLayerBackprop(grad_alignWeights, h2sInfo, params);
+
+          % grad_variances -> grad_h_t, grad_W_var, grad_v_var, scales=sigmoid(v_pos*f(W_pos*h_t)) in [0, 1]
+          [grad_ht, hid2softGrad.W_var, hid2softGrad.v_var] = scaleLayerBackprop(model.W_var, model.v_var, grad_variances, h2sInfo.h_t, ...
+            h2sInfo.origVariances, h2sInfo.varForwData, params);
+        else
+          % grad_alignWeights -> grad_distWeights, grad_compareWeights
+          grad_distWeights = grad_alignWeights.*h2sInfo.compareWeights;
+          grad_compareWeights = grad_alignWeights.*h2sInfo.distWeights;
+          
+          % since linearIdSub is for matrix of size [curBatchSize, numAttnPositions], 
+          % we need to transpose grad_alignWeights to be of that size.
+          grad_distWeights = grad_distWeights';
+          h2sInfo.distWeights = h2sInfo.distWeights';
+          
+          % grad_distWeights -> grad_mu
+          [grad_mu] = distLayerBackprop(grad_distWeights, h2sInfo, params);
+          
+          % grad_compareWeights -> grad_scores
+          [grad_scores] = normLayerBackprop(grad_compareWeights, h2sInfo.compareWeights, params);
+          
+          % grad_scores -> grad_ht, grad_srcHidVecs
+          [grad_ht, grad_srcHidVecs1] = srcCompareLayerBackprop(grad_scores, srcHidVecs, h2sInfo.h_t);
+          grad_srcHidVecs = grad_srcHidVecs + grad_srcHidVecs1; % add to the existing grad_srcHidVecs
+        end
         
         % grad_mu -> grad_scales
         grad_scales = trainData.srcLens.*grad_mu;
@@ -63,12 +84,9 @@ function [grad_ht, hid2softGrad, grad_srcHidVecs] = hid2softLayerBackprop(model,
           % s_t = W_a * h_t
           [grad_ht, hid2softGrad.W_a] = linearLayerBackprop(model.W_a, grad_scores, h2sInfo.h_t);  
         elseif params.attnOpt==1
-          % srcHidVecs: lstmSize * batchSize * numPositions
-          % grad_scores: numPositions * batchSize
-          % h_t: lstmSize * batchSize
-          grad_scores = permute(grad_scores, [3, 2, 1]); % batchSize * numPositions
-          grad_ht = sum(bsxfun(@times, srcHidVecs, grad_scores), 3); % sum along numPositions: lstmSize * batchSize
-          grad_srcHidVecs = grad_srcHidVecs + bsxfun(@times, h2sInfo.h_t, grad_scores); % add to the existing grad_srcHidVecs
+          % grad_scores -> grad_ht, grad_srcHidVecs
+          [grad_ht, grad_srcHidVecs1] = srcCompareLayerBackprop(grad_scores, srcHidVecs, h2sInfo.h_t);
+          grad_srcHidVecs = grad_srcHidVecs + grad_srcHidVecs1; % add to the existing grad_srcHidVecs
         end
       end
       

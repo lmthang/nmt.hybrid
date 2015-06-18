@@ -80,6 +80,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'posWin', 5, @isnumeric); % relative window, used for attnFunc~=1
   addOptional(p,'maxRelDist', 20, @isnumeric); % attnFunc 4 to determine the posVocabSize=2*maxRelDis + 1 + 1 (for eos). we don't want to change this much (depends on how the training data was generated)
   addOptional(p,'posWeight', 1.0, @isnumeric); % weight the pos cost objective, for attn3, 4
+  addOptional(p,'distSigma', 2.0, @isnumeric); % scale distance for attn5, opt1
 
   %% research options  
   addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
@@ -114,8 +115,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.nonlinear_f = @tanh;
   params.nonlinear_f_prime = @tanhPrime;
  
-  params.sqrt2pi = sqrt(2*pi);
-  
   % decode params
   params.beamSize = 12;
   params.stackSize = 100;
@@ -198,6 +197,12 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       params.predictPos = 3;
       params.attnGlobal = 0;
       params.posSignal = 0;
+      if params.attnOpt==0
+        params.sqrt2pi = sqrt(2*pi);
+      else
+        params.distSigma = params.posWin/2.0;
+      end
+
     else
       error('Invalid attnFunc option %d\n', params.attnFunc);
     end
@@ -433,12 +438,10 @@ function [model] = initLSTM(params)
       if params.predictPos==1 || params.predictPos==3 % regression, scale=sigmoid(v_pos*h_pos)
         model.v_pos = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
         
-        if params.predictPos==3 % predict variance = sigmoid(v_sig*f(W_sig*h_t))
+        if params.predictPos==3 && params.attnOpt==0 % predict variance = sigmoid(v_sig*f(W_sig*h_t))
           model.W_var = randomMatrix(params.initRange, [params.softmaxSize, params.lstmSize], params.isGPU, params.dataType);
           model.v_var = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
         end
-%       elseif params.predictPos==2 % classification: softmax(W_softPos*h_pos)
-%         model.W_softPos = randomMatrix(params.initRange, [params.posVocabSize, params.softmaxSize], params.isGPU, params.dataType);
       end
     end
     
@@ -822,6 +825,10 @@ function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab)
   data.tgtSents = tgtSents;
 end
 
+
+
+%       elseif params.predictPos==2 % classification: softmax(W_softPos*h_pos)
+%         model.W_softPos = randomMatrix(params.initRange, [params.posVocabSize, params.softmaxSize], params.isGPU, params.dataType);
 
 %% null predictions
 %   addOptional(p,'predictNull', 0, @isnumeric); % 1: predicting null symbols

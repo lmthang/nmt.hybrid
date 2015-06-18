@@ -11,17 +11,15 @@ function [grad_mu, grad_variances] = gaussLayerBackprop(grad_alignWeights, h2sIn
   else
     grad_variances = 0.5*grad_alignWeights(h2sInfo.linearIdSub).*h2sInfo.alignWeights(h2sInfo.linearIdSub).*...
       (h2sInfo.scaledPositions.^2./h2sInfo.variances-1./h2sInfo.sigAbs);
-    %assert(sum(sum(abs(grad_variances-grad_variances1)))==0);
   end
 
   % grad_alignWeights -> grad_mu
-  % 0.5*p*(scaleX^2/variance - 1/sigAbs)
+  % p*scaleX/sigAbs
   if params.isGPU
     grad_mu = arrayfun(@gradMu, grad_alignWeights(h2sInfo.linearIdSub), h2sInfo.alignWeights(h2sInfo.linearIdSub), ...
       h2sInfo.scaledPositions, h2sInfo.sigAbs);
   else
     grad_mu = grad_alignWeights(h2sInfo.linearIdSub).*h2sInfo.alignWeights(h2sInfo.linearIdSub).*h2sInfo.scaledPositions./h2sInfo.sigAbs;
-    %assert(sum(sum(abs(grad_mu-grad_mu1)))==0);
   end
 
   % accumulate grad_variances

@@ -41,18 +41,18 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
       
       % f(W_h*[attn_t; tgt_h_t]), attn_t is the context vector in the paper.
       if params.predictPos==3
-        [distWeights, h2sInfo] = gaussLayerForward(mu, h2sInfo, trainData, params);
-        
         if params.attnOpt==0 % no src state comparison
-          h2sInfo.alignWeights = distWeights; % numAttnPositions*curBatchSize
+          [h2sInfo] = gaussLayerForward(mu, h2sInfo, trainData, params); % numAttnPositions*curBatchSize
         elseif params.attnOpt==1 % src state comparison
-          h2sInfo.alignWeights = compareSrcStates(srcHidVecs, h_t, trainData.alignMask, params) .* distWeights; % weighted by distances
+          [h2sInfo.distWeights, h2sInfo.scaleX] = distLayerForward(mu, h2sInfo, trainData, params); % numAttnPositions*curBatchSize
+          h2sInfo.compareWeights = srcCompareLayerForward(srcHidVecs, h_t, trainData.alignMask, params);
+          h2sInfo.alignWeights =  h2sInfo.compareWeights.* h2sInfo.distWeights; % weighted by distances
         end
       else
         if params.attnOpt==0 % no src state comparison
           h2sInfo.alignWeights = softmax(model.W_a*h_t); % numAttnPositions*curBatchSize
         elseif params.attnOpt==1 % src state comparison
-          [h2sInfo.alignWeights] = compareSrcStates(srcHidVecs, h_t, trainData.alignMask, params);
+          [h2sInfo.alignWeights] = srcCompareLayerForward(srcHidVecs, h_t, trainData.alignMask, params);
         end
       end
       
@@ -85,9 +85,10 @@ function [mu, h2sInfo] = regressPositions(model, h_t, srcLens, params)
   % h_t -> scales=sigmoid(v_pos*f(W_pos*h_t)) in [0, 1]
   [h2sInfo.scales, h2sInfo.posForwData] = scaleLayerForward(model.W_pos, model.v_pos, h_t, params);
 
-  % h_t -> variances=sigmoid(v_var*f(W_pos*h_t))
-  [h2sInfo.origVariances, h2sInfo.varForwData] = scaleLayerForward(model.W_var, model.v_var, h_t, params);
-  %h2sInfo.origVariances = h2sInfo.variances;
+  if params.predictPos==3 && params.attnOpt==0 % TODO: remove
+    % h_t -> variances=sigmoid(v_var*f(W_pos*h_t))
+    [h2sInfo.origVariances, h2sInfo.varForwData] = scaleLayerForward(model.W_var, model.v_var, h_t, params);
+  end
 
   % scales -> srcPositions
   mu = h2sInfo.scales.*srcLens;
