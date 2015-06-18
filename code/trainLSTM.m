@@ -66,24 +66,23 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'dropout', 1, @isnumeric); % dropout prob: 1 no dropout, <1: dropout
   addOptional(p,'softmaxDim', 0, @isnumeric); % softmaxDim>0 convert hidden state into an intermediate representation of size softmaxDim before going through the softmax
   % attnFunc=0: no attention.
-  %          >0: a_t = softmax(W_a * [tgt_h_t; srcLens])  
-  %           1: absolute positions + feed to softmax
-  %           2: relative positions + feed to softmax
-  %           3: absolute positions + feed to input (start compute attn from srcMaxLen - 1)
-  %           4: relative positions + feed to input (start compute attn from srcMaxLen - 1)
-  %           5: absolute positions + feed to input (start compute attn from srcMaxLen - 1) + feed to softmax
-  %           6: relative positions + feed to input (start compute attn from srcMaxLen - 1) + feed to softmax
+  %          1: soft attention
+  %          2: hard attention + monotonic alignments
+  %          3: hard attention + unsupervised alignments + regression for absolute pos
+  %          4: hard attention + unsupervised alignments + classification for relative pos
+  %          5: hard attention
   addOptional(p,'attnFunc', 0, @isnumeric);
+  % attnOpt: decide how we generate the alignment weights:
+  %          0: a_t = softmax(W_a * h_t)
+  %          1: a_t = softmax(H_src * h_t)
+  addOptional(p,'attnOpt', 0, @isnumeric);
   addOptional(p,'attnSize', 0, @isnumeric); % dim of the vector used to input to the final softmax, if 0, use lstmSize
-  addOptional(p,'posWin', 20, @isnumeric); % relative window, also used in positional models 
+  addOptional(p,'posWin', 5, @isnumeric); % relative window, used for attnFunc~=1
+  addOptional(p,'maxRelDist', 20, @isnumeric); % attnFunc 4 to determine the posVocabSize=2*maxRelDis + 1 + 1 (for eos). we don't want to change this much (depends on how the training data was generated)
+  addOptional(p,'posWeight', 1.0, @isnumeric); % weight the pos cost objective, for attn3, 4
+  addOptional(p,'distSigma', 2.0, @isnumeric); % scale distance for attn5, opt1
 
   %% research options  
-  % positional models: predict pos, then word, use a separate softmax for pos
-  % 0: separately print out pos/word perplexities
-  % 1: predict pos/word with a separate softmax W_softPos
-  % 2: like 1 + feed in src hidden states to compute tgt hidden states
-  % 3: like 1 + feed in src hidden states to compute softmax
-  addOptional(p,'posModel', -1, @isnumeric);  
   addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
   addOptional(p,'sameLength', 0, @isnumeric); % sameLength=1: output and input are of the same length, so let's feed the src hidden states into the tgt!
   addOptional(p,'tieEmb', 0, @isnumeric); % 1: tie src/tgt embeddings (when src/tgt languages are the same)
@@ -128,16 +127,11 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   end
   
   % params assertions
-  if params.posModel>=0
-    assert(params.isBi==1);
-    assert(params.attnFunc==0);
-  end
-  if params.attnFunc>0 || params.sameLength==1 || params.posModel>=2
+  if params.attnFunc==1 || params.attnFunc==2 || params.sameLength==1
     assert(params.isReverse==1);
   end
   if params.softmaxDim>0
-    assert(params.attnFunc==0 & params.posModel==-1, '! Assert failed: softmaxDim %d > 0, so attnFunc %d and posModel %d have to be -1.\n', ...
-      params.softmaxDim, params.attnFunc, params.posModel);
+    assert(params.attnFunc==0);
   end
   
   % rand seed
@@ -170,22 +164,53 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     params.batchId = 1;
     params.maxSentLen = 7;
     params.posWin = 1;
+    params.maxRelDist = 2;
   end
   
   %% set more params
   % attentional/positional models
-  params.attnRelativePos=0;
-  if params.attnFunc>0 || params.posModel>0
+  params.attnGlobal=0; % 1: for attnFunc=1, 0: for other attnFunc
+  params.predictPos = 0; % 1 -- regression for absolute positions, 2 -- classification for relative positions
+  params.posSignal = 0; % 1 -- use unsupervised alignments
+  if params.attnFunc>0
     if params.attnSize==0
       params.attnSize = params.lstmSize;
     end
     
-    % positions
-    if params.attnFunc==2 % relative
+    if params.attnFunc==1 % global, soft attention
+      params.predictPos = 0;
+      params.attnGlobal = 1;
+      params.posSignal = 0;
+    elseif params.attnFunc==2 % local, hard attention + monotonic alignments
+      params.predictPos = 0;
+      params.attnGlobal = 0;
+      params.posSignal = 0;
+    elseif params.attnFunc==3 % local, hard attention + unsupervised alignments + regression for absolute positions
+      params.predictPos = 1;
+      params.attnGlobal = 0;
+      params.posSignal = 1;
+    elseif params.attnFunc==4 % local, hard attention
+      params.predictPos = 3;
+      params.attnGlobal = 0;
+      params.posSignal = 0;
+      if params.attnOpt==1
+        params.distSigma = params.posWin/2.0;
+      else
+        error('For attnFunc 4, use attnOpt 1\n');
+        %params.sqrt2pi = sqrt(2*pi);
+      end
+
+    else
+      error('Invalid attnFunc option %d\n', params.attnFunc);
+    end
+    
+    % numAttnPositions
+    if params.attnGlobal % global
+      if params.attnOpt==0 % for attnOpt==1, we use variable-length alignment vectors
+        params.numAttnPositions = params.maxSentLen-1;
+      end
+    else % local
       params.numAttnPositions = 2*params.posWin + 1;
-      params.attnRelativePos=1;
-    elseif params.attnFunc==1 % absolute
-      params.numAttnPositions = params.maxSentLen-1;
     end
   end
   
@@ -243,20 +268,20 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     printSent(2, srcTrainSents{1}, params.srcVocab, '  src 1:');
     printSent(2, srcTrainSents{end}, params.srcVocab, '  src end:');
   end
-  printSent(2, tgtTrainSents{1}, params.tgtVocab, '  tgt:');
-  printSent(2, tgtTrainSents{end}, params.tgtVocab, '  tgt end:');
+  if params.posSignal
+    printSentPos(2, tgtTrainSents{1}, params.tgtVocab, '  tgt:');
+    printSentPos(2, tgtTrainSents{end}, params.tgtVocab, '  tgt end:');
+  else
+    printSent(2, tgtTrainSents{1}, params.tgtVocab, '  tgt:');
+    printSent(2, tgtTrainSents{end}, params.tgtVocab, '  tgt end:');
+  end
   printTrainBatch(trainBatches{1}, params);
   
   
   %%%%%%%%%%%%%%
   %% Training %%
   %%%%%%%%%%%%%%
-  trainCost.total = 0; trainWords.total = 0;
-  trainWords.totalLog = 0;
-  if params.posModel>=0 % positional model
-    trainCost.pos = 0;
-    trainCost.word = 0;
-  end
+  params.totalLog = 0;
   params.evalFreq = params.logFreq*10;
 
   % profile
@@ -346,7 +371,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       end
       
       %% logging, eval, save, decode, fine-tuning, etc.
-      [trainWords, trainCost, params, startTime] = postTrainIter(model, costs, gradNorm, trainData, validData, testData, trainWords, trainCost, params, startTime, srcTrainSents, tgtTrainSents);
+      [params, startTime] = postTrainIter(model, costs, gradNorm, trainData, validData, testData, params, startTime, srcTrainSents, tgtTrainSents);
     end % end for batchId
 
     %% read more data
@@ -354,7 +379,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     
     %% end of an epoch
     if numTrainSents == 0 
-      [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents, startTime, params] = postTrainEpoch(model, validData, testData, startTime, trainWords, trainCost, params);
+      [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents, startTime, params] = postTrainEpoch(model, validData, testData, startTime, params);
       
       if params.epoch > params.numEpoches
         break; 
@@ -395,68 +420,68 @@ function [model] = initLSTM(params)
   else % separate embeddings
     if params.isBi
       model.W_emb_src = randomMatrix(params.initRange, [params.lstmSize, params.srcVocabSize], params.isGPU, params.dataType);
-      %model.W_emb_src(:, params.srcSos) = zeros(params.lstmSize, 1);
-      %model.W_emb_src(:, params.srcEos) = zeros(params.lstmSize, 1);
     end
     model.W_emb_tgt = randomMatrix(params.initRange, [params.lstmSize, params.tgtVocabSize], params.isGPU, params.dataType);
-    %model.W_emb_tgt(:, params.tgtEos) = zeros(params.lstmSize, 1);
   end
   
   %% h_t -> softmax input
-  % attention mechanism
-  if params.attnFunc>0 
-    model.W_a = randomMatrix(params.initRange, [params.numAttnPositions, params.lstmSize], params.isGPU, params.dataType);
+  if params.attnFunc>0 % attention mechanism
+    % predict positions
+    if params.predictPos
+      % transform h_t into h_pos = f(W_pos*h_t)
+      model.W_pos = randomMatrix(params.initRange, [params.softmaxSize, params.lstmSize], params.isGPU, params.dataType);
+      
+      % regression, scale=sigmoid(v_pos*h_pos)
+      model.v_pos = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
+      
+%       % predict pos
+%       if params.predictPos==1 || params.predictPos==3 % regression, scale=sigmoid(v_pos*h_pos)
+%         model.v_pos = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
+%         
+%         if params.predictPos==3 && params.attnOpt==0 % predict variance = sigmoid(v_sig*f(W_sig*h_t))
+%           model.W_var = randomMatrix(params.initRange, [params.softmaxSize, params.lstmSize], params.isGPU, params.dataType);
+%           model.v_var = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
+%         end
+%       end
+    end
+    
+    % predict alignment weights
+    if params.attnOpt==0 && params.numAttnPositions>=1 % && params.predictPos~=3
+      model.W_a = randomMatrix(params.initRange, [params.numAttnPositions, params.lstmSize], params.isGPU, params.dataType);
+    end
     
     % attn_t = H_src * a_t % h_attn_t = f(W_h * [attn_t; h_t])
     model.W_h = randomMatrix(params.initRange, [params.attnSize, 2*params.lstmSize], params.isGPU, params.dataType);
-  % compress softmax
-  elseif params.softmaxDim>0 
+  elseif params.softmaxDim>0 % compress softmax
     model.W_h = randomMatrix(params.initRange, [params.softmaxDim, params.lstmSize], params.isGPU, params.dataType);
-  % positional models
-  elseif params.posModel>0 
-    if params.posModel==2 % W_tgt [x_t; h_t] + W_tgt_pos*s_t, where s_t is the source hidden state and is used to compute the tgt hidden states
-      model.W_tgt_pos = randomMatrix(params.initRange, [4*params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
-    end
-    if params.posModel==3 % h_pos_t = f(W_h * [src_pos_t; h_t])
-      model.W_h = randomMatrix(params.initRange, [params.attnSize, 2*params.lstmSize], params.isGPU, params.dataType);
-    end
-    
-    model.W_softPos = randomMatrix(params.initRange, [params.posVocabSize, params.softmaxSize], params.isGPU, params.dataType);
   end
   
   %% softmax input -> predictions
-  % W_soft
   model.W_soft = randomMatrix(params.initRange, [params.tgtVocabSize, params.softmaxSize], params.isGPU, params.dataType);
 end
 
 %% Things to do after each training iteration %%
-function [trainWords, trainCost, params, startTime] = postTrainIter(model, costs, gradNorm, trainData, validData, testData, trainWords, trainCost, params, startTime, srcTrainSents, tgtTrainSents)
+function [params, startTime] = postTrainIter(model, costs, gradNorm, trainData, validData, testData, params, startTime, srcTrainSents, tgtTrainSents)
   %% log info
-  trainWords.total = trainWords.total + trainData.numWords;
-  trainCost.total = trainCost.total + costs.total;
-  trainWords.totalLog = trainWords.totalLog + trainData.numWords; % to compute speed
-  if params.posModel>=0 % positional model
-    trainCost.pos = trainCost.pos + costs.pos;
-    trainCost.word = trainCost.word + costs.word;
-  end
+  params.trainCounts = updateCounts(params.trainCounts, trainData, params);
+  params.totalLog = params.totalLog + trainData.numWords; % to compute speed
+  
+  [params.trainCosts] = updateCosts(params.trainCosts, costs, params);
+  
   if mod(params.iter, params.logFreq) == 0
     endTime = clock;
     timeElapsed = etime(endTime, startTime);
-    params.costTrain = trainCost.total/trainWords.total;
-    params.speed = trainWords.totalLog*0.001/timeElapsed;
-    if params.posModel>=0 % positional model
-      params.speed = params.speed/2;
-      params.costTrainPos = trainCost.pos*2/trainWords.total;
-      params.costTrainWord = trainCost.word*2/trainWords.total;
-      fprintf(2, '%d, %d, %.2fK, %g, %.2f (%.2f, %.2f), gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
-      fprintf(params.logId, '%d, %d, %.2fK, %g, %.2f (%.2f, %.2f), gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
-    else
-      fprintf(2, '%d, %d, %.2fK, %g, %.2f, gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
-      fprintf(params.logId, '%d, %d, %.2fK, %g, %.2f, gN=%.2f, %s\n', params.epoch, params.iter, params.speed, params.lr, params.costTrain, gradNorm, datestr(now)); % , wInfo(indNorms, 1)
-    end
-
+    params.speed = params.totalLog*0.001/timeElapsed;
+    
+    [params.scaleTrainCosts] = scaleCosts(params.trainCosts, params.trainCounts, params);
+    logStr = sprintf('%d, %d, %.2fK, %g, %s, gN=%.2f, %s', params.epoch, params.iter, params.speed, params.lr, ...
+        getCostStr(params.scaleTrainCosts), gradNorm, datestr(now));
+    
+    fprintf(2, '%s\n', logStr);
+    fprintf(params.logId, '%s\n', logStr);
+  
     % reset
-    trainWords.totalLog = 0;
+    params.totalLog = 0;
     startTime = clock;
   end
 
@@ -492,7 +517,7 @@ function [trainWords, trainCost, params, startTime] = postTrainIter(model, costs
 end
 
 %% Things to do at the end of each training epoch %%
-function [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents, startTime, params] = postTrainEpoch(model, validData, testData, startTime, trainWords, trainCost, params)
+function [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents, startTime, params] = postTrainEpoch(model, validData, testData, startTime, params)
   % seek to the beginning
   if params.isBi
     fseek(params.srcTrainId, 0, 'bof');
@@ -503,9 +528,9 @@ function [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents,
   if ~isfield(params, 'costTrain') || ~isfield(params, 'speed')
     endTime = clock;
     timeElapsed = etime(endTime, startTime);
-    params.costTrain = trainCost.total/trainWords.total;
-    params.speed = trainWords.totalLog*0.001/timeElapsed;
-    trainWords.totalLog = 0;
+    params.costTrain = params.trainCosts.total/params.trainCounts.total;
+    params.speed = params.totalLog*0.001/timeElapsed;
+    params.totalLog = 0;
     startTime = clock;
   end
   
@@ -561,8 +586,8 @@ function [params] = evalSaveDecode(model, validData, testData, params, srcTrainS
   [params] = evalValidTest(model, validData, testData, params);
 
   % save
-  fprintf(2, '  save model cur test perplexity %.2f to %s\n', params.curTestPerplexity, params.modelRecentFile);
-  fprintf(params.logId, '  save model cur test perplexity %.2f to %s\n', params.curTestPerplexity, params.modelRecentFile);
+  fprintf(2, '  save model cur test perplexity %.2f to %s\n', params.curTestPerpWord, params.modelRecentFile);
+  fprintf(params.logId, '  save model cur test perplexity %.2f to %s\n', params.curTestPerpWord, params.modelRecentFile);
   save(params.modelRecentFile, 'model', 'params');
 
   % decode
@@ -662,6 +687,8 @@ function [model, params, oldParams, loaded] = loadModel(modelFile, params)
   params.epochBatchCount = oldParams.epochBatchCount;
   params.bestCostValid = oldParams.bestCostValid;
   params.testPerplexity = oldParams.testPerplexity;
+  params.trainCounts = oldParams.trainCounts;
+  params.trainCosts = oldParams.trainCosts;
   if isfield(oldParams, 'finetuneCount')
     params.finetuneCount = oldParams.finetuneCount;
   else
@@ -714,12 +741,13 @@ function [model, params] = initLoadModel(params)
     params.epoch = 1;
     params.bestCostValid = 1e5;
     params.testPerplexity = 1e5;
-    params.curTestPerplexity = 1e5;
+    params.curTestPerpWord = 1e5;
     params.startIter = 0;
     params.iter = 0;  % number of batches we have processed
     params.epochBatchCount = 0;
     params.finetuneCount = 0;
-    
+    params.trainCounts = initCosts(params);
+    params.trainCosts = initCosts(params);
     
     %% mono-bootstrap
     if strcmp(params.monoFile, '')==0
@@ -797,6 +825,47 @@ function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab)
   data.tgtSents = tgtSents;
 end
 
+
+
+%       elseif params.predictPos==2 % classification: softmax(W_softPos*h_pos)
+%         model.W_softPos = randomMatrix(params.initRange, [params.posVocabSize, params.softmaxSize], params.isGPU, params.dataType);
+
+%% null predictions
+%   addOptional(p,'predictNull', 0, @isnumeric); % 1: predicting null symbols
+%   addOptional(p,'nullWeight', 1.0, @isnumeric); % 1: predicting null symbols
+%       % predict if an alignment is null or non-null: 1 non-null, 2: null
+%       if params.predictNull
+%         model.W_null = randomMatrix(params.initRange, [params.softmaxSize, params.lstmSize], params.isGPU, params.dataType);
+%         model.W_softNull = randomMatrix(params.initRange, [2, params.softmaxSize], params.isGPU, params.dataType);
+%       end
+
+
+%% positional model %%
+%   % positional models: predict pos, then word, use a separate softmax for pos
+%   % 0: separately print out pos/word perplexities
+%   % 1: predict pos/word with a separate softmax W_softPos
+%   % 2: like 1 + feed in src hidden states to compute tgt hidden states
+%   % 3: like 1 + feed in src hidden states to compute softmax
+%   addOptional(p,'posModel', -1, @isnumeric);  
+
+%   if params.posModel>=0
+%     assert(params.isBi==1);
+%     assert(params.attnFunc==0);
+%   end
+
+%   % positional models
+%   elseif params.posModel>0 
+%     if params.posModel==2 % W_tgt [x_t; h_t] + W_tgt_pos*s_t, where s_t is the source hidden state and is used to compute the tgt hidden states
+%       model.W_tgt_pos = randomMatrix(params.initRange, [4*params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
+%     end
+%     if params.posModel==3 % h_pos_t = f(W_h * [src_pos_t; h_t])
+%       model.W_h = randomMatrix(params.initRange, [params.attnSize, 2*params.lstmSize], params.isGPU, params.dataType);
+%     end
+%     
+%     model.W_softPos = randomMatrix(params.initRange, [params.posVocabSize, params.softmaxSize], params.isGPU, params.dataType);
+%   end
+
+%% dependency parsing %%
 %   addOptional(p,'depParse', 0, @isnumeric); % 1: indicate that we are doing dependency parsing
 %   % dependency parsing
 %   if params.depParse 
@@ -837,47 +906,7 @@ end
 %   end
 
 %% Unused code %%
-  
-%   % setup softmax vars
-%   if params.attnFunc==1 || params.attnFunc==2
-%     softmaxVars = {'W_a', 'W_ah'};
-%   elseif params.softmaxDim>0
-%     softmaxVars = {'W_h'};
-%   elseif params.posModel>0
-%     if params.posModel==3
-%       softmaxVars = {'W_h', 'W_softPos'};
-%     else
-%       softmaxVars = {'W_softPos'};
-%     end
-%   else
-%     softmaxVars = {};
-%   end
-%   
-%   softmaxVars{end+1} = 'W_soft';
-%   params.softmaxVars = softmaxVars;
-
-%       if params.separateEmb==1
-%       else
-%         model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - scaleLr*grad.W_emb;
-%       end
-
-%   if params.separateEmb==1 % separate embeddings
-%   else
-%     model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize], params.isGPU, params.dataType);
-% 
-%     % set parameters correspond to zero words
-%     if params.isBi
-%       model.W_emb(:, params.srcZero) = zeros(params.lstmSize, 1);
-%     end
-%     model.W_emb(:, params.tgtEos) = zeros(params.lstmSize, 1);
-%   end
-
-
-%     trainCost.total = 0;
-%     if params.posModel>=0 % positional model
-%       trainCost.pos = 0;
-%       trainCost.word = 0;
-%     end
+ 
 
 %   addOptional(p,'embCPU', 0, @isnumeric); % 1: put W_emb on CPU even if GPUs exist
 %   if params.embCPU == 1

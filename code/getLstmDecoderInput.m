@@ -1,5 +1,5 @@
 
-function [x_t, inputInfo] = getLstmDecoderInput(decodeInput, tgtPos, W_emb, softmax_h, trainData, zeroState, params, curMask)
+function [x_t, inputInfo] = getLstmDecoderInput(decodeInput, tgtPos, W_emb, softmax_h, trainData, zeroState, params) %, curMask)
   inputInfo = [];
   
   % same-length decoder
@@ -14,13 +14,16 @@ function [x_t, inputInfo] = getLstmDecoderInput(decodeInput, tgtPos, W_emb, soft
   elseif params.softmaxFeedInput
     x_t = [W_emb(:, decodeInput); softmax_h];
     
-  % positionl models 2: at the first level, we use additional src information
-  elseif params.posModel==2 && mod(tgtPos, 2)==0 % predict words
-    positions = decodeInput;
-    
-    [s_t, inputInfo.srcPosLinearIndices] = buildSrcPosVecs(tgtPos, params, trainData, positions, curMask);
-    x_t = [W_emb(:, decodeInput); s_t];
+  % normal
   else
     x_t = W_emb(:, decodeInput);
   end
 end
+
+
+%   % positionl models 2: at the first level, we use additional src information
+%   elseif params.posModel==2 && mod(tgtPos, 2)==0 % predict words
+%     positions = decodeInput;
+%     
+%     [s_t, inputInfo.srcPosLinearIndices] = buildSrcPosVecs(tgtPos, params, trainData, positions, curMask);
+%     x_t = [W_emb(:, decodeInput); s_t];

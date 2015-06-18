@@ -1,40 +1,49 @@
 function [params] = evalValidTest(model, validData, testData, params)
   startTime = clock;
-  [costValid] = evalCost(model, validData, params); % inputValid, inputValidMask, tgtValidOutput, tgtValidMask, srcValidMaxLen, tgtValidMaxLen, params);
-  [costTest] = evalCost(model, testData, params); %inputTest, inputTestMask, tgtTestOutput, tgtTestMask, srcTestMaxLen, tgtTestMaxLen, params);
+  [validCosts] = evalCost(model, validData, params);
+  [testCosts] = evalCost(model, testData, params);
   
-  costValid.total = costValid.total/validData.numWords;
-  costTest.total = costTest.total/testData.numWords;
+  validCounts = initCosts(params);
+  validCounts = updateCounts(validCounts, validData, params);
+  validCosts = scaleCosts(validCosts, validCounts, params);
+  
+  testCounts = initCosts(params);
+  testCounts = updateCounts(testCounts, testData, params);
+  testCosts = scaleCosts(testCosts, testCounts, params);
+  
   modelStr = wInfo(model);
   endTime = clock;
   timeElapsed = etime(endTime, startTime);
   
-  if params.posModel>=0 % positional model
-    costValid.pos = costValid.pos*2/validData.numWords;
-    costValid.word = costValid.word*2/validData.numWords;
-    costTest.pos = costTest.pos*2/testData.numWords;
-    costTest.word = costTest.word*2/testData.numWords;
-    fprintf(2, '# eval %.2f (%.2f, %.2f), %d, %d, %.2fK, %.2f, train=%.4f (%.2f, %.2f), valid=%.4f (%.2f, %.2f), test=%.4f (%.2f, %.2f),%s, time=%.2fs\n', exp(costTest.total), exp(costTest.pos), exp(costTest.word), params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, costValid.total, costValid.pos, costValid.word, costTest.total, costTest.pos, costTest.word, modelStr, timeElapsed);
-    fprintf(params.logId, '# eval %.2f (%.2f, %.2f), %d, %d, %.2fK, %.2f, train=%.4f (%.2f, %.2f), valid=%.4f (%.2f, %.2f), test=%.4f (%.2f, %.2f),%s, time=%.2fs\n', exp(costTest.total), exp(costTest.pos), exp(costTest.word), params.epoch, params.iter, params.speed, params.lr, params.costTrain, params.costTrainPos, params.costTrainWord, costValid.total, costValid.pos, costValid.word, costTest.total, costTest.pos, costTest.word, modelStr, timeElapsed);
-  else
-    fprintf(2, '# eval %.2f, %d, %d, %.2fK, %.2f, train=%.4f, valid=%.4f, test=%.4f, %s, time=%.2fs\n', exp(costTest.total), params.epoch, params.iter, params.speed, params.lr, params.costTrain, costValid.total, costTest.total, modelStr, timeElapsed);
-    fprintf(params.logId, '# eval %.2f, %d, %d, %.2fK, %.2f, train=%.4f, valid=%.4f, test=%.4f, %s, time=%.2fs\n', exp(costTest.total), params.epoch, params.iter, params.speed, params.lr, params.costTrain, costValid.total, costTest.total, modelStr, timeElapsed);
-  end
+  params.curTestPerpWord = exp(testCosts.word);
+  
+  if params.posSignal % positions
+    params.curTestCostPos = testCosts.pos;
     
-  params.curTestPerplexity = exp(costTest.total);
-  if params.posModel>0 % positional model
-    params.curTestPerplexityPos = exp(costTest.pos);
-    params.curTestPerplexityWord = exp(costTest.pos);
+    if params.posSignal % regression
+      logStr = sprintf('%.4f, ', testCosts.pos);
+    end
+%     elseif params.predictPos==2 % classification
+%       logStr = sprintf('%.2f, ', exp(testCosts.pos));
+%     end    
+  else
+    logStr = '';
   end
-  if costValid.total < params.bestCostValid
-    params.bestCostValid = costValid.total;
-    params.costTest = costTest.total;
-    params.testPerplexity = params.curTestPerplexity;
-    if params.posModel>0 % positional model
-      params.bestCostValidPos = costValid.pos;
-      params.bestCostValidWord = costValid.word;
-      params.testPerplexityPos = params.curTestPerplexityPos;
-      params.testPerplexityWord = params.curTestPerplexityWord;
+  logStr = sprintf('# eval %s%.2f, %d, %d, %.2fK, %.2f, train=%s, valid=%s, test=%s,%s, time=%.2fs', logStr, params.curTestPerpWord, ...
+    params.epoch, params.iter, params.speed, params.lr, ...
+    getCostStr(params.scaleTrainCosts), getCostStr(validCosts), getCostStr(testCosts), modelStr, timeElapsed);
+  fprintf(2, '%s\n', logStr);
+  fprintf(params.logId, '%s\n', logStr);
+      
+  if validCosts.total < params.bestCostValid
+    params.bestCostValid = validCosts.total;
+    params.costTest = testCosts.total;
+    params.testPerplexity = params.curTestPerpWord;
+    if params.posSignal
+      params.bestCostValidPos = validCosts.pos;
+      params.bestCostValidWord = validCosts.word;
+      params.testCostPos = params.curTestCostPos;
+      params.testPerplexity = params.curTestPerpWord;
     end
     fprintf(2, '  save model test perplexity %.2f to %s\n', params.testPerplexity, params.modelFile);
     fprintf(params.logId, '  save model test perplexity %.2f to %s\n', params.testPerplexity, params.modelFile);
@@ -47,11 +56,7 @@ function [evalCosts] = evalCost(model, data, params) %input, inputMask, tgtOutpu
   numSents = size(data.input, 1);
   numBatches = floor((numSents-1)/params.batchSize) + 1;
 
-  evalCosts.total = 0;
-  if params.posModel>=0 % positional model
-    evalCosts.pos = 0;
-    evalCosts.word = 0;
-  end
+  [evalCosts] = initCosts(params);
   trainData.srcMaxLen = data.srcMaxLen;
   trainData.tgtMaxLen = data.tgtMaxLen;
   for batchId = 1 : numBatches
@@ -68,15 +73,19 @@ function [evalCosts] = evalCost(model, data, params) %input, inputMask, tgtOutpu
     end
     trainData.tgtMask = data.tgtMask(startId:endId, :);
     trainData.tgtOutput = data.tgtOutput(startId:endId, :);
-    trainData.srcLens = data.srcLens(startId:endId);
+    trainData.srcLens = data.srcLens(startId:endId); 
+    if params.posSignal
+      trainData.posOutput = data.posOutput(startId:endId, :);
+    end
     
     % eval
     costs = lstmCostGrad(model, trainData, params, 1);
-    evalCosts.total = evalCosts.total + costs.total;
-    if params.posModel>=0 % positional model
-      evalCosts.pos = evalCosts.pos + costs.pos;
-      evalCosts.word = evalCosts.word + costs.word;
-    end
-    
+    [evalCosts] = updateCosts(evalCosts, costs, params);
   end
 end
+
+%     if params.predictNull
+%       params.curTestPerpNull = exp(testCosts.null);
+%       logStr = sprintf('%s%.2f, ', logStr, params.curTestPerpNull);
+%     end
+

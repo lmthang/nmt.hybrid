@@ -1,13 +1,8 @@
 function [params] = loadBiVocabs(params)
   %% grad check
   if params.isGradCheck
-    if params.posModel>=0
-      params.posWin = 2;
-      tgtVocab = {'a', 'b', '<p_-2>', '<p_-1>', '<p_0>', '<p_1>', '<p_2>'};
-    else
-      tgtVocab = {'a', 'b'};
-    end
-    
+    tgtVocab = {'a', 'b'};
+
     if params.isBi
       if params.tieEmb % tie embeddings
         srcVocab = tgtVocab;
@@ -39,47 +34,13 @@ function [params] = loadBiVocabs(params)
   end
     
   %% tgt vocab  
-  % positional vocab
-  if params.posModel>0
-    indices = find(strncmp('<p_', tgtVocab, 3));
-    assert(length(indices) == (indices(end)-indices(1)+1)); % make sure indices are contiguous
-    params.startPosId = indices(1);
+  params.nullPosId = 0;
     
-    pattern = '<p_(.+)>';
-    prevPos = -1;
-    for ii=1:length(indices)
-      n = regexp(tgtVocab{indices(ii)}, pattern, 'tokens');
-      pos = str2double(n{1}{1});
-      %fprintf(2, '%s\t%d\n', tgtVocab{indices(ii)}, pos);
-      
-      % zero
-      if (pos==0)
-        params.zeroPosId = indices(ii);
-      end
-      
-      % assert
-      assert(~isnan(pos));
-      assert(ii==1 || pos==(prevPos+1));
-      prevPos = pos;
-    end
-    
-    params.posVocabSize = length(indices) + 1; % include <eos>
-    fprintf(2, '# Positional model: posVocabSize=%d, startPosId=%d, zeroPosId=%d\n', params.posVocabSize, params.startPosId, params.zeroPosId);
-    fprintf(params.logId, '# Positional model: posVocabSize=%d, startPosId=%d, zeroPosId=%d\n', params.posVocabSize, params.startPosId, params.zeroPosId);
-    
-    % NOTE: purposely add eos first, then sos, so that the positional vocab
-    % (including eos) is contiguous
-    tgtVocab{end+1} = '<t_eos>';
-    params.tgtEos = length(tgtVocab);
-    tgtVocab{end+1} = '<t_sos>';
-    params.tgtSos = length(tgtVocab);
-  else
-    % add eos, sos
-    tgtVocab{end+1} = '<t_sos>';
-    params.tgtSos = length(tgtVocab);
-    tgtVocab{end+1} = '<t_eos>';
-    params.tgtEos = length(tgtVocab);
-  end
+  % add eos, sos
+  tgtVocab{end+1} = '<t_sos>';
+  params.tgtSos = length(tgtVocab);
+  tgtVocab{end+1} = '<t_eos>';
+  params.tgtEos = length(tgtVocab); 
   params.tgtVocabSize = length(tgtVocab);
   if params.tieEmb % tie embeddings
     tgtVocab{params.tgtSos} = srcVocab{params.srcSos};
@@ -94,14 +55,80 @@ function [params] = loadBiVocabs(params)
     params.srcVocab = [];
   end
   params.tgtVocab = tgtVocab;
-  %params.outVocabSize = params.tgtVocabSize;
   
-  if params.assert
-    if params.posModel>=1
-      assert(params.tgtEos == (params.startPosId + params.posVocabSize-1));
-    end
-  end
+%   if params.assert && params.predictPos==2 % classification
+%     assert(params.tgtEos == (params.startPosId + params.posVocabSize-1));
+%   end
 end
+
+%% Predict positions
+%     if params.predictPos==2 % classification
+%       tgtVocab = {'a', 'b', '<p_-2>', '<p_-1>', '<p_0>', '<p_1>', '<p_2>', '<p_n>'};
+%     else
+%     end
+
+%   if params.predictPos==2 % classification
+%     indices = find(strncmp('<p_', tgtVocab, 3));
+%     assert(length(indices) == (indices(end)-indices(1)+1)); % make sure indices are contiguous
+%     params.startPosId = indices(1);
+%     
+%     pattern = '<p_(.+)>';
+%     prevPos = -1;
+%     for ii=1:length(indices)
+%       n = regexp(tgtVocab{indices(ii)}, pattern, 'tokens');
+%       pos_token = n{1}{1};
+%       
+%       
+%       if strcmp(pos_token, 'n') % <p_n>
+%         params.nullPosId = indices(ii);
+%       else
+%         pos = str2double(pos_token);
+%         
+%         % zero
+%         if (pos==0)
+%           params.zeroPosId = indices(ii);
+%         end
+% 
+%         assert(~isnan(pos));
+%         assert(ii==1 || pos==(prevPos+1));
+%         prevPos = pos;      
+%       end
+% 
+%       fprintf(2, '%s\t%s\n', tgtVocab{indices(ii)}, pos_token);
+%     end
+%     
+%     params.posVocabSize = length(indices) + 1; % include <eos>
+%     fprintf(2, '# Positional model: posVocabSize=%d, startPosId=%d, zeroPosId=%d\n', params.posVocabSize, params.startPosId, params.zeroPosId); % , nullPosId=%d, params.nullPosId);
+%     fprintf(params.logId, '# Positional model: posVocabSize=%d, startPosId=%d, zeroPosId=%d\n', params.posVocabSize, params.startPosId, params.zeroPosId);
+%     
+%     % NOTE: purposely add eos first, then sos, so that the positional vocab
+%     % (including eos) is contiguous
+%     tgtVocab{end+1} = '<t_eos>';
+%     params.tgtEos = length(tgtVocab);
+%     tgtVocab{end+1} = '<t_sos>';
+%     params.tgtSos = length(tgtVocab);
+%   else 
+%   end
+
+
+
+%   if params.predictPos==2 % classification
+%     params.posVocabSize = 2*params.maxRelDist + 1 + 1; % include eos
+%     params.posEos = params.maxRelDist + 1; % when we load the position data, all values are in [-params.maxRelDist, params.maxRelDist], so we use params.maxRelDist+1 to mark eos
+%   end
+
+
+
+%     if params.predictPos
+%       tgtVocab = {'a', 'b', '<p_1>', '<p_2>', '<p_3>', '<p_4>', '<p_5>', '<p_n>'};
+%     else
+%     end
+
+%       % assert
+%       if ii==1 % params.absolutePos && 
+%         assert(pos==1);
+%         params.zeroPosId = indices(ii)-1;
+%       end
 
 
 %% class-based softmax %%

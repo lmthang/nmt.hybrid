@@ -3,7 +3,7 @@ function gradCheck(model, params)
 %
 % Perform gradient check.
 %
-% Thang Luong @ 2014, <lmthang@stanford.edu>
+% Thang Luong @ 2014, 2015 <lmthang@stanford.edu>
 %
 %%%
   delta = 0.01; % set to 0.01 to debug on GPU.
@@ -23,18 +23,23 @@ function gradCheck(model, params)
   for ii=1:params.batchSize
     if params.isBi
       srcLen = randi([1, srcTrainMaxLen-1]);
-      srcTrainSents{ii} = randi([1, params.srcVocabSize-2], 1, srcLen); % exclude <s_eos> and  <s_zero>
+      srcTrainSents{ii} = randi([1, params.srcVocabSize-2], 1, srcLen); % exclude <s_eos> and  <s_sos>
     end
 
     tgtLen = randi([1, tgtTrainMaxLen-1]);
-    tgtTrainSents{ii} = randi([1, params.tgtVocabSize-2], 1, tgtLen); % exclude <t_sos> and <t_eos>
-
-    % positional models: generate pairs of pos/word
-    if params.posModel>0 
+    if params.posSignal % positions: generate pairs of pos/word
       tgtTrainSents{ii} = zeros(1, 2*tgtLen);
-      tgtTrainSents{ii}(1:2:2*tgtLen-1) = randi([params.startPosId, params.startPosId + params.posVocabSize-2], 1, tgtLen); % positions (exclude <t_eos> at the end)
-      tgtTrainSents{ii}(2:2:2*tgtLen) = randi([1, params.startPosId-1], 1, tgtLen); % words
+      
+      if params.posSignal % regression, absolute positions
+        tgtTrainSents{ii}(1:2:2*tgtLen-1) = randi([0, srcLen], 1, tgtLen); % positions (exclude <t_eos> at the end)
+        tgtTrainSents{ii}(2:2:2*tgtLen) = randi([1, params.tgtVocabSize-2], 1, tgtLen); % words, exclude <t_eos> and  <t_sos>
+      end
+%       elseif params.predictPos==2 % classification, relative positions
+%         tgtTrainSents{ii}(1:2:2*tgtLen-1) = randi([params.startPosId, params.startPosId + params.posVocabSize-2], 1, tgtLen); % positions (exclude <t_eos> at the end)
+%         tgtTrainSents{ii}(2:2:2*tgtLen) = randi([1, params.startPosId-1], 1, tgtLen); % words
+%       end
     else
+      tgtTrainSents{ii} = randi([1, params.tgtVocabSize-2], 1, tgtLen); % exclude <t_sos> and <t_eos>
     end
   end
 
@@ -47,7 +52,7 @@ function gradCheck(model, params)
     curBatchSize = size(trainData.input, 1);
     params.dropoutMask = (randSimpleMatrix([params.lstmSize curBatchSize], params.isGPU, params.dataType)<params.dropout)/params.dropout;
     
-    if params.posModel==2 || params.softmaxFeedInput || params.sameLength
+    if params.softmaxFeedInput || params.sameLength
       params.dropoutMaskInput = (randSimpleMatrix([2*params.lstmSize curBatchSize], params.isGPU, params.dataType)<params.dropout)/params.dropout;
     end
   end
@@ -123,6 +128,7 @@ function gradCheck(model, params)
   fprintf(2, '# Num params=%d, abs_diff=%g\n', numParams, total_abs_diff);
 end
 
+% params.posModel==2 || 
 
 %% class-based softmax %%
 %   % W_soft_inclass

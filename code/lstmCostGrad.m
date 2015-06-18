@@ -2,7 +2,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
 %%%
 %
 % Compute cost/grad for LSTM. 
-% When params.posModel>0, returns costs.pos and costs.word
+% When params.predictPos>0, returns costs.pos and costs.word
 % If isTest==1, this method only computes cost (for testing purposes).
 %
 % Thang Luong @ 2014, 2015, <lmthang@stanford.edu>
@@ -29,6 +29,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   trainData.isTest = isTest;
   trainData.T = T;
   trainData.srcMaxLen = srcMaxLen;
+  trainData.curBatchSize = curBatchSize;
   
   params.curBatchSize = curBatchSize;
   params.srcMaxLen = srcMaxLen;
@@ -37,23 +38,18 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   zeroState = zeroMatrix([params.lstmSize, params.curBatchSize], params.isGPU, params.dataType);
   
   % current h_t and c_t over time
-  cur_h_t = cell(params.numLayers, 1);
+  h_t = cell(params.numLayers, 1);
   all_c_t = cell(params.numLayers, T);
   lstms = cell(params.numLayers, T); % each cell contains intermediate results for that timestep needed for backprop
   for ll=1:params.numLayers
-    cur_h_t{ll} = zeroMatrix([params.lstmSize, curBatchSize], params.isGPU, params.dataType);
-    %all_c_t{ll} = zeroMatrix([params.lstmSize, curBatchSize], params.isGPU, params.dataType);
+    h_t{ll} = zeroMatrix([params.lstmSize, curBatchSize], params.isGPU, params.dataType);
     for tt=1:T
       all_c_t{ll, tt} = zeroMatrix([params.lstmSize, curBatchSize], params.isGPU, params.dataType);
     end
   end
   
   % init costs
-  costs.total = zeroMatrix([1, 1], params.isGPU, params.dataType);
-  if params.posModel>=0
-    costs.word = zeroMatrix([1, 1], params.isGPU, params.dataType);
-    costs.pos = zeroMatrix([1, 1], params.isGPU, params.dataType);
-  end
+  costs = initCosts(params);
   
   %%%%%%%%%%%%%%%%%%%%
   %%% FORWARD PASS %%%
@@ -63,35 +59,26 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   grad_softmax_all = cell(tgtMaxLen, 1);
   h2sInfoAll = cell(tgtMaxLen, 1);
   softmax_h = zeroState;
-  % positional models
-  if params.posModel>0
-    if params.posModel==2
-      trainData.srcPosInfo = cell(tgtMaxLen, 1);
-      W_tgt_combined = [model.W_tgt{1} model.W_tgt_pos];
-    end
-    
-    % positional model 3, include more src embeddings
-    if params.posModel==3 
-      trainData.numInputWords_src = floor(trainData.numInputWords_src + trainData.numInputWords_tgt*0.5);
-    end
-  end
   
   % attentional model
-  if params.attnFunc
-    if params.attnRelativePos
-      trainData.startAttnIds = zeros(tgtMaxLen, 1);
-      trainData.endAttnIds = zeros(tgtMaxLen, 1);
-      trainData.startHidIds = zeros(tgtMaxLen, 1);
-      trainData.endHidIds = zeros(tgtMaxLen, 1); 
-    else % absolute pos
+  if params.attnFunc 
+    if params.posSignal % local attention, unsupervised alignment
+      grad_ht_pos_all = cell(tgtMaxLen, 1);
+    end
+      
+    if params.attnGlobal && params.attnOpt==0 % soft, global attention, fix
       startAttnId = 1;
       endAttnId = params.numSrcHidVecs;
       startHidId = params.numAttnPositions-params.numSrcHidVecs+1;
       endHidId = params.numAttnPositions;
     end
+    
+    if params.attnGlobal && params.attnOpt==1
+      trainData.alignMask = trainData.srcMask(:, 1:params.numSrcHidVecs)'; % numSrcHidVecs * curBatchSize
+    end
   end
-  if (params.attnFunc>0 || params.posModel>=2 || params.sameLength==1)
-    trainData.srcHidVecs = zeroMatrix([params.lstmSize, curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);
+  if (params.attnFunc>0 || params.sameLength==1)
+    trainData.srcHidVecsOrig = zeroMatrix([params.lstmSize, curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);
   end
   
   % Note: IMPORTANT. For attention-based models or positional models, it it
@@ -105,7 +92,6 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       W_emb = model.W_emb_src;
     end
   end
-  matrixName = 'W_soft';
   for tt=1:T % time
     tgtPos = tt-srcMaxLen+1;
     
@@ -126,7 +112,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         h_t_1 = zeroState;
         c_t_1 = zeroState;
       else
-        h_t_1 = cur_h_t{ll};
+        h_t_1 = h_t{ll};
         c_t_1 = all_c_t{ll, tt-1};
       end
 
@@ -139,19 +125,14 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         curMask = trainData.maskInfo{tt};
         
         if tt>=srcMaxLen % decoder input
-          [x_t, allInputInfo{tgtPos}] = getLstmDecoderInput(input(:, tt)', tgtPos, W_emb, softmax_h, trainData, zeroState, params, curMask);
-          
-          % pos model predict words
-          if params.posModel==2 && mod(tgtPos, 2)==0 
-            W = W_tgt_combined;
-          end
+          [x_t, allInputInfo{tgtPos}] = getLstmDecoderInput(input(:, tt)', tgtPos, W_emb, softmax_h, trainData, zeroState, params); %, curMask);
         else
           x_t = W_emb(:, input(:, tt));
         end
         
         
       else % subsequent layer, use the previous-layer hidden state
-        x_t = cur_h_t{ll-1};
+        x_t = h_t{ll-1};
       end
       
       % masking
@@ -160,62 +141,90 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       c_t_1(:, curMask.maskedIds) = 0;
       
       %% Core LSTM: input -> h_t
-      [lstms{ll, tt}, cur_h_t{ll}, all_c_t{ll, tt}] = lstmUnit(W, x_t, h_t_1, c_t_1, ll, tt, srcMaxLen, params, isTest); 
+      [lstms{ll, tt}, h_t{ll}, all_c_t{ll, tt}] = lstmUnit(W, x_t, h_t_1, c_t_1, ll, tt, srcMaxLen, params, isTest); 
+      % assert
+      if params.assert
+        assert(sum(sum(abs(h_t{ll}(:, curMask.maskedIds))))==0);
+      end
       
       %% Loss
       if tt>=srcMaxLen && ll==params.numLayers % decoding phase, tgtPos>=1
+        
+        % masking
+        [trainData.posMask] = createPosMask(tgtPos, params, trainData, curMask);
+        
+        %% predicting positions
+        if params.posSignal
+          curPosOutput = trainData.posOutput(:, tgtPos)';
+          % h_t -> scales=sigmoid(v_pos*h_pos) in [0, 1]
+          [scales, posForwData] = scaleLayerForward(model.W_pos, model.v_pos, h_t{ll}, params);
+
+          % scales -> L2 loss -> scales
+          refScales = curPosOutput./trainData.srcLens; % from unsupervised alignments
+          [cost_pos, grad_scales] = l2CostGrad(scales, refScales, params.posWeight, trainData.posMask.maskedIds, isTest);
+          costs.total = costs.total + cost_pos;
+          costs.pos = costs.pos + cost_pos;
+
+          % backprop: position loss -> h_t
+          if isTest==0
+            [grad_ht_pos_all{tgtPos}, grad_W_pos, grad_v_pos] = scaleLayerBackprop(model.W_pos, model.v_pos, grad_scales, h_t{ll}, scales, posForwData, params);
+
+            % update grads
+            grad.v_pos = grad.v_pos + grad_v_pos;
+          end
+
+          trainData.positions = floor(trainData.srcLens.*refScales); %curPosOutput; % NOTE: by using this at test time, we compute an oracle word perplexity
+
+          % assert
+          if params.assert
+            assert(isempty(find(refScales(trainData.posMask.unmaskedIds)<0 | refScales(trainData.posMask.unmaskedIds)>1, 1))); % we assume that the reference positions are in [0, 1].
+          end
+          
+          if isTest==0
+            % update grads
+            grad.W_pos = grad.W_pos + grad_W_pos;
+            
+            % assert
+            if params.assert
+              assert(sum(sum(abs(grad_ht_pos_all{tgtPos}(:, trainData.posMask.maskedIds))))==0);
+            end
+          end          
+        end % if posSignal
+        
+        
+        %% predicting words
         % h_t -> softmax_h
         % TODO: save memory here, h2sInfo.input only keeps track of srcHidVecs or attnVecs, but not h_t.
-        [softmax_h, h2sInfoAll{tgtPos}] = hid2softLayerForward(cur_h_t{ll}, params, model, trainData, curMask, tgtPos, 0);
+        [softmax_h, h2sInfoAll{tgtPos}] = hid2softLayerForward(h_t{ll}, params, model, trainData, tgtPos);
         
         % softmax_h -> loss
         predWords = trainData.tgtOutput(:, tgtPos)';
-        if params.posModel>=1
-          if mod(tgtPos, 2)==1 % positions
-            predWords = predWords - params.startPosId + 1;
-            matrixName = 'W_softPos';
-          else
-            matrixName = 'W_soft';
-          end
-        end
-        [cost, probs, scores, scoreIndices] = softmaxLayerForward(model.(matrixName), softmax_h, predWords, curMask);
+        [cost, probs, scores, scoreIndices] = softmaxLayerForward(model.W_soft, softmax_h, predWords, curMask);
         costs.total = costs.total + cost;
-        if params.posModel>=0 % separate out pos/word perplexities
-          if mod(tgtPos, 2)==0
-            costs.word = costs.word + cost;
-          else
-            costs.pos = costs.pos + cost;
-          end
-        end
-        
+        costs.word = costs.word + cost;
+                
         % backprop: loss -> softmax_h
         if isTest==0
           % loss -> softmax_h
-          [grad_W_soft, grad_softmax_all{tgtPos}] = softmaxLayerBackprop(model.(matrixName), softmax_h, probs, scoreIndices);
-          if tt==srcMaxLen || (params.posModel>=1 && tt==(srcMaxLen+1))
-            grad.(matrixName) = grad_W_soft;
-          else
-            grad.(matrixName) = grad.(matrixName) + grad_W_soft;
-          end
+          [grad_W_soft, grad_softmax_all{tgtPos}] = softmaxLayerBackprop(model.W_soft, softmax_h, probs, scoreIndices);
+          grad.W_soft = grad.W_soft + grad_W_soft;
         end
       end
       
-      
     
       %% Record src hidden states
-      if tt<=params.numSrcHidVecs && ll==params.numLayers && (params.attnFunc>0 || params.posModel>=2 || params.sameLength==1)
-        trainData.srcHidVecs(:, :, tt) = cur_h_t{ll};
+      if tt<=params.numSrcHidVecs && ll==params.numLayers && (params.attnFunc>0 || params.sameLength==1)
+        trainData.srcHidVecsOrig(:, :, tt) = h_t{ll};
         
-        if tt==params.numSrcHidVecs && params.attnFunc && params.attnRelativePos==0 % absolute positions
-          trainData.absSrcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numAttnPositions], params.isGPU, params.dataType);
-          trainData.absSrcHidVecs(:, :, startHidId:endHidId) = trainData.srcHidVecs;
+        if tt==params.numSrcHidVecs
+          [trainData] = updateDataSrcVecs(trainData, params);
         end
       end
       
       
       % assert
       if params.assert
-        assert(sum(sum(abs(cur_h_t{ll}(:, curMask.maskedIds))))==0);
+        assert(sum(sum(abs(h_t{ll}(:, curMask.maskedIds))))==0);
         assert(sum(sum(abs(all_c_t{ll, tt}(:, curMask.maskedIds))))==0);
         
         if tt>=srcMaxLen && ll==params.numLayers
@@ -276,18 +285,17 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       W_layers = model.W_src;
     end
     
-    %% softmax_h -> h_t
+    %% softmax_h -> h_t: at the top layer
     if (tt>=srcMaxLen)
-      if params.posModel>=1 && mod(tgtPos, 2)==1 % positions
-        isPredictPos = 1;
-      else % words
-        isPredictPos = 0;
-      end
-      
-      if params.attnFunc || params.softmaxDim>0 || (params.posModel==3 && isPredictPos==0) % position 3, predict words
+      if params.attnFunc || params.softmaxDim>0
+        % get signals from the softmax layer for positions
+        if params.posSignal
+          dh{params.numLayers} = dh{params.numLayers} + grad_ht_pos_all{tgtPos};
+        end
+        
+        % softmax_h -> h_t
         h2sInfo = h2sInfoAll{tgtPos};
-        [grad_tgt_ht, hid2softGrad, grad_srcHidVecs] = hid2softLayerBackprop(model, grad_softmax_all{tgtPos}, trainData, h2sInfo, ...
-          isPredictPos, params);
+        [grad_tgt_ht, hid2softGrad, grad_srcHidVecs] = hid2softLayerBackprop(model, grad_softmax_all{tgtPos}, trainData, h2sInfo, params);
         if params.assert
           assert(sum(sum(abs(grad_tgt_ht(:, curMask.maskedIds))))==0);
         end
@@ -304,18 +312,18 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
 
         % attention models: srcHidVecs
         if params.attnFunc
-          if params.attnRelativePos % relative
-            startAttnId = h2sInfo.startAttnId;
-            endAttnId = h2sInfo.endAttnId;
-            startHidId = h2sInfo.startHidId;
-            endHidId = h2sInfo.endHidId;
+          if params.attnGlobal 
+            if params.attnOpt==0 % fixed
+              grad.srcHidVecs(:, :, startAttnId:endAttnId) = grad.srcHidVecs(:, :, startAttnId:endAttnId) + grad_srcHidVecs(:, :, startHidId:endHidId);
+            else % variable
+              grad.srcHidVecs = grad.srcHidVecs + grad_srcHidVecs;
+            end
+          else
+            grad.srcHidVecs = reshape(grad.srcHidVecs, params.lstmSize, []);
+            grad_srcHidVecs = reshape(grad_srcHidVecs, params.lstmSize, []);
+            grad.srcHidVecs(:, h2sInfo.linearIdAll) = grad.srcHidVecs(:, h2sInfo.linearIdAll) + grad_srcHidVecs(:, h2sInfo.linearIdSub);
+            grad.srcHidVecs = reshape(grad.srcHidVecs, [params.lstmSize, params.curBatchSize, params.numSrcHidVecs]);
           end
-          grad.srcHidVecs(:, :, startAttnId:endAttnId) = grad.srcHidVecs(:, :, startAttnId:endAttnId) + grad_srcHidVecs(:, :, startHidId:endHidId);
-        end
-
-        % positional model 3, predict words
-        if params.posModel==3 && isPredictPos==0
-          grad.srcHidVecs(h2sInfo.linearIndices) = grad.srcHidVecs(h2sInfo.linearIndices) + reshape(grad_srcHidVecs(:, curMask.unmaskedIds), 1, []);
         end
       else
         grad_tgt_ht = grad_softmax_all{tgtPos};
@@ -354,13 +362,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       if (tt>=srcMaxLen)
         % update the decoder
         if params.epoch>=params.decodeUpdateEpoch || params.decodeUpdateOpt==1 % for decodeUpdateOpt==1, always update
-          % positional
-          if params.posModel==2 && ll==1 && mod(tgtPos, 2)==0 % predict words
-            grad.W_tgt{ll} = grad.W_tgt{ll} + lstm_grad.W(:, 1:2*params.lstmSize);
-            grad.W_tgt_pos = grad.W_tgt_pos + lstm_grad.W(:, 2*params.lstmSize+1:end);
-          else
-            grad.W_tgt{ll} = grad.W_tgt{ll} + lstm_grad.W;
-          end
+          grad.W_tgt{ll} = grad.W_tgt{ll} + lstm_grad.W;
         end
       else
         grad.W_src{ll} = grad.W_src{ll} + lstm_grad.W;
@@ -378,12 +380,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
             grad.srcHidVecs(:, unmaskedIds, tgtPos) = grad.srcHidVecs(:, unmaskedIds, tgtPos) + lstm_grad.input(params.lstmSize+1:2*params.lstmSize, unmaskedIds);
           end
         end
-        % pos model 2 lstm_grad.input = = [x_t; s_t; h_t]
-        if params.posModel==2 && tt>=srcMaxLen && mod(tgtPos, 2)==0 % predict words
-          inputInfo = allInputInfo{tgtPos};
-          linearIndices = inputInfo.srcPosLinearIndices;
-          grad.srcHidVecs(linearIndices) = grad.srcHidVecs(linearIndices) + reshape(lstm_grad.input(params.lstmSize+1:2*params.lstmSize, unmaskedIds), 1, []);          
-        end
+
         % feed softmax vector
         if params.softmaxFeedInput && tt>srcMaxLen % for tt==srcMaxLen, we feed zero vector
           grad_softmax_all{tgtPos-1} = grad_softmax_all{tgtPos-1} + lstm_grad.input(params.lstmSize+1:2*params.lstmSize, :);
@@ -438,18 +435,8 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   end
     
   % remove unused variables
-  if params.attnFunc>0 || params.posModel>=2
+  if params.attnFunc>0 %|| params.posModel>=2
     grad = rmfield(grad, 'srcHidVecs');
-  end
-  
-  % gather data from GPU
-  if params.isGPU    
-    % costs
-    costs.total = gather(costs.total);
-    if params.posModel>0
-      costs.pos = gather(costs.pos);
-      costs.word = gather(costs.word);
-    end
   end
 end
 
@@ -467,7 +454,7 @@ function [grad, params] = initGrad(model, params)
   end
   
   %% backprop to src hidden states for attention and positional models
-  if params.attnFunc>0 || params.posModel>=2 || params.sameLength==1
+  if params.attnFunc>0 || params.sameLength==1
     params.numSrcHidVecs = params.srcMaxLen-1;
     assert(params.numSrcHidVecs<params.T);
     
@@ -478,7 +465,213 @@ function [grad, params] = initGrad(model, params)
   end
 end
 
+%           %% position predictions
+%           if params.predictPos==1 % regression
+%             
+%           elseif params.predictPos==2 % classification
+%             % h_t -> h_pos=f(W_pos*h_t)
+%             h_pos = hiddenLayerForward(model.W_pos, h_t{ll}, params.nonlinear_f);
+%           
+%             % h_t_pos -> position loss
+%             softmaxPositions = curPosOutput-params.startPosId+1; %+params.maxRelDist+1; % curPosOutput is in [-params.maxRelDist, params.maxRelDist]. the value params.maxRelDist+1 in curPosOutput marks eos.
+%             [cost_pos, probs_pos, ~, scoreIndices_pos] = softmaxLayerForward(model.W_softPos, h_pos, softmaxPositions, trainData.posMask);
+%             costs.total = costs.total + params.posWeight*cost_pos;
+%             costs.pos = costs.pos + params.posWeight*cost_pos;
+% 
+%             % backprop: position loss -> h_pos
+%             if isTest==0
+%               % loss -> h_pos
+%               [grad_W_soft, grad_h_pos] = softmaxLayerBackprop(model.W_softPos, h_pos, probs_pos, scoreIndices_pos);
+%               grad_h_pos = params.posWeight*grad_h_pos;
+%               grad_W_soft = params.posWeight*grad_W_soft;
+%               
+%               % h_pos -> h_t
+%               [grad_ht_pos_all{tgtPos}, grad_W_pos] = hiddenLayerBackprop(model.W_pos, grad_h_pos, h_t{ll}, params.nonlinear_f_prime, h_pos);
+% 
+%               % update grads
+%               grad.W_softPos = grad.W_softPos + grad_W_soft;
+%               
+%               % assert
+%               if params.assert
+%                 assert(sum(sum(abs(grad_h_pos(:, trainData.posMask.maskedIds))))==0);
+%               end
+%             end
+%             
+%             %% TODO: do argmax positions here when isTest==1
+%             trainData.positions = (tgtPos+params.zeroPosId) - curPosOutput; %  = tgtPos - (curPosOutput-zeroPosId)  = srcPos = tgtPos - relative distance
+%           end          
 
+
+%           %% null predictions
+%           if params.predictNull
+%             nullMask.mask = curMask.mask & curPosOutput==params.nullPosId;
+%             nullMask.unmaskedIds = find(nullMask.mask);
+%             
+%             if ~isempty(nullMask.unmaskedIds)
+%               nullMask.maskedIds = find(~nullMask.mask);
+% 
+%               % h_t -> h_null=f(W_null*h_t)
+%               h_null = hiddenLayerForward(model.W_null, h_t{ll}, params.nonlinear_f);
+% 
+%               % h_null -> softmax
+%               nullLabels = nullMask.mask+1; % 1: non-null, 2: null
+%               [cost_null, probs_null, ~, scoreIndices_null] = softmaxLayerForward(model.W_softNull, h_null, nullLabels, nullMask);
+%               costs.total = costs.total + params.nullWeight*cost_null;
+%               costs.null = costs.null + params.nullWeight*cost_null;
+% 
+%               if isTest==0 % backprop
+%                 % loss -> h_null
+%                 [grad_W_softNull, grad_h_null] = softmaxLayerBackprop(model.W_softNull, h_null, probs_null, scoreIndices_null);
+%                 grad_h_null = params.nullWeight*grad_h_null;
+%                 grad_W_softNull = params.nullWeight*grad_W_softNull;
+% 
+%                 % h_null -> h_t
+%                 [grad_ht, grad_W_null] = hiddenLayerBackprop(model.W_null, grad_h_null, h_t{ll}, params.nonlinear_f_prime, h_null);
+% 
+%                 % update grads
+%                 grad.W_softNull = grad.W_softNull + grad_W_softNull;
+%                 grad.W_null = grad.W_null + grad_W_null;
+%                 grad_ht_pos_all{tgtPos} = grad_ht_pos_all{tgtPos} + grad_ht;
+%                 
+%                 % assert
+%                 if params.assert
+%                   assert(sum(sum(abs(grad_h_null(:, nullMask.maskedIds))))==0);
+%                   assert(sum(sum(abs(grad_ht(:, nullMask.maskedIds))))==0);
+%                 end
+%               end
+%             end % if ~isempty
+%           end % end predictNull
+
+  
+%   %% costs
+%   if params.isGPU    
+%     costs.total = gather(costs.total);
+%     costs.word = gather(costs.word);
+%     if params.predictPos
+%       costs.pos = gather(costs.pos);
+%       if predictNull
+%         costs.null = gather(costs.null);
+%       end
+%     end
+%   end
+
+%% Positional models %%
+%             % round positions
+%             if isTest % use predicted positions at test time
+%               trainData.positions = floor(scales.*trainData.srcLens) + 1;
+%             else % use gold positions, at training time
+%             end
+
+
+%           if params.predictPos % use unsupervised alignments  
+%           else % soft attention
+%             if params.attnGlobal==0 % relative
+%               startAttnId = h2sInfo.startAttnId;
+%               endAttnId = h2sInfo.endAttnId;
+%               startHidId = h2sInfo.startHidId;
+%               endHidId = h2sInfo.endHidId;
+%             end
+%             grad.srcHidVecs(:, :, startAttnId:endAttnId) = grad.srcHidVecs(:, :, startAttnId:endAttnId) + grad_srcHidVecs(:, :, startHidId:endHidId);
+%           end
+
+%           %% decide null or non-null alignment
+%           nullFlags = curPosOutput==params.nullPosId;
+%           nullLabels = nullFlags+1; % 1: non-null, 2: null
+%           [cost_null, probs_null, scores_null, scoreIndices_null] = softmaxLayerForward(model.W_softNull, top_ht, nullLabels, curMask);
+%           costs.total = costs.total + params.posWeight*cost_null;
+%           costs.null = costs.null + params.posWeight*cost_null;
+%           
+%           % assert
+%           if params.assert
+%             assert(sum(sum(abs(scores_null(:, curMask.maskedIds))))==0);
+%           end
+%           
+%           if isTest==0 % backprop
+%             % loss -> h_t_pos
+%             [grad_W_softNull, grad_ht] = softmaxLayerBackprop(model.W_softNull, top_ht, probs_null, scoreIndices_null);
+%             
+%             % assert
+%             if params.assert
+%               assert(sum(sum(abs(grad_ht(:, curMask.maskedIds))))==0);
+%             end
+%             
+%             % update grads
+%             grad_ht_pos_all{tgtPos} = params.posWeight*grad_ht;
+%             if tt==srcMaxLen
+%               grad.W_softNull = params.posWeight*grad_W_softNull;
+%             else
+%               grad.W_softNull = grad.W_softNull + params.posWeight*grad_W_softNull;
+%             end
+%           end
+%           top_ht(:, nullFlags) = 0; % ignore <p_n>
+
+%             if params.oldSrcVecs % old
+%               grad.srcHidVecs(h2sInfo.linearIndices) = grad.srcHidVecs(h2sInfo.linearIndices) + grad_srcHidVecs(h2sInfo.attnLinearIndices);
+%             else % new
+%             end
+
+%   % positional models
+%   if params.posModel>0
+%     if params.posModel==2
+%       trainData.srcPosInfo = cell(tgtMaxLen, 1);
+%       W_tgt_combined = [model.W_tgt{1} model.W_tgt_pos];
+%     end
+%     
+%     % positional model 3, include more src embeddings
+%     if params.posModel==3 
+%       trainData.numInputWords_src = floor(trainData.numInputWords_src + trainData.numInputWords_tgt*0.5);
+%     end
+%   end
+
+%           % pos model predict words
+%           if params.posModel==2 && mod(tgtPos, 2)==0 
+%             W = W_tgt_combined;
+%           end
+
+%         if params.posModel>=1
+%           if mod(tgtPos, 2)==1 % positions
+%             predWords = predWords - params.startPosId + 1;
+%             matrixName = 'W_softPos';
+%           else
+%             matrixName = 'W_soft';
+%           end
+%         end
+
+%         if params.posModel>=0 % separate out pos/word perplexities
+%           if mod(tgtPos, 2)==0
+%             costs.word = costs.word + cost;
+%           else
+%             costs.pos = costs.pos + cost;
+%           end
+%         end
+
+%       if params.posModel>=1 && mod(tgtPos, 2)==1 % positions
+%         isPredictPos = 1;
+%       else % words
+%         isPredictPos = 0;
+%       end
+      
+%         % positional model 3, predict words
+%         if params.posModel==3 && isPredictPos==0
+%           grad.srcHidVecs(h2sInfo.linearIndices) = grad.srcHidVecs(h2sInfo.linearIndices) + reshape(grad_srcHidVecs(:, curMask.unmaskedIds), 1, []);
+%         end
+
+%           % positional
+%           if params.posModel==2 && ll==1 && mod(tgtPos, 2)==0 % predict words
+%             grad.W_tgt{ll} = grad.W_tgt{ll} + lstm_grad.W(:, 1:2*params.lstmSize);
+%             grad.W_tgt_pos = grad.W_tgt_pos + lstm_grad.W(:, 2*params.lstmSize+1:end);
+%           else
+%           end
+
+%         % pos model 2 lstm_grad.input = = [x_t; s_t; h_t]
+%         if params.posModel==2 && tt>=srcMaxLen && mod(tgtPos, 2)==0 % predict words
+%           inputInfo = allInputInfo{tgtPos};
+%           linearIndices = inputInfo.srcPosLinearIndices;
+%           grad.srcHidVecs(linearIndices) = grad.srcHidVecs(linearIndices) + reshape(lstm_grad.input(params.lstmSize+1:2*params.lstmSize, unmaskedIds), 1, []);          
+%         end
+
+
+%% softmax
 %   %%%%%%%%%%%%%%%
 %   %%% SOFTMAX %%%
 %   %%%%%%%%%%%%%%%
