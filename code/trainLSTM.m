@@ -189,18 +189,15 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       params.predictPos = 1;
       params.attnGlobal = 0;
       params.posSignal = 1;
-%     elseif params.attnFunc==4 % local, hard attention + unsupervised alignments + classification for relative positions
-%       params.predictPos = 2;
-%       params.attnGlobal = 0;
-%       params.posSignal = 1;
-    elseif params.attnFunc==5 % local, hard attention
+    elseif params.attnFunc==4 % local, hard attention
       params.predictPos = 3;
       params.attnGlobal = 0;
       params.posSignal = 0;
-      if params.attnOpt==0
-        params.sqrt2pi = sqrt(2*pi);
-      else
+      if params.attnOpt==1
         params.distSigma = params.posWin/2.0;
+      else
+        error('For attnFunc 4, use attnOpt 1\n');
+        %params.sqrt2pi = sqrt(2*pi);
       end
 
     else
@@ -271,7 +268,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     printSent(2, srcTrainSents{1}, params.srcVocab, '  src 1:');
     printSent(2, srcTrainSents{end}, params.srcVocab, '  src end:');
   end
-  if params.predictPos==1
+  if params.posSignal
     printSentPos(2, tgtTrainSents{1}, params.tgtVocab, '  tgt:');
     printSentPos(2, tgtTrainSents{end}, params.tgtVocab, '  tgt end:');
   else
@@ -433,20 +430,23 @@ function [model] = initLSTM(params)
     if params.predictPos
       % transform h_t into h_pos = f(W_pos*h_t)
       model.W_pos = randomMatrix(params.initRange, [params.softmaxSize, params.lstmSize], params.isGPU, params.dataType);
-
-      % predict pos
-      if params.predictPos==1 || params.predictPos==3 % regression, scale=sigmoid(v_pos*h_pos)
-        model.v_pos = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
-        
-        if params.predictPos==3 && params.attnOpt==0 % predict variance = sigmoid(v_sig*f(W_sig*h_t))
-          model.W_var = randomMatrix(params.initRange, [params.softmaxSize, params.lstmSize], params.isGPU, params.dataType);
-          model.v_var = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
-        end
-      end
+      
+      % regression, scale=sigmoid(v_pos*h_pos)
+      model.v_pos = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
+      
+%       % predict pos
+%       if params.predictPos==1 || params.predictPos==3 % regression, scale=sigmoid(v_pos*h_pos)
+%         model.v_pos = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
+%         
+%         if params.predictPos==3 && params.attnOpt==0 % predict variance = sigmoid(v_sig*f(W_sig*h_t))
+%           model.W_var = randomMatrix(params.initRange, [params.softmaxSize, params.lstmSize], params.isGPU, params.dataType);
+%           model.v_var = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
+%         end
+%       end
     end
     
     % predict alignment weights
-    if params.attnOpt==0 && params.numAttnPositions>=1 && params.predictPos~=3
+    if params.attnOpt==0 && params.numAttnPositions>=1 % && params.predictPos~=3
       model.W_a = randomMatrix(params.initRange, [params.numAttnPositions, params.lstmSize], params.isGPU, params.dataType);
     end
     

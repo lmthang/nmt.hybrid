@@ -56,9 +56,9 @@ function [params] = loadBiVocabs(params)
   end
   params.tgtVocab = tgtVocab;
   
-  if params.assert && params.predictPos==2 % classification
-    assert(params.tgtEos == (params.startPosId + params.posVocabSize-1));
-  end
+%   if params.assert && params.predictPos==2 % classification
+%     assert(params.tgtEos == (params.startPosId + params.posVocabSize-1));
+%   end
 end
 
 %% Predict positions

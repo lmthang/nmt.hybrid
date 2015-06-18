@@ -36,19 +36,7 @@ function [grad_ht, hid2softGrad, grad_srcHidVecs] = hid2softLayerBackprop(model,
       
       % grad_contextVecs -> grad_ht, grad_W_a, grad_srcHidVecs
       if params.predictPos==3
-        if params.attnOpt==0 
-          % since linearIdSub is for matrix of size [curBatchSize, numAttnPositions], 
-          % we need to transpose grad_alignWeights to be of that size.
-          grad_alignWeights = grad_alignWeights';
-          h2sInfo.alignWeights = h2sInfo.alignWeights';
-          
-          % grad_alignWeights -> grad_variances, grad_mu
-          [grad_mu, grad_variances] = gaussLayerBackprop(grad_alignWeights, h2sInfo, params);
-
-          % grad_variances -> grad_h_t, grad_W_var, grad_v_var, scales=sigmoid(v_pos*f(W_pos*h_t)) in [0, 1]
-          [grad_ht, hid2softGrad.W_var, hid2softGrad.v_var] = scaleLayerBackprop(model.W_var, model.v_var, grad_variances, h2sInfo.h_t, ...
-            h2sInfo.origVariances, h2sInfo.varForwData, params);
-        else
+        if params.attnOpt==1
           % grad_alignWeights -> grad_distWeights, grad_compareWeights
           grad_distWeights = grad_alignWeights.*h2sInfo.compareWeights;
           grad_compareWeights = grad_alignWeights.*h2sInfo.distWeights;
@@ -68,6 +56,20 @@ function [grad_ht, hid2softGrad, grad_srcHidVecs] = hid2softLayerBackprop(model,
           [grad_ht, grad_srcHidVecs1] = srcCompareLayerBackprop(grad_scores, srcHidVecs, h2sInfo.h_t);
           grad_srcHidVecs = grad_srcHidVecs + grad_srcHidVecs1; % add to the existing grad_srcHidVecs
         end
+%         if params.attnOpt==0 
+%           % since linearIdSub is for matrix of size [curBatchSize, numAttnPositions], 
+%           % we need to transpose grad_alignWeights to be of that size.
+%           grad_alignWeights = grad_alignWeights';
+%           h2sInfo.alignWeights = h2sInfo.alignWeights';
+%           
+%           % grad_alignWeights -> grad_variances, grad_mu
+%           [grad_mu, grad_variances] = gaussLayerBackprop(grad_alignWeights, h2sInfo, params);
+% 
+%           % grad_variances -> grad_h_t, grad_W_var, grad_v_var, scales=sigmoid(v_pos*f(W_pos*h_t)) in [0, 1]
+%           [grad_ht, hid2softGrad.W_var, hid2softGrad.v_var] = scaleLayerBackprop(model.W_var, model.v_var, grad_variances, h2sInfo.h_t, ...
+%             h2sInfo.origVariances, h2sInfo.varForwData, params);
+%         else
+%         end
         
         % grad_mu -> grad_scales
         grad_scales = trainData.srcLens.*grad_mu;

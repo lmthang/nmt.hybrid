@@ -62,7 +62,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   
   % attentional model
   if params.attnFunc 
-    if params.predictPos==1 % hard attention
+    if params.posSignal % local attention, unsupervised alignment
       grad_ht_pos_all = cell(tgtMaxLen, 1);
     end
       
@@ -189,7 +189,8 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
               assert(sum(sum(abs(grad_ht_pos_all{tgtPos}(:, trainData.posMask.maskedIds))))==0);
             end
           end          
-        end % if predictPos
+        end % if posSignal
+        
         
         %% predicting words
         % h_t -> softmax_h

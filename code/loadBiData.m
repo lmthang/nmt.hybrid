@@ -19,15 +19,15 @@ function [srcSents, tgtSents, numSents] = loadBiData(params, prefix, srcVocab, t
   
   % tgt
   tgtFile = sprintf('%s.%s', prefix, params.tgtLang);
-  [tgtSents, numSents] = loadMonoData(tgtFile, chunkSize, params.baseIndex, tgtVocab, params.predictPos, 'tgt'); % , params.tgtEos
+  [tgtSents, numSents] = loadMonoData(tgtFile, chunkSize, params.baseIndex, tgtVocab, params.posSignal, 'tgt'); % , params.tgtEos
 end
 
-function [sents, numSents] = loadMonoData(file, numSents, baseIndex, vocab, predictPos, label) % eos, 
+function [sents, numSents] = loadMonoData(file, numSents, baseIndex, vocab, posSignal, label) % eos, 
   fprintf(2, '# Loading data %s from file %s\n', label, file);
   fid = fopen(file, 'r');
   [sents, numSents] = loadBatchData(fid, baseIndex, numSents); %, eos);
   fclose(fid);
-  if predictPos==1
+  if posSignal
     printSentPos(2, sents{1}, vocab, ['  ', label, ' 1:']);
     printSentPos(2, sents{end}, vocab, ['  ', label, ' end:']);
   else
