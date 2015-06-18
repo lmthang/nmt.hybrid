@@ -1,2 +1,0 @@
-~/lmthang-dl/lstm/lstm.de2en.50000.d1000.lr1.max5.d4.init0.1.noClip.longer.reverse basic
-~/lmthang-dl/lstm/lstm.deen.50000.d1000.lr1.max5.d4.init0.1.dual.reverse dual

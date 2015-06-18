@@ -1,3 +1,0 @@
-~/lmthang-dl/lstm/lstm.deen.50000.d1000.lr1.max5.d4.init0.1.noClip.longer.attn1.feedInput.reverse.dropout0.8 global
-~/lmthang-dl/lstm/lstm.deen.50000.d1000.lr1.max5.d4.init0.1.noClip.longer.attn2.feedInput.reverse.dropout0.8 monoLocal
-~/lmthang-dl/lstm/lstm.deen.50000.d1000.lr1.max5.d4.init0.1.noClip.reverse.feedInput.dropout0.8.attn3-5-1.0 unsupLocal
