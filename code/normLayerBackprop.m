@@ -13,6 +13,12 @@ function [grad_scores] = normLayerBackprop(grad_alignWeights, alignWeights, para
   % multiple examples: alpha = sum(a.*grad_a, 1) % 1*curBatchSize
   %     grad_scores = a.*grad - bsxfun(@times, a, alpha)
   % tmpResult = alignWeights.*grad_alignWeights; % numAttnPositions * curBatchSize
+  
+  %if ~isequal(size(alignWeights), size(grad_alignWeights))
+  %  params
+  %  size(alignWeights)
+  %  size(grad_alignWeights)
+  %end
   tmpResult = alignWeights.*grad_alignWeights; % numAttnPositions * curBatchSize
   grad_scores = tmpResult - bsxfun(@times, alignWeights, sum(tmpResult, 1));
     
