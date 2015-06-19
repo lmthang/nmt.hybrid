@@ -23,6 +23,7 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
 
   % optional
   addOptional(p,'gpuDevice', 1, @isnumeric); % choose the gpuDevice to use. 
+  addOptional(p,'align', 0, @isnumeric); % 1 -- output aignment from attention model
   addOptional(p,'minLenRatio', 0.5, @isnumeric); % decodeLen >= minLenRatio * srcMaxLen
   addOptional(p,'maxLenRatio', 1.5, @isnumeric); % decodeLen <= maxLenRatio * srcMaxLen
   addOptional(p,'testPrefix', '', @ischar); % to specify a different file for decoding
@@ -117,9 +118,13 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   
   params = models{1}.params;
   params.fid = fopen(params.outputFile, 'w');
-  params.logId = fopen([outputFile '.log'], 'w');
+  params.logId = fopen([outputFile '.log'], 'w'); 
+  % align
+  if params.align
+    params.alignId = fopen([params.outputFile '.align'], 'w');
+  end
   printParams(2, params);
-   
+  
   % same-length decoder
   if params.sameLength
     assert(decodeParams.batchSize==1);
@@ -149,10 +154,10 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
     decodeData.startId = startId;
     
     % call lstmDecoder
-    [candidates, candScores] = lstmDecoder(models, decodeData, params); 
+    [candidates, candScores, alignInfo] = lstmDecoder(model, decodeData, params); 
     
     % print results
-    printDecodeResults(decodeData, candidates, candScores, params, 1);
+    printDecodeResults(decodeData, candidates, candScores, alignInfo, params, 1);
   end
 
   endTime = clock;
