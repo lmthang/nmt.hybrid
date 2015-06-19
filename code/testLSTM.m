@@ -1,4 +1,4 @@
-function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,varargin)
+function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,varargin)
 %%%
 %
 % Test a trained LSTM model by generating translations for the test data
@@ -15,7 +15,7 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   %% Argument Parser
   p = inputParser;
   % required
-  addRequired(p,'modelFile',@ischar);
+  addRequired(p,'modelFiles',@ischar);
   addRequired(p,'beamSize',@isnumeric);
   addRequired(p,'stackSize',@isnumeric);
   addRequired(p,'batchSize',@isnumeric);
@@ -28,7 +28,7 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   addOptional(p,'testPrefix', '', @ischar); % to specify a different file for decoding
 
   p.KeepUnmatched = true;
-  parse(p,modelFile,beamSize,stackSize,batchSize,outputFile,varargin{:})
+  parse(p,modelFiles,beamSize,stackSize,batchSize,outputFile,varargin{:})
   decodeParams = p.Results;
   if decodeParams.batchSize==-1 % decode sents one by one
     decodeParams.batchSize = 1;
@@ -51,58 +51,71 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   end
   printParams(2, decodeParams);
   
-  % load model
-  [savedData] = load(decodeParams.modelFile);
-  params = savedData.params;  
-  params.posModel=0;
-  model = savedData.model;
-  model
+  %% load multiple models
+  tokens = strsplit(decodeParams.modelFiles, ',');
+  numModels = length(tokens);
+  models = cell(numModels, 1);
+  for mm=1:numModels
+    modelFile = tokens{mm};
+    [savedData] = load(modelFile);
+    models{mm} = savedData.model;
+    models{mm}.params = savedData.params;  
+    
+    % for backward compatibility  
+    fieldNames = {'posSignal', 'attnGlobal', 'attnOpt', 'predictPos'};
+    for ii=1:length(fieldNames)
+      field = fieldNames{ii};
+      if ~isfield(models{mm}.params, field)
+        models{mm}.params.(field) = 0;
+      end
+    end
+    
+    % convert absolute paths to local paths
+    fieldNames = fields(models{mm}.params);
+    for ii=1:length(fieldNames)
+      field = fieldNames{ii};
+      if ischar(models{mm}.params.(field))
+        if strfind(models{mm}.params.(field), '/afs/ir/users/l/m/lmthang') ==1
+          models{mm}.params.(field) = strrep(models{mm}.params.(field), '/afs/ir/users/l/m/lmthang', '~');
+        end
+        if strfind(models{mm}.params.(field), '/afs/cs.stanford.edu/u/lmthang') ==1
+          models{mm}.params.(field) = strrep(models{mm}.params.(field), '/afs/cs.stanford.edu/u/lmthang', '~');
+        end
+        if strfind(models{mm}.params.(field), '/home/lmthang') ==1
+          models{mm}.params.(field) = strrep(models{mm}.params.(field), '/home/lmthang', '~');
+        end    
+      end
+    end
+    
+    % load vocabs
+    [models{mm}.params] = loadBiVocabs(models{mm}.params);
+    
+    % make sure all models have the same vocab, and the number of layers
+    if mm>1 
+      for ii=1:models{mm}.params.srcVocabSize
+        assert(strcmp(models{mm}.params.srcVocab{ii}, models{1}.params.srcVocab{ii}), '! model %d, mismatch src word %d: %s vs. %s\n', mm, ii, models{mm}.params.srcVocab{ii}, models{1}.params.srcVocab{ii});
+      end
+      for ii=1:models{mm}.params.tgtVocabSize
+        assert(strcmp(models{mm}.params.tgtVocab{ii}, models{1}.params.tgtVocab{ii}), '! model %d, mismatch tgt word %d: %s vs. %s\n', mm, ii, models{mm}.params.tgtVocab{ii}, models{1}.params.tgtVocab{ii});
+      end
+      models{mm}.params = rmfield(models{mm}.params, {'srcVocab', 'tgtVocab'});
+    end
+    
+    % copy fields
+    fieldNames = fields(decodeParams);
+    for ii=1:length(fieldNames)
+      field = fieldNames{ii};
+      if strcmp(field, 'testPrefix')==1 && strcmp(decodeParams.(field), '')==1 % skip empty testPrefix
+        continue;
+      elseif strcmp(field, 'testPrefix')==1
+        fprintf(2, '# Decode a different test file %s\n', decodeParams.(field));
+      end
+      models{mm}.params.(field) = decodeParams.(field);
+    end
+  end
  
-  % for backward compatibility
-  if ~isfield(params, 'numClasses')
-    params.numClasses = 0;
-  end
-  if ~isfield(params, 'dropout')
-    params.dropout = 1;
-  end
   
-  % convert absolute paths to local paths
-  fieldNames = fields(params);
-  for ii=1:length(fieldNames)
-    field = fieldNames{ii};
-    if ischar(params.(field))
-      if strfind(params.(field), '/afs/ir/users/l/m/lmthang') ==1
-        params.(field) = strrep(params.(field), '/afs/ir/users/l/m/lmthang', '~');
-      end
-      if strfind(params.(field), '/afs/cs.stanford.edu/u/lmthang') ==1
-        params.(field) = strrep(params.(field), '/afs/cs.stanford.edu/u/lmthang', '~');
-      end
-      if strfind(params.(field), '/home/lmthang') ==1
-        params.(field) = strrep(params.(field), '/home/lmthang', '~');
-      end    
-    end
-  end
-  
-  if ~isfield(params, 'separateEmb')
-    params.separateEmb = 0;
-  end
-  [params] = loadBiVocabs(params);
-  
-  % copy fields
-  fieldNames = fields(decodeParams);
-  for ii=1:length(fieldNames)
-    field = fieldNames{ii};
-    if strcmp(field, 'testPrefix')==1 && strcmp(decodeParams.(field), '')==1 % skip empty testPrefix
-      continue;
-    elseif strcmp(field, 'testPrefix')==1
-      fprintf(2, '# Decode a different test file %s\n', decodeParams.(field));
-    end
-    params.(field) = decodeParams.(field);
-  end
-  
-  if ~isfield(params, 'softmaxDim')
-    params.softmaxDim = 0;
-  end
+  params = models{1}.params;
   params.fid = fopen(params.outputFile, 'w');
   params.logId = fopen([outputFile '.log'], 'w');
   printParams(2, params);
@@ -115,7 +128,6 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   
   % load test data
   [srcSents, tgtSents, numSents]  = loadBiData(params, params.testPrefix, params.srcVocab, params.tgtVocab);
-  %[srcSents, tgtSents, numSents]  = loadBiData(params, params.trainPrefix, srcVocab, tgtVocab, 10);
   
   %%%%%%%%%%%%
   %% decode %%
@@ -137,7 +149,7 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
     decodeData.startId = startId;
     
     % call lstmDecoder
-    [candidates, candScores] = lstmDecoder(model, decodeData, params); 
+    [candidates, candScores] = lstmDecoder(models, decodeData, params); 
     
     % print results
     printDecodeResults(decodeData, candidates, candScores, params, 1);
@@ -151,6 +163,19 @@ function [] = testLSTM(modelFile, beamSize, stackSize, batchSize, outputFile,var
   fclose(params.fid);
   fclose(params.logId);
 end
+
+%   if ~isfield(params, 'softmaxDim')
+%     params.softmaxDim = 0;
+%   end
+%   if ~isfield(params, 'separateEmb')
+%     params.separateEmb = 0;
+%   end
+%   if ~isfield(params, 'numClasses')
+%     params.numClasses = 0;
+%   end
+%   if ~isfield(params, 'dropout')
+%     params.dropout = 1;
+%   end
 
 %   addOptional(p,'depParse', 0, @isnumeric); % 1: indicate that we are doing dependency parsing
 %   % dependency parsing
