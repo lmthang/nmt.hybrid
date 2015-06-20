@@ -70,6 +70,9 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
         models{mm}.params.(field) = 0;
       end
     end
+    if models{mm}.params.attnFunc==1
+      models{mm}.params.attnGlobal = 1;
+    end
     
     % convert absolute paths to local paths
     fieldNames = fields(models{mm}.params);
@@ -154,7 +157,7 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
     decodeData.startId = startId;
     
     % call lstmDecoder
-    [candidates, candScores, alignInfo] = lstmDecoder(model, decodeData, params); 
+    [candidates, candScores, alignInfo] = lstmDecoder(models, decodeData, params); 
     
     % print results
     printDecodeResults(decodeData, candidates, candScores, alignInfo, params, 1);

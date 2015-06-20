@@ -1,4 +1,4 @@
-function printDecodeResults(decodeData, candidates, candScores, params, isOutput)
+function printDecodeResults(decodeData, candidates, candScores, alignInfo, params, isOutput)
   batchSize = size(candScores, 2);
   startId = decodeData.startId;
   
@@ -17,15 +17,68 @@ function printDecodeResults(decodeData, candidates, candScores, params, isOutput
     printSrc(params.logId, decodeData, ii, params, startId+ii-1);
     printRef(params.logId, decodeData, ii, params, startId+ii-1);
     printSent(params.logId, translation, params.tgtVocab, ['  tgt ' num2str(startId+ii-1) ': ']);    
+    % align
+    if params.align
+      alignment = alignInfo{ii}{bestId};
+      printAlign(params.logId, translation, decodeData, alignment, params, ii, startId+ii-1, 1);
+      printSentAlign(params.alignId, decodeData, alignment, params);
+    end
     fprintf(params.logId, '  score %g\n', maxScores(ii));
 
     % debug
     printSrc(2, decodeData, ii, params, startId+ii-1);
     printRef(2, decodeData, ii, params, startId+ii-1);
     printSent(2, translation, params.tgtVocab, ['  tgt ' num2str(startId+ii-1) ': ']);
+    % align
+    if params.align
+      printAlign(2, translation, decodeData, alignment, params, ii, startId+ii-1, 1);
+    end
     fprintf(2, '  score %g\n', maxScores(ii));
-    %printTranslations(candidates{ii}, candScores(ii, :), params);
   end
+end
+
+function printSentAlign(fid, data, alignment, params)
+  srcLen = data.srcLens(1); % WARNING: assume batchSize==1
+  if params.isReverse
+    alignment = srcLen-alignment;
+  end
+
+  for i = 1:length(alignment)
+    srcPos = alignment(i);
+    assert((1 <= srcPos) && (srcPos <= srcLen));
+    fprintf(fid, '%d-%d ', srcPos-1, i-1); % base 0
+  end
+  fprintf(fid, '\n');
+end
+
+function printAlign(fid, translation, data, alignment, params, ii, sentId, printWords)
+  mask = data.inputMask(ii,1:data.srcMaxLen-1);
+  srcLen = data.srcLens(1); % WARNING: assume batchSize==1
+  if params.isReverse
+    alignment = srcLen-alignment;
+  end
+  
+  if printWords
+    if params.isReverse
+      src = data.input(ii,mask);
+      src = src(end:-1:1);
+    end
+    fprintf(fid, 'words %d: ', sentId);
+    for i = 1:length(alignment)
+      srcPos = alignment(i);
+      assert((1 <= srcPos) && (srcPos <= srcLen));
+      fprintf(fid, '%s-%s ', params.srcVocab{src(srcPos)}, params.tgtVocab{translation(i)});
+    end
+    fprintf(fid, '\n');
+  end  
+  
+  for i = 1:length(alignment)
+    srcPos = alignment(i);  
+    assert((1 <= srcPos) && (srcPos <= srcLen));
+    fprintf(fid, '%d-%d ', srcPos-1, i-1); % base 0
+  end
+  fprintf(fid, '\n');
+  
 end
 
 

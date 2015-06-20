@@ -10,7 +10,7 @@
 %   With help from Hieu Pham.
 %
 %%
-function [candidates, candScores] = lstmDecoder(models, data, params)
+function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
   % backward compatibility: not a cell, single model, put into a cell format
   if ~iscell(models)
     tmpModels = cell(1, 1);
@@ -135,7 +135,20 @@ function [candidates, candScores] = lstmDecoder(models, data, params)
             modelData{mm}.positions = floor(modelData{mm}.srcLens.*scales);
           end
 
-          [softmax_h{mm}] = hid2softLayerForward(h_t, models{mm}.params, models{mm}, modelData{mm}, tgtPos); 
+          [softmax_h{mm}, h2sInfo] = hid2softLayerForward(h_t, models{mm}.params, models{mm}, modelData{mm}, tgtPos); 
+          
+          
+        % output alignment
+          if params.align 
+            % WARNING: assume batchSize=1
+            if params.attnGlobal % global
+              [~,firstAlignIdx] = max(h2sInfo.alignWeights(end-modelData{mm}.srcLens(1)+2:end), [], 1);
+            else % attention local
+              % srcHidVecs(:, :, startHidId:endHidId) = srcHidVecsAll(:, :, startAttnId:endAttnId);
+              [~,firstAlignIdx] = max(h2sInfo.alignWeights(h2sInfo.startHidId:h2sInfo.endHidId), [], 1);
+              firstAlignIdx = h2sInfo.startAttnId - 1 + firstAlignIdx;
+            end
+          end
         end
 
         % attentional  models
@@ -175,7 +188,7 @@ function [candidates, candScores] = lstmDecoder(models, data, params)
   end
   
   sentIndices = data.startId:(data.startId+batchSize-1);
-  [candidates, candScores] = decodeBatch(models, params, lstm, softmax_h, minLen, maxLen, beamSize, stackSize, batchSize, sentIndices, srcMaxLen, modelData, zeroStates);
+  [candidates, candScores, alignInfo] = decodeBatch(models, params, lstm, softmax_h, minLen, maxLen, beamSize, stackSize, batchSize, sentIndices, srcMaxLen, modelData, zeroStates, firstAlignIdx);
   endTime = clock;
   timeElapsed = etime(endTime, startTime);
   fprintf(2, '  Done, minLen=%d, maxLen=%d, speed %f sents/s, time %.0fs, %s\n', minLen, maxLen, batchSize/timeElapsed, timeElapsed, datestr(now));
@@ -190,7 +203,7 @@ end
 %   - beamSize
 %   - stackSize: maximum number of translations collected for one example
 %%
-function [candidates, candScores] = decodeBatch(models, params, lstmStart, softmax_h, minLen, maxLen, beamSize, stackSize, batchSize, originalSentIndices, srcMaxLen, modelData, zeroStates)
+function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmStart, softmax_h, minLen, maxLen, beamSize, stackSize, batchSize, originalSentIndices, srcMaxLen, modelData, zeroStates, firstAlignIdx)
   numElements = batchSize*beamSize;
   
   candidates = cell(batchSize, 1);
@@ -199,6 +212,14 @@ function [candidates, candScores] = decodeBatch(models, params, lstmStart, softm
   for ii=1:batchSize
     candidates{ii} = cell(stackSize, 1);
   end
+  % align
+  if params.align
+    alignInfo = cell(batchSize, 1);
+    for ii=1:batchSize
+      alignInfo{ii} = cell(stackSize, 1);
+    end
+  end
+  
   
   %% first prediction
   numModels = length(models);
@@ -217,9 +238,14 @@ function [candidates, candScores] = decodeBatch(models, params, lstmStart, softm
   beamScores = scores(:)'; % 1 * numElements
   beamHistory = zeroMatrix([maxLen, numElements], params.isGPU, params.dataType); % maxLen * (numElements) 
   beamHistory(1, :) = words(:); % words for sent 1 go together, then sent 2, ...
-  beamStates = cell(numModels, 1);
+  % align
+  if params.align
+    alignHistory = zeroMatrix([maxLen, numElements], params.isGPU, params.dataType); % maxLen * (numElements) 
+    alignHistory(1, :) = firstAlignIdx;
+  end
   
   % replicate
+  beamStates = cell(numModels, 1);
   for mm=1:numModels % model    
     beamStates{mm} = cell(models{mm}.params.numLayers, 1);
     for ll=1:models{mm}.params.numLayers % lstmSize * numElements
@@ -261,7 +287,10 @@ function [candidates, candScores] = decodeBatch(models, params, lstmStart, softm
   decodeCompleteCount = 0; % count how many sentences we have completed collecting the translations
   beamWords = zeroMatrix([1, numElements], params.isGPU, params.dataType);
   beamIndices = zeroMatrix([1, numElements], params.isGPU, params.dataType);
-
+  % align
+  if params.align
+    beamAlignIds = zeroMatrix([1, numElements], params.isGPU, params.dataType);
+  end
   
   W = cell(numModels, 1);
   W_emb = cell(numModels, 1);
@@ -322,7 +351,32 @@ function [candidates, candScores] = decodeBatch(models, params, lstmStart, softm
             modelData{mm}.positions = floor(modelData{mm}.srcLens.*scales);
           end
 
-          [softmax_h{mm}] = hid2softLayerForward(h_t, models{mm}.params, models{mm}, modelData{mm}, tgtPos); 
+          [softmax_h{mm}, h2sInfo] = hid2softLayerForward(h_t, models{mm}.params, models{mm}, modelData{mm}, tgtPos); 
+          
+          % align
+          if params.align
+            % WARNING: assume batchSize==1
+            sentId=1;
+            srcLen = modelData{mm}.srcLens(sentId);
+            if params.attnGlobal % global
+              [~,alignIdx] = max(h2sInfo.alignWeights(end-srcLen+2:end, :), [], 1);
+            else % attention local
+              % srcHidVecs(:, :, startHidId:endHidId) = srcHidVecsAll(:, :, startAttnId:endAttnId);
+              if h2sInfo.startHidId<=h2sInfo.endHidId
+                [~,alignIdx] = max(h2sInfo.alignWeights(h2sInfo.startHidId:h2sInfo.endHidId, :), [], 1);
+                alignIdx = h2sInfo.startAttnId - 1 + alignIdx;
+              else % out-of-boundary
+                if params.isReverse % approximate by 1
+                  alignIdx = ones(1, beamSize);
+                else % approximate by (srcLen-1) 
+                  alignIdx = (srcLen-1)*ones(1, beamSize);
+                end
+              end
+            end
+
+            % we want to mimic the structure of allBestWords later on of size (beamSize * beamSize) x 1
+            alignIdx = reshape(repmat(alignIdx, beamSize, 1), [], 1);
+          end
         end
       end
     end
@@ -363,6 +417,12 @@ function [candidates, candScores] = decodeBatch(models, params, lstmStart, softm
       sentWords = bestWords(selectedIndices);
       beamWords(startId:endId) = sentWords;
 
+      % align
+      if params.align
+        bestAlignIds = alignIdx(rowIndices, sentId);
+        beamAlignIds(startId:endId) = bestAlignIds(selectedIndices);
+      end
+      
       % update beam
       sentBeamIndices = floor((rowIndices(selectedIndices)-1)/beamSize) + 1;
       beamIndices(startId:endId) = sentBeamIndices;
@@ -382,6 +442,11 @@ function [candidates, candScores] = decodeBatch(models, params, lstmStart, softm
           numTranslations = length(endIndices);
           eosBeamIndices = floor((rowIndices(endIndices)-1)/beamSize) + 1;
           translations = beamHistory(1:sentPos, (sentId-1)*beamSize + eosBeamIndices);
+          % align
+          if params.align
+            alignments = alignHistory(1:sentPos, (sentId-1)*beamSize + eosBeamIndices);
+          end
+          
           transScores = allBestScores(endIndices, sentId);
           for ii=1:numTranslations
             if numDecoded(sentId)<stackSize % haven't collected enough translations
@@ -390,6 +455,11 @@ function [candidates, candScores] = decodeBatch(models, params, lstmStart, softm
               candidates{sentId}{numDecoded(sentId)} = [translations(:, ii); params.tgtEos];
               candScores(numDecoded(sentId), sentId) = transScores(ii);
 
+              % align
+              if params.align
+                alignInfo{sentId}{numDecoded(sentId)} = alignments(:, ii);
+              end
+              
               %printSent(2, translations(:, ii), params.vocab, ['  trans sent ' num2str(originalSentIndices(sentId)) ', ' num2str(transScores(ii)), ': ']);
               if numDecoded(sentId)==stackSize % done for sentId
                 decodeCompleteCount = decodeCompleteCount + 1;
@@ -407,6 +477,12 @@ function [candidates, candScores] = decodeBatch(models, params, lstmStart, softm
     beamHistory(1:sentPos, :) = beamHistory(1:sentPos, colIndices); 
     beamHistory(sentPos+1, :) = beamWords;
 
+    % align
+    if params.align
+      alignHistory(1:sentPos, :) = alignHistory(1:sentPos, colIndices);
+      alignHistory(sentPos+1, :) = beamAlignIds;
+    end
+    
     %% update lstm states
     for mm=1:numModels % model
       for ll=1:models{mm}.params.numLayers
@@ -429,6 +505,12 @@ function [candidates, candScores] = decodeBatch(models, params, lstmStart, softm
         eosIndex = (sentId-1)*beamSize + bb;
         numDecoded(sentId) = numDecoded(sentId) + 1;
         candidates{sentId}{numDecoded(sentId)} = [beamHistory(1:maxLen, eosIndex); params.tgtEos]; % append eos at the end
+        
+        % align
+        if params.align
+          alignInfo{sentId}{numDecoded(sentId)} = alignHistory(1:maxLen, eosIndex);
+        end
+        
         candScores(numDecoded(sentId), sentId) = beamScores(eosIndex);
       end
     end
