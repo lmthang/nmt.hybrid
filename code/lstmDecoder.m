@@ -140,13 +140,21 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
           
         % output alignment
           if params.align 
-            % WARNING: assume batchSize=1
-            if params.attnGlobal % global
-              [~,firstAlignIdx] = max(h2sInfo.alignWeights(end-modelData{mm}.srcLens(1)+2:end), [], 1);
-            else % attention local
-              % srcHidVecs(:, :, startHidId:endHidId) = srcHidVecsAll(:, :, startAttnId:endAttnId);
-              [~,firstAlignIdx] = max(h2sInfo.alignWeights(h2sInfo.startHidId:h2sInfo.endHidId), [], 1);
-              firstAlignIdx = h2sInfo.startAttnId - 1 + firstAlignIdx;
+            if mm==1
+              alignWeights = h2sInfo.alignWeights;
+            else
+              alignWeights = alignWeights + h2sInfo.alignWeights;
+            end
+            
+            if mm==numModels
+              % WARNING: assume batchSize=1
+              [~, firstAlignIdx] = max(alignWeights(end-modelData{mm}.srcLens(1)+2:end), [], 1); % srcLen includes eos, alignWeights excludes eos.
+%                 if params.attnGlobal % global  
+%                 else % attention local
+%                   % srcHidVecs(:, :, startHidId:endHidId) = srcHidVecsAll(:, :, startAttnId:endAttnId);
+%                   [~,firstAlignIdx] = max(h2sInfo.alignWeights(h2sInfo.startHidId:h2sInfo.endHidId), [], 1);
+%                   firstAlignIdx = h2sInfo.startAttnId - 1 + firstAlignIdx;
+%                 end
             end
           end
         end
@@ -355,27 +363,36 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
           
           % align
           if params.align
-            % WARNING: assume batchSize==1
-            sentId=1;
-            srcLen = modelData{mm}.srcLens(sentId);
-            if params.attnGlobal % global
-              [~,alignIdx] = max(h2sInfo.alignWeights(end-srcLen+2:end, :), [], 1);
-            else % attention local
-              % srcHidVecs(:, :, startHidId:endHidId) = srcHidVecsAll(:, :, startAttnId:endAttnId);
-              if h2sInfo.startHidId<=h2sInfo.endHidId
-                [~,alignIdx] = max(h2sInfo.alignWeights(h2sInfo.startHidId:h2sInfo.endHidId, :), [], 1);
-                alignIdx = h2sInfo.startAttnId - 1 + alignIdx;
-              else % out-of-boundary
-                if params.isReverse % approximate by 1
-                  alignIdx = ones(1, beamSize);
-                else % approximate by (srcLen-1) 
-                  alignIdx = (srcLen-1)*ones(1, beamSize);
-                end
-              end
+            if mm==1
+              alignWeights = h2sInfo.alignWeights;
+            else
+              alignWeights = alignWeights + h2sInfo.alignWeights;
             end
+            
+            if mm==numModels
+              % WARNING: assume batchSize==1
+              sentId=1;
+              srcLen = modelData{mm}.srcLens(sentId);
+              [~,alignIdx] = max(alignWeights(end-srcLen+2:end, :), [], 1);
 
-            % we want to mimic the structure of allBestWords later on of size (beamSize * beamSize) x 1
-            alignIdx = reshape(repmat(alignIdx, beamSize, 1), [], 1);
+%                 if params.attnGlobal % global
+%                 else % attention local
+%                   % srcHidVecs(:, :, startHidId:endHidId) = srcHidVecsAll(:, :, startAttnId:endAttnId);
+%                   if h2sInfo.startHidId<=h2sInfo.endHidId
+%                     [~,alignIdx] = max(h2sInfo.alignWeights(h2sInfo.startHidId:h2sInfo.endHidId, :), [], 1);
+%                     alignIdx = h2sInfo.startAttnId - 1 + alignIdx;
+%                   else % out-of-boundary
+%                     if params.isReverse % approximate by 1
+%                       alignIdx = ones(1, beamSize);
+%                     else % approximate by (srcLen-1) 
+%                       alignIdx = (srcLen-1)*ones(1, beamSize);
+%                     end
+%                   end
+%                 end
+
+              % we want to mimic the structure of allBestWords later on of size (beamSize * beamSize) x 1
+              alignIdx = reshape(repmat(alignIdx, beamSize, 1), [], 1);
+            end
           end
         end
       end

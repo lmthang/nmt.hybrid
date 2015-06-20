@@ -8,7 +8,7 @@ function [softmax_h, h2sInfo] = hid2softLayerForward(h_t, params, model, trainDa
 %%% 
   h2sInfo = [];
   
-  if params.softmaxDim || params.attnFunc %|| (params.posModel==3 && mod(tgtPos, 2)==0)
+  if params.softmaxDim || params.attnFunc
     if params.softmaxDim % softmax compression: f(W_h * h_t)
       h2sInfo.input = h_t;
     elseif params.attnFunc % attention
