@@ -22,8 +22,8 @@ function [grad_scores] = normLayerBackprop(grad_alignWeights, alignWeights, mask
   
   % assert
 %   if params.assert
-%     assert(sum(sum(abs(alignWeights(mask==0))))==0);
-%     assert(sum(sum(abs(grad_alignWeights(mask==0))))==0);
+%     assert(computeSum(alignWeights(mask==0), params.isGPU)==0);
+%     assert(computeSum(grad_alignWeights(mask==0), params.isGPU)==0);
 %   end
   
   alignWeights = alignWeights.*mask;
@@ -36,6 +36,6 @@ function [grad_scores] = normLayerBackprop(grad_alignWeights, alignWeights, mask
     for ii=1:params.curBatchSize
       grad_scores1(:, ii) = (diag(alignWeights(:, ii))-alignWeights(:, ii)*alignWeights(:, ii)')*grad_alignWeights(:, ii);
     end
-    assert(sum(sum(abs(grad_scores-grad_scores1)))<1e-10);
+    assert(computeSum(grad_scores-grad_scores1, params.isGPU)<1e-5);
   end
 end

@@ -16,7 +16,7 @@ function [grad_ht, grad_srcHidVecs] = srcCompareLayerBackprop(grad_alignWeights,
   
   % assert
   if params.assert
-    assert(sum(sum(abs(grad_scores(mask==0))))==0);
+    assert(computeSum(grad_scores(mask==0), params.isGPU)==0);
   end
   
   grad_scores = permute(grad_scores, [3, 2, 1]); % batchSize * numPositions

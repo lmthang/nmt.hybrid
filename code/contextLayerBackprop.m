@@ -40,6 +40,6 @@ function [grad_alignWeights, grad_srcHidVecs] = contextLayerBackprop(grad_contex
     for ii=1:size(alignWeights, 2)
       grad_srcHidVecs1(:, ii, :) = grad_contextVecs(:, ii, 1) * alignWeights(:, ii)';
     end
-    assert(sum(sum(sum(abs(grad_srcHidVecs1-grad_srcHidVecs))))==0);
+    assert(computeSum(grad_srcHidVecs1-grad_srcHidVecs, params.isGPU)==0);
   end
 end
