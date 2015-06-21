@@ -63,7 +63,7 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
     models{mm}.params = savedData.params;  
     
     % for backward compatibility  
-    fieldNames = {'posSignal', 'attnGlobal', 'attnOpt', 'predictPos'};
+    fieldNames = {'posSignal', 'attnGlobal', 'attnOpt', 'predictPos', 'tieEmb', 'sameLength', 'softmaxFeedInput'};
     for ii=1:length(fieldNames)
       field = fieldNames{ii};
       if ~isfield(models{mm}.params, field)
@@ -73,7 +73,14 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
     if models{mm}.params.attnFunc==1
       models{mm}.params.attnGlobal = 1;
     end
-    
+    if ~isfield(models{mm}, 'W_emb_src')
+      models{mm}.W_emb_src = models{mm}.W_emb(:, models{mm}.params.tgtVocabSize+1:end);
+      models{mm}.W_emb_tgt = models{mm}.W_emb(:, 1:models{mm}.params.tgtVocabSize);
+    end
+    if ~isfield(models{mm}, 'W_h')
+      models{mm}.W_h = models{mm}.W_ah;
+    end
+
     % convert absolute paths to local paths
     fieldNames = fields(models{mm}.params);
     for ii=1:length(fieldNames)
