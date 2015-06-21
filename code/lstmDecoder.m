@@ -27,7 +27,9 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
   srcMaxLen = data.srcMaxLen;
   batchSize = size(input, 1);
   data.curBatchSize = batchSize;
-  
+  if params.attnFunc>0
+    params.numSrcHidVecs = srcMaxLen-1;
+  end
   %printSent(2, input(1, 1:srcMaxLen), params.vocab, 'src 1: ');
   %printSent(2, input(1, srcMaxLen:end), params.vocab, 'tgt 1: ');
   %printSent(2, input(end, 1:srcMaxLen), params.vocab, 'src end: ');
@@ -136,7 +138,7 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
           end
 
           if params.attnFunc
-            [softmax_h{mm}, h2sInfo] = hid2softLayerForward(h_t, models{mm}.params, models{mm}, modelData{mm}, tgtPos); 
+            [softmax_h{mm}, h2sInfo] = attnLayerForward(h_t, models{mm}.params, models{mm}, modelData{mm}, tgtPos); 
           else
             softmax_h{mm} = h_t;
           end
@@ -151,15 +153,21 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
             end
             
             if mm==numModels
-              % WARNING: assume batchSize=1
-              [~, firstAlignIdx] = max(alignWeights(end-modelData{mm}.srcLens(1)+2:end), [], 1); % srcLen includes eos, alignWeights excludes eos.
-%                 if params.attnGlobal % global  
-%                 else % attention local
-%                   % srcHidVecs(:, :, startHidId:endHidId) = srcHidVecsAll(:, :, startAttnId:endAttnId);
-%                   [~,firstAlignIdx] = max(h2sInfo.alignWeights(h2sInfo.startHidId:h2sInfo.endHidId), [], 1);
-%                   firstAlignIdx = h2sInfo.startAttnId - 1 + firstAlignIdx;
-%                 end
-            end
+              firstAlignIdx = zeros(1, batchSize);
+              if params.attnGlobal==0 % local
+                [startIds, endIds, startAttnIds, ~] = computeAttnBound(h2sInfo.srcPositions, params.posWin, params.numAttnPositions, params.numSrcHidVecs);
+              end
+              
+              for sentId=1:batchSize % go through each sent
+                srcLen = modelData{mm}.srcLens(sentId);
+                if params.attnGlobal % global
+                  [~, firstAlignIdx(sentId)] = max(alignWeights(end-srcLen+2:end, sentId), [], 1); % srcLen includes eos, alignWeights excludes eos.
+                else % attention local
+                  [~,firstAlignIdx(sentId)] = max(alignWeights(startIds(sentId):endIds(sentId), sentId), [], 1);
+                  firstAlignIdx(sentId) = startAttnIds(sentId) - 1 + firstAlignIdx(sentId);
+                end
+              end % end for sentId
+            end % end if last model
           end
         end
 
@@ -281,6 +289,8 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
     
     
       modelData{mm}.curBatchSize = numElements;
+      modelData{mm}.srcLens = reshape(repmat(modelData{mm}.srcLens, beamSize, 1), 1, []);
+      
       % duplicate srcHidVecs
       if models{mm}.params.attnGlobal % soft, global
         modelData{mm}.absSrcHidVecs = duplicateSrcHidVecs(modelData{mm}.absSrcHidVecs, batchSize, beamSize);
@@ -378,25 +388,48 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
             end
             
             if mm==numModels
-              % WARNING: assume batchSize==1
-              sentId=1;
-              srcLen = modelData{mm}.srcLens(sentId);
-              [~,alignIdx] = max(alignWeights(end-srcLen+2:end, :), [], 1);
-
-%                 if params.attnGlobal % global
-%                 else % attention local
-%                   % srcHidVecs(:, :, startHidId:endHidId) = srcHidVecsAll(:, :, startAttnId:endAttnId);
-%                   if h2sInfo.startHidId<=h2sInfo.endHidId
-%                     [~,alignIdx] = max(h2sInfo.alignWeights(h2sInfo.startHidId:h2sInfo.endHidId, :), [], 1);
-%                     alignIdx = h2sInfo.startAttnId - 1 + alignIdx;
-%                   else % out-of-boundary
-%                     if params.isReverse % approximate by 1
-%                       alignIdx = ones(1, beamSize);
-%                     else % approximate by (srcLen-1) 
-%                       alignIdx = (srcLen-1)*ones(1, beamSize);
-%                     end
-%                   end
-%                 end
+              alignIdx = zeros(1, numElements);
+              if params.attnGlobal==0 % local
+                [startIds, endIds, startAttnIds, ~] = computeAttnBound(h2sInfo.srcPositions, params.posWin, params.numAttnPositions, params.numSrcHidVecs);
+              end
+              
+              for sentId=1:numElements % go through each sent
+                srcLen = modelData{mm}.srcLens(sentId);
+                if params.attnGlobal % global
+                  [~, alignIdx(sentId)] = max(alignWeights(end-srcLen+2:end, sentId), [], 1); % srcLen includes eos, alignWeights excludes eos.
+                else % attention local
+                  if startIds(sentId)<=endIds(sentId)
+                    [~,alignIdx(sentId)] = max(alignWeights(startIds(sentId):endIds(sentId), sentId), [], 1);
+                    alignIdx(sentId) = startAttnIds(sentId) - 1 + alignIdx(sentId);
+                  else % out-of-boundary
+                    if params.isReverse % approximate by 1
+                      alignIdx = 1;
+                    else % approximate by (srcLen-1) 
+                      alignIdx = srcLen-1;
+                    end
+                  end
+                end
+              end % end for sentId
+              
+%               % WARNING: assume batchSize==1
+%               sentId=1;
+%               srcLen = modelData{mm}.srcLens(sentId);
+%               [~,alignIdx] = max(alignWeights(end-srcLen+2:end, :), [], 1);
+% 
+% %                 if params.attnGlobal % global
+% %                 else % attention local
+% %                   % srcHidVecs(:, :, startHidId:endHidId) = srcHidVecsAll(:, :, startAttnId:endAttnId);
+% %                   if h2sInfo.startHidId<=h2sInfo.endHidId
+% %                     [~,alignIdx] = max(h2sInfo.alignWeights(h2sInfo.startHidId:h2sInfo.endHidId, :), [], 1);
+% %                     alignIdx = h2sInfo.startAttnId - 1 + alignIdx;
+% %                   else % out-of-boundary
+% %                     if params.isReverse % approximate by 1
+% %                       alignIdx = ones(1, beamSize);
+% %                     else % approximate by (srcLen-1) 
+% %                       alignIdx = (srcLen-1)*ones(1, beamSize);
+% %                     end
+% %                   end
+% %                 end
 
               % we want to mimic the structure of allBestWords later on of size (beamSize * beamSize) x 1
               alignIdx = reshape(repmat(alignIdx, beamSize, 1), [], 1);
