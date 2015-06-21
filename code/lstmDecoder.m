@@ -135,7 +135,11 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
             modelData{mm}.positions = floor(modelData{mm}.srcLens.*scales);
           end
 
-          [softmax_h{mm}, h2sInfo] = hid2softLayerForward(h_t, models{mm}.params, models{mm}, modelData{mm}, tgtPos); 
+          if params.attnFunc
+            [softmax_h{mm}, h2sInfo] = hid2softLayerForward(h_t, models{mm}.params, models{mm}, modelData{mm}, tgtPos); 
+          else
+            softmax_h{mm} = h_t;
+          end
           
           
         % output alignment
@@ -359,7 +363,11 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
             modelData{mm}.positions = floor(modelData{mm}.srcLens.*scales);
           end
 
-          [softmax_h{mm}, h2sInfo] = hid2softLayerForward(h_t, models{mm}.params, models{mm}, modelData{mm}, tgtPos); 
+          if params.attnFunc
+            [softmax_h{mm}, h2sInfo] = attnLayerForward(h_t, models{mm}.params, models{mm}, modelData{mm}, tgtPos); 
+          else
+            softmax_h{mm} = h_t;
+          end
           
           % align
           if params.align

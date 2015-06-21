@@ -61,15 +61,9 @@ function [srcVecsSub, h2sInfo] = buildSrcVecs(srcVecsAll, srcPositions, curMask,
     h2sInfo.linearIdAll = [];
   end
   
-  if params.attnOpt==1 % compare with src hidden states
-    h2sInfo.alignMask = zeroMatrix([batchSize, numPositions], params.isGPU, params.dataType);
-    h2sInfo.alignMask(h2sInfo.linearIdSub) = 1;
-    h2sInfo.alignMask = h2sInfo.alignMask'; % numPositions * batchSize
-    
-    if params.assert
-      assert(isequal(size(h2sInfo.alignMask), [numPositions, batchSize])==1);
-    end
-  end
+  h2sInfo.alignMask = zeroMatrix([batchSize, numPositions], params.isGPU, params.dataType);
+  h2sInfo.alignMask(h2sInfo.linearIdSub) = 1;
+  h2sInfo.alignMask = h2sInfo.alignMask'; % numPositions * batchSize
 end
 
 %% old version %%

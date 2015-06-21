@@ -8,7 +8,9 @@
 % Thang Luong @ 2015, <lmthang@stanford.edu
 %
 %%
-function [probs, scores, norms] = normLayerForward(rawScores, linearIds, params)
+function [probs, scores, norms] = normLayerForward(rawScores, mask, params)
+  linearIds = find(mask==1);
+  
   % rawScores: numPositions * batchSize
   scores = zeroMatrix(size(rawScores), params.isGPU, params.dataType);
   scores(linearIds) = rawScores(linearIds);

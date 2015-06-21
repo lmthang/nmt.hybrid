@@ -16,8 +16,7 @@ function [alignWeights] = srcCompareLayerForward(srcHidVecs, h_t, alignMask, par
     alignScores = alignScores';
   end
 
-  alignLinearIds = find(alignMask==1);
-  alignWeights = normLayerForward(alignScores, alignLinearIds, params); % numSrcHidVecs * curBatchSize
+  alignWeights = normLayerForward(alignScores, alignMask, params); % numSrcHidVecs * curBatchSize
  
   % assert
   if params.assert
