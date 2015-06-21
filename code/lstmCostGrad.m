@@ -146,7 +146,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       [lstms{ll, tt}, h_t{ll}, all_c_t{ll, tt}] = lstmUnit(W, x_t, h_t_1, c_t_1, ll, tt, srcMaxLen, params, isTest); 
       % assert
       if params.assert
-        assert(sum(sum(abs(h_t{ll}(:, curMask.maskedIds))))==0);
+        assert(computeSum(h_t{ll}(:, curMask.maskedIds), params.isGPU)==0);
       end
       
       %% Loss
@@ -230,14 +230,14 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       
       % assert
       if params.assert
-        assert(sum(sum(abs(h_t{ll}(:, curMask.maskedIds))))==0);
-        assert(sum(sum(abs(all_c_t{ll, tt}(:, curMask.maskedIds))))==0);
+        assert(computeSum(h_t{ll}(:, curMask.maskedIds), params.isGPU)==0);
+        assert(computeSum(all_c_t{ll, tt}(:, curMask.maskedIds), params.isGPU)==0);
         
         if tt>=srcMaxLen && ll==params.numLayers
-          assert(sum(sum(abs(scores(:, curMask.maskedIds))))==0);
+          assert(computeSum(scores(:, curMask.maskedIds), params.isGPU)==0);
           
           if isTest==0
-            assert(sum(sum(abs(grad_softmax_all{tgtPos}(:, curMask.maskedIds))))==0);
+            assert(computeSum(grad_softmax_all{tgtPos}(:, curMask.maskedIds), params.isGPU)==0);
           end
         end
       end
@@ -304,7 +304,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         h2sInfo = h2sInfoAll{tgtPos};
         [grad_tgt_ht, attnGrad, grad_srcHidVecs] = attnLayerBackprop(model, grad_softmax_all{tgtPos}, trainData, h2sInfo, params, curMask);
         if params.assert
-          assert(sum(sum(abs(grad_tgt_ht(:, curMask.maskedIds))))==0);
+          assert(computeSum(grad_tgt_ht(:, curMask.maskedIds), params.isGPU)==0);
         end
       
         fields = fieldnames(attnGrad);
@@ -362,7 +362,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       
       % assert
       if params.assert
-        assert(sum(sum(abs(lstm_grad.input(:, maskedIds))))==0);
+        assert(computeSum(lstm_grad.input(:, maskedIds), params.isGPU)==0);
       end
       
       %% grad.W_src / grad.W_tgt
