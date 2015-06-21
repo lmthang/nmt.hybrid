@@ -34,7 +34,11 @@ function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, 
   % compute alignWeights
   if params.attnOpt==0 % no src state comparison
     h2sInfo.alignWeights = softmax(model.W_a*h_t); % numAttnPositions*curBatchSize
-    %h2sInfo.alignWeights = normLayerForward(model.W_a*h_t, h2sInfo.alignMask, params);
+%     if params.attnFunc==1 || params.attnFunc==2
+%       h2sInfo.alignWeights = softmax(model.W_a*h_t); % numAttnPositions*curBatchSize
+%     else
+%       h2sInfo.alignWeights = normLayerForward(model.W_a*h_t, h2sInfo.alignMask, params);
+%     end
   elseif params.attnOpt==1 % src state comparison
     h2sInfo.alignWeights = srcCompareLayerForward(srcHidVecs, h_t, h2sInfo.alignMask, params);
   end

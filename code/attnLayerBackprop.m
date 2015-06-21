@@ -5,7 +5,7 @@
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 %
 %%% 
-function [grad_ht, attnGrad, grad_srcHidVecs] = attnLayerBackprop(model, grad_softmax_h, trainData, h2sInfo, params) %isPredictPos, params)
+function [grad_ht, attnGrad, grad_srcHidVecs] = attnLayerBackprop(model, grad_softmax_h, trainData, h2sInfo, params, curMask) %isPredictPos, params)
   % softmax_h -> h_t
   [grad_input, attnGrad.W_h] = hiddenLayerBackprop(model.W_h, grad_softmax_h, h2sInfo.input, params.nonlinear_f_prime, h2sInfo.softmax_h);
 
@@ -60,17 +60,7 @@ function [grad_ht, attnGrad, grad_srcHidVecs] = attnLayerBackprop(model, grad_so
     h2sInfo.distWeights = h2sInfo.distWeights';
 
     % grad_distWeights -> grad_mu
-    [grad_mu] = distLayerBackprop(grad_distWeights, h2sInfo, params);
-    
-    
-%     if params.attnOpt==1
-%       % grad_compareWeights -> grad_scores
-%       [grad_scores] = normLayerBackprop(grad_preAlignWeights, h2sInfo.compareWeights, params);
-% 
-%       % grad_scores -> grad_ht, grad_srcHidVecs
-%       [grad_ht, grad_srcHidVecs1] = srcCompareLayerBackprop(grad_scores, srcHidVecs, h2sInfo.h_t);
-%       grad_srcHidVecs = grad_srcHidVecs + grad_srcHidVecs1; % add to the existing grad_srcHidVecs
-%     end
+    [grad_mu] = distLayerBackprop(grad_distWeights, h2sInfo.distWeights, h2sInfo, params);
 
     % grad_mu -> grad_scales
     grad_scales = trainData.srcLens.*grad_mu;
@@ -80,6 +70,15 @@ function [grad_ht, attnGrad, grad_srcHidVecs] = attnLayerBackprop(model, grad_so
     grad_ht = grad_ht + grad_ht1;
   end
 end
+
+%     if params.attnOpt==1
+%       % grad_compareWeights -> grad_scores
+%       [grad_scores] = normLayerBackprop(grad_preAlignWeights, h2sInfo.compareWeights, params);
+% 
+%       % grad_scores -> grad_ht, grad_srcHidVecs
+%       [grad_ht, grad_srcHidVecs1] = srcCompareLayerBackprop(grad_scores, srcHidVecs, h2sInfo.h_t);
+%       grad_srcHidVecs = grad_srcHidVecs + grad_srcHidVecs1; % add to the existing grad_srcHidVecs
+%     end
 
 
 %         if params.attnOpt==0 

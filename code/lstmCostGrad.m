@@ -247,6 +247,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   if isTest==1 % don't compute grad
     return;
   end
+  rmfield(trainData, 'posMask');
   
   %%%%%%%%%%%%%%%%%%%%%
   %%% BACKWARD PASS %%%
@@ -301,7 +302,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         
         % softmax_h -> h_t
         h2sInfo = h2sInfoAll{tgtPos};
-        [grad_tgt_ht, attnGrad, grad_srcHidVecs] = attnLayerBackprop(model, grad_softmax_all{tgtPos}, trainData, h2sInfo, params);
+        [grad_tgt_ht, attnGrad, grad_srcHidVecs] = attnLayerBackprop(model, grad_softmax_all{tgtPos}, trainData, h2sInfo, params, curMask);
         if params.assert
           assert(sum(sum(abs(grad_tgt_ht(:, curMask.maskedIds))))==0);
         end

@@ -26,6 +26,7 @@ function [grad_scores] = normLayerBackprop(grad_alignWeights, alignWeights, mask
 %     assert(sum(sum(abs(grad_alignWeights(mask==0))))==0);
 %   end
   
+  alignWeights = alignWeights.*mask;
   tmpResult = alignWeights.*grad_alignWeights; % numAttnPositions * curBatchSize
   grad_scores = tmpResult - bsxfun(@times, alignWeights, sum(tmpResult, 1));
     

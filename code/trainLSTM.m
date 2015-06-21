@@ -188,6 +188,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       params.attnGlobal = 0;
       params.posSignal = 0;
       params.distSigma = params.posWin/2.0;
+      %assert(params.attnOpt==1, 'for attn4, we have not passed the grad check for attnOpt==0');
     else
       error('Invalid attnFunc option %d\n', params.attnFunc);
     end
