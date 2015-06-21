@@ -153,6 +153,10 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   fprintf(params.logId, '# Decoding %d sents, %s\n', numSents, datestr(now));
   startTime = clock;
   for batchId = 1 : numBatches
+%     if batchId<103
+%       continue;
+%     end
+    
     % prepare batch data
     startId = (batchId-1)*batchSize+1;
     endId = batchId*batchSize;
