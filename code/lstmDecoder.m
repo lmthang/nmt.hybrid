@@ -388,7 +388,7 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
             end
             
             if mm==numModels
-              firstAlignIdx = zeroMatrix([1, numElements], params.isGPU, params.dataType);
+              alignIdx = zeroMatrix([1, numElements], params.isGPU, params.dataType);
               if params.attnGlobal==0 % local
                 [startIds, endIds, startAttnIds, ~] = computeAttnBound(h2sInfo.srcPositions, params.posWin, params.numAttnPositions, params.numSrcHidVecs);
               end
