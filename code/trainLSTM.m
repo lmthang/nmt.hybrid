@@ -171,6 +171,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       params.attnSize = params.lstmSize;
     end
     
+    params.align = 1; % for the decoder
+    
     if params.attnFunc==1 % global, soft attention
       params.predictPos = 0;
       params.attnGlobal = 1;
