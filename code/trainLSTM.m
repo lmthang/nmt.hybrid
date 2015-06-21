@@ -64,24 +64,21 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   
   %% advanced (working) features
   addOptional(p,'dropout', 1, @isnumeric); % dropout prob: 1 no dropout, <1: dropout
-  addOptional(p,'softmaxDim', 0, @isnumeric); % softmaxDim>0 convert hidden state into an intermediate representation of size softmaxDim before going through the softmax
+
   % attnFunc=0: no attention.
-  %          1: soft attention
-  %          2: hard attention + monotonic alignments
-  %          3: hard attention + unsupervised alignments + regression for absolute pos
-  %          4: hard attention + unsupervised alignments + classification for relative pos
-  %          5: hard attention
+  %          1: global attention
+  %          2: local attention + monotonic alignments
+  %          3: local attention + unsupervised alignments + regression for absolute pos
+  %          4: local attention  + regression for absolute pos (multiplied distWeights)
   addOptional(p,'attnFunc', 0, @isnumeric);
   % attnOpt: decide how we generate the alignment weights:
-  %          0: a_t = softmax(W_a * h_t)
-  %          1: a_t = softmax(H_src * h_t)
+  %          0: no src compare, a_t = softmax(W_a * h_t)
+  %          1: src compare, dot product, a_t = softmax(H_src * h_t)
   addOptional(p,'attnOpt', 0, @isnumeric);
   addOptional(p,'attnSize', 0, @isnumeric); % dim of the vector used to input to the final softmax, if 0, use lstmSize
   addOptional(p,'posWin', 5, @isnumeric); % relative window, used for attnFunc~=1
-  addOptional(p,'maxRelDist', 20, @isnumeric); % attnFunc 4 to determine the posVocabSize=2*maxRelDis + 1 + 1 (for eos). we don't want to change this much (depends on how the training data was generated)
-  addOptional(p,'posWeight', 1.0, @isnumeric); % weight the pos cost objective, for attn3, 4
-  addOptional(p,'distSigma', 2.0, @isnumeric); % scale distance for attn5, opt1
-
+  addOptional(p,'posWeight', 1.0, @isnumeric); % weight the pos cost objective, for attn3
+  
   %% research options  
   addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
   addOptional(p,'sameLength', 0, @isnumeric); % sameLength=1: output and input are of the same length, so let's feed the src hidden states into the tgt!
@@ -130,9 +127,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   if params.attnFunc==1 || params.attnFunc==2 || params.sameLength==1
     assert(params.isReverse==1);
   end
-  if params.softmaxDim>0
-    assert(params.attnFunc==0);
-  end
   
   % rand seed
   if params.isGradCheck || params.isProfile || params.seed
@@ -177,6 +171,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       params.attnSize = params.lstmSize;
     end
     
+    params.align = 1; % for the decoder
+    
     if params.attnFunc==1 % global, soft attention
       params.predictPos = 0;
       params.attnGlobal = 1;
@@ -193,13 +189,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       params.predictPos = 3;
       params.attnGlobal = 0;
       params.posSignal = 0;
-      if params.attnOpt==1
-        params.distSigma = params.posWin/2.0;
-      else
-        error('For attnFunc 4, use attnOpt 1\n');
-        %params.sqrt2pi = sqrt(2*pi);
-      end
-
+      params.distSigma = params.posWin/2.0;
+      %assert(params.attnOpt==1, 'for attn4, we have not passed the grad check for attnOpt==0');
     else
       error('Invalid attnFunc option %d\n', params.attnFunc);
     end
@@ -433,16 +424,6 @@ function [model] = initLSTM(params)
       
       % regression, scale=sigmoid(v_pos*h_pos)
       model.v_pos = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
-      
-%       % predict pos
-%       if params.predictPos==1 || params.predictPos==3 % regression, scale=sigmoid(v_pos*h_pos)
-%         model.v_pos = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
-%         
-%         if params.predictPos==3 && params.attnOpt==0 % predict variance = sigmoid(v_sig*f(W_sig*h_t))
-%           model.W_var = randomMatrix(params.initRange, [params.softmaxSize, params.lstmSize], params.isGPU, params.dataType);
-%           model.v_var = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
-%         end
-%       end
     end
     
     % predict alignment weights
@@ -452,8 +433,6 @@ function [model] = initLSTM(params)
     
     % attn_t = H_src * a_t % h_attn_t = f(W_h * [attn_t; h_t])
     model.W_h = randomMatrix(params.initRange, [params.attnSize, 2*params.lstmSize], params.isGPU, params.dataType);
-  elseif params.softmaxDim>0 % compress softmax
-    model.W_h = randomMatrix(params.initRange, [params.softmaxDim, params.lstmSize], params.isGPU, params.dataType);
   end
   
   %% softmax input -> predictions
@@ -719,8 +698,6 @@ function [model, params] = initLoadModel(params)
   % softmaxSize
   if params.attnFunc % attention/positional mechanism    
     params.softmaxSize = params.attnSize;
-  elseif params.softmaxDim>0 % compress softmax
-    params.softmaxSize = params.softmaxDim;
   else % normal
     params.softmaxSize = params.lstmSize;
   end
@@ -825,7 +802,38 @@ function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab)
   data.tgtSents = tgtSents;
 end
 
+%   addOptional(p,'maxRelDist', 20, @isnumeric); % attnFunc 4 to determine the posVocabSize=2*maxRelDis + 1 + 1 (for eos). we don't want to change this much (depends on how the training data was generated)
+%   addOptional(p,'distSigma', 2.0, @isnumeric); % scale distance for attn5, opt1
 
+%   addOptional(p,'softmaxDim', 0, @isnumeric); % softmaxDim>0 convert hidden state into an intermediate representation of size softmaxDim before going through the softmax
+
+%   if params.softmaxDim>0
+%     assert(params.attnFunc==0);
+%   end
+  
+%   elseif params.softmaxDim>0 % compress softmax
+%     model.W_h = randomMatrix(params.initRange, [params.softmaxDim, params.lstmSize], params.isGPU, params.dataType);
+
+%   elseif params.softmaxDim>0 % compress softmax
+%     params.softmaxSize = params.softmaxDim;
+
+  
+%       if params.attnOpt==1
+%       else
+%         error('For attnFunc 4, use attnOpt 1\n');
+%         %params.sqrt2pi = sqrt(2*pi);
+%       end
+
+
+%       % predict pos
+%       if params.predictPos==1 || params.predictPos==3 % regression, scale=sigmoid(v_pos*h_pos)
+%         model.v_pos = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
+%         
+%         if params.predictPos==3 && params.attnOpt==0 % predict variance = sigmoid(v_sig*f(W_sig*h_t))
+%           model.W_var = randomMatrix(params.initRange, [params.softmaxSize, params.lstmSize], params.isGPU, params.dataType);
+%           model.v_var = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
+%         end
+%       end
 
 %       elseif params.predictPos==2 % classification: softmax(W_softPos*h_pos)
 %         model.W_softPos = randomMatrix(params.initRange, [params.posVocabSize, params.softmaxSize], params.isGPU, params.dataType);

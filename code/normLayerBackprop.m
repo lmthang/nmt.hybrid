@@ -1,4 +1,4 @@
-function [grad_scores] = normLayerBackprop(grad_alignWeights, alignWeights, params)
+function [grad_scores] = normLayerBackprop(grad_alignWeights, alignWeights, mask, params)
   %% from grad_alignWeights -> grad_scores
   % alignWeights a = softmax(scores)
   % Let's derive per indices grad align weight w.r.t scores
@@ -19,6 +19,14 @@ function [grad_scores] = normLayerBackprop(grad_alignWeights, alignWeights, para
   %  size(alignWeights)
   %  size(grad_alignWeights)
   %end
+  
+  % assert
+%   if params.assert
+%     assert(sum(sum(abs(alignWeights(mask==0))))==0);
+%     assert(sum(sum(abs(grad_alignWeights(mask==0))))==0);
+%   end
+  
+  alignWeights = alignWeights.*mask;
   tmpResult = alignWeights.*grad_alignWeights; % numAttnPositions * curBatchSize
   grad_scores = tmpResult - bsxfun(@times, alignWeights, sum(tmpResult, 1));
     

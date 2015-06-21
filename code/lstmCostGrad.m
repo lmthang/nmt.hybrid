@@ -61,20 +61,22 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   softmax_h = zeroState;
   
   % attentional model
-  if params.attnFunc 
-    if params.posSignal % local attention, unsupervised alignment
-      grad_ht_pos_all = cell(tgtMaxLen, 1);
-    end
-      
-    if params.attnGlobal && params.attnOpt==0 % soft, global attention, fix
-      startAttnId = 1;
-      endAttnId = params.numSrcHidVecs;
-      startHidId = params.numAttnPositions-params.numSrcHidVecs+1;
-      endHidId = params.numAttnPositions;
-    end
-    
-    if params.attnGlobal && params.attnOpt==1
-      trainData.alignMask = trainData.srcMask(:, 1:params.numSrcHidVecs)'; % numSrcHidVecs * curBatchSize
+  if params.attnFunc   
+    if params.attnGlobal % global
+      if params.attnOpt==0 % no src compare
+        startAttnId = 1;
+        endAttnId = params.numSrcHidVecs;
+        startHidId = params.numAttnPositions-params.numSrcHidVecs+1;
+        endHidId = params.numAttnPositions;
+        trainData.alignMask = zeroMatrix([params.numAttnPositions, params.curBatchSize], params.isGPU, params.dataType);
+        trainData.alignMask(startHidId:endHidId, :) = trainData.srcMask(:, 1:params.numSrcHidVecs)';
+      else
+        trainData.alignMask = trainData.srcMask(:, 1:params.numSrcHidVecs)'; % numSrcHidVecs * curBatchSize
+      end
+    else % local
+      if params.posSignal % unsupervised alignment
+        grad_ht_pos_all = cell(tgtMaxLen, 1);
+      end
     end
   end
   if (params.attnFunc>0 || params.sameLength==1)
@@ -194,8 +196,12 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         
         %% predicting words
         % h_t -> softmax_h
-        % TODO: save memory here, h2sInfo.input only keeps track of srcHidVecs or attnVecs, but not h_t.
-        [softmax_h, h2sInfoAll{tgtPos}] = hid2softLayerForward(h_t{ll}, params, model, trainData, tgtPos);
+        if params.attnFunc
+          % TODO: save memory here, h2sInfo.input only keeps track of srcHidVecs or attnVecs, but not h_t.
+          [softmax_h, h2sInfoAll{tgtPos}] = attnLayerForward(h_t{ll}, params, model, trainData, tgtPos);
+        else
+          softmax_h = h_t{ll};
+        end
         
         % softmax_h -> loss
         predWords = trainData.tgtOutput(:, tgtPos)';
@@ -241,6 +247,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   if isTest==1 % don't compute grad
     return;
   end
+  rmfield(trainData, 'posMask');
   
   %%%%%%%%%%%%%%%%%%%%%
   %%% BACKWARD PASS %%%
@@ -287,7 +294,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
     
     %% softmax_h -> h_t: at the top layer
     if (tt>=srcMaxLen)
-      if params.attnFunc || params.softmaxDim>0
+      if params.attnFunc
         % get signals from the softmax layer for positions
         if params.posSignal
           dh{params.numLayers} = dh{params.numLayers} + grad_ht_pos_all{tgtPos};
@@ -295,18 +302,18 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         
         % softmax_h -> h_t
         h2sInfo = h2sInfoAll{tgtPos};
-        [grad_tgt_ht, hid2softGrad, grad_srcHidVecs] = hid2softLayerBackprop(model, grad_softmax_all{tgtPos}, trainData, h2sInfo, params);
+        [grad_tgt_ht, attnGrad, grad_srcHidVecs] = attnLayerBackprop(model, grad_softmax_all{tgtPos}, trainData, h2sInfo, params, curMask);
         if params.assert
           assert(sum(sum(abs(grad_tgt_ht(:, curMask.maskedIds))))==0);
         end
       
-        fields = fieldnames(hid2softGrad);
+        fields = fieldnames(attnGrad);
         for ii=1:length(fields)
           field = fields{ii};
           if tt==T
-            grad.(field) = hid2softGrad.(field);
+            grad.(field) = attnGrad.(field);
           else
-            grad.(field) = grad.(field) + hid2softGrad.(field);
+            grad.(field) = grad.(field) + attnGrad.(field);
           end
         end
 
