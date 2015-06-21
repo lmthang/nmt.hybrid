@@ -64,6 +64,7 @@ function [srcVecsSub, h2sInfo] = buildSrcVecs(srcVecsAll, srcPositions, curMask,
   h2sInfo.alignMask = zeroMatrix([batchSize, numPositions], params.isGPU, params.dataType);
   h2sInfo.alignMask(h2sInfo.linearIdSub) = 1;
   h2sInfo.alignMask = h2sInfo.alignMask'; % numPositions * batchSize
+  h2sInfo.srcPositions = srcPositions;
 end
 
 %% old version %%

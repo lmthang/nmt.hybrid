@@ -10,7 +10,9 @@ function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, 
   
   if params.attnGlobal % global
     srcHidVecs = trainData.absSrcHidVecs;
-    h2sInfo.alignMask = trainData.alignMask;
+    if params.attnOpt==1
+      h2sInfo.alignMask = trainData.alignMask;
+    end
   else % local
     % positions
     if params.posSignal % unsupervised alignments
