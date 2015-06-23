@@ -583,8 +583,8 @@ function decodeSent(srcSent, tgtSent, model, params)
   params.preeosId = -1;
   [decodeData] = prepareData(srcSent, tgtSent, 1, params);
   decodeData.startId = 1;
-  [candidates, candScores] = lstmDecoder(model, decodeData, params);
-  printDecodeResults(decodeData, candidates, candScores, params, 0);
+  [candidates, candScores, alignInfo] = lstmDecoder(model, decodeData, params);
+  printDecodeResults(decodeData, candidates, candScores, alignInfo, params, 0);
 end
 
 function [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents] = loadTrainBatches(params)
