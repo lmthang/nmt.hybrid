@@ -8,8 +8,8 @@ function [startIds, endIds, startAttnIds, endAttnIds] = computeAttnBound(srcPosi
   
   % these variables are for srcVecs, lstmSize * batchSize * numPositions
   % numPositions = 2*posWin+1
-  startIds = ones(1, batchSize);
-  endIds = numAttnPositions*ones(1, batchSize);
+  startIds = oneMatrix([1, batchSize], params.isGPU, params.dataType);
+  endIds = numAttnPositions*startIds;
   
   %% boundary condition for startAttnIds
   indices = find(startAttnIds<1);
