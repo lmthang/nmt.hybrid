@@ -155,7 +155,7 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
             if mm==numModels
               firstAlignIdx = zeroMatrix([1, batchSize], params.isGPU, params.dataType);
               if params.attnGlobal==0 % local
-                [startIds, endIds, startAttnIds, ~] = computeAttnBound(h2sInfo.srcPositions, params.posWin, params.numAttnPositions, params.numSrcHidVecs);
+                [startIds, endIds, startAttnIds, ~] = computeAttnBound(h2sInfo.srcPositions, params); %params.posWin, params.numAttnPositions, params.numSrcHidVecs);
               end
               
               for sentId=1:batchSize % go through each sent
@@ -390,7 +390,7 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
             if mm==numModels
               alignIdx = zeroMatrix([1, numElements], params.isGPU, params.dataType);
               if params.attnGlobal==0 % local
-                [startIds, endIds, startAttnIds, ~] = computeAttnBound(h2sInfo.srcPositions, params.posWin, params.numAttnPositions, params.numSrcHidVecs);
+                [startIds, endIds, startAttnIds, ~] = computeAttnBound(h2sInfo.srcPositions, params);
               end
               
               for sentId=1:numElements % go through each sent

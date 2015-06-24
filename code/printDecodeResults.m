@@ -21,7 +21,9 @@ function printDecodeResults(decodeData, candidates, candScores, alignInfo, param
     if params.align
       alignment = alignInfo{ii}{bestId};
       printAlign(params.logId, translation, decodeData, alignment, params, ii, startId+ii-1, 1);
-      printSentAlign(params.alignId, decodeData, alignment, params);
+      if isOutput
+        printSentAlign(params.alignId, decodeData, alignment, params);
+      end
     end
     fprintf(params.logId, '  score %g\n', maxScores(ii));
 
@@ -63,7 +65,7 @@ function printAlign(fid, translation, data, alignment, params, ii, sentId, print
       src = data.input(ii,mask);
       src = src(end:-1:1);
     end
-    fprintf(fid, 'words %d: ', sentId);
+    fprintf(fid, 'pairs %d: ', sentId);
     for i = 1:length(alignment)
       srcPos = alignment(i);
       assert((1 <= srcPos) && (srcPos <= srcLen));
@@ -72,6 +74,7 @@ function printAlign(fid, translation, data, alignment, params, ii, sentId, print
     fprintf(fid, '\n');
   end  
   
+  fprintf(fid, 'align %d: ', sentId);
   for i = 1:length(alignment)
     srcPos = alignment(i);  
     assert((1 <= srcPos) && (srcPos <= srcLen));
@@ -86,6 +89,10 @@ function printSrc(fid, data, ii, params, sentId)
   mask = data.inputMask(ii,1:data.srcMaxLen-1);
   src = data.input(ii,mask);
   printSent(fid, src, params.srcVocab, ['  src ' num2str(sentId) ': ']);
+  
+  if params.isReverse
+    printSent(fid, src(end:-1:1), params.srcVocab, [' rsrc ' num2str(sentId) ': ']);
+  end
 end
 
 function printRef(fid, data, ii, params, sentId)
