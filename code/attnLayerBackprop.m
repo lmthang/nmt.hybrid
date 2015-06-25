@@ -44,9 +44,14 @@ function [grad_ht, attnGrad, grad_srcHidVecs] = attnLayerBackprop(model, grad_so
   
     % s_t = W_a * h_t
     [grad_ht, attnGrad.W_a] = linearLayerBackprop(model.W_a, grad_scores, h2sInfo.h_t);  
-  elseif params.attnOpt==1
-    % s_t = H_src * h_t
-    [grad_ht, grad_srcHidVecs1] = srcCompareLayerBackprop(grad_alignWeights, h2sInfo.alignWeights, srcHidVecs, h2sInfo.h_t, h2sInfo.alignMask, params);
+  elseif params.attnOpt==1 || params.attnOpt==2
+    if params.attnOpt==1 % s_t = H_src * h_t
+      [grad_ht, grad_srcHidVecs1] = srcCompareLayerBackprop(grad_alignWeights, h2sInfo.alignWeights, srcHidVecs, h2sInfo.h_t, h2sInfo.alignMask, params);
+    elseif params.attnOpt==2 % s_t = H_src * W_a * h_t
+      [grad_transform_ht, grad_srcHidVecs1] = srcCompareLayerBackprop(grad_alignWeights, h2sInfo.alignWeights, srcHidVecs, h2sInfo.transform_ht, h2sInfo.alignMask, params);
+      [grad_ht, attnGrad.W_a] = linearLayerBackprop(model.W_a, grad_transform_ht, h2sInfo.h_t);
+    end
+    
     grad_srcHidVecs = grad_srcHidVecs + grad_srcHidVecs1; % add to the existing grad_srcHidVecs
   end
 

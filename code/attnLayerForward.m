@@ -10,7 +10,7 @@ function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, 
   
   if params.attnGlobal % global
     srcHidVecs = trainData.absSrcHidVecs;
-    if params.attnOpt==1
+    if params.attnOpt==1 || params.attnOpt==2
       h2sInfo.alignMask = trainData.alignMask;
     end
   else % local
@@ -41,8 +41,13 @@ function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, 
 %     else
 %       h2sInfo.alignWeights = normLayerForward(model.W_a*h_t, h2sInfo.alignMask, params);
 %     end
-  elseif params.attnOpt==1 % src state comparison
-    h2sInfo.alignWeights = srcCompareLayerForward(srcHidVecs, h_t, h2sInfo.alignMask, params);
+  elseif params.attnOpt==1 || params.attnOpt==2 % src state comparison
+    if params.attnOpt==1
+      h2sInfo.alignWeights = srcCompareLayerForward(srcHidVecs, h_t, h2sInfo.alignMask, params);
+    elseif params.attnOpt==2
+      h2sInfo.transform_ht = model.W_a * h_t;
+      h2sInfo.alignWeights = srcCompareLayerForward(srcHidVecs, h2sInfo.transform_ht, h2sInfo.alignMask, params);
+    end
   end
 
   % attn4: local, regression, multiply with distWeights
@@ -63,7 +68,7 @@ function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, 
 
   % assert
   if params.assert
-    if params.attnGlobal && params.attnOpt==1
+    if params.attnGlobal && (params.attnOpt==1 || params.attnOpt==2)
       assert(isequal(size(h2sInfo.alignWeights), [params.numSrcHidVecs, params.curBatchSize]));
     else
       assert(isequal(size(h2sInfo.alignWeights), [params.numAttnPositions, params.curBatchSize]));

@@ -67,7 +67,7 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
       modelData{mm}.curMask = curMask;
 
       modelData{mm}.srcHidVecsOrig = zeroMatrix([models{mm}.params.lstmSize, batchSize, models{mm}.params.numSrcHidVecs], params.isGPU, params.dataType);  
-      if models{mm}.params.attnGlobal && models{mm}.params.attnOpt==1
+      if models{mm}.params.attnGlobal && (models{mm}.params.attnOpt==1 || models{mm}.params.attnOpt==2)
         modelData{mm}.alignMask = modelData{mm}.srcMask(:, 1:models{mm}.params.numSrcHidVecs)'; % numSrcHidVecs * curBatchSize
       end
     else
@@ -84,7 +84,7 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
   
   for tt=1:srcMaxLen % time
     maskedIds = find(~inputMask(:, tt)); % curBatchSize * 1
-    tgtPos = tt-srcMaxLen+1;
+    tgtPos = tt-srcMaxLen+1; % = 1
     if tt==srcMaxLen % due to implementation in lstmCostGrad, we have to switch to W_tgt here. THIS IS VERY IMPORTANT!
       for mm=1:numModels
         W{mm} = models{mm}.W_tgt;
@@ -144,7 +144,7 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
           end
           
           
-        % output alignment
+          % output alignment
           if params.align 
             if mm==1
               alignWeights = h2sInfo.alignWeights;
@@ -295,7 +295,7 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
       if models{mm}.params.attnGlobal % soft, global
         modelData{mm}.absSrcHidVecs = duplicateSrcHidVecs(modelData{mm}.absSrcHidVecs, batchSize, beamSize);
 
-        if models{mm}.params.attnOpt==1
+        if models{mm}.params.attnOpt==1 || models{mm}.params.attnOpt==2
            % alignMask: batchSize * numSrcHidVecs
            % alignMask: numSrcHidVecs * (batchSize*beamSize), mask columns of the same sentence are nearby
            modelData{mm}.alignMask = reshape(repmat(modelData{mm}.alignMask, 1, beamSize)', models{mm}.params.numSrcHidVecs, numElements);

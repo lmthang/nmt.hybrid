@@ -74,6 +74,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   % attnOpt: decide how we generate the alignment weights:
   %          0: no src compare, a_t = softmax(W_a * h_t)
   %          1: src compare, dot product, a_t = softmax(H_src * h_t)
+  %          2: src compare, general dot product, a_t = softmax(H_src * W_a * h_t)
   addOptional(p,'attnOpt', 0, @isnumeric);
   addOptional(p,'attnSize', 0, @isnumeric); % dim of the vector used to input to the final softmax, if 0, use lstmSize
   addOptional(p,'posWin', 5, @isnumeric); % relative window, used for attnFunc~=1
@@ -429,6 +430,11 @@ function [model] = initLSTM(params)
     % predict alignment weights
     if params.attnOpt==0 && params.numAttnPositions>=1 % && params.predictPos~=3
       model.W_a = randomMatrix(params.initRange, [params.numAttnPositions, params.lstmSize], params.isGPU, params.dataType);
+    end
+    
+    % general dot product
+    if params.attnOpt==2
+      model.W_a = randomMatrix(params.initRange, [params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
     end
     
     % attn_t = H_src * a_t % h_attn_t = f(W_h * [attn_t; h_t])

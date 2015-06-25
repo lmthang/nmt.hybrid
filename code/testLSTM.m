@@ -24,6 +24,7 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   % optional
   addOptional(p,'gpuDevice', 1, @isnumeric); % choose the gpuDevice to use. 
   addOptional(p,'align', 0, @isnumeric); % 1 -- output aignment from attention model
+  addOptional(p,'assert', 0, @isnumeric); % 1 -- assert
   addOptional(p,'minLenRatio', 0.5, @isnumeric); % decodeLen >= minLenRatio * srcMaxLen
   addOptional(p,'maxLenRatio', 1.5, @isnumeric); % decodeLen <= maxLenRatio * srcMaxLen
   addOptional(p,'testPrefix', '', @ischar); % to specify a different file for decoding
