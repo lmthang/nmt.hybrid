@@ -10,9 +10,10 @@ function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, 
   
   if params.attnGlobal % global
     srcHidVecs = trainData.absSrcHidVecs;
-    if params.attnOpt==1 || params.attnOpt==2
-      h2sInfo.alignMask = trainData.alignMask;
-    end
+    h2sInfo.maskedIds = trainData.maskedIds;
+    %if params.attnOpt==1 || params.attnOpt==2
+      %h2sInfo.alignMask = trainData.alignMask;
+    %end
   else % local
     % positions
     if params.posSignal % unsupervised alignments
@@ -31,22 +32,24 @@ function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, 
 
     % build context vectors
     [srcHidVecs, h2sInfo] = buildSrcVecs(trainData.srcHidVecs, srcPositions, trainData.posMask, params, h2sInfo);
+
+    h2sInfo.maskedIds = find(h2sInfo.alignMask==0);
   end % end else if attnGlobal
 
   % compute alignWeights
   if params.attnOpt==0 % no src state comparison
-    h2sInfo.alignWeights = softmax(model.W_a*h_t); % numAttnPositions*curBatchSize
+%     h2sInfo.alignWeights = softmax(model.W_a*h_t); % numAttnPositions*curBatchSize
 %     if params.attnFunc==1 || params.attnFunc==2
 %       h2sInfo.alignWeights = softmax(model.W_a*h_t); % numAttnPositions*curBatchSize
 %     else
-%       h2sInfo.alignWeights = normLayerForward(model.W_a*h_t, h2sInfo.alignMask, params);
+      h2sInfo.alignWeights = normLayerForward(model.W_a*h_t, h2sInfo.maskedIds);
 %     end
   elseif params.attnOpt==1 || params.attnOpt==2 % src state comparison
     if params.attnOpt==1
-      h2sInfo.alignWeights = srcCompareLayerForward(srcHidVecs, h_t, h2sInfo.alignMask, params);
+      h2sInfo.alignWeights = srcCompareLayerForward(srcHidVecs, h_t, h2sInfo.maskedIds, params);
     elseif params.attnOpt==2
       h2sInfo.transform_ht = model.W_a * h_t;
-      h2sInfo.alignWeights = srcCompareLayerForward(srcHidVecs, h2sInfo.transform_ht, h2sInfo.alignMask, params);
+      h2sInfo.alignWeights = srcCompareLayerForward(srcHidVecs, h2sInfo.transform_ht, h2sInfo.maskedIds, params);
     end
   end
 
@@ -57,8 +60,13 @@ function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, 
     h2sInfo.alignWeights =  h2sInfo.preAlignWeights.* h2sInfo.distWeights; % weighted by distances
   end
 
+  % assert
+  if params.assert
+    assert(computeSum(h2sInfo.alignWeights(h2sInfo.maskedIds), params.isGPU)==0);
+  end
+  
   % alignWeights, srcHidVecs -> contextVecs
-  [contextVecs] = contextLayerForward(h2sInfo.alignWeights, srcHidVecs);
+  [contextVecs] = contextLayerForward(h2sInfo.alignWeights, srcHidVecs, params);
 
   % f(W_h*[context_t; h_t])
   h2sInfo.input = [contextVecs; h_t];

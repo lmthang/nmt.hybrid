@@ -40,15 +40,22 @@ function [grad_ht, attnGrad, grad_srcHidVecs] = attnLayerBackprop(model, grad_so
   % grad_scores -> grad_ht, grad_W_a / grad_srcHidVecs
   if params.attnOpt==0 % no src compare
     % grad_alignWeights -> grad_scores
-    [grad_scores] = normLayerBackprop(grad_alignWeights, h2sInfo.alignWeights, h2sInfo.alignMask, params);
-  
+    [grad_scores] = normLayerBackprop(grad_alignWeights, h2sInfo.alignWeights, h2sInfo.maskedIds, params);
+    
     % s_t = W_a * h_t
     [grad_ht, attnGrad.W_a] = linearLayerBackprop(model.W_a, grad_scores, h2sInfo.h_t);  
+    
+    % assert
+    if params.assert
+      assert(computeSum(grad_scores(h2sInfo.maskedIds), params.isGPU)==0);
+      assert(computeSum(grad_ht(:, curMask.maskedIds), params.isGPU)==0);
+    end
+    
   elseif params.attnOpt==1 || params.attnOpt==2
     if params.attnOpt==1 % s_t = H_src * h_t
-      [grad_ht, grad_srcHidVecs1] = srcCompareLayerBackprop(grad_alignWeights, h2sInfo.alignWeights, srcHidVecs, h2sInfo.h_t, h2sInfo.alignMask, params);
+      [grad_ht, grad_srcHidVecs1] = srcCompareLayerBackprop(grad_alignWeights, h2sInfo.alignWeights, srcHidVecs, h2sInfo.h_t, h2sInfo.maskedIds, params);
     elseif params.attnOpt==2 % s_t = H_src * W_a * h_t
-      [grad_transform_ht, grad_srcHidVecs1] = srcCompareLayerBackprop(grad_alignWeights, h2sInfo.alignWeights, srcHidVecs, h2sInfo.transform_ht, h2sInfo.alignMask, params);
+      [grad_transform_ht, grad_srcHidVecs1] = srcCompareLayerBackprop(grad_alignWeights, h2sInfo.alignWeights, srcHidVecs, h2sInfo.transform_ht, h2sInfo.maskedIds, params);
       [grad_ht, attnGrad.W_a] = linearLayerBackprop(model.W_a, grad_transform_ht, h2sInfo.h_t);
     end
     
@@ -57,6 +64,11 @@ function [grad_ht, attnGrad, grad_srcHidVecs] = attnLayerBackprop(model, grad_so
 
   % grad_ht
   grad_ht = grad_ht + grad_input(params.lstmSize+1:end, :);
+  
+  % assert
+  if params.assert
+    assert(computeSum(grad_input(params.lstmSize+1:end, curMask.maskedIds), params.isGPU)==0);
+  end
   
   if params.predictPos==3
     % since linearIdSub is for matrix of size [curBatchSize, numAttnPositions], 

@@ -63,15 +63,21 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   % attentional model
   if params.attnFunc   
     if params.attnGlobal % global
+      trainData.maskedIds = [];
       if params.attnOpt==0 % no src compare
         startAttnId = 1;
         endAttnId = params.numSrcHidVecs;
         startHidId = params.numAttnPositions-params.numSrcHidVecs+1;
         endHidId = params.numAttnPositions;
-        trainData.alignMask = zeroMatrix([params.numAttnPositions, params.curBatchSize], params.isGPU, params.dataType);
-        trainData.alignMask(startHidId:endHidId, :) = trainData.srcMask(:, 1:params.numSrcHidVecs)';
+        
+%         trainData.alignMask = zeroMatrix([params.numAttnPositions, params.curBatchSize], params.isGPU, params.dataType);
+%         trainData.alignMask(startHidId:endHidId, :) = trainData.srcMask(:, 1:params.numSrcHidVecs)';
+        
+%         trainData.alignMask = oneMatrix([params.numAttnPositions, params.curBatchSize], params.isGPU, params.dataType);
       else
-        trainData.alignMask = trainData.srcMask(:, 1:params.numSrcHidVecs)'; % numSrcHidVecs * curBatchSize
+%         trainData.alignMask = trainData.srcMask(:, 1:params.numSrcHidVecs)'; % numSrcHidVecs * curBatchSize
+        
+%         trainData.alignMask = oneMatrix([params.numSrcHidVecs, params.curBatchSize], params.isGPU, params.dataType);
       end
     else % local
       if params.posSignal % unsupervised alignment
@@ -247,7 +253,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   if isTest==1 % don't compute grad
     return;
   end
-  rmfield(trainData, 'posMask');
+  trainData = rmfield(trainData, 'posMask');
   
   %%%%%%%%%%%%%%%%%%%%%
   %%% BACKWARD PASS %%%

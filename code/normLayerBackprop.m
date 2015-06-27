@@ -1,4 +1,4 @@
-function [grad_scores] = normLayerBackprop(grad_alignWeights, alignWeights, mask, params)
+function [grad_scores] = normLayerBackprop(grad_alignWeights, alignWeights, maskedIds, params)
   %% from grad_alignWeights -> grad_scores
   % alignWeights a = softmax(scores)
   % Let's derive per indices grad align weight w.r.t scores
@@ -14,6 +14,28 @@ function [grad_scores] = normLayerBackprop(grad_alignWeights, alignWeights, mask
   %     grad_scores = a.*grad - bsxfun(@times, a, alpha)
   % tmpResult = alignWeights.*grad_alignWeights; % numAttnPositions * curBatchSize
   
+  tmpResult = alignWeights.*grad_alignWeights; % numAttnPositions * curBatchSize
+  grad_scores = tmpResult - bsxfun(@times, alignWeights, sum(tmpResult, 1));
+    
+  % assert
+  if params.assert
+    % compute grad_scores in a different way
+    grad_scores1 = zeroMatrix(size(grad_scores), params.isGPU, params.dataType);
+    for ii=1:params.curBatchSize
+      grad_scores1(:, ii) = (diag(alignWeights(:, ii))-alignWeights(:, ii)*alignWeights(:, ii)')*grad_alignWeights(:, ii);
+    end
+    assert(computeSum(grad_scores-grad_scores1, params.isGPU)<1e-5);
+    
+    assert(computeSum(alignWeights(maskedIds), params.isGPU)==0);
+    assert(computeSum(grad_scores(maskedIds), params.isGPU)==0);
+    assert(computeSum(tmpResult(maskedIds), params.isGPU)==0);
+    tmpResult = bsxfun(@times, alignWeights, sum(tmpResult, 1));
+    assert(computeSum(tmpResult(maskedIds), params.isGPU)==0);
+  end
+end
+
+%alignWeights = alignWeights.*mask;
+
   %if ~isequal(size(alignWeights), size(grad_alignWeights))
   %  params
   %  size(alignWeights)
@@ -26,16 +48,3 @@ function [grad_scores] = normLayerBackprop(grad_alignWeights, alignWeights, mask
 %     assert(computeSum(grad_alignWeights(mask==0), params.isGPU)==0);
 %   end
   
-  alignWeights = alignWeights.*mask;
-  tmpResult = alignWeights.*grad_alignWeights; % numAttnPositions * curBatchSize
-  grad_scores = tmpResult - bsxfun(@times, alignWeights, sum(tmpResult, 1));
-    
-  if params.assert
-    % compute grad_scores in a different way
-    grad_scores1 = zeroMatrix(size(grad_scores), params.isGPU, params.dataType);
-    for ii=1:params.curBatchSize
-      grad_scores1(:, ii) = (diag(alignWeights(:, ii))-alignWeights(:, ii)*alignWeights(:, ii)')*grad_alignWeights(:, ii);
-    end
-    assert(computeSum(grad_scores-grad_scores1, params.isGPU)<1e-5);
-  end
-end
