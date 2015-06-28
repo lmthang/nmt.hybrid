@@ -94,9 +94,6 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   if params.posSignal
     data.posOutput = posOutput;
     data.numPositions = sum(sum(posOutput~=params.nullPosId & posOutput~=params.tgtEos));
-%     if params.predictNull
-%       data.numNulls = sum(sum(posOutput==params.nullPosId));
-%     end
   end
   
   % assign to data struct
@@ -130,6 +127,10 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
     assert(numWords == sum(tgtLens));
   end
 end
+
+%     if params.predictNull
+%       data.numNulls = sum(sum(posOutput==params.nullPosId));
+%     end
 
 %   if params.posModel>0
 %     tgtMaxSentLen = (tgtMaxSentLen-1)*2 + 1;

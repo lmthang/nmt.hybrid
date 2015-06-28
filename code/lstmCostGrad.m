@@ -157,47 +157,20 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       
       %% Loss
       if tt>=srcMaxLen && ll==params.numLayers % decoding phase, tgtPos>=1
-        
-        % masking
-        [trainData.posMask] = createPosMask(tgtPos, params, trainData, curMask);
-        
         %% predicting positions
         if params.posSignal
-          curPosOutput = trainData.posOutput(:, tgtPos)';
-          % h_t -> scales=sigmoid(v_pos*h_pos) in [0, 1]
-          [scales, posForwData] = scaleLayerForward(model.W_pos, model.v_pos, h_t{ll}, params);
-
-          % scales -> L2 loss -> scales
-          refScales = curPosOutput./trainData.srcLens; % from unsupervised alignments
-          [cost_pos, grad_scales] = l2CostGrad(scales, refScales, params.posWeight, trainData.posMask.maskedIds, isTest);
+          [cost_pos, posGrad, trainData] = posSignalCostGrad(model, h_t{ll}, tgtPos, curMask, trainData, params, isTest);
           costs.total = costs.total + cost_pos;
           costs.pos = costs.pos + cost_pos;
-
-          % backprop: position loss -> h_t
+  
           if isTest==0
-            [grad_ht_pos_all{tgtPos}, grad_W_pos, grad_v_pos] = scaleLayerBackprop(model.W_pos, model.v_pos, grad_scales, h_t{ll}, scales, posForwData, params);
-
-            % update grads
-            grad.v_pos = grad.v_pos + grad_v_pos;
-          end
-
-          trainData.positions = floor(trainData.srcLens.*refScales); %curPosOutput; % NOTE: by using this at test time, we compute an oracle word perplexity
-
-          % assert
-          if params.assert
-            assert(isempty(find(refScales(trainData.posMask.unmaskedIds)<0 | refScales(trainData.posMask.unmaskedIds)>1, 1))); % we assume that the reference positions are in [0, 1].
-          end
-          
-          if isTest==0
-            % update grads
-            grad.W_pos = grad.W_pos + grad_W_pos;
-            
-            % assert
-            if params.assert
-              assert(sum(sum(abs(grad_ht_pos_all{tgtPos}(:, trainData.posMask.maskedIds))))==0);
-            end
-          end          
-        end % if posSignal
+            grad_ht_pos_all{tgtPos} = posGrad.ht;
+            grad.v_pos = grad.v_pos + posGrad.v_pos;
+            grad.W_pos = grad.W_pos + posGrad.W_pos;
+          end 
+        else
+          trainData.posMask = curMask;
+        end
         
         
         %% predicting words

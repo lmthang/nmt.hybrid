@@ -128,13 +128,14 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
 
         % h_t -> softmax_h
         if tt==srcMaxLen && ll==models{mm}.params.numLayers
-          modelData{mm}.posMask = curMask;
-
-          % position predictions
-          if models{mm}.params.posSignal
-            % h_t -> scales=sigmoid(v_pos*h_pos) in [0, 1]
-            scales = scaleLayerForward(models{mm}.W_pos, models{mm}.v_pos, h_t, models{mm}.params);
-            modelData{mm}.positions = floor(modelData{mm}.srcLens.*scales);
+          if models{mm}.params.posSignal % position predictions
+%             % h_t -> scales=sigmoid(v_pos*h_pos) in [0, 1]
+%             scales = scaleLayerForward(models{mm}.W_pos, models{mm}.v_pos, h_t, models{mm}.params);
+%             modelData{mm}.positions = floor(modelData{mm}.srcLens.*scales);
+            
+            [~, ~, modelData{mm}] = posSignalCostGrad(models{mm}, h_t, tgtPos, curMask, modelData{mm}, params, 1);
+          else
+            modelData{mm}.posMask = curMask;
           end
 
           if params.attnFunc
