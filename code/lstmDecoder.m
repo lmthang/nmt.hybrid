@@ -30,9 +30,12 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
   if params.attnFunc>0
     params.numSrcHidVecs = srcMaxLen-1;
   end
-  %printSent(2, input(1, 1:srcMaxLen), params.vocab, 'src 1: ');
-  %printSent(2, input(1, srcMaxLen:end), params.vocab, 'tgt 1: ');
-  %printSent(2, input(end, 1:srcMaxLen), params.vocab, 'src end: ');
+  
+  printSent(2, input(1, 1:srcMaxLen-1), params.srcVocab, '  src: ');
+  if params.isReverse
+    printSent(2, input(1, srcMaxLen-1:-1:1), params.srcVocab, ' rsrc: ');
+  end
+  printSent(2, input(1, srcMaxLen:end), params.tgtVocab, '  tgt: ');
       
   %% init
   fprintf(2, '# Decoding batch of %d sents, srcMaxLen=%d, %s\n', batchSize, srcMaxLen, datestr(now));
@@ -45,7 +48,6 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
   %%%%%%%%%%%%
   %% encode %%
   %%%%%%%%%%%%
-  
   %% multiple models
   numModels = length(models);
   lstm = cell(numModels, 1); % lstm can be over written, as we do not need to backprop
@@ -61,14 +63,16 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
     modelData{mm} = data;
     models{mm}.params.curBatchSize = batchSize;
     
-    % attentional / positional models
+    % attention
     if models{mm}.params.attnFunc || models{mm}.params.sameLength
       models{mm}.params.numSrcHidVecs = srcMaxLen-1;
       modelData{mm}.curMask = curMask;
 
       modelData{mm}.srcHidVecsOrig = zeroMatrix([models{mm}.params.lstmSize, batchSize, models{mm}.params.numSrcHidVecs], params.isGPU, params.dataType);  
-      if models{mm}.params.attnGlobal && (models{mm}.params.attnOpt==1 || models{mm}.params.attnOpt==2)
-        modelData{mm}.alignMask = modelData{mm}.srcMask(:, 1:models{mm}.params.numSrcHidVecs)'; % numSrcHidVecs * curBatchSize
+      if models{mm}.params.attnGlobal %&& (models{mm}.params.attnOpt==1 || models{mm}.params.attnOpt==2)
+        % modelData{mm}.alignMask = modelData{mm}.srcMask(:, 1:models{mm}.params.numSrcHidVecs)'; % numSrcHidVecs * curBatchSize
+        modelData{mm}.alignMask = oneMatrix([models{mm}.params.numSrcHidVecs, models{mm}.params.curBatchSize], params.isGPU, params.dataType);
+        modelData{mm}.maskedIds = [];
       end
     else
       models{mm}.params.numSrcHidVecs = 0;
@@ -126,13 +130,19 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
         lstm{mm}{ll}.h_t = h_t;
         lstm{mm}{ll}.c_t = c_t;
 
+        % attention
+        if tt<=models{mm}.params.numSrcHidVecs && ll==models{mm}.params.numLayers %&& (models{mm}.params.attnFunc>0 || models{mm}.params.sameLength==1)
+          modelData{mm}.srcHidVecsOrig(:, :, tt) = h_t;
+
+          % done generating all srcHidVecs, collect
+          if tt==models{mm}.params.numSrcHidVecs
+            [modelData{mm}] = updateDataSrcVecs(modelData{mm}, models{mm}.params);
+          end
+        end
+        
         % h_t -> softmax_h
         if tt==srcMaxLen && ll==models{mm}.params.numLayers
-          if models{mm}.params.posSignal % position predictions
-%             % h_t -> scales=sigmoid(v_pos*h_pos) in [0, 1]
-%             scales = scaleLayerForward(models{mm}.W_pos, models{mm}.v_pos, h_t, models{mm}.params);
-%             modelData{mm}.positions = floor(modelData{mm}.srcLens.*scales);
-            
+          if models{mm}.params.posSignal % position predictions          
             [~, ~, modelData{mm}] = posSignalCostGrad(models{mm}, h_t, tgtPos, curMask, modelData{mm}, params, 1);
           else
             modelData{mm}.posMask = curMask;
@@ -162,23 +172,13 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
               for sentId=1:batchSize % go through each sent
                 srcLen = modelData{mm}.srcLens(sentId);
                 if params.attnGlobal % global
-                  [~, firstAlignIdx(sentId)] = max(alignWeights(end-srcLen+2:end, sentId), [], 1); % srcLen includes eos, alignWeights excludes eos.
+                  [~, firstAlignIdx(sentId)] = max(alignWeights(end-(srcLen-1)+1:end, sentId), [], 1); % srcLen includes eos, alignWeights excludes eos.
                 else % attention local
                   [~,firstAlignIdx(sentId)] = max(alignWeights(startIds(sentId):endIds(sentId), sentId), [], 1);
                   firstAlignIdx(sentId) = startAttnIds(sentId) - 1 + firstAlignIdx(sentId);
                 end
               end % end for sentId
             end % end if last model
-          end
-        end
-
-        % attentional  models
-        if tt<=models{mm}.params.numSrcHidVecs && ll==models{mm}.params.numLayers && (models{mm}.params.attnFunc>0 || models{mm}.params.sameLength==1)
-          modelData{mm}.srcHidVecsOrig(:, :, tt) = h_t;
-
-          % done generating all srcHidVecs, collect
-          if tt==models{mm}.params.numSrcHidVecs
-            [modelData{mm}] = updateDataSrcVecs(modelData{mm}, models{mm}.params);
           end
         end
 
@@ -300,6 +300,7 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
            % alignMask: batchSize * numSrcHidVecs
            % alignMask: numSrcHidVecs * (batchSize*beamSize), mask columns of the same sentence are nearby
            modelData{mm}.alignMask = reshape(repmat(modelData{mm}.alignMask, 1, beamSize)', models{mm}.params.numSrcHidVecs, numElements);
+           modelData{mm}.maskedIds = find(modelData{mm}.alignMask==0);
         end
       else % hard, local
         modelData{mm}.srcHidVecs = duplicateSrcHidVecs(modelData{mm}.srcHidVecsOrig, batchSize, beamSize);
@@ -625,6 +626,9 @@ function [srcHidVecs] = duplicateSrcHidVecs(srcHidVecs, batchSize, beamSize)
 end
 
 %%%%%%%%%%%%%
+%             % h_t -> scales=sigmoid(v_pos*h_pos) in [0, 1]
+%             scales = scaleLayerForward(models{mm}.W_pos, models{mm}.v_pos, h_t, models{mm}.params);
+%             modelData{mm}.positions = floor(modelData{mm}.srcLens.*scales);
 
 % function [srcHidVecs] = computeRelativeSrcHidVecs(srcHidVecsOrig, srcMaxLen, tgtPos, batchSize, params, beamSize)
 %   [srcHidVecs] = buildSrcHidVecs(srcHidVecsOrig, srcMaxLen, tgtPos, params);

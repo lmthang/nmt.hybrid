@@ -22,7 +22,17 @@ function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, 
       [mu, h2sInfo] = regressPositions(model, h_t, trainData.srcLens, params);
       srcPositions = floor(mu) + 1;
     else % monotonic alignments
-      srcPositions = tgtPos*ones(1, trainData.curBatchSize);
+      srcPositions = floor((tgtPos./trainData.tgtLens).*(trainData.srcLens-1)); %tgtPos*ones(1, trainData.curBatchSize);
+      srcPositions(srcPositions==0) = 1;
+      
+      % assert
+      if params.assert
+        assert(isempty(find(trainData.tgtLens<=1,1)));
+        if ~isempty(find(srcPositions(trainData.posMask.unmaskedIds)>(trainData.srcLens(trainData.posMask.unmaskedIds)-1),1))
+          srcPositions
+        end
+        assert(isempty(find(srcPositions(trainData.posMask.unmaskedIds)>(trainData.srcLens(trainData.posMask.unmaskedIds)-1),1)));
+      end
     end
 
     % reverse

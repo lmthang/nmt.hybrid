@@ -110,6 +110,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   
   data.srcMaxLen = srcMaxLen;
   data.srcLens = srcLens;
+  data.tgtLens = tgtLens;
   data.tgtInput = tgtInput;
   data.tgtOutput = tgtOutput;
   data.tgtMask = tgtMask;

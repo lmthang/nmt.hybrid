@@ -61,8 +61,8 @@ function printAlign(fid, translation, data, alignment, params, ii, sentId, print
   end
   
   if printWords
+    src = data.input(ii,mask);
     if params.isReverse
-      src = data.input(ii,mask);
       src = src(end:-1:1);
     end
     fprintf(fid, 'pairs %d: ', sentId);

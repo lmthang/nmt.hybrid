@@ -74,6 +74,7 @@ function [evalCosts] = evalCost(model, data, params) %input, inputMask, tgtOutpu
     trainData.tgtMask = data.tgtMask(startId:endId, :);
     trainData.tgtOutput = data.tgtOutput(startId:endId, :);
     trainData.srcLens = data.srcLens(startId:endId); 
+    trainData.tgtLens = data.tgtLens(startId:endId); 
     if params.posSignal
       trainData.posOutput = data.posOutput(startId:endId, :);
     end
