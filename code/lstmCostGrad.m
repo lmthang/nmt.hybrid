@@ -63,7 +63,6 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   % attentional model
   if params.attnFunc   
     if params.attnGlobal % global
-      trainData.maskedIds = [];
       if params.attnOpt==0 % no src compare
         startAttnId = 1;
         endAttnId = params.numSrcHidVecs;
@@ -79,6 +78,8 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         
 %         trainData.alignMask = oneMatrix([params.numSrcHidVecs, params.curBatchSize], params.isGPU, params.dataType);
       end
+      trainData.srcMaskedIds = [];
+%       trainData.srcMaskedIds = find(trainData.alignMask==0);
     else % local
       if params.posSignal % unsupervised alignment
         grad_ht_pos_all = cell(tgtMaxLen, 1);
@@ -177,9 +178,6 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         % h_t -> softmax_h
         if params.attnFunc
           % TODO: save memory here, h2sInfo.input only keeps track of srcHidVecs or attnVecs, but not h_t.
-%           if tt==T
-%             tt
-%           end
           [softmax_h, h2sInfoAll{tgtPos}] = attnLayerForward(h_t{ll}, params, model, trainData, tgtPos);
         else
           softmax_h = h_t{ll};

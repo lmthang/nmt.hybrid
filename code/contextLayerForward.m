@@ -9,15 +9,17 @@
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 %
 %%% 
-function [contextVecs] = contextLayerForward(alignWeights, srcHidVecs, params)
+function [contextVecs] = contextLayerForward(alignWeights, srcHidVecs, unmaskedIds, params)
   % change alignWeights -> 1 * batchSize * numPositions
   % multiply then sum across the numPositions dimension.
-  contextVecs = squeeze(sum(bsxfun(@times, srcHidVecs, permute(alignWeights, [3, 2, 1])), 3)); % lstmSize * batchSize
+  contextVecs = zeroMatrix([params.lstmSize, params.curBatchSize], params.isGPU, params.dataType);
+  contextVecs(:, unmaskedIds) = squeeze(sum(bsxfun(@times, srcHidVecs(:, unmaskedIds, :), permute(alignWeights(:, unmaskedIds), [3, 2, 1])), 3)); % lstmSize * batchSize
   
   % assert
   if params.assert
     contextVecs1 = zeroMatrix([params.lstmSize, params.curBatchSize], params.isGPU, params.dataType);
-    for ii=1:params.curBatchSize
+    for kk=1:length(unmaskedIds)
+      ii = unmaskedIds(kk);
       avgVec = zeroMatrix([params.lstmSize, 1], params.isGPU, params.dataType);
       for jj=1:size(alignWeights, 1)
         avgVec = avgVec + alignWeights(jj, ii)*srcHidVecs(:, ii, jj);

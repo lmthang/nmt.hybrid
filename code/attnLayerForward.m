@@ -5,36 +5,30 @@ function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, 
 %
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 %
-%%% 
-  h2sInfo = [];
+%%%
   
   if params.attnGlobal % global
     srcHidVecs = trainData.absSrcHidVecs;
-    h2sInfo.maskedIds = trainData.maskedIds;
-    %if params.attnOpt==1 || params.attnOpt==2
-      %h2sInfo.alignMask = trainData.alignMask;
-    %end
+    h2sInfo.srcMaskedIds = trainData.srcMaskedIds;
   else % local
     % positions
     if params.posSignal % unsupervised alignments
       srcPositions = trainData.positions;
     elseif params.predictPos % predict positions by regression
       [mu, h2sInfo] = regressPositions(model, h_t, trainData.srcLens, params);
-      srcPositions = floor(mu) + 1;
+      srcPositions = floor(mu);
     else % monotonic alignments
       srcPositions = floor((tgtPos./trainData.tgtLens).*(trainData.srcLens-1)); %tgtPos*ones(1, trainData.curBatchSize);
       srcPositions(srcPositions==0) = 1;
-      
-      % assert
-      if params.assert
-        assert(isempty(find(trainData.tgtLens<=1,1)));
-        if ~isempty(find(srcPositions(trainData.posMask.unmaskedIds)>(trainData.srcLens(trainData.posMask.unmaskedIds)-1),1))
-          srcPositions
-        end
-        assert(isempty(find(srcPositions(trainData.posMask.unmaskedIds)>(trainData.srcLens(trainData.posMask.unmaskedIds)-1),1)));
-      end
     end
-
+    
+    % assert
+    if params.assert
+      assert(isempty(find(srcPositions<1,1)));
+      assert(isempty(find(trainData.tgtLens<=1,1)));
+      assert(isempty(find(srcPositions(trainData.posMask.unmaskedIds)>(trainData.srcLens(trainData.posMask.unmaskedIds)-1),1)));
+    end
+      
     % reverse
     if params.isReverse
       srcPositions = trainData.srcMaxLen - srcPositions;
@@ -43,23 +37,20 @@ function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, 
     % build context vectors
     [srcHidVecs, h2sInfo] = buildSrcVecs(trainData.srcHidVecs, srcPositions, trainData.posMask, params, h2sInfo);
 
-    h2sInfo.maskedIds = find(h2sInfo.alignMask==0);
+    h2sInfo.srcMaskedIds = find(h2sInfo.alignMask==0);
   end % end else if attnGlobal
 
+  h2sInfo.posMask = trainData.posMask;
+  
   % compute alignWeights
   if params.attnOpt==0 % no src state comparison
-%     h2sInfo.alignWeights = softmax(model.W_a*h_t); % numAttnPositions*curBatchSize
-%     if params.attnFunc==1 || params.attnFunc==2
-%       h2sInfo.alignWeights = softmax(model.W_a*h_t); % numAttnPositions*curBatchSize
-%     else
-      h2sInfo.alignWeights = normLayerForward(model.W_a*h_t, h2sInfo.maskedIds);
-%     end
+    h2sInfo.alignWeights = normLayerForward(model.W_a*h_t, h2sInfo.srcMaskedIds);
   elseif params.attnOpt==1 || params.attnOpt==2 % src state comparison
     if params.attnOpt==1
-      h2sInfo.alignWeights = srcCompareLayerForward(srcHidVecs, h_t, h2sInfo.maskedIds, params);
+      h2sInfo.alignWeights = srcCompareLayerForward(srcHidVecs, h_t, h2sInfo.srcMaskedIds, params);
     elseif params.attnOpt==2
       h2sInfo.transform_ht = model.W_a * h_t;
-      h2sInfo.alignWeights = srcCompareLayerForward(srcHidVecs, h2sInfo.transform_ht, h2sInfo.maskedIds, params);
+      h2sInfo.alignWeights = srcCompareLayerForward(srcHidVecs, h2sInfo.transform_ht, h2sInfo.srcMaskedIds, params);
     end
   end
 
@@ -72,11 +63,12 @@ function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, 
 
   % assert
   if params.assert
-    assert(computeSum(h2sInfo.alignWeights(h2sInfo.maskedIds), params.isGPU)==0);
+    assert(computeSum(h2sInfo.alignWeights(h2sInfo.srcMaskedIds), params.isGPU)==0);
   end
   
+  h2sInfo.alignWeights(:, trainData.posMask.maskedIds) = 0;
   % alignWeights, srcHidVecs -> contextVecs
-  [contextVecs] = contextLayerForward(h2sInfo.alignWeights, srcHidVecs, params);
+  [contextVecs] = contextLayerForward(h2sInfo.alignWeights, srcHidVecs, trainData.posMask.unmaskedIds, params);
 
   % f(W_h*[context_t; h_t])
   h2sInfo.input = [contextVecs; h_t];
@@ -100,9 +92,15 @@ function [mu, h2sInfo] = regressPositions(model, h_t, srcLens, params)
   [h2sInfo.scales, h2sInfo.posForwData] = scaleLayerForward(model.W_pos, model.v_pos, h_t, params);
 
   % scales -> srcPositions
-  mu = h2sInfo.scales.*srcLens;
+  mu = h2sInfo.scales.*(srcLens-1) + 1;
 end
 
+
+%     h2sInfo.alignWeights = softmax(model.W_a*h_t); % numAttnPositions*curBatchSize
+%     if params.attnFunc==1 || params.attnFunc==2
+%       h2sInfo.alignWeights = softmax(model.W_a*h_t); % numAttnPositions*curBatchSize
+%     else      
+%     end
 
 
 %   if params.predictPos==3 && params.attnOpt==0 % TODO: remove
