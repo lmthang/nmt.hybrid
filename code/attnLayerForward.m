@@ -6,7 +6,7 @@ function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, 
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 %
 %%%
-  
+  h2sInfo = [];
   if params.attnGlobal % global
     srcHidVecs = trainData.absSrcHidVecs;
     h2sInfo.srcMaskedIds = trainData.srcMaskedIds;
@@ -18,8 +18,9 @@ function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, 
       [mu, h2sInfo] = regressPositions(model, h_t, trainData.srcLens, params);
       srcPositions = floor(mu);
     else % monotonic alignments
-      srcPositions = floor((tgtPos./trainData.tgtLens).*(trainData.srcLens-1)); %tgtPos*ones(1, trainData.curBatchSize);
-      srcPositions(srcPositions==0) = 1;
+      srcPositions = tgtPos*ones(1, trainData.curBatchSize);
+      flags = srcPositions>(trainData.srcLens-1);
+      srcPositions(flags) = trainData.srcLens(flags)-1;
     end
     
     % assert
