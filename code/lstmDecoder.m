@@ -72,7 +72,7 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
       if models{mm}.params.attnGlobal %&& (models{mm}.params.attnOpt==1 || models{mm}.params.attnOpt==2)
         % modelData{mm}.alignMask = modelData{mm}.srcMask(:, 1:models{mm}.params.numSrcHidVecs)'; % numSrcHidVecs * curBatchSize
         modelData{mm}.alignMask = oneMatrix([models{mm}.params.numSrcHidVecs, models{mm}.params.curBatchSize], params.isGPU, params.dataType);
-        modelData{mm}.maskedIds = [];
+        modelData{mm}.srcMaskedIds = [];
       end
     else
       models{mm}.params.numSrcHidVecs = 0;
@@ -300,7 +300,7 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
            % alignMask: batchSize * numSrcHidVecs
            % alignMask: numSrcHidVecs * (batchSize*beamSize), mask columns of the same sentence are nearby
            modelData{mm}.alignMask = reshape(repmat(modelData{mm}.alignMask, 1, beamSize)', models{mm}.params.numSrcHidVecs, numElements);
-           modelData{mm}.maskedIds = find(modelData{mm}.alignMask==0);
+           modelData{mm}.srcMaskedIds = find(modelData{mm}.alignMask==0);
         end
       else % hard, local
         modelData{mm}.srcHidVecs = duplicateSrcHidVecs(modelData{mm}.srcHidVecsOrig, batchSize, beamSize);

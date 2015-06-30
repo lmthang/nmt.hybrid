@@ -125,7 +125,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   end
   
   % params assertions
-  if params.attnFunc==1 || params.attnFunc==2 || params.sameLength==1
+  if params.sameLength==1
     assert(params.isReverse==1);
   end
   
