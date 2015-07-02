@@ -569,7 +569,11 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
         
         % align
         if params.align
-          alignInfo{sentId}{numDecoded(sentId)} = alignHistory(1:maxLen, eosIndex);
+          if params.isReverse
+            alignInfo{sentId}{numDecoded(sentId)} = [alignHistory(1:maxLen, eosIndex); 1];
+          else
+            alignInfo{sentId}{numDecoded(sentId)} = [alignHistory(1:maxLen, eosIndex); modelData{1}.srcLens(sentId)-1];
+          end
         end
         
         candScores(numDecoded(sentId), sentId) = beamScores(eosIndex);
