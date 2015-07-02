@@ -35,7 +35,7 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
   if params.isReverse
     printSent(2, input(1, srcMaxLen-1:-1:1), params.srcVocab, ' rsrc: ');
   end
-  printSent(2, input(1, srcMaxLen:end), params.tgtVocab, '  tgt: ');
+  printSent(2, input(1, srcMaxLen+1:end), params.tgtVocab, '  tgt: ');
       
   %% init
   fprintf(2, '# Decoding batch of %d sents, srcMaxLen=%d, %s\n', batchSize, srcMaxLen, datestr(now));
@@ -505,6 +505,7 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
           % align
           if params.align
             alignments = alignHistory(1:sentPos, (sentId-1)*beamSize + eosBeamIndices);
+            lastAlignIds = beamAlignIds((sentId-1)*beamSize + eosBeamIndices);
           end
           
           transScores = allBestScores(endIndices, sentId);
@@ -517,7 +518,7 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
 
               % align
               if params.align
-                alignInfo{sentId}{numDecoded(sentId)} = alignments(:, ii);
+                alignInfo{sentId}{numDecoded(sentId)} = [alignments(:, ii); lastAlignIds(ii)];
               end
               
               %printSent(2, translations(:, ii), params.vocab, ['  trans sent ' num2str(originalSentIndices(sentId)) ', ' num2str(transScores(ii)), ': ']);

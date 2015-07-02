@@ -60,14 +60,19 @@ function printAlign(fid, translation, data, alignment, params, ii, sentId, print
     alignment = srcLen-alignment;
   end
   
+  tgtLen = length(translation);
   if printWords
     src = data.input(ii,mask);
     if params.isReverse
       src = src(end:-1:1);
     end
     fprintf(fid, 'pairs %d: ', sentId);
-    for i = 1:length(alignment)
-      srcPos = alignment(i);
+    for i = 1:(tgtLen-1) %length(alignment)
+      if params.attnOpt==0
+        srcPos = alignment(i);
+      else
+        srcPos = alignment(i+1);
+      end
       assert((1 <= srcPos) && (srcPos <= srcLen));
       fprintf(fid, '%s-%s ', params.srcVocab{src(srcPos)}, params.tgtVocab{translation(i)});
     end
@@ -75,8 +80,12 @@ function printAlign(fid, translation, data, alignment, params, ii, sentId, print
   end  
   
   fprintf(fid, 'align %d: ', sentId);
-  for i = 1:length(alignment)
-    srcPos = alignment(i);  
+  for i = 1:(tgtLen-1) %length(alignment)
+    if params.attnOpt==0
+      srcPos = alignment(i);
+    else
+      srcPos = alignment(i+1);
+    end
     assert((1 <= srcPos) && (srcPos <= srcLen));
     fprintf(fid, '%d-%d ', srcPos-1, i-1); % base 0
   end
