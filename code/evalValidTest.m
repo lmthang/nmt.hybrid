@@ -17,19 +17,7 @@ function [params] = evalValidTest(model, validData, testData, params)
   
   params.curTestPerpWord = exp(testCosts.word);
   
-  if params.posSignal % positions
-    params.curTestCostPos = testCosts.pos;
-    
-    if params.posSignal % regression
-      logStr = sprintf('%.4f, ', testCosts.pos);
-    end
-%     elseif params.predictPos==2 % classification
-%       logStr = sprintf('%.2f, ', exp(testCosts.pos));
-%     end    
-  else
-    logStr = '';
-  end
-  logStr = sprintf('# eval %s%.2f, %d, %d, %.2fK, %.2f, train=%s, valid=%s, test=%s,%s, time=%.2fs', logStr, params.curTestPerpWord, ...
+  logStr = sprintf('# eval %.2f, %d, %d, %.2fK, %.2f, train=%s, valid=%s, test=%s,%s, time=%.2fs', params.curTestPerpWord, ...
     params.epoch, params.iter, params.speed, params.lr, ...
     getCostStr(params.scaleTrainCosts), getCostStr(validCosts), getCostStr(testCosts), modelStr, timeElapsed);
   fprintf(2, '%s\n', logStr);
@@ -39,12 +27,7 @@ function [params] = evalValidTest(model, validData, testData, params)
     params.bestCostValid = validCosts.total;
     params.costTest = testCosts.total;
     params.testPerplexity = params.curTestPerpWord;
-    if params.posSignal
-      params.bestCostValidPos = validCosts.pos;
-      params.bestCostValidWord = validCosts.word;
-      params.testCostPos = params.curTestCostPos;
-      params.testPerplexity = params.curTestPerpWord;
-    end
+
     fprintf(2, '  save model test perplexity %.2f to %s\n', params.testPerplexity, params.modelFile);
     fprintf(params.logId, '  save model test perplexity %.2f to %s\n', params.testPerplexity, params.modelFile);
     save(params.modelFile, 'model', 'params');
@@ -75,18 +58,9 @@ function [evalCosts] = evalCost(model, data, params) %input, inputMask, tgtOutpu
     trainData.tgtOutput = data.tgtOutput(startId:endId, :);
     trainData.srcLens = data.srcLens(startId:endId); 
     trainData.tgtLens = data.tgtLens(startId:endId); 
-    if params.posSignal
-      trainData.posOutput = data.posOutput(startId:endId, :);
-    end
     
     % eval
     costs = lstmCostGrad(model, trainData, params, 1);
     [evalCosts] = updateCosts(evalCosts, costs, params);
   end
 end
-
-%     if params.predictNull
-%       params.curTestPerpNull = exp(testCosts.null);
-%       logStr = sprintf('%s%.2f, ', logStr, params.curTestPerpNull);
-%     end
-

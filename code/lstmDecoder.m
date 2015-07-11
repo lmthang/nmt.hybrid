@@ -89,7 +89,7 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
   if params.align
     alignWeights = cell(batchSize, 1);
     for sentId=1:batchSize % init
-      alignWeights{sentId} = zeros(data.srcLens(sentId)-1, 1); % ignore eos
+      alignWeights{sentId} = zeroMatrix([data.srcLens(sentId)-1, 1], params.isGPU, params.dataType); % ignore eos
     end
   end
   
@@ -149,12 +149,7 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
         
         % h_t -> softmax_h
         if tt==srcMaxLen && ll==models{mm}.params.numLayers
-          if models{mm}.params.posSignal % position predictions          
-            [~, ~, modelData{mm}] = posSignalCostGrad(models{mm}, h_t, tgtPos, curMask, modelData{mm}, models{mm}.params, 1);
-          else
-            modelData{mm}.posMask = curMask;
-          end
-
+          modelData{mm}.posMask = curMask;
           if models{mm}.params.attnFunc
             [softmax_h{mm}, h2sInfo] = attnLayerForward(h_t, models{mm}.params, models{mm}, modelData{mm}, tgtPos); 
           else
@@ -362,7 +357,7 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
     if params.align
       alignWeights = cell(numElements, 1);
       for sentId=1:numElements % init
-        alignWeights{sentId} = zeros(modelData{1}.srcLens(sentId)-1, 1); % ignore eos
+        alignWeights{sentId} = zeroMatrix([modelData{1}.srcLens(sentId)-1, 1], params.isGPU, params.dataType); % ignore eos
       end
     end
     
@@ -386,13 +381,6 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
         % h_t -> softmax_h
         if ll==models{mm}.params.numLayers
           modelData{mm}.posMask = curMask;
-
-          % position predictions
-          if models{mm}.params.posSignal
-            % h_t -> scales=sigmoid(v_pos*h_pos) in [0, 1]
-            scales = scaleLayerForward(models{mm}.W_pos, models{mm}.v_pos, h_t, models{mm}.params);
-            modelData{mm}.positions = floor(modelData{mm}.srcLens.*scales);
-          end
 
           if params.attnFunc
             [softmax_h{mm}, h2sInfo] = attnLayerForward(h_t, models{mm}.params, models{mm}, modelData{mm}, tgtPos); 

@@ -64,7 +64,7 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
     models{mm}.params = savedData.params;  
     
     % for backward compatibility  
-    fieldNames = {'posSignal', 'attnGlobal', 'attnOpt', 'predictPos', 'tieEmb', 'sameLength', 'softmaxFeedInput'};
+    fieldNames = {'attnGlobal', 'attnOpt', 'predictPos', 'tieEmb', 'sameLength', 'softmaxFeedInput'};
     for ii=1:length(fieldNames)
       field = fieldNames{ii};
       if ~isfield(models{mm}.params, field)
