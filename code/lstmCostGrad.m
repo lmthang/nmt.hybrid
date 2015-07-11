@@ -68,22 +68,8 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         endAttnId = params.numSrcHidVecs;
         startHidId = params.numAttnPositions-params.numSrcHidVecs+1;
         endHidId = params.numAttnPositions;
-        
-%         trainData.alignMask = zeroMatrix([params.numAttnPositions, params.curBatchSize], params.isGPU, params.dataType);
-%         trainData.alignMask(startHidId:endHidId, :) = trainData.srcMask(:, 1:params.numSrcHidVecs)';
-        
-%         trainData.alignMask = oneMatrix([params.numAttnPositions, params.curBatchSize], params.isGPU, params.dataType);
-      else
-%         trainData.alignMask = trainData.srcMask(:, 1:params.numSrcHidVecs)'; % numSrcHidVecs * curBatchSize
-        
-%         trainData.alignMask = oneMatrix([params.numSrcHidVecs, params.curBatchSize], params.isGPU, params.dataType);
       end
       trainData.srcMaskedIds = [];
-%       trainData.srcMaskedIds = find(trainData.alignMask==0);
-    else % local
-      if params.posSignal % unsupervised alignment
-        grad_ht_pos_all = cell(tgtMaxLen, 1);
-      end
     end
   end
   if (params.attnFunc>0 || params.sameLength==1)
@@ -159,20 +145,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       %% Loss
       if tt>=srcMaxLen && ll==params.numLayers % decoding phase, tgtPos>=1
         %% predicting positions
-        if params.posSignal
-          [cost_pos, posGrad, trainData] = posSignalCostGrad(model, h_t{ll}, tgtPos, curMask, trainData, params, isTest);
-          costs.total = costs.total + cost_pos;
-          costs.pos = costs.pos + cost_pos;
-  
-          if isTest==0
-            grad_ht_pos_all{tgtPos} = posGrad.ht;
-            grad.v_pos = grad.v_pos + posGrad.v_pos;
-            grad.W_pos = grad.W_pos + posGrad.W_pos;
-          end 
-        else
-          trainData.posMask = curMask;
-        end
-        
+        trainData.posMask = curMask;
         
         %% predicting words
         % h_t -> softmax_h
@@ -275,11 +248,6 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
     %% softmax_h -> h_t: at the top layer
     if (tt>=srcMaxLen)
       if params.attnFunc
-        % get signals from the softmax layer for positions
-        if params.posSignal
-          dh{params.numLayers} = dh{params.numLayers} + grad_ht_pos_all{tgtPos};
-        end
-        
         % softmax_h -> h_t
         h2sInfo = h2sInfoAll{tgtPos};
         [grad_tgt_ht, attnGrad, grad_srcHidVecs] = attnLayerBackprop(model, grad_softmax_all{tgtPos}, trainData, h2sInfo, params, curMask);

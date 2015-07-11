@@ -12,9 +12,7 @@ function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, 
     h2sInfo.srcMaskedIds = trainData.srcMaskedIds;
   else % local
     % positions
-    if params.posSignal % unsupervised alignments
-      srcPositions = trainData.positions;
-    elseif params.predictPos % predict positions by regression
+    if params.predictPos % predict positions by regression
       [mu, h2sInfo] = regressPositions(model, h_t, trainData.srcLens, params);
       srcPositions = floor(mu);
     else % monotonic alignments
@@ -46,14 +44,23 @@ function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, 
   % compute alignWeights
   if params.attnOpt==0 % no src state comparison
     h2sInfo.alignWeights = normLayerForward(model.W_a*h_t, h2sInfo.srcMaskedIds);
-  elseif params.attnOpt==1 || params.attnOpt==2 % src state comparison
-    if params.attnOpt==1
-      h2sInfo.alignWeights = srcCompareLayerForward(srcHidVecs, h_t, h2sInfo.srcMaskedIds, params);
-    elseif params.attnOpt==2
-      h2sInfo.transform_ht = model.W_a * h_t;
-      h2sInfo.alignWeights = srcCompareLayerForward(srcHidVecs, h2sInfo.transform_ht, h2sInfo.srcMaskedIds, params);
-    end
-  end
+  % content-based alignments
+  elseif params.attnOpt==1 % dot product
+    h2sInfo.alignWeights = srcCompareLayerForward(srcHidVecs, h_t, h2sInfo.srcMaskedIds, params);
+  elseif params.attnOpt==2 % general dot product
+    h2sInfo.transform_ht = model.W_a * h_t;
+    h2sInfo.alignWeights = srcCompareLayerForward(srcHidVecs, h2sInfo.transform_ht, h2sInfo.srcMaskedIds, params);
+  elseif params.attnOpt==2 % Bengio's style
+    %   srcHidVecs: lstmSize * curBatchSize * numSrcHidVecs
+    %   h_t: lstmSize * curBatchSize
+    % compute:
+    %   alignWeights: numSrcHidVecs * curBatchSize
+    h2sInfo.src_ht_concat = [reshape(srcHidVecs, params.lstmSize, []); reshape(repmat(h_t, 1, 1, params.numSrcHidVecs), params.lstmSize, [])];
+    h2sInfo.src_ht_hid = hiddenLayerForward(model.W_a, src_ht_concat, params.nonlinear_f); % lstmSize * (curBatchSize * numSrcHidVecs)
+    h2sInfo.scores = linearLayerForward(model.v_a, src_ht_hid); % 1 * (curBatchSize * numSrcHidVecs)
+    h2sInfo.alignWeights = normLayerForward(reshape(scores, params.curBatchSize, params.numSrcHidVecs)', h2sInfo.srcMaskedIds); % numSrcHidVecs * curBatchSize
+  end  
+  
 
   % attn4: local, regression, multiply with distWeights
   if params.predictPos==3

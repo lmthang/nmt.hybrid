@@ -18,11 +18,6 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
     srcLens = cellfun(@(x) length(x), srcSents);
   end
   
-  % positions
-  if params.posSignal % tgt sent: pos1 word1 ... pos_n word_n
-    tgtLens = tgtLens/2;
-  end
-  
   % src
   numSents = length(tgtSents);
   if params.isBi
@@ -52,10 +47,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   end
   tgtInput = [params.tgtSos*ones(numSents, 1) params.tgtEos*ones(numSents, tgtMaxLen-1)];
   tgtOutput = params.tgtEos*ones(numSents, tgtMaxLen);
-  % positions
-  if params.posSignal
-    posOutput = params.tgtEos*ones(numSents, tgtMaxLen); % (params.maxRelDist+1)
-  end
+  
   for ii=1:numSents
     %% IMPORTANT: because we limit sent length, so len(tgtSent) or len(srcSent) 
     %% can be > tgtLen or srcLen, so do not remove 1:tgtLen or 1:srcLen.
@@ -69,14 +61,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
     
     % tgt
     tgtLen = tgtLens(ii)-1; % exclude eos
-    if params.posSignal % positions
-      positions = tgtSents{ii}(1:2:end);
-      posOutput(ii, 1:tgtLen) = positions(1:tgtLen);
-      
-      tgtSent = tgtSents{ii}(2:2:end);
-    else
-      tgtSent = tgtSents{ii};
-    end
+    tgtSent = tgtSents{ii};
     
     % tgtEos has been prefilled at the end
     tgtInput(ii, 2:tgtLen+1) = tgtSent(1:tgtLen); % tgtInput: sos word1 ... word_n
@@ -89,12 +74,6 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   end
   tgtMask = tgtInput~=params.tgtEos;
   numWords = sum(tgtMask(:)); 
-  
-  % positions
-  if params.posSignal
-    data.posOutput = posOutput;
-    data.numPositions = sum(sum(posOutput~=params.nullPosId & posOutput~=params.tgtEos));
-  end
   
   % assign to data struct
   if params.isBi

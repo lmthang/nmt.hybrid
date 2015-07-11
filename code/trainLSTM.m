@@ -75,6 +75,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   %          0: no src compare, a_t = softmax(W_a * h_t)
   %          1: src compare, dot product, a_t = softmax(H_src * h_t)
   %          2: src compare, general dot product, a_t = softmax(H_src * W_a * h_t)
+  %          3: src compare, general dot product, a_t = softmax(v_a*f(W_a * [H_src; h_t])
   addOptional(p,'attnOpt', 0, @isnumeric);
   addOptional(p,'attnSize', 0, @isnumeric); % dim of the vector used to input to the final softmax, if 0, use lstmSize
   addOptional(p,'posWin', 5, @isnumeric); % relative window, used for attnFunc~=1
@@ -166,7 +167,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   % attentional/positional models
   params.attnGlobal=0; % 1: for attnFunc=1, 0: for other attnFunc
   params.predictPos = 0; % 1 -- regression for absolute positions, 2 -- classification for relative positions
-  params.posSignal = 0; % 1 -- use unsupervised alignments
   if params.attnFunc>0
     if params.attnSize==0
       params.attnSize = params.lstmSize;
@@ -177,21 +177,13 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     if params.attnFunc==1 % global, soft attention
       params.predictPos = 0;
       params.attnGlobal = 1;
-      params.posSignal = 0;
     elseif params.attnFunc==2 % local, hard attention + monotonic alignments
       params.predictPos = 0;
       params.attnGlobal = 0;
-      params.posSignal = 0;
-    elseif params.attnFunc==3 % local, hard attention + unsupervised alignments + regression for absolute positions
-      params.predictPos = 1;
-      params.attnGlobal = 0;
-      params.posSignal = 1;
     elseif params.attnFunc==4 % local, hard attention
       params.predictPos = 3;
       params.attnGlobal = 0;
-      params.posSignal = 0;
       params.distSigma = params.posWin/2.0;
-      %assert(params.attnOpt==1, 'for attn4, we have not passed the grad check for attnOpt==0');
     else
       error('Invalid attnFunc option %d\n', params.attnFunc);
     end
@@ -260,13 +252,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     printSent(2, srcTrainSents{1}, params.srcVocab, '  src 1:');
     printSent(2, srcTrainSents{end}, params.srcVocab, '  src end:');
   end
-  if params.posSignal
-    printSentPos(2, tgtTrainSents{1}, params.tgtVocab, '  tgt:');
-    printSentPos(2, tgtTrainSents{end}, params.tgtVocab, '  tgt end:');
-  else
-    printSent(2, tgtTrainSents{1}, params.tgtVocab, '  tgt:');
-    printSent(2, tgtTrainSents{end}, params.tgtVocab, '  tgt end:');
-  end
+  printSent(2, tgtTrainSents{1}, params.tgtVocab, '  tgt:');
+  printSent(2, tgtTrainSents{end}, params.tgtVocab, '  tgt end:');
   printTrainBatch(trainBatches{1}, params);
   
   
@@ -428,13 +415,19 @@ function [model] = initLSTM(params)
     end
     
     % predict alignment weights
-    if params.attnOpt==0 && params.numAttnPositions>=1 % && params.predictPos~=3
-      model.W_a = randomMatrix(params.initRange, [params.numAttnPositions, params.lstmSize], params.isGPU, params.dataType);
-    end
-    
-    % general dot product
-    if params.attnOpt==2
+    if params.attnOpt==0 % no content-based
+      if params.numAttnPositions>=1
+        model.W_a = randomMatrix(params.initRange, [params.numAttnPositions, params.lstmSize], params.isGPU, params.dataType);
+      end
+    % content-based alignments
+    elseif params.attnOpt==1 % dot product, nothing to do here
+    elseif params.attnOpt==2 % general dot product
       model.W_a = randomMatrix(params.initRange, [params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
+    elseif params.attnOpt==3 % Bengio's style: softmax(v_a*f(W_a*[H_src; h_t]))
+      model.W_a = randomMatrix(params.initRange, [params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
+      model.v_a = randomMatrix(params.initRange, [1, params.lstmSize], params.isGPU, params.dataType);
+    else
+      error('Invalid attnOpt');
     end
     
     % attn_t = H_src * a_t % h_attn_t = f(W_h * [attn_t; h_t])
