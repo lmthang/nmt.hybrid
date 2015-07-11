@@ -15,7 +15,7 @@ import re # regular expression
 import codecs
 import time
 import subprocess
-
+import numpy
 ### Global variables ###
 
 
@@ -31,8 +31,8 @@ def process_command_line():
   
   parser = argparse.ArgumentParser(description=usage) # add description
   # positional arguments
-  parser.add_argument('trans_file', metavar='trans_file', type=str, help='input file') 
   parser.add_argument('ref_file', metavar='ref_file', type=str, help='output file') 
+  parser.add_argument('trans_file', metavar='trans_file', type=str, help='input file') 
 
   # optional arguments
   parser.add_argument('-o', '--option', dest='opt', type=int, default=0, help='option (default=0)')
@@ -89,6 +89,38 @@ def compute_bleu(bleu_script, lines):
 
   return bleu
 
+#def score_length(lines, sorted_lens):
+#  bleus = []
+#  bleus_cum = []
+#  lens = []
+#  num_sents = []
+#  bleu_script = os.path.dirname(os.path.realpath(__file__)) + '/multi-bleu.perl'
+#  sys.stderr.write('# bleu_script = %s\n' % bleu_script)
+#
+#  prev_id = 0
+#  cur_sent_len = 1
+#  for ii in xrange(len(lines)):
+#    if sorted_lens[ii]==cur_sent_len and ii<(len(lines)-1): # same group
+#      continue
+#    else: # new group, evaluate old group
+#      cur_id = ii+1
+#
+#      # individual group score
+#      bleus.append(compute_bleu(bleu_script, lines[prev_id:cur_id]))
+#
+#      # cumulative score
+#      bleus_cum.append(compute_bleu(bleu_script, lines[:cur_id]))
+#
+#      lens.append(cur_sent_len)
+#      num_sents.append(cur_id-prev_id)
+#      prev_id = ii+1
+#      cur_sent_len = sorted_lens[ii]
+#
+#  print 'bleu\tbleu_cum\tlen\tsize'
+#  for bleu, bleu_cum, group_len, num_sent in zip(bleus,bleus_cum,lens,num_sents):
+#    print bleu + "\t" + bleu_cum + "\t" + repr(group_len) + "\t" + repr(num_sent)
+
+
 def score_length(lines, sorted_lens):
   bleus = []
   bleus_cum = []
@@ -98,7 +130,7 @@ def score_length(lines, sorted_lens):
   bleu_script = os.path.dirname(os.path.realpath(__file__)) + '/multi-bleu.perl'
   sys.stderr.write('# bleu_script = %s\n' % bleu_script)
 
-  group_size = 400
+  group_size = 200
   num_total_sents = len(lines)
   num_sents = 0
   while (1):
@@ -112,7 +144,7 @@ def score_length(lines, sorted_lens):
     # cumulative score
     bleus_cum.append(compute_bleu(bleu_script, lines[:num_sents]))
 
-    lens.append(sorted_lens[num_sents-1])
+    lens.append(numpy.mean(sorted_lens[num_sents-1]))
     total_eval.append(len(lines[prev_num_sents:num_sents]))
     prev_num_sents = num_sents
 

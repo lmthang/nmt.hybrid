@@ -39,6 +39,12 @@ sub add_to_ref {
 }
 
 my(@CORRECT,@TOTAL,$length_translation,$length_reference);
+
+# Thang 2015: init
+for(my $n=1;$n<=4;$n++) {
+  $CORRECT[$n] = 0
+}
+  
 my $s=0;
 while(<STDIN>) {
     chop;
@@ -122,8 +128,8 @@ my @bleu=();
 
 for(my $n=1;$n<=4;$n++) {
   if (defined ($TOTAL[$n])){
+    #print STDERR "CORRECT[$n]:$CORRECT[$n] TOTAL[$n]:$TOTAL[$n]\n";
     $bleu[$n]=($TOTAL[$n])?$CORRECT[$n]/$TOTAL[$n]:0;
-    # print STDERR "CORRECT[$n]:$CORRECT[$n] TOTAL[$n]:$TOTAL[$n]\n";
   }else{
     $bleu[$n]=0;
   }
