@@ -420,11 +420,13 @@ function [model] = initLSTM(params)
         model.W_a = randomMatrix(params.initRange, [params.numAttnPositions, params.lstmSize], params.isGPU, params.dataType);
       end
     % content-based alignments
-    elseif params.attnOpt==1 % dot product, nothing to do here
-    elseif params.attnOpt==2 % general dot product
+    elseif params.attnOpt==1 % dot product, nothing to do here, softmax(H_src*h_t))
+    elseif params.attnOpt==2 % general dot product: softmax(H_src*W_a*h_t))
       model.W_a = randomMatrix(params.initRange, [params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
-    elseif params.attnOpt==3 % Bengio's style: softmax(v_a*f(W_a*[H_src; h_t]))
-      model.W_a = randomMatrix(params.initRange, [params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
+    elseif params.attnOpt==3 % similar to Bengio's style, plus: softmax(v_a*f(H_src + W_a*h_t))
+      model.W_a = randomMatrix(params.initRange, [params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
+%       model.W_a_src = randomMatrix(params.initRange, [params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
+%       model.W_a_tgt = randomMatrix(params.initRange, [params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
       model.v_a = randomMatrix(params.initRange, [1, params.lstmSize], params.isGPU, params.dataType);
     else
       error('Invalid attnOpt');

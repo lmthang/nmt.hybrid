@@ -9,11 +9,7 @@
 %
 %%
 function [probs, scores, norms] = normLayerForward(rawScores, maskedIds)
-  %linearIds = find(mask==1);
-  
   % rawScores: numPositions * batchSize
-  %scores = zeroMatrix(size(rawScores), params.isGPU, params.dataType);
-  %scores(linearIds) = rawScores(linearIds);
   scores = rawScores;
   scores(maskedIds) = 0;
 
@@ -22,8 +18,6 @@ function [probs, scores, norms] = normLayerForward(rawScores, maskedIds)
   scores = bsxfun(@minus, scores, mx); 
   
   % probs
-  %probs = zeroMatrix(size(scores), params.isGPU, params.dataType);
-  %probs(linearIds) = exp(scores(linearIds)); % unnormalized probs
   probs = exp(scores);
   probs(maskedIds) = 0;
   

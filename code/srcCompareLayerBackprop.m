@@ -10,16 +10,8 @@
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 %
 %%% 
-function [grad_ht, grad_srcHidVecs] = srcCompareLayerBackprop(grad_alignWeights, alignWeights, srcHidVecs, h_t, mask, params)
-  % grad_alignWeights -> grad_scores
-  [grad_scores] = normLayerBackprop(grad_alignWeights, alignWeights, mask, params);
-  
-  % assert
-  if params.assert
-    assert(computeSum(grad_scores(mask==0), params.isGPU)==0);
-  end
-  
+function [grad_ht, grad_srcHidVecs] = srcCompareLayerBackprop(grad_scores, h2sInfo, srcHidVecs)
   grad_scores = permute(grad_scores, [3, 2, 1]); % batchSize * numPositions
   grad_ht = sum(bsxfun(@times, srcHidVecs, grad_scores), 3); % sum along numPositions: lstmSize * batchSize
-  grad_srcHidVecs = bsxfun(@times, h_t, grad_scores);
+  grad_srcHidVecs = bsxfun(@times, h2sInfo.h_t, grad_scores);
 end

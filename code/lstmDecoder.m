@@ -29,6 +29,10 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
   data.curBatchSize = batchSize;
   if params.attnFunc>0
     params.numSrcHidVecs = srcMaxLen-1;
+    
+    if params.attnGlobal && params.attnOpt>0 % global, content-based alignments
+      params.numAttnPositions = params.numSrcHidVecs;
+    end
   end
   
   printSent(2, input(1, 1:srcMaxLen-1), params.srcVocab, '  src: ');
@@ -65,7 +69,11 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
     
     % attention
     if models{mm}.params.attnFunc || models{mm}.params.sameLength
-      models{mm}.params.numSrcHidVecs = srcMaxLen-1;
+      models{mm}.params.numSrcHidVecs = params.numSrcHidVecs;
+      models{mm}.params.numSrcHidVecs = params.numSrcHidVecs;
+      if params.attnGlobal && params.attnOpt>0 % global, content-based alignments
+        models{mm}.params.numAttnPositions = params.numAttnPositions;
+      end
       modelData{mm}.curMask = curMask;
 
       modelData{mm}.srcHidVecsOrig = zeroMatrix([models{mm}.params.lstmSize, batchSize, models{mm}.params.numSrcHidVecs], params.isGPU, params.dataType);  

@@ -1,28 +1,23 @@
 %%%
 %
 % For attention-based models, given:
-%   srcHidVecs: lstmSize * curBatchSize * numSrcHidVecs
+%   srcHidVecs: lstmSize * curBatchSize * numPositions
 %   h_t: lstmSize * curBatchSize
-%   srcHidVecs: lstmSize * batchSize * numPositions.
 % compute:
-%   alignWeights: numSrcHidVecs * curBatchSize
+%   alignScores: numPositions * curBatchSize
 %
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 %
 %%% 
-function [alignWeights] = srcCompareLayerForward(srcHidVecs, h_t, maskedIds, params)
-  alignScores = squeeze(sum(bsxfun(@times, srcHidVecs, h_t), 1))'; % numSrcHidVecs * curBatchSize
+function [alignScores] = srcCompareLayerForward(srcHidVecs, h_t, params)
+  alignScores = squeeze(sum(bsxfun(@times, srcHidVecs, h_t), 1))'; % numPositions * curBatchSize
   
-  if params.curBatchSize==1 || size(srcHidVecs, 3)==1 % handle special cases that causing squeezing to transpose row/col vectors.
+  if params.curBatchSize==1 || params.numAttnPositions==1 % handle special cases that causing squeezing to transpose row/col vectors.
     alignScores = alignScores';
   end
 
-  alignWeights = normLayerForward(alignScores, maskedIds); % numSrcHidVecs * curBatchSize
- 
   % assert
   if params.assert
-    %assert(isequal(size(alignWeights), size(alignMask)));
-    assert(isequal(size(alignWeights), size(alignScores)));
     alignScores1 = zeroMatrix(size(alignScores), params.isGPU, params.dataType);
     for ii=1:params.curBatchSize
       alignScores1(:, ii) = squeeze(srcHidVecs(:, ii, :))'*h_t(:, ii);

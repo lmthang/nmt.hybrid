@@ -413,6 +413,10 @@ function [grad, params] = initGrad(model, params)
     params.numSrcHidVecs = params.srcMaxLen-1;
     assert(params.numSrcHidVecs<params.T);
     
+    if params.attnGlobal && params.attnOpt>0 % global, content-based alignments
+      params.numAttnPositions = params.numSrcHidVecs;
+    end
+    
     % we extract trainData.srcHidVecs later, which contains all src hidden states, lstmSize * curBatchSize * numSrcHidVecs 
     grad.srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);
   else
