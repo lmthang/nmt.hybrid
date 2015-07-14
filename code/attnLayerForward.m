@@ -55,29 +55,11 @@ function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, 
     end
   elseif params.attnOpt==3 % Bengio's style
     % f(H_src + W_a*h_t): lstmSize * (curBatchSize * numAttnPositions))
-    h2sInfo.src_ht_hid = reshape(params.nonlinear_f(srcHidVecs + repmat(model.W_a*h_t, [1, 1, params.numAttnPositions])), params.lstmSize, []);
+    h2sInfo.src_ht_hid = reshape(params.nonlinear_f(bsxfun(@plus, srcHidVecs, model.W_a*h_t)), params.lstmSize, []);
 
     % v_a * src_ht_hid
     alignScores = linearLayerForward(model.v_a, h2sInfo.src_ht_hid); % 1 * (curBatchSize * numAttnPositions)
     alignScores = reshape(alignScores, params.curBatchSize, params.numAttnPositions)'; % numAttnPositions * curBatchSize
-
-%     ht_transform = reshape(repmat(model.W_a*h_t, [1, 1, params.numAttnPositions]), params.lstmSize, []); % lstmSize * (curBatchSize * numAttnPositions)
-%     h2sInfo.src_ht_hid = params.nonlinear_f(reshape(srcHidVecs, params.lstmSize, []) + ht_transform); % lstmSize * (curBatchSize * numAttnPositions)
-%     alignScores = linearLayerForward(model.v_a, h2sInfo.src_ht_hid); % 1 * (curBatchSize * numAttnPositions)
-%     alignScores = reshape(alignScores, params.curBatchSize, params.numAttnPositions)';
-    
-%     srcHidVecs_transform = model.W_a_src*reshape(srcHidVecs, params.lstmSize, []); % TODO: this one can be precomputed
-%     ht_transform = model.W_a_tgt*h_t; % multiply first and then later replicate
-%     h2sInfo.src_ht_hid = params.nonlinear_f(srcHidVecs_transform + reshape(repmat(ht_transform, [1, 1, params.numAttnPositions]), params.lstmSize, []));
-%     alignScores = linearLayerForward(model.v_a, h2sInfo.src_ht_hid); % 1 * (curBatchSize * numAttnPositions)
-%     alignScores = reshape(alignScores, params.curBatchSize, params.numAttnPositions)';
-    
-%     % assert
-%     if params.assert
-%       h2sInfo.src_ht_concat = [reshape(srcHidVecs, params.lstmSize, []); reshape(repmat(h_t, [1, 1, params.numAttnPositions]), params.lstmSize, [])]; % (2*lstmSize) * (curBatchSize * numAttnPositions)
-%       src_ht_hid = hiddenLayerForward([model.W_a_src model.W_a_tgt], h2sInfo.src_ht_concat, params.nonlinear_f); % lstmSize * (curBatchSize * numAttnPositions)
-%       assert(computeSum(src_ht_hid-h2sInfo.src_ht_hid, params.isGPU)<1e-10);
-%     end
   end  
   
   % normalize -> alignWeights
