@@ -2,6 +2,8 @@
 function [distWeights, scaleX] = distLayerForward(mu, h2sInfo, trainData, params)
   if params.isReverse % get back correct source positions
     srcPositions = trainData.srcMaxLen - h2sInfo.indicesAll;
+  else
+    error('attn4 has not supported inverse yet\n');
   end
 
   scaleX = (srcPositions-mu(h2sInfo.unmaskedIds))/params.distSigma;

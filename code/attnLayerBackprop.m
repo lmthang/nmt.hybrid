@@ -28,10 +28,9 @@ function [grad_ht, attnGrad, grad_srcHidVecs] = attnLayerBackprop(model, grad_so
   grad_contextVecs = grad_input(1:params.lstmSize, :);
   [grad_alignWeights, grad_srcHidVecs] = contextLayerBackprop(grad_contextVecs, h2sInfo.alignWeights, srcHidVecs, h2sInfo.posMask.unmaskedIds, params);
 
-  % grad_contextVecs -> grad_ht, grad_W_a, grad_srcHidVecs
+  % grad_alignWeights -> grad_distWeights, grad_preAlignWeights
   if params.predictPos==3
     % IMPORTANT: don't change the order of these lines
-    % grad_alignWeights -> grad_distWeights, grad_preAlignWeights
     grad_distWeights = grad_alignWeights.*h2sInfo.preAlignWeights;
     grad_alignWeights = grad_alignWeights.*h2sInfo.distWeights; % grad_preAlignWeights
     h2sInfo.alignWeights = h2sInfo.preAlignWeights;
@@ -84,16 +83,11 @@ function [grad_ht, attnGrad, grad_srcHidVecs] = attnLayerBackprop(model, grad_so
   
   
   if params.predictPos==3
-    % since linearIdSub is for matrix of size [curBatchSize, numAttnPositions], 
-    % we need to transpose grad_alignWeights to be of that size.
-    grad_distWeights = grad_distWeights';
-    h2sInfo.distWeights = h2sInfo.distWeights';
-
     % grad_distWeights -> grad_mu
-    [grad_mu] = distLayerBackprop(grad_distWeights, h2sInfo.distWeights, h2sInfo, params);
+    [grad_mu] = distLayerBackprop(grad_distWeights, h2sInfo, params);
 
     % grad_mu -> grad_scales
-    grad_scales = trainData.srcLens.*grad_mu;
+    grad_scales = (trainData.srcLens-1).*grad_mu;
 
     % grad_scales -> grad_ht, grad_W_pos, grad_v_pos
     [grad_ht1, attnGrad.W_pos, attnGrad.v_pos] = scaleLayerBackprop(model.W_pos, model.v_pos, grad_scales, h2sInfo.h_t, h2sInfo.scales, h2sInfo.posForwData, params);

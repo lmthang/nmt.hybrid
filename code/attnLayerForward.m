@@ -90,10 +90,6 @@ function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, 
   % assert
   if params.assert
     assert(isequal(size(h2sInfo.alignWeights), [params.numAttnPositions, params.curBatchSize]));
-%     if params.attnGlobal && (params.attnOpt>0)
-%       assert(isequal(size(h2sInfo.alignWeights), [params.numSrcHidVecs, params.curBatchSize]));
-%     else  
-%     end
     assert(isequal(size(h_t), size(contextVecs))); % lstmSize * curBatchSize
   end
 end

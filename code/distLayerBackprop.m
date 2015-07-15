@@ -1,4 +1,9 @@
-function [grad_mu] = distLayerBackprop(grad_distWeights, distWeights, h2sInfo, params)
+function [grad_mu] = distLayerBackprop(grad_distWeights, h2sInfo, params)
+  % since linearIdSub is for matrix of size [curBatchSize, numAttnPositions], 
+  % we need to transpose grad_alignWeights to be of that size.
+  grad_distWeights = grad_distWeights';
+  distWeights = h2sInfo.distWeights';
+    
   if params.assert
     assert(isequal(size(grad_distWeights), [params.curBatchSize, params.numAttnPositions]));
   end
