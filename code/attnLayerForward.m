@@ -55,11 +55,16 @@ function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, 
     end
   elseif params.attnOpt==3 % Bengio's style
     % f(H_src + W_a*h_t): lstmSize * (curBatchSize * numAttnPositions))
-    h2sInfo.src_ht_hid = reshape(params.nonlinear_f(bsxfun(@plus, srcHidVecs, model.W_a*h_t)), params.lstmSize, []);
+    % h2sInfo.src_ht_hid = reshape(params.nonlinear_f(bsxfun(@plus, srcHidVecs, model.W_a*h_t)), params.lstmSize, []);
+    h2sInfo.src_ht_hid = params.nonlinear_f(bsxfun(@plus, srcHidVecs, model.W_a*h_t)); % lstmSize * curBatchSize * numAttnPositions
 
     % v_a * src_ht_hid
-    alignScores = linearLayerForward(model.v_a, h2sInfo.src_ht_hid); % 1 * (curBatchSize * numAttnPositions)
-    alignScores = reshape(alignScores, params.curBatchSize, params.numAttnPositions)'; % numAttnPositions * curBatchSize
+    % alignScores = linearLayerForward(model.v_a, h2sInfo.src_ht_hid); % 1 * (curBatchSize * numAttnPositions)
+    % alignScores = reshape(alignScores, params.curBatchSize, params.numAttnPositions)'; % numAttnPositions * curBatchSize
+    alignScores = squeeze(sum(bsxfun(@times, h2sInfo.src_ht_hid, model.v_a), 1))'; % numAttnPositions * curBatchSize
+    if params.curBatchSize==1 || params.numAttnPositions==1 % handle special cases that causing squeezing to transpose row/col vectors.
+      alignScores = alignScores';
+    end
   end  
   
   % normalize -> alignWeights
