@@ -425,8 +425,8 @@ function [model] = initLSTM(params)
       model.W_a = randomMatrix(params.initRange, [params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
     elseif params.attnOpt==3 % similar to Bengio's style, plus: softmax(v_a*f(H_src + W_a*h_t))
       model.W_a = randomMatrix(params.initRange, [params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
-      % model.v_a = randomMatrix(params.initRange, [1, params.lstmSize], params.isGPU, params.dataType);
-      model.v_a = randomMatrix(params.initRange, [params.lstmSize, 1], params.isGPU, params.dataType);
+      model.v_a = randomMatrix(params.initRange, [1, params.lstmSize], params.isGPU, params.dataType);
+      %model.v_a = randomMatrix(params.initRange, [params.lstmSize, 1], params.isGPU, params.dataType);
     else
       error('Invalid attnOpt');
     end
