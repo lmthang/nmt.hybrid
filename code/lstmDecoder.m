@@ -35,11 +35,11 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
     end
   end
   
-  printSent(2, input(1, 1:srcMaxLen-1), params.srcVocab, '  src: ');
-  if params.isReverse
-    printSent(2, input(1, srcMaxLen-1:-1:1), params.srcVocab, ' rsrc: ');
-  end
-  printSent(2, input(1, srcMaxLen+1:end), params.tgtVocab, '  tgt: ');
+%   printSent(2, input(1, 1:srcMaxLen-1), params.srcVocab, '  src: ');
+%   if params.isReverse
+%     printSent(2, input(1, srcMaxLen-1:-1:1), params.srcVocab, ' rsrc: ');
+%   end
+%   printSent(2, input(1, srcMaxLen+1:end), params.tgtVocab, '  tgt: ');
       
   %% init
   fprintf(2, '# Decoding batch of %d sents, srcMaxLen=%d, %s\n', batchSize, srcMaxLen, datestr(now));
