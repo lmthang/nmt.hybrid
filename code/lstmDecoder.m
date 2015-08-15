@@ -180,6 +180,16 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
                 if startIds(sentId)<=endIds(sentId)
                   offset = srcMaxLen-srcLen;
                   indices = startAttnIds(sentId)-offset:endAttnIds(sentId)-offset;
+                  if params.debug
+                    mm
+                    sentId
+                    indices
+                    startIds
+                    endIds
+                    alignWeights
+                    h2sInfo.alignWeights
+                  end
+                  
                   alignWeights{sentId}(indices) = alignWeights{sentId}(indices) + h2sInfo.alignWeights(startIds(sentId):endIds(sentId), sentId);
                 end
               end
