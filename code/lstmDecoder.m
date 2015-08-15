@@ -189,24 +189,7 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
               else
                 if startIds(sentId)<=endIds(sentId)
                   offset = srcMaxLen-srcLen;
-                  indices = startAttnIds(sentId)-offset:endAttnIds(sentId)-offset;
-                  if params.debug
-                    mm
-                    sentId
-                    indices
-                    h2sInfo.srcPositions
-                    models{mm}.params.numSrcHidVecs
-                    models{mm}.params.numAttnPositions
-                    models{mm}.params.posWin
-                    startAttnIds
-                    endAttnIds
-                    offset
-                    startIds
-                    endIds
-                    alignWeights
-                    h2sInfo.alignWeights
-                  end
-                  
+                  indices = startAttnIds(sentId)-offset:endAttnIds(sentId)-offset
                   alignWeights{sentId}(indices) = alignWeights{sentId}(indices) + h2sInfo.alignWeights(startIds(sentId):endIds(sentId), sentId);
                 end
               end
@@ -894,3 +877,20 @@ end
 %       data.srcHidVecs = repmat(data.srcHidVecs, beamSize, 1);
 %       data.srcHidVecs = reshape(data.srcHidVecs, params.lstmSize, params.numAttnPositions, numElements);
 %       data.srcHidVecs = permute(data.srcHidVecs, [1, 3, 2]); % lstmSize * batchSize * numAttnPositions
+
+%                   if params.debug
+%                     mm
+%                     sentId
+%                     indices
+%                     h2sInfo.srcPositions
+%                     models{mm}.params.numSrcHidVecs
+%                     models{mm}.params.numAttnPositions
+%                     models{mm}.params.posWin
+%                     startAttnIds
+%                     endAttnIds
+%                     offset
+%                     startIds
+%                     endIds
+%                     alignWeights
+%                     h2sInfo.alignWeights
+%                   end
