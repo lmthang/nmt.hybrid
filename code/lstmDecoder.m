@@ -27,13 +27,13 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
   srcMaxLen = data.srcMaxLen;
   batchSize = size(input, 1);
   data.curBatchSize = batchSize;
-  if params.attnFunc>0
-    params.numSrcHidVecs = srcMaxLen-1;
-    
-    if params.attnGlobal && params.attnOpt>0 % global, content-based alignments
-      params.numAttnPositions = params.numSrcHidVecs;
-    end
-  end
+%   if params.attnFunc>0
+%     params.numSrcHidVecs = srcMaxLen-1;
+%     
+%     if params.attnGlobal && params.attnOpt>0 % global, content-based alignments
+%       params.numAttnPositions = params.numSrcHidVecs;
+%     end
+%   end
   
 %   printSent(2, input(1, 1:srcMaxLen-1), params.srcVocab, '  src: ');
 %   if params.isReverse
@@ -69,11 +69,21 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
     
     % attention
     if models{mm}.params.attnFunc || models{mm}.params.sameLength
-      models{mm}.params.numSrcHidVecs = params.numSrcHidVecs;
-      models{mm}.params.numSrcHidVecs = params.numSrcHidVecs;
-      if params.attnGlobal && params.attnOpt>0 % global, content-based alignments
-        models{mm}.params.numAttnPositions = params.numAttnPositions;
+%       models{mm}.params.numSrcHidVecs = params.numSrcHidVecs;
+%       if params.attnGlobal && params.attnOpt>0 % global, content-based alignments
+%         models{mm}.params.numAttnPositions = params.numAttnPositions;
+%       end
+      models{mm}.params.numSrcHidVecs = srcMaxLen - 1;
+      if models{mm}.params.attnGlobal
+        if models{mm}.params.attnOpt==0 % for attnOpt==1, we use variable-length alignment vectors
+          models{mm}.params.numAttnPositions = models{mm}.params.maxSentLen-1;
+        else % global, content-based alignments
+          models{mm}.params.numAttnPositions = models{mm}.params.numSrcHidVecs;
+        end
+      else % local
+        models{mm}.params.numAttnPositions = 2*models{mm}.params.posWin + 1;
       end
+      
       modelData{mm}.curMask = curMask;
 
       modelData{mm}.srcHidVecsOrig = zeroMatrix([models{mm}.params.lstmSize, batchSize, models{mm}.params.numSrcHidVecs], params.isGPU, params.dataType);  
@@ -184,6 +194,13 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
                     mm
                     sentId
                     indices
+                    h2sInfo.srcPositions
+                    models{mm}.params.numSrcHidVecs
+                    models{mm}.params.numAttnPositions
+                    models{mm}.params.posWin
+                    startAttnIds
+                    endAttnIds
+                    offset
                     startIds
                     endIds
                     alignWeights

@@ -413,8 +413,14 @@ function [grad, params] = initGrad(model, params)
     params.numSrcHidVecs = params.srcMaxLen-1;
     assert(params.numSrcHidVecs<params.T);
     
-    if params.attnGlobal && params.attnOpt>0 % global, content-based alignments
-      params.numAttnPositions = params.numSrcHidVecs;
+    if params.attnGlobal
+      if params.attnOpt==0 % for attnOpt==1, we use variable-length alignment vectors
+        params.numAttnPositions = params.maxSentLen-1;
+      else % global, content-based alignments
+        params.numAttnPositions = params.numSrcHidVecs;
+      end
+    else % local
+      params.numAttnPositions = 2*params.posWin + 1;
     end
     
     % we extract trainData.srcHidVecs later, which contains all src hidden states, lstmSize * curBatchSize * numSrcHidVecs 

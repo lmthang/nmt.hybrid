@@ -187,15 +187,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     else
       error('Invalid attnFunc option %d\n', params.attnFunc);
     end
-    
-    % numAttnPositions
-    if params.attnGlobal % global
-      if params.attnOpt==0 % for attnOpt==1, we use variable-length alignment vectors
-        params.numAttnPositions = params.maxSentLen-1;
-      end
-    else % local
-      params.numAttnPositions = 2*params.posWin + 1;
-    end
   end
   
   
