@@ -1,29 +1,24 @@
-
-function [x_t, inputInfo] = getLstmDecoderInput(decodeInput, tgtPos, W_emb, softmax_h, trainData, zeroState, params) %, curMask)
-  inputInfo = [];
-  
-  % same-length decoder
-  if params.sameLength==1
-    if tgtPos>params.numSrcHidVecs
-      x_t = [W_emb(:, decodeInput); zeroState];
-    else
-      x_t = [W_emb(:, decodeInput); trainData.srcHidVecs(:, :, params.numSrcHidVecs-tgtPos+1)];
-    end
-  
+function [x_t] = getLstmDecoderInput(wordId, W_emb, softmax_h, params)
+% getLstmDecoderInput - prepare input vector to the decoder
+%
+% Input:
+%   wordId: index of the input word
+%   W_emb: embedding matrix
+%   softmax_h: previous hidden state
+%   params: parameter settings
+%
+% Output:
+%   x_t: input vector
+%
+% Authors: 
+%   Thang Luong @ 2015, <lmthang@stanford.edu>
+%
   % feed softmax vector of the previous timestep
-  elseif params.softmaxFeedInput
-    x_t = [W_emb(:, decodeInput); softmax_h];
+  if params.softmaxFeedInput
+    x_t = [W_emb(:, wordId); softmax_h];
     
   % normal
   else
-    x_t = W_emb(:, decodeInput);
+    x_t = W_emb(:, wordId);
   end
 end
-
-
-%   % positionl models 2: at the first level, we use additional src information
-%   elseif params.posModel==2 && mod(tgtPos, 2)==0 % predict words
-%     positions = decodeInput;
-%     
-%     [s_t, inputInfo.srcPosLinearIndices] = buildSrcPosVecs(tgtPos, params, trainData, positions, curMask);
-%     x_t = [W_emb(:, decodeInput); s_t];

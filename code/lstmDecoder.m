@@ -97,11 +97,7 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
     end
     
     W{mm} = models{mm}.W_src;
-    if models{mm}.params.tieEmb % tie embeddings
-      W_emb{mm} = models{mm}.W_emb_tie;
-    else
-      W_emb{mm} = models{mm}.W_emb_src;
-    end
+    W_emb{mm} = models{mm}.W_emb_src;
   end
   
   if params.align
@@ -117,9 +113,7 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
     if tt==srcMaxLen % due to implementation in lstmCostGrad, we have to switch to W_tgt here. THIS IS VERY IMPORTANT!
       for mm=1:numModels
         W{mm} = models{mm}.W_tgt;
-        if models{mm}.params.tieEmb==0
-          W_emb{mm} = models{mm}.W_emb_tgt;
-        end
+        W_emb{mm} = models{mm}.W_emb_tgt;
       end
     end
     
@@ -137,7 +131,7 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
         % current-time input
         if ll==1 % first layer
           if tt==srcMaxLen % decoder input
-            x_t = getLstmDecoderInput(input(:, tt), tgtPos, W_emb{mm}, softmax_h{mm}, modelData{mm}, zeroStates{mm}, models{mm}.params); %, curMask);
+            x_t = getLstmDecoderInput(input(:, tt), W_emb{mm}, softmax_h{mm}, models{mm}.params);
           else
             x_t = W_emb{mm}(:, input(:, tt));
           end
@@ -345,11 +339,7 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
       zeroStates{mm} = zeroMatrix([models{mm}.params.lstmSize, numElements], params.isGPU, params.dataType);
     end
     
-    if models{mm}.params.tieEmb
-      W_emb{mm} = models{mm}.W_emb_tie;
-    else
-      W_emb{mm} = models{mm}.W_emb_tgt;
-    end
+    W_emb{mm} = models{mm}.W_emb_tgt;
   end
 
   for sentPos = 1 : (maxLen-1)
@@ -384,7 +374,7 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
         W{mm} = models{mm}.W_tgt{ll};
         % current input
         if ll == 1
-          x_t = getLstmDecoderInput(words, tgtPos, W_emb{mm}, softmax_h{mm}, modelData{mm}, zeroStates{mm}, models{mm}.params); %, curMask);
+          x_t = getLstmDecoderInput(words, W_emb{mm}, softmax_h{mm}, models{mm}.params);
         else
           x_t = beamStates{mm}{ll-1}.h_t;
         end

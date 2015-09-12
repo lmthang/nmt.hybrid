@@ -101,7 +101,7 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
     end
     
     % load vocabs
-    [models{mm}.params] = loadBiVocabs(models{mm}.params);
+    [models{mm}.params] = prepareVocabs(models{mm}.params);
     
     % make sure all models have the same vocab, and the number of layers
     if mm>1 

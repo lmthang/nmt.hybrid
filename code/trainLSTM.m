@@ -1,7 +1,7 @@
 %% Train Long-Short Term Memory (LSTM).
 % Thang Luong @ 2014, 2015, <lmthang@stanford.edu>
 % With contributions from:
-%   Hieu Pham: decoder.
+%   Hieu Pham: beam-search decoder.
 %
 % Options:
 %   srcLang, tgtLang: languages, e.g. en, de. (leave srcLang empty for monolingual models)
@@ -29,46 +29,50 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addRequired(p,'outDir',@ischar);
   addRequired(p,'baseIndex',@isnumeric);
   
-  % optional
-  addOptional(p,'numLayers', 1, @isnumeric); % number of layers
-  addOptional(p,'lstmSize', 100, @isnumeric);
-  addOptional(p,'learningRate', 1.0, @isnumeric);
-  addOptional(p,'maxGradNorm', 5.0, @isnumeric);
+  % important hyperparameters
+  addOptional(p,'numLayers', 1, @isnumeric); % stacking architecture
+  addOptional(p,'lstmSize', 100, @isnumeric); % number of cells, also embedding size
   addOptional(p,'initRange', 0.1, @isnumeric);
+  addOptional(p,'learningRate', 1.0, @isnumeric);
+  addOptional(p,'maxGradNorm', 5.0, @isnumeric); % to scale large grads
   addOptional(p,'batchSize', 128, @isnumeric);
-  addOptional(p,'numEpoches', 5, @isnumeric); % num epoches
-  addOptional(p,'epochFraction', 0.5, @isnumeric);
-  addOptional(p,'finetuneEpoch', 3, @isnumeric); % epoch > finetuneEpoch, start halving learning rate every epochFraction of an epoch, e.g., every 0.5 epoch
+  addOptional(p,'numEpoches', 10, @isnumeric); % num epoches
+  addOptional(p,'epochFraction', 1.0, @isnumeric);
+  addOptional(p,'finetuneEpoch', 5, @isnumeric); % epoch > finetuneEpoch, start halving learning rate every epochFraction of an epoch, e.g., every 0.5 epoch
   addOptional(p,'finetuneRate', 0.5, @isnumeric); % multiply learning rate by this factor each time we finetune
-  addOptional(p,'logFreq', 10, @isnumeric); % how frequent (number of batches) we want to log stuffs
+  
+  % advanced features
+  addOptional(p,'dropout', 1, @isnumeric); % keep prob for dropout, i.e., 1 no dropout, <1: dropout
+  addOptional(p,'isReverse', 0, @isnumeric); % 1: reseverse source sentence. We expect file $prefix.reversed.$srcLang (instead of $prefix.$srcLang)
+  addOptional(p,'softmaxFeedInput', 0, @isnumeric); % 1: feed the softmax vector to the next timestep input
+  addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model (I have always been using this!), 1: no tanh for c_t.
+    
+  % training
   addOptional(p,'isBi', 1, @isnumeric); % isBi=0: mono model, isBi=1: bi (encoder-decoder) model.
-  addOptional(p,'isClip', 0, @isnumeric); % isClip=1: clip forward 50, clip backward 1000.
-  addOptional(p,'isReverse', 0, @isnumeric); % isReverse=1: src data = $prefix.reversed.$srcLang (instead of $prefix.$srcLang)
+  addOptional(p,'isClip', 1, @isnumeric); % isClip=1: clip forward 50, clip backward 1000.
+  addOptional(p,'maxSentLen', 51, @isnumeric); % limit sentence length on each side during training. Default: 50 + 1 (eos).
+  addOptional(p,'logFreq', 10, @isnumeric); % how frequent (number of batches) we want to log stuffs
   addOptional(p,'isResume', 1, @isnumeric); % isResume=1: check if a model file exists, continue training from there.
-  addOptional(p,'dataType', 'single', @ischar); % Note: use double precision for grad check
-  addOptional(p,'maxSentLen', -1, @isnumeric); % mostly apply to src, used in attention-based models. Default: 50 + 1 (eos). For positional models, we use maxSentLen = (maxSentLen-1)*2+1 for the tgt side
-  addOptional(p,'sortBatch', 0, @isnumeric); % 1: each time we read in 100 batches, we sort sentences by length.
-  addOptional(p,'shuffle', 0, @isnumeric); % 1: shuffle training batches
+  addOptional(p,'sortBatch', 1, @isnumeric); % 1: each time we read in 100 batches, we sort sentences by length.
+  addOptional(p,'shuffle', 1, @isnumeric); % 1: shuffle training batches
+  
+  % decoding
   addOptional(p,'decode', 1, @isnumeric); % 1: decode during training
-
-  %% decoding
   addOptional(p,'minLenRatio', 0.5, @isnumeric);
   addOptional(p,'maxLenRatio', 1.5, @isnumeric);
   
-  %% debugging options
+  % debugging
   addOptional(p,'isGradCheck', 0, @isnumeric); % set 1 to check the gradient, no need input arguments as toy data is automatically generated.
+  addOptional(p,'dataType', 'single', @ischar); % Note: use double precision for grad check
   addOptional(p,'isProfile', 0, @isnumeric);
   addOptional(p,'debug', 0, @isnumeric); % 0: no debug, 1: debug
   addOptional(p,'assert', 0, @isnumeric); % 0: no sanity check, 1: yes
   addOptional(p,'seed', 0, @isnumeric); % 0: seed based on current clock time, else use the specified seed
   
-  %% advanced (working) features
-  addOptional(p,'dropout', 1, @isnumeric); % dropout prob: 1 no dropout, <1: dropout
-
+  %% attention! %%
   % attnFunc=0: no attention.
   %          1: global attention
   %          2: local attention + monotonic alignments
-  %          3: local attention + unsupervised alignments + regression for absolute pos
   %          4: local attention  + regression for absolute pos (multiplied distWeights)
   addOptional(p,'attnFunc', 0, @isnumeric);
   % attnOpt: decide how we generate the alignment weights:
@@ -79,17 +83,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'attnOpt', 0, @isnumeric);
   addOptional(p,'attnSize', 0, @isnumeric); % dim of the vector used to input to the final softmax, if 0, use lstmSize
   addOptional(p,'posWin', 5, @isnumeric); % relative window, used for attnFunc~=1
-  addOptional(p,'posWeight', 1.0, @isnumeric); % weight the pos cost objective, for attn3
-  
-  %% research options  
-  addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model, 1: no tanh for c_t.
-  addOptional(p,'sameLength', 0, @isnumeric); % sameLength=1: output and input are of the same length, so let's feed the src hidden states into the tgt!
-  addOptional(p,'tieEmb', 0, @isnumeric); % 1: tie src/tgt embeddings (when src/tgt languages are the same)
-  addOptional(p,'softmaxFeedInput', 0, @isnumeric); % 1: feed the softmax vector to the next timestep input
-  
-  addOptional(p,'monoFile', '', @ischar); % to bootstrap the decoder with a monolingual model
-  addOptional(p,'decodeUpdateEpoch', 1, @isnumeric); % when to start updating the pretrained decoder epoch>=monoUpdateEpoch (1 means start updating at the very beginning).
-  addOptional(p,'decodeUpdateOpt', 0, @isnumeric); % 0: everything is fixed, 1: only update LSTM params, 2: only update softmax params (these options only activate when decodeUpdateEpoch>1).
   
   %% system options
   addOptional(p,'onlyCPU', 0, @isnumeric); % 1: avoid using GPUs
@@ -120,21 +113,16 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.unkPenalty = 0;
   params.lengthReward = 0;
   
-  % maxSentLen
-  if params.maxSentLen==-1
-    params.maxSentLen = 51;
-  end
-  
   % params assertions
-  if params.sameLength==1 || params.attnFunc==4
+  if params.attnFunc==4
     assert(params.isReverse==1);
   end
   
   % rand seed
   if params.isGradCheck || params.isProfile || params.seed
-    s = RandStream('mt19937ar','Seed',params.seed)
+    s = RandStream('mt19937ar','Seed',params.seed);
   else
-    s = RandStream('mt19937ar','Seed','shuffle')
+    s = RandStream('mt19937ar','Seed','shuffle');
   end
   RandStream.setGlobalStream(s);
   
@@ -197,7 +185,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.logId = fopen([outDir '/log'], 'a');
   
   %% Load vocabs
-  [params] = loadBiVocabs(params);
+  [params] = prepareVocabs(params);
     
   %% Init / Load Model Parameters
   params.modelFile = [outDir '/model.mat']; % store those with the best valid perplexity
@@ -262,20 +250,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   startTime = clock;
   fprintf(2, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
   fprintf(params.logId, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
-  
-  % not update decoder
-  if params.epoch<params.decodeUpdateEpoch
-    % fix decoder LSTM params
-    if params.decodeUpdateOpt==0 || params.decodeUpdateOpt==2 
-      index = find(strcmp('W_tgt', params.varsDenseUpdate)==1, 1);
-      params.varsDenseUpdate(index) = [];
-    end
-    % fix decoder softmax params
-    if params.decodeUpdateOpt==0 || params.decodeUpdateOpt==1 
-      index = find(strcmp('W_soft', params.varsDenseUpdate)==1, 1);
-      params.varsDenseUpdate(index) = [];
-    end
-  end
   printCell(2, params.varsDenseUpdate, '# varsDenseUpdate: ');
   
   isRun = 1;
@@ -328,17 +302,11 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
         end
       end
       % update W_emb sparsely
-      if params.tieEmb % tie embeddings
-        model.W_emb_tie(:, grad.indices_tie) = model.W_emb_tie(:, grad.indices_tie) - scaleLr*grad.W_emb_tie;  
-      else % separate embeddings
-        if params.isBi
-          model.W_emb_src(:, grad.indices_src) = model.W_emb_src(:, grad.indices_src) - scaleLr*grad.W_emb_src;  
-        end
-        % update the decoder
-        if params.epoch>=params.decodeUpdateEpoch
-          model.W_emb_tgt(:, grad.indices_tgt) = model.W_emb_tgt(:, grad.indices_tgt) - scaleLr*grad.W_emb_tgt;
-        end
+      if params.isBi
+        model.W_emb_src(:, grad.indices_src) = model.W_emb_src(:, grad.indices_src) - scaleLr*grad.W_emb_src;  
       end
+      % update the decoder
+      model.W_emb_tgt(:, grad.indices_tgt) = model.W_emb_tgt(:, grad.indices_tgt) - scaleLr*grad.W_emb_tgt;
       
       %% logging, eval, save, decode, fine-tuning, etc.
       [params, startTime] = postTrainIter(model, costs, gradNorm, trainData, validData, testData, params, startTime, srcTrainSents, tgtTrainSents);
@@ -377,22 +345,15 @@ function [model] = initLSTM(params)
   for ll=1:params.numLayers
     model.W_tgt{ll} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
   end
-  if params.sameLength || params.softmaxFeedInput % feed in src hidden states to the tgt
+  if params.softmaxFeedInput % feed in src hidden states to the tgt
     model.W_tgt{1} = randomMatrix(params.initRange, [4*params.lstmSize, 3*params.lstmSize], params.isGPU, params.dataType);
   end
   
   % W_emb
-  if params.tieEmb % tie embeddings
-    assert(params.tgtVocabSize==params.srcVocabSize);
-    assert(sum(strcmp(params.tgtVocab, params.srcVocab)) == params.tgtVocabSize);
-    model.W_emb_tie = randomMatrix(params.initRange, [params.lstmSize, params.tgtVocabSize], params.isGPU, params.dataType);
-    model.W_emb_tie(:, params.tgtEos) = zeros(params.lstmSize, 1);
-  else % separate embeddings
-    if params.isBi
-      model.W_emb_src = randomMatrix(params.initRange, [params.lstmSize, params.srcVocabSize], params.isGPU, params.dataType);
-    end
-    model.W_emb_tgt = randomMatrix(params.initRange, [params.lstmSize, params.tgtVocabSize], params.isGPU, params.dataType);
+  if params.isBi
+    model.W_emb_src = randomMatrix(params.initRange, [params.lstmSize, params.srcVocabSize], params.isGPU, params.dataType);
   end
+  model.W_emb_tgt = randomMatrix(params.initRange, [params.lstmSize, params.tgtVocabSize], params.isGPU, params.dataType);
   
   %% h_t -> softmax input
   if params.attnFunc>0 % attention mechanism
@@ -523,20 +484,6 @@ function [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents,
 
   % new epoch
   params.epoch = params.epoch + 1;
-  
-  % now update decoder
-  if params.decodeUpdateEpoch>1 && params.epoch==params.decodeUpdateEpoch
-    % LSTM params
-    if params.decodeUpdateOpt==0 || params.decodeUpdateOpt==2 
-      params.varsDenseUpdate{end+1} = 'W_tgt';
-    end
-    % fix decoder softmax params
-    if params.decodeUpdateOpt==0 || params.decodeUpdateOpt==1 
-      params.varsDenseUpdate{end+1} = 'W_soft';
-    end
-    printCell(2, params.varsDenseUpdate, '# update varsDenseUpdate: ');
-  end
-  
 
   if params.epoch <= params.numEpoches % continue training
     fprintf(2, '# Epoch %d, lr=%g, %s\n', params.epoch, params.lr, datestr(now));
@@ -716,53 +663,6 @@ function [model, params] = initLoadModel(params)
     params.finetuneCount = 0;
     params.trainCounts = initCosts(params);
     params.trainCosts = initCosts(params);
-    
-    %% mono-bootstrap
-    if strcmp(params.monoFile, '')==0
-      [monoModel, ~, monoParams, loaded] = loadModel(params.monoFile, params);
-      if loaded==0
-        error('! Failed to load mono model %s\n', params.monoFile);
-      end
-      if isfield(monoParams, 'tgtVocab')
-        monoParams.vocab = monoParams.tgtVocab;
-      end
-      if isfield(monoModel, 'W_emb_tgt')
-        monoModel.W_emb = monoModel.W_emb_tgt;
-      end
-      
-      fprintf('# Bootstrap from a mono model: W_tgt size=%s, vocab size=%d\n', mat2str(size(monoModel.W_tgt{1})), length(monoParams.vocab));
-      fprintf('  W_tgt size=%s\n', mat2str(size(model.W_tgt{1})));
-      fprintf('  tgt vocab size=%d\n', params.tgtVocabSize);
-      
-      % W_tgt
-      assert(strcmp(mat2str(size(model.W_tgt{1})), mat2str(size(monoModel.W_tgt{1})))==1);
-      model.W_tgt = monoModel.W_tgt;
-      
-      % vocab
-      assert(params.tgtVocabSize==length(monoParams.vocab));
-      flags = strcmp(params.tgtVocab, monoParams.vocab);
-      matchCount = sum(flags);
-      fprintf('  vocab match count=%d\n', matchCount);
-      model.W_emb_tgt = monoModel.W_emb; % due to encoding problem, it's not quite correct at the moment to compare string like the below code. just hope that the two vocabs agree!
-      %model.W_emb_tgt(:, flags) = monoModel.W_emb(:, flags);
-      
-      % handle mismatch vocab
-      if matchCount < params.tgtVocabSize
-       indices = find(flags==0);
-       remainVocab = params.tgtVocab(indices);
-       remainMonoVocab = params.tgtVocab(indices);
-       for ii=1:length(indices)
-         fprintf(2, '  mismatch %s \t %s\n', params.tgtVocab{indices(ii)}, monoParams.vocab{indices(ii)});
-         %index = find(strcmp(remainVocab{ii}, remainMonoVocab), 1);
-         %if isempty(index)
-         %  fprintf(2, '  cannot init word %s\n', remainVocab{ii});
-         %else
-         %  model.W_emb_tgt(:, indices(ii)) = monoModel.W_emb(:, indices(index));
-         %end
-       end
-       %assert(abs(matchCount-params.tgtVocabSize)<10);
-      end
-    end
   end
 
   % compute model size
@@ -778,7 +678,7 @@ function [params] = setupVars(model, params)
   % those matrices which we will update sparsely
   params.varsDenseUpdate = {};
   for ii=1:length(params.vars)
-    if strncmp(params.vars{ii}, 'W_emb', 4)==0 && strcmp(params.vars{ii}, 'W_soft_inclass')==0
+    if strncmp(params.vars{ii}, 'W_emb', 4)==0
       params.varsDenseUpdate{end+1} = params.vars{ii};
     end
   end
@@ -792,130 +692,3 @@ function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab)
   data.srcSents = srcSents;
   data.tgtSents = tgtSents;
 end
-
-%   addOptional(p,'maxRelDist', 20, @isnumeric); % attnFunc 4 to determine the posVocabSize=2*maxRelDis + 1 + 1 (for eos). we don't want to change this much (depends on how the training data was generated)
-%   addOptional(p,'distSigma', 2.0, @isnumeric); % scale distance for attn5, opt1
-
-%   addOptional(p,'softmaxDim', 0, @isnumeric); % softmaxDim>0 convert hidden state into an intermediate representation of size softmaxDim before going through the softmax
-
-%   if params.softmaxDim>0
-%     assert(params.attnFunc==0);
-%   end
-  
-%   elseif params.softmaxDim>0 % compress softmax
-%     model.W_h = randomMatrix(params.initRange, [params.softmaxDim, params.lstmSize], params.isGPU, params.dataType);
-
-%   elseif params.softmaxDim>0 % compress softmax
-%     params.softmaxSize = params.softmaxDim;
-
-  
-%       if params.attnOpt==1
-%       else
-%         error('For attnFunc 4, use attnOpt 1\n');
-%         %params.sqrt2pi = sqrt(2*pi);
-%       end
-
-
-%       % predict pos
-%       if params.predictPos==1 || params.predictPos==3 % regression, scale=sigmoid(v_pos*h_pos)
-%         model.v_pos = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
-%         
-%         if params.predictPos==3 && params.attnOpt==0 % predict variance = sigmoid(v_sig*f(W_sig*h_t))
-%           model.W_var = randomMatrix(params.initRange, [params.softmaxSize, params.lstmSize], params.isGPU, params.dataType);
-%           model.v_var = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
-%         end
-%       end
-
-%       elseif params.predictPos==2 % classification: softmax(W_softPos*h_pos)
-%         model.W_softPos = randomMatrix(params.initRange, [params.posVocabSize, params.softmaxSize], params.isGPU, params.dataType);
-
-%% null predictions
-%   addOptional(p,'predictNull', 0, @isnumeric); % 1: predicting null symbols
-%   addOptional(p,'nullWeight', 1.0, @isnumeric); % 1: predicting null symbols
-%       % predict if an alignment is null or non-null: 1 non-null, 2: null
-%       if params.predictNull
-%         model.W_null = randomMatrix(params.initRange, [params.softmaxSize, params.lstmSize], params.isGPU, params.dataType);
-%         model.W_softNull = randomMatrix(params.initRange, [2, params.softmaxSize], params.isGPU, params.dataType);
-%       end
-
-
-%% positional model %%
-%   % positional models: predict pos, then word, use a separate softmax for pos
-%   % 0: separately print out pos/word perplexities
-%   % 1: predict pos/word with a separate softmax W_softPos
-%   % 2: like 1 + feed in src hidden states to compute tgt hidden states
-%   % 3: like 1 + feed in src hidden states to compute softmax
-%   addOptional(p,'posModel', -1, @isnumeric);  
-
-%   if params.posModel>=0
-%     assert(params.isBi==1);
-%     assert(params.attnFunc==0);
-%   end
-
-%   % positional models
-%   elseif params.posModel>0 
-%     if params.posModel==2 % W_tgt [x_t; h_t] + W_tgt_pos*s_t, where s_t is the source hidden state and is used to compute the tgt hidden states
-%       model.W_tgt_pos = randomMatrix(params.initRange, [4*params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
-%     end
-%     if params.posModel==3 % h_pos_t = f(W_h * [src_pos_t; h_t])
-%       model.W_h = randomMatrix(params.initRange, [params.attnSize, 2*params.lstmSize], params.isGPU, params.dataType);
-%     end
-%     
-%     model.W_softPos = randomMatrix(params.initRange, [params.posVocabSize, params.softmaxSize], params.isGPU, params.dataType);
-%   end
-
-%% dependency parsing %%
-%   addOptional(p,'depParse', 0, @isnumeric); % 1: indicate that we are doing dependency parsing
-%   % dependency parsing
-%   if params.depParse 
-%     params.depRootId = find(strcmp(params.tgtVocab, 'R(root)')==1,1);
-%     params.depShiftId = find(strcmp(params.tgtVocab, 'S')==1,1);
-%     fprintf(2, '# Dependency parsing, rootId for %s=%d, shiftId for %s=%d\n', params.tgtVocab{params.depRootId}, params.depRootId, ...
-%       params.tgtVocab{params.depShiftId}, params.depShiftId);
-%   end
-
-
-%% class-based softmax %%
-% addOptional(p,'numClasses', 0, @isnumeric); % >0: class-based softmax
-% in initLSTM()
-%   if params.numClasses == 0 % normal  
-%   else % class-based
-%     assert(mod(params.outVocabSize, params.numClasses) == 0, sprintf('outVocabSize (%d) must be divisible by numClasses (%d)', params.outVocabSize, params.numClasses));
-%     
-%     % W_soft_class: numClasses * softmaxSize
-%     model.W_soft_class = randomMatrix(params.initRange, [params.numClasses, params.softmaxSize], params.isGPU, params.dataType);
-%     
-%     % W_soft_inclass: classSize * softmaxSize * numClasses
-%     model.W_soft_inclass = randomMatrix(params.initRange, [params.classSize, params.softmaxSize, params.numClasses], params.isGPU, params.dataType);
-%   end
-% in initLoadModel()
-%   % class-based softmax
-%   if params.numClasses>0
-%     params.classSize = params.outVocabSize / params.numClasses;
-%   end
-% in main loop update parameters
-%       if params.numClasses>0
-%         % update W_soft_inclass separately
-%         model.W_soft_inclass(:, :, grad.classIndices) = model.W_soft_inclass(:, :, grad.classIndices) - scaleLr*grad.W_soft_inclass;
-%       end
-% in setupVars()
-%   if params.numClasses == 0
-%   else
-%     softmaxVars{end+1} = 'W_soft_class';
-%   end
-
-%% Unused code %%
- 
-
-%   addOptional(p,'embCPU', 0, @isnumeric); % 1: put W_emb on CPU even if GPUs exist
-%   if params.embCPU == 1
-%     fprintf(2, '# W_emb is explicitly put on CPU\n');
-%     model.W_emb = randomMatrix(params.initRange, [params.lstmSize, params.inVocabSize], 0, 'double');
-%   else  
-%   end
-%       if params.embCPU && params.isGPU
-%         model.W_emb(:, grad.indices) = model.W_emb(:, grad.indices) - gather(scaleLr)*grad.W_emb;
-%       else  
-%       end
-  
-%   addOptional(p,'globalOpt', 0, @isnumeric); % globalOpt=0: no global model, 1: avg global model, 2: feedforward global model.

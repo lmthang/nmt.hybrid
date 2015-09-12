@@ -39,7 +39,7 @@ function gradCheck(model, params)
     curBatchSize = size(trainData.input, 1);
     params.dropoutMask = (randSimpleMatrix([params.lstmSize curBatchSize], params.isGPU, params.dataType)<params.dropout)/params.dropout;
     
-    if params.softmaxFeedInput || params.sameLength
+    if params.softmaxFeedInput
       params.dropoutMaskInput = (randSimpleMatrix([2*params.lstmSize curBatchSize], params.isGPU, params.dataType)<params.dropout)/params.dropout;
     end
   end
@@ -49,19 +49,13 @@ function gradCheck(model, params)
   totalCost = costs.total;
   
   % W_emb
-  if params.tieEmb % tie embeddings
-    full_grad_W_emb_tie = zeroMatrix(size(model.W_emb_tie), params.isGPU, params.dataType);
-    full_grad_W_emb_tie(:, grad.indices_tie) = grad.W_emb_tie;
-    grad.W_emb_tie = full_grad_W_emb_tie;
-  else
-    full_grad_W_emb_src = zeroMatrix(size(model.W_emb_src), params.isGPU, params.dataType);
-    full_grad_W_emb_src(:, grad.indices_src) = grad.W_emb_src;
-    grad.W_emb_src = full_grad_W_emb_src;
+  full_grad_W_emb_src = zeroMatrix(size(model.W_emb_src), params.isGPU, params.dataType);
+  full_grad_W_emb_src(:, grad.indices_src) = grad.W_emb_src;
+  grad.W_emb_src = full_grad_W_emb_src;
 
-    full_grad_W_emb_tgt = zeroMatrix(size(model.W_emb_tgt), params.isGPU, params.dataType);
-    full_grad_W_emb_tgt(:, grad.indices_tgt) = grad.W_emb_tgt;
-    grad.W_emb_tgt = full_grad_W_emb_tgt;
-  end
+  full_grad_W_emb_tgt = zeroMatrix(size(model.W_emb_tgt), params.isGPU, params.dataType);
+  full_grad_W_emb_tgt(:, grad.indices_tgt) = grad.W_emb_tgt;
+  grad.W_emb_tgt = full_grad_W_emb_tgt;
   
   % empirical grad
   total_abs_diff = 0;

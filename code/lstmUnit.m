@@ -16,7 +16,7 @@ function [lstm, h_t, c_t] = lstmUnit(W, x_t, h_t_1, c_t_1, ll, t, srcMaxLen, par
     if ~params.isGradCheck
       dropoutMask = (randSimpleMatrix(size(x_t), params.isGPU, params.dataType)<params.dropout)/params.dropout;
     else % for gradient check use the same mask
-      if t>=srcMaxLen && ll==1 && (params.softmaxFeedInput || params.sameLength) % predict words
+      if t>=srcMaxLen && ll==1 && params.softmaxFeedInput % predict words
         dropoutMask = params.dropoutMaskInput;
       else
         dropoutMask = params.dropoutMask;
@@ -67,7 +67,7 @@ function [lstm, h_t, c_t] = lstmUnit(W, x_t, h_t_1, c_t_1, ll, t, srcMaxLen, par
     lstm.f_c_t = f_c_t;
     
     if params.dropout<1 % store dropout mask
-      if t>=srcMaxLen && ll==1 && (params.softmaxFeedInput || params.sameLength) % predict words
+      if t>=srcMaxLen && ll==1 && params.softmaxFeedInput % predict words
         lstm.dropoutMaskInput = dropoutMask;
       else
         lstm.dropoutMask = dropoutMask;
@@ -88,5 +88,3 @@ function [clippedValue] = clipForward(x)
     clippedValue = x;
   end
 end
-
-% (params.posModel==2 && mod(t-srcMaxLen+1, 2)==0) || 
