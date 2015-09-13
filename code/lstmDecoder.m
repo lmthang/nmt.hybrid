@@ -278,7 +278,9 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
   % align
   if params.align
     alignHistory = zeroMatrix([maxLen, numElements], params.isGPU, params.dataType); % maxLen * (numElements) 
-    alignHistory(1, :) = firstAlignIdx;
+    for i = 1:batchSize
+      alignHistory(1,(i-1)*beamSize+1:i*beamSize) = firstAlignIdx(i);
+    end
   end
   
   % replicate
@@ -417,13 +419,11 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
             end
           
             if mm==numModels
-              alignIdx = zeroMatrix([1, numElements], params.isGPU, params.dataType);
-              for sentId=1:numElements % go through each sent
-                [~, alignIdx(sentId)] = max(alignWeights{sentId}, [], 1); % srcLen includes eos, alignWeights excludes eos.
-              end
-
-              % we want to mimic the structure of allBestWords later on of size (beamSize * beamSize) x 1
-              alignIdx = reshape(repmat(alignIdx, beamSize, 1), [], 1);
+              alignIdx = zeroMatrix([beamSize, batchSize], params.isGPU, params.dataType);
+              for sentId = 1:batchSize
+                [~, alignIdx(:,sentId)] = max(alignWeights{sentId}, [], 1); 
+              end 
+              alignIdx = repmat(alignIdx, [beamSize, 1]);
             end
           end
         end
