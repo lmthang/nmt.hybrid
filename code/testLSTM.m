@@ -84,21 +84,39 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
     end
 
     % convert absolute paths to local paths
+    % fieldNames = fields(models{mm}.params);
+    % for ii=1:length(fieldNames)
+    %   field = fieldNames{ii};
+    %   if ischar(models{mm}.params.(field))
+    %     if strfind(models{mm}.params.(field), '/afs/ir/users/l/m/lmthang') ==1
+    %       models{mm}.params.(field) = strrep(models{mm}.params.(field), '/afs/ir/users/l/m/lmthang', '~');
+    %     end
+    %     if strfind(models{mm}.params.(field), '/afs/cs.stanford.edu/u/lmthang') ==1
+    %       models{mm}.params.(field) = strrep(models{mm}.params.(field), '/afs/cs.stanford.edu/u/lmthang', '~');
+    %     end
+    %     if strfind(models{mm}.params.(field), '/home/lmthang') ==1
+    %       models{mm}.params.(field) = strrep(models{mm}.params.(field), '/home/lmthang', '~');
+    %     end    
+    %   end
+    % end
+
+    % convert local paths to absolute paths
     fieldNames = fields(models{mm}.params);
     for ii=1:length(fieldNames)
       field = fieldNames{ii};
       if ischar(models{mm}.params.(field))
-        if strfind(models{mm}.params.(field), '/afs/ir/users/l/m/lmthang') ==1
-          models{mm}.params.(field) = strrep(models{mm}.params.(field), '/afs/ir/users/l/m/lmthang', '~');
+        if strfind(models{mm}.params.(field), '~lmthang') ==1
+          models{mm}.params.(field) = strrep(models{mm}.params.(field), '~lmthang', '/afs/ir/users/l/m/lmthang');
         end
-        if strfind(models{mm}.params.(field), '/afs/cs.stanford.edu/u/lmthang') ==1
-          models{mm}.params.(field) = strrep(models{mm}.params.(field), '/afs/cs.stanford.edu/u/lmthang', '~');
+        if strfind(models{mm}.params.(field), '~lmthang') ==1
+          models{mm}.params.(field) = strrep(models{mm}.params.(field), '~lmthang', '/afs/cs.stanford.edu/u/lmthang');
         end
-        if strfind(models{mm}.params.(field), '/home/lmthang') ==1
-          models{mm}.params.(field) = strrep(models{mm}.params.(field), '/home/lmthang', '~');
+        if strfind(models{mm}.params.(field), '~lmthang') ==1
+          models{mm}.params.(field) = strrep(models{mm}.params.(field), '~lmthang', '/home/lmthang');
         end    
       end
     end
+
     
     % load vocabs
     [models{mm}.params] = prepareVocabs(models{mm}.params);
@@ -144,6 +162,9 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   end
   
   % load test data
+  if strfind(params.testPrefix, '~lmthang') == 1
+    params.testPrefix = strrep(params.testPrefix, '~lmthang', '/afs/cs.stanford.edu/u/lmthang');
+  end
   [srcSents, tgtSents, numSents]  = loadBiData(params, params.testPrefix, params.srcVocab, params.tgtVocab);
   
   %%%%%%%%%%%%

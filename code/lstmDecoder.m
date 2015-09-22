@@ -183,6 +183,10 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
               else
                 if startIds(sentId)<=endIds(sentId)
                   offset = srcMaxLen-srcLen;
+                  if startAttnIds(sentId) <= offset
+                    startIds(sentId) = startIds(sentId) - (startAttnIds(sentId)-offset-1);
+                    startAttnIds(sentId) = offset+1;
+                  end
                   indices = startAttnIds(sentId)-offset:endAttnIds(sentId)-offset;
                   alignWeights{sentId}(indices) = alignWeights{sentId}(indices) + h2sInfo.alignWeights(startIds(sentId):endIds(sentId), sentId);
                 end
@@ -278,7 +282,10 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
   % align
   if params.align
     alignHistory = zeroMatrix([maxLen, numElements], params.isGPU, params.dataType); % maxLen * (numElements) 
-    alignHistory(1, :) = firstAlignIdx;
+    % alignHistory(1, :) = firstAlignIdx;
+    for i = 1:batchSize
+      alignHistory(1,(i-1)*beamSize+1:i*beamSize) = firstAlignIdx(i);
+    end
   end
   
   % replicate
@@ -359,9 +366,6 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
     
     %% compute next lstm hidden states
     words = beamHistory(sentPos, :);
-    
-    
-  
     if params.align
       alignWeights = cell(numElements, 1);
       for sentId=1:numElements % init
@@ -403,6 +407,7 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
             end
             
             for sentId=1:numElements % go through each sent
+              sentId
               srcLen = modelData{mm}.srcLens(sentId);
               
               if models{mm}.params.attnGlobal
@@ -410,6 +415,10 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
               else
                 if startIds(sentId)<=endIds(sentId)
                   offset = srcMaxLen-srcLen;
+                  if startAttnIds(sentId) <= offset
+                    startIds(sentId) = startIds(sentId) - (startAttnIds(sentId)-offset-1);
+                    startAttnIds(sentId) = offset+1;
+                  end
                   indices = startAttnIds(sentId)-offset:endAttnIds(sentId)-offset;
                   alignWeights{sentId}(indices) = alignWeights{sentId}(indices) + h2sInfo.alignWeights(startIds(sentId):endIds(sentId), sentId);
                 end
@@ -420,10 +429,11 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
               alignIdx = zeroMatrix([1, numElements], params.isGPU, params.dataType);
               for sentId=1:numElements % go through each sent
                 [~, alignIdx(sentId)] = max(alignWeights{sentId}, [], 1); % srcLen includes eos, alignWeights excludes eos.
+                % alignWeights{sentId}
+                % alignIdx(sentId)
               end
-
-              % we want to mimic the structure of allBestWords later on of size (beamSize * beamSize) x 1
-              alignIdx = reshape(repmat(alignIdx, beamSize, 1), [], 1);
+              % we want to mimic the structure of allBestWords later on of size (beamSize * beamSize) x batchSize
+              alignIdx = reshape(repmat(alignIdx, beamSize, 1), [], batchSize);
             end
           end
         end
@@ -431,7 +441,6 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
     end
     
     %% predict the next word
-
     if params.sameLength && sentPos == (maxLen-1) % same length decoding
       [~, ~, logProbs] = nextBeamStep(models, softmax_h, beamSize);
       allBestScores = logProbs(params.tgtEos, :);
@@ -443,11 +452,6 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
     end
     [allBestScores, allBestWords, indices] = addSortScores(allBestScores, allBestWords, beamScores, card, beamSize, batchSize);
     
-    
-%     beamScores
-%     params.vocab(beamHistory(1:sentPos, :))
-%     params.vocab(allBestWords)
-
     %% build new beam
     for sentId=1:batchSize
       rowIndices = indices(:, sentId)';

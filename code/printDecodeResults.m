@@ -22,7 +22,7 @@ function printDecodeResults(decodeData, candidates, candScores, alignInfo, param
       alignment = alignInfo{ii}{bestId};
       printAlign(params.logId, translation, decodeData, alignment, params, ii, startId+ii-1, 1);
       if isOutput
-        printSentAlign(params.alignId, translation, decodeData, alignment, params);
+        printSentAlign(params.alignId, translation, decodeData, alignment, ii, params);
       end
     end
     fprintf(params.logId, '  score %g\n', maxScores(ii));
@@ -39,8 +39,8 @@ function printDecodeResults(decodeData, candidates, candScores, alignInfo, param
   end
 end
 
-function printSentAlign(fid, translation, data, alignment, params)
-  srcLen = data.srcLens(1); % WARNING: assume batchSize==1
+function printSentAlign(fid, translation, data, alignment, ii, params)
+  srcLen = data.srcLens(ii); % WARNING: assume batchSize==1
   if params.isReverse
     alignment = srcLen-alignment;
   end
@@ -52,7 +52,7 @@ function printSentAlign(fid, translation, data, alignment, params)
     else
       srcPos = alignment(i+1);
     end
-    assert((1 <= srcPos) && (srcPos <= srcLen));
+    assert((1 <= srcPos) && (srcPos <= srcLen), sprintf('Assertion failed: srcPos = %d, srcLen = %d', srcPos, srcLen));
     fprintf(fid, '%d-%d ', srcPos-1, i-1); % base 0
   end
   fprintf(fid, '\n');
@@ -60,7 +60,7 @@ end
 
 function printAlign(fid, translation, data, alignment, params, ii, sentId, printWords)
   mask = data.inputMask(ii,1:data.srcMaxLen-1);
-  srcLen = data.srcLens(1); % WARNING: assume batchSize==1
+  srcLen = data.srcLens(ii); % WARNING: assume batchSize==1
   if params.isReverse
     alignment = srcLen-alignment;
   end
@@ -78,7 +78,7 @@ function printAlign(fid, translation, data, alignment, params, ii, sentId, print
       else
         srcPos = alignment(i+1);
       end
-      assert((1 <= srcPos) && (srcPos <= srcLen));
+      assert((1 <= srcPos) && (srcPos <= srcLen), sprintf('Assertion failed: srcPos = %d, srcLen = %d', srcPos, srcLen));
       fprintf(fid, '%s-%s ', params.srcVocab{src(srcPos)}, params.tgtVocab{translation(i)});
     end
     fprintf(fid, '\n');
