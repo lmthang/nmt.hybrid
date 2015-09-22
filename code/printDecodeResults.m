@@ -22,7 +22,11 @@ function printDecodeResults(decodeData, candidates, candScores, alignInfo, param
       alignment = alignInfo{ii}{bestId};
       printAlign(params.logId, translation, decodeData, alignment, params, ii, startId+ii-1, 1);
       if isOutput
+<<<<<<< HEAD
         printSentAlign(params.alignId, translation, decodeData, alignment, ii, params);
+=======
+        printSentAlign(params.alignId, translation, decodeData, alignment, params, ii);
+>>>>>>> b7b6033bfd9913b8214a884df88efe1012a131c1
       end
     end
     fprintf(params.logId, '  score %g\n', maxScores(ii));
@@ -39,8 +43,13 @@ function printDecodeResults(decodeData, candidates, candScores, alignInfo, param
   end
 end
 
+<<<<<<< HEAD
 function printSentAlign(fid, translation, data, alignment, ii, params)
   srcLen = data.srcLens(ii); % WARNING: assume batchSize==1
+=======
+function printSentAlign(fid, translation, data, alignment, params, ii)
+  srcLen = data.srcLens(ii);
+>>>>>>> b7b6033bfd9913b8214a884df88efe1012a131c1
   if params.isReverse
     alignment = srcLen-alignment;
   end
@@ -60,7 +69,11 @@ end
 
 function printAlign(fid, translation, data, alignment, params, ii, sentId, printWords)
   mask = data.inputMask(ii,1:data.srcMaxLen-1);
+<<<<<<< HEAD
   srcLen = data.srcLens(ii); % WARNING: assume batchSize==1
+=======
+  srcLen = data.srcLens(ii);
+>>>>>>> b7b6033bfd9913b8214a884df88efe1012a131c1
   if params.isReverse
     alignment = srcLen-alignment;
   end

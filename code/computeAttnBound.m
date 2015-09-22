@@ -3,8 +3,8 @@ function [startIds, endIds, startAttnIds, endAttnIds] = computeAttnBound(srcPosi
   
   % these variables access srcVecsAll, lstmSize * batchSize * params.numSrcHidVecs
   % telling us where to pay our attention to.
-  startAttnIds = srcPositions-params.posWin;
-  endAttnIds = srcPositions + params.posWin;
+  startAttnIds = srcPositions - params.posWin;
+  endAttnIds   = srcPositions + params.posWin;
   
   % these variables are for srcVecs, lstmSize * batchSize * numPositions
   % numPositions = 2*params.posWin+1
