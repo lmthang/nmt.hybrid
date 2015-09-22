@@ -283,10 +283,7 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
   % align
   if params.align
     alignHistory = zeroMatrix([maxLen, numElements], params.isGPU, params.dataType); % maxLen * (numElements) 
-<<<<<<< HEAD
     % alignHistory(1, :) = firstAlignIdx;
-=======
->>>>>>> b7b6033bfd9913b8214a884df88efe1012a131c1
     for i = 1:batchSize
       alignHistory(1,(i-1)*beamSize+1:i*beamSize) = firstAlignIdx(i);
     end
@@ -430,7 +427,6 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
             end
           
             if mm==numModels
-<<<<<<< HEAD
               alignIdx = zeroMatrix([1, numElements], params.isGPU, params.dataType);
               for sentId=1:numElements % go through each sent
                 [~, alignIdx(sentId)] = max(alignWeights{sentId}, [], 1); % srcLen includes eos, alignWeights excludes eos.
@@ -439,15 +435,6 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
               end
               % we want to mimic the structure of allBestWords later on of size (beamSize * beamSize) x batchSize
               alignIdx = reshape(repmat(alignIdx, beamSize, 1), [], batchSize);
-=======
-              alignIdx = zeroMatrix([beamSize, batchSize], params.isGPU, params.dataType);
-              for sentId = 1:batchSize
-                for bb = 1:beamSize
-                  [~, alignIdx(bb,sentId)] = max(alignWeights{(sentId-1)*beamSize+bb}, [], 1); 
-                end
-              end 
-              alignIdx = repmat(alignIdx, [beamSize, 1]);
->>>>>>> b7b6033bfd9913b8214a884df88efe1012a131c1
             end
           end
         end
