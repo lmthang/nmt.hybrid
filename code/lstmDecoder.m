@@ -171,6 +171,13 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
               else
                 if startIds(sentId)<=endIds(sentId)
                   offset = srcMaxLen-srcLen;
+                  
+                  % out of boundary
+                  if startAttnIds(sentId) <= offset
+                    startIds(sentId) = startIds(sentId) + offset + 1 - startAttnIds(sentId);
+                    startAttnIds(sentId) = offset + 1;
+                  end
+                  
                   indices = startAttnIds(sentId)-offset:endAttnIds(sentId)-offset;
                   alignWeights{sentId}(indices) = alignWeights{sentId}(indices) + h2sInfo.alignWeights(startIds(sentId):endIds(sentId), sentId);
                 end
@@ -401,6 +408,13 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
               else
                 if startIds(sentId)<=endIds(sentId)
                   offset = srcMaxLen-srcLen;
+                  
+                  % out of boundary
+                  if startAttnIds(sentId) <= offset
+                    startIds(sentId) = startIds(sentId) + offset + 1 - startAttnIds(sentId);
+                    startAttnIds(sentId) = offset+1;
+                  end
+                  
                   indices = startAttnIds(sentId)-offset:endAttnIds(sentId)-offset;
                   alignWeights{sentId}(indices) = alignWeights{sentId}(indices) + h2sInfo.alignWeights(startIds(sentId):endIds(sentId), sentId);
                 end
