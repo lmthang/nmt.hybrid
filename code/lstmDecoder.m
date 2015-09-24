@@ -156,7 +156,6 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
             softmax_h{mm} = h_t;
           end
           
-          
           % output alignment
           if params.align 
             if models{mm}.params.attnGlobal==0 % local
@@ -165,19 +164,19 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
             
             for sentId=1:batchSize % go through each sent
               srcLen = modelData{mm}.srcLens(sentId);
-              
+
               if models{mm}.params.attnGlobal
                 alignWeights{sentId} = alignWeights{sentId} + h2sInfo.alignWeights(end-srcLen+2:end, sentId);
               else
                 if startIds(sentId)<=endIds(sentId)
                   offset = srcMaxLen-srcLen;
-                  
+
                   % out of boundary
                   if startAttnIds(sentId) <= offset
                     startIds(sentId) = startIds(sentId) + offset + 1 - startAttnIds(sentId);
                     startAttnIds(sentId) = offset + 1;
                   end
-                  
+
                   indices = startAttnIds(sentId)-offset:endAttnIds(sentId)-offset;
                   alignWeights{sentId}(indices) = alignWeights{sentId}(indices) + h2sInfo.alignWeights(startIds(sentId):endIds(sentId), sentId);
                 end
@@ -250,6 +249,8 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
     for ii=1:batchSize
       alignInfo{ii} = cell(stackSize, 1);
     end
+  else
+    alignInfo = [];
   end
   
   
@@ -357,9 +358,6 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
     
     %% compute next lstm hidden states
     words = beamHistory(sentPos, :);
-    
-    
-  
     if params.align
       alignWeights = cell(numElements, 1);
       for sentId=1:numElements % init
@@ -414,7 +412,7 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
                     startIds(sentId) = startIds(sentId) + offset + 1 - startAttnIds(sentId);
                     startAttnIds(sentId) = offset+1;
                   end
-                  
+
                   indices = startAttnIds(sentId)-offset:endAttnIds(sentId)-offset;
                   alignWeights{sentId}(indices) = alignWeights{sentId}(indices) + h2sInfo.alignWeights(startIds(sentId):endIds(sentId), sentId);
                 end
@@ -425,8 +423,9 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
               alignIdx = zeroMatrix([1, numElements], params.isGPU, params.dataType);
               for sentId=1:numElements % go through each sent
                 [~, alignIdx(sentId)] = max(alignWeights{sentId}, [], 1); % srcLen includes eos, alignWeights excludes eos.
+                % alignWeights{sentId}
+                % alignIdx(sentId)
               end
-
               % we want to mimic the structure of allBestWords
               % size (beamSize * beamSize) x batchSize
               % alignIdx = reshape(repmat(alignIdx, beamSize, 1), [], 1);
@@ -438,7 +437,6 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
     end
     
     %% predict the next word
-
     if params.sameLength && sentPos == (maxLen-1) % same length decoding
       [~, ~, logProbs] = nextBeamStep(models, softmax_h, beamSize);
       allBestScores = logProbs(params.tgtEos, :);

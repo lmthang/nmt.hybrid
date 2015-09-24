@@ -99,6 +99,24 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
         end    
       end
     end
+
+    % convert local paths to absolute paths
+%     fieldNames = fields(models{mm}.params);
+%     for ii=1:length(fieldNames)
+%       field = fieldNames{ii};
+%       if ischar(models{mm}.params.(field))
+%         if strfind(models{mm}.params.(field), '~lmthang/') ==1
+%           models{mm}.params.(field) = strrep(models{mm}.params.(field), '~lmthang/', '/afs/ir/users/l/m/lmthang/');
+%         end
+%         if strfind(models{mm}.params.(field), '~lmthang/') ==1
+%           models{mm}.params.(field) = strrep(models{mm}.params.(field), '~lmthang/', '/afs/cs.stanford.edu/u/lmthang/');
+%         end
+%         if strfind(models{mm}.params.(field), '~lmthang/') ==1
+%           models{mm}.params.(field) = strrep(models{mm}.params.(field), '~lmthang/', '/home/lmthang/');
+%         end    
+%       end
+%     end
+
     
     % load vocabs
     [models{mm}.params] = prepareVocabs(models{mm}.params);
@@ -144,6 +162,9 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   end
   
   % load test data
+  if strfind(params.testPrefix, '~lmthang') == 1
+    params.testPrefix = strrep(params.testPrefix, '~lmthang', '/afs/cs.stanford.edu/u/lmthang');
+  end
   [srcSents, tgtSents, numSents]  = loadBiData(params, params.testPrefix, params.srcVocab, params.tgtVocab);
   
   %%%%%%%%%%%%
@@ -180,46 +201,5 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   fclose(params.fid);
   fclose(params.logId);
 end
-
-%   if ~isfield(params, 'softmaxDim')
-%     params.softmaxDim = 0;
-%   end
-%   if ~isfield(params, 'separateEmb')
-%     params.separateEmb = 0;
-%   end
-%   if ~isfield(params, 'numClasses')
-%     params.numClasses = 0;
-%   end
-%   if ~isfield(params, 'dropout')
-%     params.dropout = 1;
-%   end
-
-%   addOptional(p,'depParse', 0, @isnumeric); % 1: indicate that we are doing dependency parsing
-%   % dependency parsing
-%   if params.depParse 
-%     assert(decodeParams.batchSize==1);
-%     params.depRootId = find(strcmp(params.tgtVocab, 'R(root)')==1,1);
-%     params.depShiftId = find(strcmp(params.tgtVocab, 'S')==1,1);
-%     fprintf(2, '## Dependency parsing, rootId for %s=%d, shiftId for %s=%d\n', params.tgtVocab{params.depRootId}, params.depRootId, ...
-%       params.tgtVocab{params.depShiftId}, params.depShiftId);
-%   end
-
-% params.vocab = [params.tgtVocab params.srcVocab];
-
-%   addOptional(p,'option', 0, @isnumeric); % 0: normal, 1: depparse, 2: permutation
-%   addOptional(p,'unkId', 1, @isnumeric); % id of unk word
-%   addOptional(p,'accmLstm', 0, @isnumeric); % 1: accmulate h_t/c_t as we go over the src side.
-%   addOptional(p,'unkPenalty', 0, @isnumeric); % in log domain unkPenalty=0.5 ~ scale prob unk by 1.6
-%   addOptional(p,'lengthReward', 0, @isnumeric); % in log domain, promote longer sentences.
-  
-%   assert(strcmp(params.vocab{params.unkId}, '<unk>')==1);
-
-%   if decodeParams.option==1 % depparse
-%     decodeParams.minLenRatio = 1.5;
-%     decodeParams.maxLenRatio = 2.5;
-%   else if decodeParams.option==2 % permutation
-%     decodeParams.minLenRatio = 1;
-%     decodeParams.maxLenRatio = 1;
-%   end
 
 

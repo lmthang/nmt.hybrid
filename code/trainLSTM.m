@@ -10,7 +10,6 @@
 %     train Prefix.tgtLang files for training, and similarly for validating
 %     and testing. These data files contain sequences of integers one per line.
 %   outDir: output directory.
-%   baseIndex: the minimum value in all sequences of integers (often 0). Required to convert them to 1-indexed for Matlab.
 %%%
 function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFile,tgtVocabFile,outDir,baseIndex,varargin)  
   addpath(genpath(sprintf('%s/../../matlab', pwd)));
@@ -27,7 +26,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addRequired(p,'srcVocabFile',@ischar);
   addRequired(p,'tgtVocabFile',@ischar);
   addRequired(p,'outDir',@ischar);
-  addRequired(p,'baseIndex',@isnumeric);
   
   % important hyperparameters
   addOptional(p,'numLayers', 1, @isnumeric); % stacking architecture
@@ -89,12 +87,12 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'gpuDevice', 1, @isnumeric); % choose the gpuDevice to use. 
 
   p.KeepUnmatched = true;
-  parse(p,trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFile,tgtVocabFile,outDir,baseIndex,varargin{:})
+  parse(p,trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFile,tgtVocabFile,outDir,varargin{:})
   params = p.Results;
 
   %% Setup params
   params.chunkSize = params.batchSize*100;
-  
+  params.baseIndex = 0; %  the minimum value in all sequences of integers (often 0). Required to convert them to 1-indexed for Matlab.
   % clip
   params.clipForward = 50; % clip c_t, h_t
   params.clipBackward = 1000; % clip dc, dh
@@ -378,7 +376,6 @@ function [model] = initLSTM(params)
     elseif params.attnOpt==3 % similar to Bengio's style, plus: softmax(v_a*f(H_src + W_a*h_t))
       model.W_a = randomMatrix(params.initRange, [params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
       model.v_a = randomMatrix(params.initRange, [1, params.lstmSize], params.isGPU, params.dataType);
-      %model.v_a = randomMatrix(params.initRange, [params.lstmSize, 1], params.isGPU, params.dataType);
     else
       error('Invalid attnOpt');
     end

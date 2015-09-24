@@ -10,7 +10,6 @@ if [[ $# -lt 16 || $# -gt 17 ]]; then
   echo -e "\tsrcVocabFile\t\t\tSource vocab file"
   echo -e "\ttgtVocabFile\t\t\tTarget vocab file"
   echo -e "\toutDir\t\t\tOutput directory"
-  echo -e "\tbaseIndex\t\t\tBase index"
   echo -e "\tlstmSize\t\tDimension of source word vectors"
   echo -e "\tlearningRate\t\tLearning rate"
   echo -e "\tmaxGradNorm\t\tMax grad norm"
@@ -30,15 +29,14 @@ tgtLang=$5
 srcVocabFile=$6
 tgtVocabFile=$7
 outDir=$8
-baseIndex=$9
-lstmSize=${10}
-learningRate=${11}
-maxGradNorm=${12}
-initRange=${13}
-batchSize=${14}
-numEpoches=${15}
-logFreq=${16}
-basicOpt="'$trainPrefix','$validPrefix','$testPrefix','$srcLang','$tgtLang','$srcVocabFile','$tgtVocabFile','$outDir',$baseIndex,'lstmSize',$lstmSize,'maxGradNorm',$maxGradNorm,'learningRate',$learningRate,'initRange',$initRange,'batchSize',$batchSize,'numEpoches',$numEpoches,'logFreq',$logFreq"
+lstmSize=$9
+learningRate=${10}
+maxGradNorm=${11}
+initRange=${12}
+batchSize=${13}
+numEpoches=${14}
+logFreq=${15}
+basicOpt="'$trainPrefix','$validPrefix','$testPrefix','$srcLang','$tgtLang','$srcVocabFile','$tgtVocabFile','$outDir','lstmSize',$lstmSize,'maxGradNorm',$maxGradNorm,'learningRate',$learningRate,'initRange',$initRange,'batchSize',$batchSize,'numEpoches',$numEpoches,'logFreq',$logFreq"
 if [ $# -eq 17 ]; then
   matlabCommand="trainLSTM($basicOpt,${17})"
 else

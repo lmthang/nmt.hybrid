@@ -61,6 +61,7 @@ end
 function printAlign(fid, translation, data, alignment, params, ii, sentId, printWords)
   mask = data.inputMask(ii,1:data.srcMaxLen-1);
   srcLen = data.srcLens(ii);
+
   if params.isReverse
     alignment = srcLen-alignment;
   end
