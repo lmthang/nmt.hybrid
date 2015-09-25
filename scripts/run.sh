@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [[ $# -lt 16 || $# -gt 17 ]]; then
+if [[ $# -lt 15 || $# -gt 16 ]]; then
   echo -e "`basename $0`\tTrain LSTM models"
   echo -e "\ttrainPrefix\t\texpect train files trainPrefix.(srcLang|tgtLang)"
   echo -e "\tvalidPrefix\t\texpect valid files validPrefix.(srcLang|tgtLang)"
@@ -37,8 +37,8 @@ batchSize=${13}
 numEpoches=${14}
 logFreq=${15}
 basicOpt="'$trainPrefix','$validPrefix','$testPrefix','$srcLang','$tgtLang','$srcVocabFile','$tgtVocabFile','$outDir','lstmSize',$lstmSize,'maxGradNorm',$maxGradNorm,'learningRate',$learningRate,'initRange',$initRange,'batchSize',$batchSize,'numEpoches',$numEpoches,'logFreq',$logFreq"
-if [ $# -eq 17 ]; then
-  matlabCommand="trainLSTM($basicOpt,${17})"
+if [ $# -eq 16 ]; then
+  matlabCommand="trainLSTM($basicOpt,${16})"
 else
   matlabCommand="trainLSTM($basicOpt)"
 fi
