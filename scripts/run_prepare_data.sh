@@ -1,10 +1,9 @@
 #!/bin/bash
 # Author: Minh-Thang Luong <luong.m.thang@gmail.com>, created on Fri Nov 14 13:32:54 PST 2014
 
-if [[ ! $# -eq 6 && ! $# -eq 5 ]];
+if [[ ! $# -eq 5 && ! $# -eq 5 ]];
 then
-    echo "`basename $0` trainFile validFile testFile vocabSize outDir [freq]" 
-    echo "If freq is specified, use freq instead of vocabSize"
+    echo "`basename $0` trainFile validFile testFile vocabSize outDir" 
     exit
 fi
 
@@ -13,13 +12,7 @@ validFile=$2
 testFile=$3
 vocabSize=$4
 outDir=$5
-VERBOSE=1
 sizeStr="--size $vocabSize"
-vocabFile="$trainFile.vocab.$vocabSize"
-if [ $# -eq 6 ]; then
-  sizeStr="--freq $6"
-  vocabFile="$trainFile.vocab.f$6"
-fi
 SCRIPT_DIR=$(dirname $0)
 
 function execute_check {
@@ -32,10 +25,7 @@ function execute_check {
     echo "! File/directory $file exists. Skip."
   else
     echo ""
-    if [[ $VERBOSE -eq 1 ]]; then
-      echo "# Executing: $cmd"
-    fi
-    
+    echo "# Executing: $cmd"
     eval $cmd
   fi
 }
@@ -44,10 +34,14 @@ function execute_check {
 echo "# outDir $outDir"
 execute_check $outDir "mkdir -p $outDir"
 
+# vocab
+basePrefix=`basename $trainFile`
+vocabFile="$outDir/$basePrefix.vocab.$vocabSize"
+
 # train
 trainName=`basename $trainFile`
 outFile="$outDir/$trainName"
-execute_check "$outFile" "$SCRIPT_DIR/prepare_data.py $sizeStr $trainFile $outFile"
+execute_check "$outFile" "$SCRIPT_DIR/prepare_data.py --vocab_file $vocabFile $sizeStr $trainFile $outFile"
 
 # valid
 validName=`basename $validFile`
