@@ -49,7 +49,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   end
   
   % init costs
-  costs = initCosts(params);
+  costs = initCosts();
   
   %%%%%%%%%%%%%%%%%%%%
   %%% FORWARD PASS %%%

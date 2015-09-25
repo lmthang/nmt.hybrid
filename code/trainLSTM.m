@@ -41,7 +41,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   
   % advanced features
   addOptional(p,'dropout', 1, @isnumeric); % keep prob for dropout, i.e., 1 no dropout, <1: dropout
-  addOptional(p,'isReverse', 0, @isnumeric); % 1: reseverse source sentence. We expect file $prefix.reversed.$srcLang (instead of $prefix.$srcLang)
+  addOptional(p,'isReverse', 0, @isnumeric); % 1: reseverse source sentence. We expect file $prefix.$srcLang.reversed (instead of $prefix.$srcLang)
   addOptional(p,'softmaxFeedInput', 0, @isnumeric); % 1: feed the softmax vector to the next timestep input
   addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model (I have always been using this!), 1: no tanh for c_t.
     
@@ -212,7 +212,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.tgtTrainFile = sprintf('%s.%s', params.trainPrefix, params.tgtLang);
   if params.isBi
     if params.isReverse
-      params.srcTrainFile = sprintf('%s.reversed.%s', params.trainPrefix, params.srcLang);
+      params.srcTrainFile = sprintf('%s.%s.reversed', params.trainPrefix, params.srcLang);
     else
       params.srcTrainFile = sprintf('%s.%s', params.trainPrefix, params.srcLang);
     end
@@ -325,6 +325,20 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   end % end for while(1)
   
   fclose(params.logId);
+end
+
+function [params] = initTrainParams(params)
+  params.lr = params.learningRate;
+  params.epoch = 1;
+  params.bestCostValid = 1e5;
+  params.testPerplexity = 1e5;
+  params.curTestPerpWord = 1e5;
+  params.startIter = 0;
+  params.iter = 0;  % number of batches we have processed
+  params.epochBatchCount = 0;
+  params.finetuneCount = 0;
+  params.trainCounts = initCosts();
+  params.trainCosts = initCosts();
 end
 
 %% Init model parameters
@@ -575,7 +589,9 @@ function [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents]
   end
 end
 
-function [model, params, oldParams, loaded] = loadModel(modelFile, params)
+function [model, params, oldParams, loaded] = loadModel(modelFile, params, isFreshTrain)
+% isFreshTrain=1: we get the parameters but used the init learning rate,
+% epoch, iter, etc.
   loaded = 0;
   model = [];
   oldParams = [];
@@ -597,30 +613,34 @@ function [model, params, oldParams, loaded] = loadModel(modelFile, params)
 
   % params
   oldParams = savedData.params;
-  params.lr = oldParams.lr;
-  params.epoch = oldParams.epoch;
-  params.epochBatchCount = oldParams.epochBatchCount;
-  params.bestCostValid = oldParams.bestCostValid;
-  params.testPerplexity = oldParams.testPerplexity;
-  params.trainCounts = oldParams.trainCounts;
-  params.trainCosts = oldParams.trainCosts;
-  if isfield(oldParams, 'finetuneCount')
-    params.finetuneCount = oldParams.finetuneCount;
+  if isFreshTrain
+    [params] = initTrainParams(params);
   else
-    if params.epoch > params.finetuneEpoch && params.epochBatchCount>0 % try to determine finetuneCount, we should rarely need this
-      params.finetuneCount = floor(params.epochFraction*params.epochBatchCount);
+    params.lr = oldParams.lr;
+    params.epoch = oldParams.epoch;
+    params.epochBatchCount = oldParams.epochBatchCount;
+    params.bestCostValid = oldParams.bestCostValid;
+    params.testPerplexity = oldParams.testPerplexity;
+    params.trainCounts = oldParams.trainCounts;
+    params.trainCosts = oldParams.trainCosts;
+    if isfield(oldParams, 'finetuneCount')
+      params.finetuneCount = oldParams.finetuneCount;
     else
-      params.finetuneCount = 0;
+      if params.epoch > params.finetuneEpoch && params.epochBatchCount>0 % try to determine finetuneCount, we should rarely need this
+        params.finetuneCount = floor(params.epochFraction*params.epochBatchCount);
+      else
+        params.finetuneCount = 0;
+      end
+    end
+
+    params.startIter = oldParams.iter;
+    if params.epoch > 1
+      params.iter = (params.epoch-1)*params.epochBatchCount;
+    else
+      params.iter = 0;  % number of batches we have processed
     end
   end
-
-  params.startIter = oldParams.iter;
-  if params.epoch > 1
-    params.iter = (params.epoch-1)*params.epochBatchCount;
-  else
-    params.iter = 0;  % number of batches we have processed
-  end
-
+  
   % model
   model = savedData.model;
   model
@@ -642,14 +662,14 @@ function [model, params] = initLoadModel(params)
   loaded = 0;
   if params.isGradCheck==0
     if (strcmp(params.loadModel, '')==0 && exist(params.loadModel, 'file')) % load from a specified model
-      [model, params, ~, loaded] = loadModel(params.loadModel, params);
+      [model, params, ~, loaded] = loadModel(params.loadModel, params, 1);
       if loaded == 0
         error('Failed to load model %s\n', params.loadModel);
       end
     elseif params.isResume && (exist(params.modelRecentFile, 'file') || exist(params.modelFile, 'file')) % resume training
-      [model, params, ~, loaded] = loadModel(params.modelRecentFile, params);
+      [model, params, ~, loaded] = loadModel(params.modelRecentFile, params, 0);
       if loaded == 0 && exist(params.modelFile, 'file')
-        [model, params, ~, loaded] = loadModel(params.modelFile, params);
+        [model, params, ~, loaded] = loadModel(params.modelFile, params, 0);
       end
 
       if loaded==0
@@ -660,17 +680,7 @@ function [model, params] = initLoadModel(params)
   
   if loaded == 0 % start from scratch
     [model] = initLSTM(params);
-    params.lr = params.learningRate;
-    params.epoch = 1;
-    params.bestCostValid = 1e5;
-    params.testPerplexity = 1e5;
-    params.curTestPerpWord = 1e5;
-    params.startIter = 0;
-    params.iter = 0;  % number of batches we have processed
-    params.epochBatchCount = 0;
-    params.finetuneCount = 0;
-    params.trainCounts = initCosts(params);
-    params.trainCosts = initCosts(params);
+    [params] = initTrainParams(params);
   end
 
   % compute model size

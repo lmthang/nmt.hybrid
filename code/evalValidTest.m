@@ -3,11 +3,11 @@ function [params] = evalValidTest(model, validData, testData, params)
   [validCosts] = evalCost(model, validData, params);
   [testCosts] = evalCost(model, testData, params);
   
-  validCounts = initCosts(params);
+  validCounts = initCosts();
   validCounts = updateCounts(validCounts, validData);
   validCosts = scaleCosts(validCosts, validCounts);
   
-  testCounts = initCosts(params);
+  testCounts = initCosts();
   testCounts = updateCounts(testCounts, testData);
   testCosts = scaleCosts(testCosts, testCounts);
   
@@ -39,7 +39,7 @@ function [evalCosts] = evalCost(model, data, params) %input, inputMask, tgtOutpu
   numSents = size(data.input, 1);
   numBatches = floor((numSents-1)/params.batchSize) + 1;
 
-  [evalCosts] = initCosts(params);
+  [evalCosts] = initCosts();
   trainData.srcMaxLen = data.srcMaxLen;
   trainData.tgtMaxLen = data.tgtMaxLen;
   for batchId = 1 : numBatches
