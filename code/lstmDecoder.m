@@ -253,7 +253,6 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
     alignInfo = [];
   end
   
-  
   %% first prediction
   numModels = length(models);
   [scores, words] = nextBeamStep(models, softmax_h, beamSize); %lstmStart{numLayers}.h_t, beamSize, params, data, curMask, tgtPos); % scores, words: beamSize * batchSize
@@ -443,9 +442,11 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
       allBestWords = params.tgtEos*ones(1, beamSize*batchSize);
       card = 1;
     else
+      % allBestScores, allBestWords should have size beamSize * (beamSize*batchSize)
       [allBestScores, allBestWords] = nextBeamStep(models, softmax_h, beamSize);
       card = beamSize;
     end
+    % allBestWords, allBestScores should have size: (beamSize*beamSize) * batchSize
     [allBestScores, allBestWords, indices] = addSortScores(allBestScores, allBestWords, beamScores, card, beamSize, batchSize);
 
     %% build new beam

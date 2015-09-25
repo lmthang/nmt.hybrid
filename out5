@@ -1,0 +1,210 @@
+nohup: ignoring input
+testLSTM('/scr/nlp/deeplearning/lmthang/lstm/lstm.deen.50000.d1000.lr1.max5.d4.init0.1.noClip.longer.attn1.feedInput.reverse.dropout0.8/model.mat,/scr/nlp/deeplearning/lmthang/lstm/lstm.deen.50000.d1000.lr1.max5.d4.init0.1.noClip.longer.attn2.feedInput.reverse.dropout0.8/model.mat',12,100,5,'translations5.txt','gpuDevice',2,'align',1,'testPrefix','~lmthang/deepmt/data/deen/wmt/id.50000/newstest2015.split.deen.tok.20')
+mkdir -p .
+# Script dir = /afs/cs.stanford.edu/u/hyhieu/Code/nmt.matlab3/scripts
+cd /afs/cs.stanford.edu/u/hyhieu/Code/nmt.matlab3/scripts/../code
+/afs/cs/software/bin/matlab_r2014b -nodesktop -nodisplay -nosplash -r "try; testLSTM('/scr/nlp/deeplearning/lmthang/lstm/lstm.deen.50000.d1000.lr1.max5.d4.init0.1.noClip.longer.attn1.feedInput.reverse.dropout0.8/model.mat,/scr/nlp/deeplearning/lmthang/lstm/lstm.deen.50000.d1000.lr1.max5.d4.init0.1.noClip.longer.attn2.feedInput.reverse.dropout0.8/model.mat',12,100,5,'translations5.txt','gpuDevice',2,'align',1,'testPrefix','~lmthang/deepmt/data/deen/wmt/id.50000/newstest2015.split.deen.tok.20') ; catch ME; fprintf('\n! Exception: identifier=%s, name=%s\n', ME.identifier, ME.message); for k=1:length(ME.stack); fprintf('stack %d: file=%s, name=%s, line=%d\n', k, ME.stack(k).file, ME.stack(k).name, ME.stack(k).line); end; end; exit()"
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2014 The MathWorks, Inc.
+                   R2014b (8.4.0.150421) 64-bit (glnxa64)
+                             September 15, 2014
+
+ 
+To get started, type one of these: helpwin, helpdesk, or demo.
+For product information, visit www.mathworks.com.
+ 
+# 3 GPUs exist. So, we will use GPUs.
+
+ans = 
+
+  CUDADevice with properties:
+
+                      Name: 'Tesla K40m'
+                     Index: 2
+         ComputeCapability: '3.5'
+            SupportsDouble: 1
+             DriverVersion: 7
+            ToolkitVersion: 6
+        MaxThreadsPerBlock: 1024
+          MaxShmemPerBlock: 49152
+        MaxThreadBlockSize: [1024 1024 64]
+               MaxGridSize: [2.1475e+09 65535 65535]
+                 SIMDWidth: 32
+               TotalMemory: 1.2079e+10
+           AvailableMemory: 1.1909e+10
+       MultiprocessorCount: 15
+              ClockRateKHz: 745000
+               ComputeMode: 'Default'
+      GPUOverlapsTransfers: 1
+    KernelExecutionTimeout: 0
+          CanMapHostMemory: 1
+           DeviceSupported: 1
+            DeviceSelected: 1
+
+# align = 1
+# assert = 0
+# batchSize = 5
+# beamSize = 12
+# debug = 0
+# gpuDevice = 2
+# maxLenRatio = 1.5
+# minLenRatio = 0.5
+# modelFiles = /scr/nlp/deeplearning/lmthang/lstm/lstm.deen.50000.d1000.lr1.max5.d4.init0.1.noClip.longer.attn1.feedInput.reverse.dropout0.8/model.mat,/scr/nlp/deeplearning/lmthang/lstm/lstm.deen.50000.d1000.lr1.max5.d4.init0.1.noClip.longer.attn2.feedInput.reverse.dropout0.8/model.mat
+# outputFile = translations5.txt
+# stackSize = 100
+# testPrefix = ~lmthang/deepmt/data/deen/wmt/id.50000/newstest2015.split.deen.tok.20
+# isGPU = 1
+# dataType = single
+# Loading vocab from file /afs/cs.stanford.edu/u/lmthang/deepmt/data/deen/wmt/wmt-combined.deen.tok.filtered.de.vocab.50000 ...
+# Loading vocab from file /afs/cs.stanford.edu/u/lmthang/deepmt/data/deen/wmt/wmt-combined.deen.tok.filtered.en.vocab.50000 ...
+## Bilingual setting
+# Decode a different test file ~lmthang/deepmt/data/deen/wmt/id.50000/newstest2015.split.deen.tok.20
+# Loading vocab from file /afs/cs.stanford.edu/u/lmthang/deepmt/data/deen/wmt/wmt-combined.deen.tok.filtered.de.vocab.50000 ...
+# Loading vocab from file /afs/cs.stanford.edu/u/lmthang/deepmt/data/deen/wmt/wmt-combined.deen.tok.filtered.en.vocab.50000 ...
+## Bilingual setting
+# Decode a different test file ~lmthang/deepmt/data/deen/wmt/id.50000/newstest2015.split.deen.tok.20
+# assert = 0
+# attnFunc = 1
+# attnSize = 1000
+# baseIndex = 0
+# batchSize = 5
+# dataType = single
+# debug = 0
+# decode = 1
+# decodeUpdateEpoch = 1
+# decodeUpdateOpt = 0
+# dropout = 0.8
+# epochFraction = 1
+# finetuneEpoch = 8
+# finetuneRate = 0.5
+# gpuDevice = 2
+# initRange = 0.1
+# isBi = 1
+# isClip = 1
+# isGradCheck = 0
+# isProfile = 0
+# isResume = 1
+# isReverse = 1
+# learningRate = 1
+# logFreq = 500
+# lstmOpt = 0
+# lstmSize = 1000
+# maxGradNorm = 5
+# maxLenRatio = 1.5
+# maxSentLen = 51
+# minLenRatio = 0.5
+# monoFile = 
+# numEpoches = 12
+# numLayers = 4
+# onlyCPU = 0
+# outDir = /afs/cs.stanford.edu/u/lmthang/lmthang-dl/lstm/lstm.deen.50000.d1000.lr1.max5.d4.init0.1.noClip.longer.attn1.feedInput.reverse.dropout0.8
+# posModel = -1
+# posWin = 20
+# sameLength = 0
+# seed = 0
+# shuffle = 1
+# softmaxDim = 0
+# softmaxFeedInput = 1
+# sortBatch = 1
+# srcLang = en
+# srcVocabFile = /afs/cs.stanford.edu/u/lmthang/deepmt/data/deen/wmt/wmt-combined.deen.tok.filtered.en.vocab.50000
+# testPrefix = ~lmthang/deepmt/data/deen/wmt/id.50000/newstest2015.split.deen.tok.20
+# tgtLang = de
+# tgtVocabFile = /afs/cs.stanford.edu/u/lmthang/deepmt/data/deen/wmt/wmt-combined.deen.tok.filtered.de.vocab.50000
+# tieEmb = 0
+# trainPrefix = /afs/cs.stanford.edu/u/lmthang/deepmt/data/deen/wmt/id.50000/wmt-combined.deen.tok.filtered
+# validPrefix = /afs/cs.stanford.edu/u/lmthang/deepmt/data/deen/wmt/id.50000/newstest2013.deen.tok
+# chunkSize = 12800
+# clipForward = 50
+# clipBackward = 1000
+# nonlinear_gate_f = sigmoid
+# nonlinear_gate_f_prime = sigmoidPrime
+# nonlinear_f = tanh
+# nonlinear_f_prime = tanhPrime
+# beamSize = 12
+# stackSize = 100
+# unkPenalty = 0
+# lengthReward = 0
+# isGPU = 1
+# attnRelativePos = 0
+# numAttnPositions = 50
+# logId = 4
+# srcSos = 50001
+# srcEos = 50002
+# srcVocabSize = 50002
+# tgtSos = 50001
+# tgtEos = 50002
+# tgtVocabSize = 50002
+# modelFile = /afs/cs.stanford.edu/u/lmthang/lmthang-dl/lstm/lstm.deen.50000.d1000.lr1.max5.d4.init0.1.noClip.longer.attn1.feedInput.reverse.dropout0.8/model.mat
+# modelRecentFile = /afs/cs.stanford.edu/u/lmthang/lmthang-dl/lstm/lstm.deen.50000.d1000.lr1.max5.d4.init0.1.noClip.longer.attn1.feedInput.reverse.dropout0.8/modelRecent.mat
+# softmaxSize = 1000
+# lr = 0.125
+# epoch = 12
+# epochBatchCount = 34913
+# finetuneCount = 34913
+# startIter = 110000
+# iter = 405000
+# modelSize = 220056000
+# tgtTrainFile = /afs/cs.stanford.edu/u/lmthang/deepmt/data/deen/wmt/id.50000/wmt-combined.deen.tok.filtered.de
+# srcTrainFile = /afs/cs.stanford.edu/u/lmthang/deepmt/data/deen/wmt/id.50000/wmt-combined.deen.tok.filtered.reversed.en
+# srcTrainId = 4
+# tgtTrainId = 5
+# evalFreq = 5000
+# batchId = 57
+# costTrain = 2.1063
+# speed = 1.075
+# attnGlobal = 1
+# attnOpt = 0
+# predictPos = 0
+# nullPosId = 0
+# align = 1
+# modelFiles = /scr/nlp/deeplearning/lmthang/lstm/lstm.deen.50000.d1000.lr1.max5.d4.init0.1.noClip.longer.attn1.feedInput.reverse.dropout0.8/model.mat,/scr/nlp/deeplearning/lmthang/lstm/lstm.deen.50000.d1000.lr1.max5.d4.init0.1.noClip.longer.attn2.feedInput.reverse.dropout0.8/model.mat
+# outputFile = translations5.txt
+# fid = 3
+# alignId = 5
+# Loading data src from file /afs/cs.stanford.edu/u/lmthang/deepmt/data/deen/wmt/id.50000/newstest2015.split.deen.tok.20.reversed.en
+  src 1:Tokyo in meet ministers prime Japan and India
+  src end:. nations two the between collaboration defence on deal a for hoping reportedly also is India
+# Loading data tgt from file /afs/cs.stanford.edu/u/lmthang/deepmt/data/deen/wmt/id.50000/newstest2015.split.deen.tok.20.de
+  tgt 1:Die Premierminister Indiens und Japans trafen sich in Tokio .
+  tgt end:Berichten zufolge hofft Indien darüber hinaus auf einen Vertrag zur <unk> zwischen den beiden Nationen .
+# Decoding 5 sents, 24-Sep-2015 22:14:03
+# Decoding batch of 5 sents, srcMaxLen=40, 24-Sep-2015 22:14:03
+  Done, minLen=2, maxLen=60, speed 0.413272 sents/s, time 12s, 24-Sep-2015 22:14:18
+  src 1: Tokyo in meet ministers prime Japan and India
+ rsrc 1: India and Japan prime ministers meet in Tokyo
+  ref 1: Die Premierminister Indiens und Japans trafen sich in Tokio . <t_eos>
+  tgt 1: Indien und Japan treffen sich in Tokio . <t_eos>
+pairs 1: India-Indien and-und and-Japan prime-treffen prime-sich prime-in in-Tokio prime-. 
+align 1: 0-0 1-1 1-2 3-3 3-4 3-5 6-6 3-7 
+  score -2.25449
+  src 2: . election &apos;s May winning since visit foreign major first his on , ties security and economic discuss to Tokyo in , Abe <unk> , counterpart Japanese his meeting is , <unk> <unk> , minister prime new &apos;s India
+ rsrc 2: India &apos;s new prime minister , <unk> <unk> , is meeting his Japanese counterpart , <unk> Abe , in Tokyo to discuss economic and security ties , on his first major foreign visit since winning May &apos;s election .
+  ref 2: Indiens neuer Premierminister <unk> Modi trifft bei seinem ersten wichtigen <unk> seit seinem Wahlsieg im Mai seinen japanischen Amtskollegen <unk> <unk> in <unk> , um wirtschaftliche und sicherheitspolitische Beziehungen zu besprechen . <t_eos>
+  tgt 2: Indiens neuer Ministerpräsident , <unk> <unk> , trifft mit seinem japanischen Amtskollegen <unk> <unk> in Tokio über die wirtschaftlichen und sicherheitspolitischen Beziehungen zu seinem ersten großen <unk> seit der Wahl im Mai . <t_eos>
+pairs 2: India-Indiens new-neuer prime-Ministerpräsident ,-, ,-<unk> <unk>-<unk> ,-, is-trifft is-mit meeting-seinem his-japanischen counterpart-Amtskollegen ,-<unk> Abe-<unk> ,-in in-Tokio Tokyo-über to-die discuss-wirtschaftlichen and-und security-sicherheitspolitischen ties-Beziehungen ties-zu ,-seinem his-ersten first-großen major-<unk> visit-seit since-der winning-Wahl winning-im winning-Mai May-. 
+align 2: 0-0 2-1 3-2 5-3 5-4 7-5 8-6 9-7 9-8 10-9 11-10 13-11 14-12 16-13 17-14 18-15 19-16 20-17 21-18 23-19 24-20 25-21 25-22 26-23 28-24 29-25 30-26 32-27 33-28 34-29 34-30 34-31 35-32 
+  score -13.6153
+  src 3: . world the in economy largest third the with ties economic strengthen to Japan to trip day ##AT##-##AT## five a on is <unk> Mr
+ rsrc 3: Mr <unk> is on a five ##AT##-##AT## day trip to Japan to strengthen economic ties with the third largest economy in the world .
+  ref 3: Herr Modi befindet sich auf einer <unk> Reise nach Japan , um die wirtschaftlichen Beziehungen mit der <unk> <unk> der Welt zu festigen . <t_eos>
+  tgt 3: Herr <unk> ist auf einer <unk> Reise nach Japan , um die wirtschaftlichen Beziehungen zur <unk> Wirtschaft der Welt zu stärken . <t_eos>
+pairs 3: Mr-Herr <unk>-<unk> is-ist is-auf on-einer five-<unk> day-Reise trip-nach to-Japan Japan-, Japan-um strengthen-die economic-wirtschaftlichen ties-Beziehungen ties-zur the-<unk> economy-Wirtschaft in-der the-Welt to-zu to-stärken .-. 
+align 3: 0-0 1-1 2-2 2-3 3-4 5-5 7-6 8-7 9-8 10-9 10-10 12-11 13-12 14-13 14-14 16-15 19-16 20-17 21-18 11-19 11-20 23-21 
+  score -8.1944
+  src 4: . operation ##AT##-##AT## co nuclear greater for plans are agenda the on High
+ rsrc 4: High on the agenda are plans for greater nuclear co ##AT##-##AT## operation .
+  ref 4: Pläne für eine stärkere <unk> Zusammenarbeit stehen ganz oben auf der Tagesordnung . <t_eos>
+  tgt 4: Hoch oben auf der Tagesordnung stehen Pläne für eine stärkere nukleare Zusammenarbeit . <t_eos>
+pairs 4: High-Hoch High-oben on-auf the-der the-Tagesordnung are-stehen are-Pläne for-für for-eine for-stärkere nuclear-nukleare co-Zusammenarbeit ##AT##-##AT##-. 
+align 4: 0-0 0-1 1-2 2-3 2-4 4-5 4-6 6-7 6-8 6-9 8-10 9-11 10-12 
+  score -6.32052
+  src 5: . nations two the between collaboration defence on deal a for hoping reportedly also is India
+ rsrc 5: India is also reportedly hoping for a deal on defence collaboration between the two nations .
+  ref 5: Berichten zufolge hofft Indien darüber hinaus auf einen Vertrag zur <unk> zwischen den beiden Nationen . <t_eos>
+  tgt 5: Indien hofft auch auf ein Abkommen über die <unk> zwischen den beiden Nationen . <t_eos>
+pairs 5: India-Indien is-hofft is-auch also-auf for-ein a-Abkommen deal-über on-die on-<unk> collaboration-zwischen the-den the-beiden two-Nationen hoping-. 
+align 5: 0-0 1-1 1-2 2-3 5-4 6-5 7-6 8-7 8-8 10-9 12-10 12-11 13-12 4-13 
+  score -6.72141
+# Complete decoding 5 sents, time 15s, 24-Sep-2015 22:14:19
