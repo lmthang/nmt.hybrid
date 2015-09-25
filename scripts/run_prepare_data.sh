@@ -44,17 +44,17 @@ fi
 trainName=`basename $trainFile`
 outFile="$outDir/$trainName"
 execute_check "$outFile" "$SCRIPT_DIR/prepare_data.py --vocab_file $vocabFile --size $vocabSize $trainFile $outFile"
-execute_check "$outFile.reversed" "$SCRIPT_DIR/reverse.py $trainFile $outFile.reversed"
+execute_check "$outFile.reversed" "$SCRIPT_DIR/reverse.py $outFile $outFile.reversed"
 
 # valid
 validName=`basename $validFile`
 outFile="$outDir/$validName"
 execute_check "$outFile" "$SCRIPT_DIR/prepare_data.py --vocab_file $vocabFile --size $vocabSize $validFile $outFile"
-execute_check "$outFile.reversed" "$SCRIPT_DIR/reverse.py $validFile $outFile.reversed"
+execute_check "$outFile.reversed" "$SCRIPT_DIR/reverse.py $outFile $outFile.reversed"
 
 # test
 testName=`basename $testFile`
 outFile="$outDir/$testName"
 execute_check "$outFile" "$SCRIPT_DIR/prepare_data.py --vocab_file $vocabFile --size $vocabSize $testFile $outFile"
-execute_check "$outFile.reversed" "$SCRIPT_DIR/reverse.py $testFile $outFile.reversed"
+execute_check "$outFile.reversed" "$SCRIPT_DIR/reverse.py $outFile $outFile.reversed"
 
