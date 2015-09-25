@@ -8,7 +8,7 @@ function [srcSents, tgtSents, numSents] = loadBiData(params, prefix, srcVocab, t
   % src
   if params.isBi
     if params.isReverse
-      srcFile = sprintf('%s.reversed.%s', prefix, params.srcLang);
+      srcFile = sprintf('%s.%s.reversed', prefix, params.srcLang);
     else
       srcFile = sprintf('%s.%s', prefix, params.srcLang);
     end
