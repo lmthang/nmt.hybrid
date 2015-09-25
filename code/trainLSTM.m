@@ -53,6 +53,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'isResume', 1, @isnumeric); % isResume=1: check if a model file exists, continue training from there.
   addOptional(p,'sortBatch', 1, @isnumeric); % 1: each time we read in 100 batches, we sort sentences by length.
   addOptional(p,'shuffle', 1, @isnumeric); % 1: shuffle training batches
+  addOptional(p,'loadModel', '', @ischar); % To start training from
   
   % decoding
   addOptional(p,'decode', 1, @isnumeric); % 1: decode during training
@@ -638,16 +639,26 @@ function [model, params] = initLoadModel(params)
   end
   
   % a model exists, resume training
-  if params.isGradCheck==0 && params.isResume && (exist(params.modelRecentFile, 'file') || exist(params.modelFile, 'file'))
-    [model, params, ~, loaded] = loadModel(params.modelRecentFile, params);
-    if loaded == 0 && exist(params.modelFile, 'file')
-      [model, params, ~, loaded] = loadModel(params.modelFile, params);
+  loaded = 0;
+  if params.isGradCheck==0
+    if (strcmp(params.loadModel, '')==0 && exist(params.loadModel, 'file')) % load from a specified model
+      [model, params, ~, loaded] = loadModel(params.loadModel, params);
+      if loaded == 0
+        error('Failed to load model %s\n', params.loadModel);
+      end
+    elseif params.isResume && (exist(params.modelRecentFile, 'file') || exist(params.modelFile, 'file')) % resume training
+      [model, params, ~, loaded] = loadModel(params.modelRecentFile, params);
+      if loaded == 0 && exist(params.modelFile, 'file')
+        [model, params, ~, loaded] = loadModel(params.modelFile, params);
+      end
+
+      if loaded==0
+        error('! Failed to load model files\n');
+      end
     end
-    
-    if loaded==0
-      error('! Failed to load model files\n');
-    end
-  else % start from scratch
+  end
+  
+  if loaded == 0 % start from scratch
     [model] = initLSTM(params);
     params.lr = params.learningRate;
     params.epoch = 1;

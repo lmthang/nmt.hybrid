@@ -1,10 +1,10 @@
 #!/bin/bash
 # Author: Minh-Thang Luong <luong.m.thang@gmail.com>, created on Fri Nov 14 13:32:54 PST 2014
 
-if [[ ! $# -eq 5 && ! $# -eq 5 ]];
+if [[ ! $# -eq 6 && ! $# -eq 5 ]];
 then
-    echo "`basename $0` trainFile validFile testFile vocabSize outDir" 
-    exit
+  echo "`basename $0` trainFile validFile testFile vocabSize outDir [vocabFile]" 
+  exit
 fi
 
 trainFile=$1
@@ -12,7 +12,7 @@ validFile=$2
 testFile=$3
 vocabSize=$4
 outDir=$5
-sizeStr="--size $vocabSize"
+vocabFile=$6
 SCRIPT_DIR=$(dirname $0)
 
 function execute_check {
@@ -35,20 +35,22 @@ echo "# outDir $outDir"
 execute_check $outDir "mkdir -p $outDir"
 
 # vocab
-basePrefix=`basename $trainFile`
-vocabFile="$outDir/$basePrefix.vocab.$vocabSize"
+if [ "$vocabFile" = "" ]; then
+  basePrefix=`basename $trainFile`
+  vocabFile="$outDir/$basePrefix.vocab.$vocabSize"
+fi
 
 # train
 trainName=`basename $trainFile`
 outFile="$outDir/$trainName"
-execute_check "$outFile" "$SCRIPT_DIR/prepare_data.py --vocab_file $vocabFile $sizeStr $trainFile $outFile"
+execute_check "$outFile" "$SCRIPT_DIR/prepare_data.py --vocab_file $vocabFile --size $vocabSize $trainFile $outFile"
 
 # valid
 validName=`basename $validFile`
 outFile="$outDir/$validName"
-execute_check "$outFile" "$SCRIPT_DIR/prepare_data.py --vocab_file $vocabFile $sizeStr $validFile $outFile"
+execute_check "$outFile" "$SCRIPT_DIR/prepare_data.py --vocab_file $vocabFile --size $vocabSize $validFile $outFile"
 
 # test
 testName=`basename $testFile`
 outFile="$outDir/$testName"
-execute_check "$outFile" "$SCRIPT_DIR/prepare_data.py --vocab_file $vocabFile $sizeStr $testFile $outFile"
+execute_check "$outFile" "$SCRIPT_DIR/prepare_data.py --vocab_file $vocabFile --size $vocabSize $testFile $outFile"
