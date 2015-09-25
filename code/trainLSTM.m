@@ -176,7 +176,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     end
   end
   
-  
   assert(strcmp(outDir, '')==0);
   if ~exist(outDir, 'dir')
     mkdir(outDir);
@@ -392,19 +391,19 @@ end
 %% Things to do after each training iteration %%
 function [params, startTime] = postTrainIter(model, costs, gradNorm, trainData, validData, testData, params, startTime, srcTrainSents, tgtTrainSents)
   %% log info
-  params.trainCounts = updateCounts(params.trainCounts, trainData, params);
+  params.trainCounts = updateCounts(params.trainCounts, trainData);
   params.totalLog = params.totalLog + trainData.numWords; % to compute speed
   
-  [params.trainCosts] = updateCosts(params.trainCosts, costs, params);
+  [params.trainCosts] = updateCosts(params.trainCosts, costs);
   
   if mod(params.iter, params.logFreq) == 0
     endTime = clock;
     timeElapsed = etime(endTime, startTime);
     params.speed = params.totalLog*0.001/timeElapsed;
     
-    [params.scaleTrainCosts] = scaleCosts(params.trainCosts, params.trainCounts, params);
-    logStr = sprintf('%d, %d, %.2fK, %g, %s, gN=%.2f, %s', params.epoch, params.iter, params.speed, params.lr, ...
-        getCostStr(params.scaleTrainCosts), gradNorm, datestr(now));
+    [params.scaleTrainCosts] = scaleCosts(params.trainCosts, params.trainCounts);
+    logStr = sprintf('%d, %d, %.2fK, %g, %.2f, gN=%.2f, %s', params.epoch, params.iter, params.speed, params.lr, ...
+        params.scaleTrainCosts.total, gradNorm, datestr(now));
     
     fprintf(2, '%s\n', logStr);
     fprintf(params.logId, '%s\n', logStr);

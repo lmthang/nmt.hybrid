@@ -47,26 +47,29 @@ Here, we convert train/valid/test files in text format into integer format that
 can be handled efficiently in Matlab. The script syntax is:
 run_prepare_data.sh <trainFile> <validFile> <testFile> <vocabSize> <outDir>
 
-(b) Train an encoder-decoder model
+(b) Train a bilingual, encoder-decoder model
 Go into the code/ directory and run:
-trainLSTM('../output/id.1000/train.10k', '../output/id.1000/valid.100', '../output/id.1000/test.100', 'de', 'en', '../output/id.1000/train.10k.de.vocab.1000', '../output/id.1000/train.10k.en.vocab.1000', '../output', 'logFreq', 1, 'isResume', 0)
+trainLSTM('../output/id.1000/train.10k', '../output/id.1000/valid.100', '../output/id.1000/test.100', 'de', 'en', '../output/id.1000/train.10k.de.vocab.1000', '../output/id.1000/train.10k.en.vocab.1000', '../output')
 
 This trains a very basic model with all the default settings. The syntax is:
 trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFile,tgtVocabFile,outDir,varargin)
+See the trainLSTM.m code for more options, e.g., training multiple layers,
+attention, dropout, etc.
+
+The trainer code outputs logs such as:
+1, 20, 6.38K, 1, 6.52, gN=11.62
+which means: at epoch 1, mini-batches 20, training speed is 6.38K words/s,
+learning rate is 1, train cost is 6.52, and grad norm is 11.62.
+
+(e) Train a monolingual language model
+trainLSTM('../output/id.1000/train.10k', '../output/id.1000/valid.100','../output/id.1000/test.100', '', 'en', '','../output/id.1000/train.10k.en.vocab.1000', '../output_mono', 'isBi', 0)
 
 (c) Grad check
-trainLSTM('', '', '', '', '', '', '', '', 0, 'isGradCheck', 1)
-trainLSTM('', '', '', '', '', '', '', '../output', 'isGradCheck', 1, 'assert', 1, 'numLayers', 2, 'initRange', 1.0, 'attnFunc', 0, 'softmaxDim', 0, 'posModel', 0, 'dropout', 1)
+trainLSTM('', '', '', '', '', '', '', '../output_gradcheck', 'isGradCheck', 1)
+trainLSTM('', '', '', '', '', '', '', '../output_gradcheck', 'isGradCheck', 1, 'assert', 1, 'numLayers', 2, 'initRange', 1.0, 'attnFunc', 0, 'softmaxDim', 0, 'dropout', 1)
 
 (d) Profiling
 trainLSTM('../output/id.1000/train.10k', '../output/id.1000/valid.100', '../output/id.1000/test.100', 'de', 'en', '../output/id.1000/train.10k.de.vocab.1000', '../output/id.1000/train.10k.en.vocab.1000', '../output', 'logFreq', 1, 'isProfile', 1)
-
-(e) Train a monolingual LSTM model
-export MATLAB=matlab
-./scripts/run.sh ../output/id.1000/train.10k ../output/id.1000/valid.100 ../output/id.1000/test.100 "" en "" ../output/id.1000/train.10k.en.vocab.1000 ../monoOutput 100 0.1 5 0.1 128 10 1 "'isBi',0,'isAssert',1,'isResume',0"
-
-To run directly in Matlab, cd into code/ directory and run:
-trainLSTM('../output/id.1000/train.10k', '../output/id.1000/valid.100', '../output/id.1000/test.100', '', 'en', '', '../output/id.1000/train.10k.en.vocab.1000', '../monooutput', 'logFreq', 1,'isResume',0, 'isBi', 0)
 
 (f) Train on PTB data:
 trainLSTM('../data/ptb/id/ptb.train', '../data/ptb/id/ptb.valid', '../data/ptb/id/ptb.test', '', 'en', '', '../data/ptb/ptb.train.txt.vocab.10000', '../monooutput', 'logFreq', 10,'isBi',0,'lstmSize',200)
@@ -147,5 +150,12 @@ run.sh  Train LSTM models
   otherOptions    Other options to trainLSTM
 The script run.sh will call the main LSTM training code at code/trainLSTM.m
 See the trainLSTM.m code for more options, e.g., training multiple layers.
+
+For otherOptions, you can put things like "'dropout',0.8,'posModel',1":
+'embCPU',1: to reduce memory footprint by putting embedding matrix on the CPU and only load the needed part onto GPU.
+'attnFunc',1: train with an attentional mechanism (values 0, 1, 2, 4)
+'attnOpt',1: attention alignment function (values 0, 1, 2, 3)
+'dropout',0.8: use dropout with dropout probability of 0.2
+'softmaxFeedInput': feed previous top hidden state to the next time step.
 
 
