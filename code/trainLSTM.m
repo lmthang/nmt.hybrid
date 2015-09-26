@@ -81,7 +81,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   %          3: src compare, general dot product, a_t = softmax(v_a*f(W_a * [H_src; h_t])
   addOptional(p,'attnOpt', 0, @isnumeric);
   addOptional(p,'attnSize', 0, @isnumeric); % dim of the vector used to input to the final softmax, if 0, use lstmSize
-  addOptional(p,'posWin', 5, @isnumeric); % relative window, used for attnFunc~=1
+  addOptional(p,'posWin', 10, @isnumeric); % relative window, used for attnFunc~=1
   
   %% system options
   addOptional(p,'onlyCPU', 0, @isnumeric); % 1: avoid using GPUs
