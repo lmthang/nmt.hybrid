@@ -89,45 +89,13 @@ def compute_bleu(bleu_script, lines):
 
   return bleu
 
-#def score_length(lines, sorted_lens):
-#  bleus = []
-#  bleus_cum = []
-#  lens = []
-#  num_sents = []
-#  bleu_script = os.path.dirname(os.path.realpath(__file__)) + '/multi-bleu.perl'
-#  sys.stderr.write('# bleu_script = %s\n' % bleu_script)
-#
-#  prev_id = 0
-#  cur_sent_len = 1
-#  for ii in xrange(len(lines)):
-#    if sorted_lens[ii]==cur_sent_len and ii<(len(lines)-1): # same group
-#      continue
-#    else: # new group, evaluate old group
-#      cur_id = ii+1
-#
-#      # individual group score
-#      bleus.append(compute_bleu(bleu_script, lines[prev_id:cur_id]))
-#
-#      # cumulative score
-#      bleus_cum.append(compute_bleu(bleu_script, lines[:cur_id]))
-#
-#      lens.append(cur_sent_len)
-#      num_sents.append(cur_id-prev_id)
-#      prev_id = ii+1
-#      cur_sent_len = sorted_lens[ii]
-#
-#  print 'bleu\tbleu_cum\tlen\tsize'
-#  for bleu, bleu_cum, group_len, num_sent in zip(bleus,bleus_cum,lens,num_sents):
-#    print bleu + "\t" + bleu_cum + "\t" + repr(group_len) + "\t" + repr(num_sent)
-
-
 def score_length(lines, sorted_lens):
   bleus = []
   bleus_cum = []
   lens = []
   total_eval = []
   prev_num_sents = 0
-  bleu_script = os.path.dirname(os.path.realpath(__file__)) + '/multi-bleu.perl'
+  bleu_script = os.path.dirname(os.path.realpath(__file__)) + '/wmt/multi-bleu.perl'
   sys.stderr.write('# bleu_script = %s\n' % bleu_script)
 
   group_size = 200

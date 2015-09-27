@@ -219,7 +219,7 @@ def process_files(align_file, src_file, tgt_file, ref_file, dict_file, out_file,
 
   # evaluating 
   if is_ref:
-    script_dir = os.path.dirname(sys.argv[0])
+    script_dir = os.path.dirname(sys.argv[0]) + '/wmt'
     bleu(script_dir, new_tgt_file, ref_file)
     if src_sgm != '' and tgt_sgm != '' and lang != '': # compute NIST BLEU score
       nist_bleu(script_dir, new_tgt_file, src_sgm, tgt_sgm, lang)

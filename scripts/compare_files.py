@@ -5,7 +5,7 @@
 Module docstrings.
 """
 
-usage = 'USAGE DESCRIPTION.' 
+usage = 'Compare the content of two file ' 
 
 ### Module imports ###
 import sys
