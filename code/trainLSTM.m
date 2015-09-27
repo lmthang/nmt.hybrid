@@ -77,12 +77,10 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   %          4: local attention  + regression for absolute pos (multiplied distWeights)
   addOptional(p,'attnFunc', 0, @isnumeric);
   % attnOpt: decide how we generate the alignment weights:
-  %          0: no src compare, a_t = softmax(W_a * h_t)
   %          1: src compare, dot product, a_t = softmax(H_src * h_t)
   %          2: src compare, general dot product, a_t = softmax(H_src * W_a * h_t)
   %          3: src compare, general dot product, a_t = softmax(v_a*f(W_a * [H_src; h_t])
   addOptional(p,'attnOpt', 0, @isnumeric);
-  addOptional(p,'attnSize', 0, @isnumeric); % dim of the vector used to input to the final softmax, if 0, use lstmSize
   addOptional(p,'posWin', 10, @isnumeric); % relative window, used for attnFunc~=1
   
   %% system options
@@ -152,33 +150,22 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     params.maxRelDist = 2;
   end
   
-  %% set more params
-  % attentional/positional models
-  params.attnGlobal=0; % 1: for attnFunc=1, 0: for other attnFunc
-  params.predictPos = 0; % 1 -- regression for absolute positions, 2 -- classification for relative positions
-  params.align = 0;
+  %% attention
+  params.attnGlobal = (params.attnFunc==1); % 1: global attention, 0: local attention
+  params.predictPos = (params.attnFunc==4); % 0: monotonic, 1: predictive alignments
   if params.attnFunc>0
-    if params.attnSize==0
-      params.attnSize = params.lstmSize;
-    end
+    assert(params.attnOpt>0);
     
-    params.align = 1; % for the decoder
-    
-    if params.attnFunc==1 % global, soft attention
-      params.predictPos = 0;
-      params.attnGlobal = 1;
-    elseif params.attnFunc==2 % local, hard attention + monotonic alignments
-      params.predictPos = 0;
-      params.attnGlobal = 0;
-    elseif params.attnFunc==4 % local, hard attention
-      params.predictPos = 3;
-      params.attnGlobal = 0;
+    if params.attnFunc==4 % local attention, predictive alignemtns       
       params.distSigma = params.posWin/2.0;
-    else
+    elseif params.attnFunc~=1 && params.attnFunc~=2
       error('Invalid attnFunc option %d\n', params.attnFunc);
     end
   end
+  params.align = (params.attnFunc>0); % for the decoder 
   
+  
+  %% log
   assert(strcmp(outDir, '')==0);
   if ~exist(outDir, 'dir')
     mkdir(outDir);
@@ -382,23 +369,17 @@ function [model] = initLSTM(params)
     end
     
     % predict alignment weights
-    if params.attnOpt==0 % no content-based
-      if params.numAttnPositions>=1
-        model.W_a = randomMatrix(params.initRange, [params.numAttnPositions, params.lstmSize], params.isGPU, params.dataType);
-      end
     % content-based alignments
-    elseif params.attnOpt==1 % dot product, nothing to do here, softmax(H_src*h_t))
+    if params.attnOpt==1 % dot product, nothing to do here, softmax(H_src*h_t))
     elseif params.attnOpt==2 % general dot product: softmax(H_src*W_a*h_t))
       model.W_a = randomMatrix(params.initRange, [params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
     elseif params.attnOpt==3 % similar to Bengio's style, plus: softmax(v_a*f(H_src + W_a*h_t))
       model.W_a = randomMatrix(params.initRange, [params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
       model.v_a = randomMatrix(params.initRange, [1, params.lstmSize], params.isGPU, params.dataType);
-    else
-      error('Invalid attnOpt');
     end
     
     % attn_t = H_src * a_t % h_attn_t = f(W_h * [attn_t; h_t])
-    model.W_h = randomMatrix(params.initRange, [params.attnSize, 2*params.lstmSize], params.isGPU, params.dataType);
+    model.W_h = randomMatrix(params.initRange, [params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
   end
   
   %% softmax input -> predictions
@@ -654,11 +635,7 @@ end
 
 function [model, params] = initLoadModel(params)
   % softmaxSize
-  if params.attnFunc % attention/positional mechanism    
-    params.softmaxSize = params.attnSize;
-  else % normal
-    params.softmaxSize = params.lstmSize;
-  end
+  params.softmaxSize = params.lstmSize;
   
   % a model exists, resume training
   loaded = 0;

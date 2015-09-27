@@ -46,12 +46,8 @@ function printSentAlign(fid, translation, data, alignment, ii, params)
   end
 
   tgtLen = length(translation);
-  for i = 1:(tgtLen-1) %length(alignment)
-    if params.attnOpt==0
-      srcPos = alignment(i);
-    else
-      srcPos = alignment(i+1);
-    end
+  for i = 1:(tgtLen-1)
+    srcPos = alignment(i+1);
     assert((1 <= srcPos) && (srcPos <= srcLen), sprintf('Assertion failed: srcPos = %d, srcLen = %d', srcPos, srcLen));
     fprintf(fid, '%d-%d ', srcPos-1, i-1); % base 0
   end
@@ -73,12 +69,8 @@ function printAlign(fid, translation, data, alignment, params, ii, sentId, print
       src = src(end:-1:1);
     end
     fprintf(fid, 'pairs %d: ', sentId);
-    for i = 1:(tgtLen-1) %length(alignment)
-      if params.attnOpt==0
-        srcPos = alignment(i);
-      else
-        srcPos = alignment(i+1);
-      end
+    for i = 1:(tgtLen-1)
+      srcPos = alignment(i+1);
       assert((1 <= srcPos) && (srcPos <= srcLen), sprintf('Assertion failed: srcPos = %d, srcLen = %d', srcPos, srcLen));
       fprintf(fid, '%s-%s ', params.srcVocab{src(srcPos)}, params.tgtVocab{translation(i)});
     end
@@ -86,12 +78,8 @@ function printAlign(fid, translation, data, alignment, params, ii, sentId, print
   end  
   
   fprintf(fid, 'align %d: ', sentId);
-  for i = 1:(tgtLen-1) %length(alignment)
-    if params.attnOpt==0
-      srcPos = alignment(i);
-    else
-      srcPos = alignment(i+1);
-    end
+  for i = 1:(tgtLen-1)
+    srcPos = alignment(i+1);
     assert((1 <= srcPos) && (srcPos <= srcLen));
     fprintf(fid, '%d-%d ', srcPos-1, i-1); % base 0
   end

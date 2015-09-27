@@ -12,7 +12,7 @@ function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, 
     h2sInfo.srcMaskedIds = trainData.srcMaskedIds;
   else % local
     % positions
-    if params.predictPos % predict positions by regression
+    if params.predictPos % predictive alignments
       [mu, h2sInfo] = regressPositions(model, h_t, trainData.srcLens, params);
       srcPositions = floor(mu);
     else % monotonic alignments
@@ -42,11 +42,8 @@ function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, 
   h2sInfo.posMask = trainData.posMask;
   
   % compute alignScores: numAttnPositions * curBatchSize
-  if params.attnOpt==0 % no src state comparison
-    alignScores = model.W_a*h_t; % 
-  % content-based alignments
   % TODO: precompute for attnOpt2 and attnOpt3 (we can premultiply srcHidVecs with W_a (attnOpt2) or W_a_src (attnOpt3)
-  elseif params.attnOpt==1 || params.attnOpt==2 % dot product or general dot product
+  if params.attnOpt==1 || params.attnOpt==2 % dot product or general dot product
     if params.attnOpt==1 % dot product
       [alignScores] = srcCompareLayerForward(srcHidVecs, h_t, params);
     elseif params.attnOpt==2 % general dot product
@@ -66,7 +63,7 @@ function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, 
   h2sInfo.alignWeights = normLayerForward(alignScores, h2sInfo.srcMaskedIds);
 
   % attn4: local, regression, multiply with distWeights
-  if params.predictPos==3
+  if params.predictPos
     [h2sInfo.distWeights, h2sInfo.scaleX] = distLayerForward(mu, h2sInfo, trainData, params); % numAttnPositions*curBatchSize
     h2sInfo.preAlignWeights = h2sInfo.alignWeights;
     h2sInfo.alignWeights =  h2sInfo.preAlignWeights.* h2sInfo.distWeights; % weighted by distances

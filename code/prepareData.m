@@ -23,8 +23,8 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   if params.isBi
     srcLens = srcLens + 1; % add eos
     
-    % limit sent lengths for training and for (attnGlobal==1 && attnOpt==0) even during testing
-    if isTest==0 || (params.attnGlobal && params.attnOpt==0) 
+    % limit sent lengths for training
+    if isTest==0
       srcLens(srcLens>params.maxSentLen) = params.maxSentLen; 
     end
     srcMaxLen = max(srcLens);

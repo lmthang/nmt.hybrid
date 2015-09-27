@@ -60,16 +60,8 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   softmax_h = zeroState;
   
   % attentional model
-  if params.attnFunc   
-    if params.attnGlobal % global
-      if params.attnOpt==0 % no src compare
-        startAttnId = 1;
-        endAttnId = params.numSrcHidVecs;
-        startHidId = params.numAttnPositions-params.numSrcHidVecs+1;
-        endHidId = params.numAttnPositions;
-      end
-      trainData.srcMaskedIds = [];
-    end
+  if params.attnGlobal % global
+    trainData.srcMaskedIds = [];
   end
   if params.attnFunc>0
     trainData.srcHidVecsOrig = zeroMatrix([params.lstmSize, curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);
@@ -252,11 +244,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         % attention models: srcHidVecs
         if params.attnFunc
           if params.attnGlobal 
-            if params.attnOpt==0 % fixed
-              grad.srcHidVecs(:, :, startAttnId:endAttnId) = grad.srcHidVecs(:, :, startAttnId:endAttnId) + grad_srcHidVecs(:, :, startHidId:endHidId);
-            else % variable
-              grad.srcHidVecs = grad.srcHidVecs + grad_srcHidVecs;
-            end
+            grad.srcHidVecs = grad.srcHidVecs + grad_srcHidVecs;
           else
             grad.srcHidVecs = reshape(grad.srcHidVecs, params.lstmSize, []);
             grad_srcHidVecs = reshape(grad_srcHidVecs, params.lstmSize, []);
@@ -378,12 +366,8 @@ function [grad, params] = initGrad(model, params)
     params.numSrcHidVecs = params.srcMaxLen-1;
     assert(params.numSrcHidVecs<params.T);
     
-    if params.attnGlobal
-      if params.attnOpt==0 % for attnOpt==1, we use variable-length alignment vectors
-        params.numAttnPositions = params.maxSentLen-1;
-      else % global, content-based alignments
-        params.numAttnPositions = params.numSrcHidVecs;
-      end
+    if params.attnGlobal % global
+      params.numAttnPositions = params.numSrcHidVecs;
     else % local
       params.numAttnPositions = 2*params.posWin + 1;
     end
