@@ -1,18 +1,20 @@
-%% Train Long-Short Term Memory (LSTM).
+function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFile,tgtVocabFile,outDir,varargin)  
+% Train Long-Short Term Memory (LSTM) models.
+% Arguments:
+%   trainPrefix, validPrefix, testPrefix: expect files trainPrefix.srcLang,
+%     trainPrefix.tgtLang. Similarly for validPrefix and testPrefix.
+%     These data files contain sequences of integers one per line.
+%   srcLang, tgtLang: languages, e.g. en, de.
+%   srcVocabFile, tgtVocabFile: one word per line.
+%   outDir: output directory.
+%   varargin: other optional arguments.
+%
 % Thang Luong @ 2014, 2015, <lmthang@stanford.edu>
 % With contributions from:
 %   Hieu Pham: beam-search decoder.
-%
-% Options:
-%   trainPrefix, validPrefix, testPrefix: we will use trainPrefix.srcLang,
-%     train Prefix.tgtLang files for training, and similarly for validating
-%     and testing. These data files contain sequences of integers one per line.
-%   srcLang, tgtLang: languages, e.g. en, de. (leave srcLang empty for monolingual models)
-%   srcVocabFile, tgtVocabFile: for verifying that we correctly map indices to words (leave srcVocabFile empty for monolingual models)
-%   outDir: output directory.
-%%%
-function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFile,tgtVocabFile,outDir,varargin)  
-  addpath(genpath(sprintf('%s/../../matlab', pwd)));
+
+
+%   addpath(genpath(sprintf('%s/../../matlab', pwd)));
   addpath(genpath(sprintf('%s/..', pwd)));
   
   %% Argument Parser
@@ -42,7 +44,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   % advanced features
   addOptional(p,'dropout', 1, @isnumeric); % keep prob for dropout, i.e., 1 no dropout, <1: dropout
   addOptional(p,'isReverse', 0, @isnumeric); % 1: reseverse source sentence. We expect file $prefix.$srcLang.reversed (instead of $prefix.$srcLang)
-  addOptional(p,'softmaxFeedInput', 0, @isnumeric); % 1: feed the softmax vector to the next timestep input
+  addOptional(p,'feedInput', 0, @isnumeric); % 1: feed the softmax vector to the next timestep input
   addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model (I have always been using this!), 1: no tanh for c_t.
     
   % training
@@ -358,7 +360,7 @@ function [model] = initLSTM(params)
   for ll=1:params.numLayers
     model.W_tgt{ll} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
   end
-  if params.softmaxFeedInput % feed in src hidden states to the tgt
+  if params.feedInput % feed in src hidden states to the tgt
     model.W_tgt{1} = randomMatrix(params.initRange, [4*params.lstmSize, 3*params.lstmSize], params.isGPU, params.dataType);
   end
   
@@ -412,6 +414,17 @@ function [params, startTime] = postTrainIter(model, costs, gradNorm, trainData, 
   [params.trainCosts] = updateCosts(params.trainCosts, costs);
   
   if mod(params.iter, params.logFreq) == 0
+    % profile
+    if params.isProfile
+      if ismac
+        profile viewer;
+      else
+        profile off;
+        profsave(profile('info'), 'profile_results');
+      end
+      return;
+    end
+
     endTime = clock;
     timeElapsed = etime(endTime, startTime);
     params.speed = params.totalLog*0.001/timeElapsed;
@@ -430,17 +443,6 @@ function [params, startTime] = postTrainIter(model, costs, gradNorm, trainData, 
 
   %% eval
   if mod(params.iter, params.evalFreq) == 0    
-    % profile
-    if params.isProfile
-      if ismac
-        profile viewer;
-      else
-        profile off;
-        profsave(profile('info'), 'profile_results');
-      end
-      return;
-    end
-
     % eval, save, and decode
     [params] = evalSaveDecode(model, validData, testData, params, srcTrainSents, tgtTrainSents);
 

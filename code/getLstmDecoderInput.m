@@ -14,7 +14,7 @@ function [x_t] = getLstmDecoderInput(wordId, W_emb, softmax_h, params)
 %   Thang Luong @ 2015, <lmthang@stanford.edu>
 %
   % feed softmax vector of the previous timestep
-  if params.softmaxFeedInput
+  if params.feedInput
     x_t = [W_emb(:, wordId); softmax_h];
     
   % normal

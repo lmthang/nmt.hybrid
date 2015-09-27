@@ -1,15 +1,20 @@
 function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,varargin)
-%%%
-%
-% Test a trained LSTM model by generating translations for the test data
-% (stored under the params structure in the model file)
-%   stackSize: the maximum number of translations we want to get.
+% Test a trained LSTM model by generating translations.
+% Arguments:
+%   modelFiles: single or multiple models to decode. Multiple models are
+%     separated by commas.
+%   beamSize: number of hypotheses kept at each time step.
+%   stackSize: number of translations retrieved.
+%   batchSize: number of sentences decoded simultaneously. We only ensure
+%     accuracy of batchSize = 1 for now.
+%   outputFile: output translation file.
+%   varargin: other optional arguments.
 %
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 % Hieu Pham @ 2015, <hyhieu@cs.stanford.edu>
 %
 %%%
-  addpath(genpath(sprintf('%s/../../matlab', pwd)));
+%   addpath(genpath(sprintf('%s/../../matlab', pwd)));
   addpath(genpath(sprintf('%s/..', pwd)));
 
   %% Argument Parser
@@ -65,24 +70,15 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
     models{mm}.params = savedData.params;  
     
     % for backward compatibility  
-    fieldNames = {'attnGlobal', 'attnOpt', 'predictPos', 'tieEmb', 'sameLength', 'softmaxFeedInput'};
+    fieldNames = {'attnGlobal', 'attnOpt', 'predictPos', 'feedInput'};
     for ii=1:length(fieldNames)
       field = fieldNames{ii};
       if ~isfield(models{mm}.params, field)
         models{mm}.params.(field) = 0;
       end
     end
-    if models{mm}.params.attnFunc==1
-      models{mm}.params.attnGlobal = 1;
-    end
-    if ~isfield(models{mm}, 'W_emb_src')
-      models{mm}.W_emb_src = models{mm}.W_emb(:, models{mm}.params.tgtVocabSize+1:end);
-      models{mm}.W_emb_tgt = models{mm}.W_emb(:, 1:models{mm}.params.tgtVocabSize);
-    end
-    if ~isfield(models{mm}, 'W_h')
-      models{mm}.W_h = models{mm}.W_ah;
-    end
 
+    %% TODO: remove
     % convert absolute paths to local paths
     fieldNames = fields(models{mm}.params);
     for ii=1:length(fieldNames)
@@ -155,13 +151,8 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   end
   printParams(2, params);
   
-  % same-length decoder
-  if params.sameLength
-    assert(decodeParams.batchSize==1);
-    fprintf(2, '## Same-length decoding\n');
-  end
-  
   % load test data
+  %% TODO: remove
   if strfind(params.testPrefix, '~lmthang') == 1
     params.testPrefix = strrep(params.testPrefix, '~lmthang', '/afs/cs.stanford.edu/u/lmthang');
   end
@@ -203,3 +194,13 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
 end
 
 
+%     if models{mm}.params.attnFunc==1
+%       models{mm}.params.attnGlobal = 1;
+%     end
+%     if ~isfield(models{mm}, 'W_emb_src')
+%       models{mm}.W_emb_src = models{mm}.W_emb(:, models{mm}.params.tgtVocabSize+1:end);
+%       models{mm}.W_emb_tgt = models{mm}.W_emb(:, 1:models{mm}.params.tgtVocabSize);
+%     end
+%     if ~isfield(models{mm}, 'W_h')
+%       models{mm}.W_h = models{mm}.W_ah;
+%     end

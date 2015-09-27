@@ -67,7 +67,7 @@ function [lstm_grad] = lstmUnitGrad(W, lstm, c_t, c_t_1, dc, dh, ll, t, srcMaxLe
  
   % dropout
   if params.dropout<1
-    if t>=srcMaxLen && ll==1 && (params.softmaxFeedInput || params.sameLength) % predict words
+    if t>=srcMaxLen && ll==1 && params.feedInput % predict words
       lstm_grad.input(1:2*params.lstmSize, :) = lstm_grad.input(1:2*params.lstmSize, :).*lstm.dropoutMaskInput; % dropout x_t, s_t
     else
       lstm_grad.input(1:params.lstmSize, :) = lstm_grad.input(1:params.lstmSize, :).*lstm.dropoutMask; % dropout x_t

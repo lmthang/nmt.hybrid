@@ -318,7 +318,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         end
 
         % feed softmax vector
-        if params.softmaxFeedInput && tt>srcMaxLen % for tt==srcMaxLen, we feed zero vector
+        if params.feedInput && tt>srcMaxLen % for tt==srcMaxLen, we feed zero vector
           grad_softmax_all{tgtPos-1} = grad_softmax_all{tgtPos-1} + lstm_grad.input(params.lstmSize+1:2*params.lstmSize, :);
         end
         
