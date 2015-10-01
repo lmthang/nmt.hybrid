@@ -65,7 +65,11 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
     if models{mm}.params.attnFunc
       models{mm}.params.numSrcHidVecs = srcMaxLen - 1;
       if models{mm}.params.attnGlobal
-        models{mm}.params.numAttnPositions = models{mm}.params.numSrcHidVecs;
+        if models{mm}.params.attnOpt==0 % for attnOpt==1, we use variable-length alignment vectors
+          models{mm}.params.numAttnPositions = models{mm}.params.maxSentLen-1;
+        else % global, content-based alignments
+          models{mm}.params.numAttnPositions = models{mm}.params.numSrcHidVecs;
+        end
       else % local
         models{mm}.params.numAttnPositions = 2*models{mm}.params.posWin + 1;
       end
