@@ -4,14 +4,14 @@
 %   Hieu Pham: beam-search decoder.
 %
 % Options:
-%   srcLang, tgtLang: languages, e.g. en, de. (leave srcLang empty for monolingual models)
-%   srcVocabFile, tgtVocabFile: for verifying that we correctly map indices to words (leave srcVocabFile empty for monolingual models)
 %   trainPrefix, validPrefix, testPrefix: we will use trainPrefix.srcLang,
 %     train Prefix.tgtLang files for training, and similarly for validating
 %     and testing. These data files contain sequences of integers one per line.
+%   srcLang, tgtLang: languages, e.g. en, de. (leave srcLang empty for monolingual models)
+%   srcVocabFile, tgtVocabFile: for verifying that we correctly map indices to words (leave srcVocabFile empty for monolingual models)
 %   outDir: output directory.
 %%%
-function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFile,tgtVocabFile,outDir,baseIndex,varargin)  
+function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFile,tgtVocabFile,outDir,varargin)  
   addpath(genpath(sprintf('%s/../../matlab', pwd)));
   addpath(genpath(sprintf('%s/..', pwd)));
   
@@ -153,6 +153,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   % attentional/positional models
   params.attnGlobal=0; % 1: for attnFunc=1, 0: for other attnFunc
   params.predictPos = 0; % 1 -- regression for absolute positions, 2 -- classification for relative positions
+  params.align = 0;
   if params.attnFunc>0
     if params.attnSize==0
       params.attnSize = params.lstmSize;

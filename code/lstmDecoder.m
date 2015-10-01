@@ -53,6 +53,7 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
   W_emb = cell(numModels, 1);
   modelData = cell(numModels, 1);
   zeroStates = cell(numModels, 1);
+  firstAlignIdx = [];
   for mm=1:numModels
     lstm{mm} = cell(models{mm}.params.numLayers, 1);
     zeroStates{mm} = zeroMatrix([models{mm}.params.lstmSize, batchSize], params.isGPU, params.dataType);
@@ -61,7 +62,7 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
     models{mm}.params.curBatchSize = batchSize;
     
     % attention
-    if models{mm}.params.attnFunc || models{mm}.params.sameLength
+    if models{mm}.params.attnFunc
       models{mm}.params.numSrcHidVecs = srcMaxLen - 1;
       if models{mm}.params.attnGlobal
         if models{mm}.params.attnOpt==0 % for attnOpt==1, we use variable-length alignment vectors
@@ -138,7 +139,7 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
         lstm{mm}{ll}.c_t = c_t;
 
         % attention
-        if tt<=models{mm}.params.numSrcHidVecs && ll==models{mm}.params.numLayers %&& (models{mm}.params.attnFunc>0 || models{mm}.params.sameLength==1)
+        if tt<=models{mm}.params.numSrcHidVecs && ll==models{mm}.params.numLayers
           modelData{mm}.srcHidVecsOrig(:, :, tt) = h_t;
 
           % done generating all srcHidVecs, collect
@@ -206,17 +207,12 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
   %%%%%%%%%%%%
   startTime = clock;
  
-  if params.sameLength % same-length decoding
-    minLen = srcMaxLen;
-    maxLen = minLen; % inclusive of <eos>
+  if batchSize==1
+    minLen = floor(srcMaxLen*params.minLenRatio);
   else
-    if batchSize==1
-      minLen = floor(srcMaxLen*params.minLenRatio);
-    else
-      minLen = 2;
-    end
-    maxLen = floor(srcMaxLen*params.maxLenRatio);
+    minLen = 2;
   end
+  maxLen = floor(srcMaxLen*params.maxLenRatio);
   
   sentIndices = data.startId:(data.startId+batchSize-1);
   [candidates, candScores, alignInfo] = decodeBatch(models, params, lstm, softmax_h, minLen, maxLen, beamSize, stackSize, batchSize, sentIndices, srcMaxLen, modelData, zeroStates, firstAlignIdx);
@@ -263,14 +259,13 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
   %% matrix dimension note
   % note that we order matrices in the following dimension: n * numElements
   % columns correspond to the 1st sent go first, then the 2nd one, until the batchSize-th sent.
-  sentIndices = repmat(1:batchSize, beamSize, 1);
+  sentIndices = repmat(1:batchSize, [beamSize, 1]);
   sentIndices = sentIndices(:)'; % 1 ... 1, 2 ... 2, ...., batchSize ... batchSize . 1 * (beamSize*batchSize)
   
   %% init beam
   beamScores = scores(:)'; % 1 * numElements
   beamHistory = zeroMatrix([maxLen, numElements], params.isGPU, params.dataType); % maxLen * (numElements) 
   beamHistory(1, :) = words(:); % words for sent 1 go together, then sent 2, ...
-  % align
   if params.align
     alignHistory = zeroMatrix([maxLen, numElements], params.isGPU, params.dataType); % maxLen * (numElements) 
     % alignHistory(1, :) = firstAlignIdx;
@@ -297,11 +292,10 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
   curMask.maskedIds = [];
   % attentional / positional models
   for mm=1:numModels % model
-    if models{mm}.params.attnFunc || models{mm}.params.sameLength % || models{mm}.params.posModel>=2 
+    if models{mm}.params.attnFunc
       curMask.mask = ones(1, numElements);
       curMask.unmaskedIds = 1:numElements;
       models{mm}.params.curBatchSize = numElements;
-    
     
       modelData{mm}.curBatchSize = numElements;
       modelData{mm}.srcLens = reshape(repmat(modelData{mm}.srcLens, beamSize, 1), 1, []);
@@ -333,10 +327,6 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
   W = cell(numModels, 1);
   W_emb = cell(numModels, 1);
   for mm=1:numModels % model
-    if params.sameLength
-      zeroStates{mm} = zeroMatrix([models{mm}.params.lstmSize, numElements], params.isGPU, params.dataType);
-    end
-    
     W_emb{mm} = models{mm}.W_emb_tgt;
   end
 
@@ -436,18 +426,11 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
     end
     
     %% predict the next word
-    if params.sameLength && sentPos == (maxLen-1) % same length decoding
-      [~, ~, logProbs] = nextBeamStep(models, softmax_h, beamSize);
-      allBestScores = logProbs(params.tgtEos, :);
-      allBestWords = params.tgtEos*ones(1, beamSize*batchSize);
-      card = 1;
-    else
-      % allBestScores, allBestWords should have size beamSize * (beamSize*batchSize)
-      [allBestScores, allBestWords] = nextBeamStep(models, softmax_h, beamSize);
-      card = beamSize;
-    end
+    % allBestScores, allBestWords should have size beamSize * (beamSize*batchSize)
+    [allBestScores, allBestWords] = nextBeamStep(models, softmax_h, beamSize);
+
     % allBestWords, allBestScores should have size: (beamSize*beamSize) * batchSize
-    [allBestScores, allBestWords, indices] = addSortScores(allBestScores, allBestWords, beamScores, card, beamSize, batchSize);
+    [allBestScores, allBestWords, indices] = addSortScores(allBestScores, allBestWords, beamScores, beamSize, batchSize);
 
     %% build new beam
     for sentId=1:batchSize
@@ -455,11 +438,7 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
       bestWords = allBestWords(rowIndices, sentId);
       
       % get candidates
-      if params.sameLength==1 && sentPos==(maxLen-1)% same-length decoding, already choose tgtEos
-        selectedIndices = 1:beamSize; 
-      else
-        selectedIndices = find(bestWords~=params.tgtEos, beamSize);
-      end
+      selectedIndices = find(bestWords~=params.tgtEos, beamSize);
 
       % update words
       startId = (sentId-1)*beamSize+1;
@@ -479,43 +458,36 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
 
       % update scores
       beamScores(startId:endId) = allBestScores(selectedIndices, sentId);
-            
+
       %% store translations
-      if params.sameLength==0 || sentPos==(maxLen-1) % for sameLength decoding, we only collect output at (maxLen-1)
-        if params.sameLength % for same length decoding, we already choose tgtEos
-          endIndices = selectedIndices;
-        else
-          endIndices = find(bestWords(1:selectedIndices(end))==params.tgtEos); % get words that are eos and ranked before the last hypothesis in the next beam
+      endIndices = find(bestWords(1:selectedIndices(end))==params.tgtEos); % get words that are eos and ranked before the last hypothesis in the next beam
+      if ~isempty(endIndices) && (sentPos+1)>=minLen % we don't want to start recording very short translations
+        numTranslations = length(endIndices);
+        eosBeamIndices = floor((rowIndices(endIndices)-1)/beamSize) + 1;
+        translations = beamHistory(1:sentPos, (sentId-1)*beamSize + eosBeamIndices);
+        % align
+        if params.align
+          alignments = alignHistory(1:sentPos, (sentId-1)*beamSize + eosBeamIndices);
+          lastAlignIds = beamAlignIds((sentId-1)*beamSize + eosBeamIndices);
         end
-        
-        if ~isempty(endIndices) && (sentPos+1)>=minLen % we don't want to start recording very short translations
-          numTranslations = length(endIndices);
-          eosBeamIndices = floor((rowIndices(endIndices)-1)/beamSize) + 1;
-          translations = beamHistory(1:sentPos, (sentId-1)*beamSize + eosBeamIndices);
-          % align
-          if params.align
-            alignments = alignHistory(1:sentPos, (sentId-1)*beamSize + eosBeamIndices);
-            lastAlignIds = beamAlignIds((sentId-1)*beamSize + eosBeamIndices);
-          end
-          
-          transScores = allBestScores(endIndices, sentId);
-          for ii=1:numTranslations
-            if numDecoded(sentId)<stackSize % haven't collected enough translations
-              numDecoded(sentId) = numDecoded(sentId) + 1;
 
-              candidates{sentId}{numDecoded(sentId)} = [translations(:, ii); params.tgtEos];
-              candScores(numDecoded(sentId), sentId) = transScores(ii);
+        transScores = allBestScores(endIndices, sentId);
+        for ii=1:numTranslations
+          if numDecoded(sentId)<stackSize % haven't collected enough translations
+            numDecoded(sentId) = numDecoded(sentId) + 1;
 
-              % align
-              if params.align
-                alignInfo{sentId}{numDecoded(sentId)} = [alignments(:, ii); lastAlignIds(ii)];
-              end
-              
-              %printSent(2, translations(:, ii), params.vocab, ['  trans sent ' num2str(originalSentIndices(sentId)) ', ' num2str(transScores(ii)), ': ']);
-              if numDecoded(sentId)==stackSize % done for sentId
-                decodeCompleteCount = decodeCompleteCount + 1;
-                break;
-              end
+            candidates{sentId}{numDecoded(sentId)} = [translations(:, ii); params.tgtEos];
+            candScores(numDecoded(sentId), sentId) = transScores(ii);
+
+            % align
+            if params.align
+              alignInfo{sentId}{numDecoded(sentId)} = [alignments(:, ii); lastAlignIds(ii)];
+            end
+
+            %printSent(2, translations(:, ii), params.vocab, ['  trans sent ' num2str(originalSentIndices(sentId)) ', ' num2str(transScores(ii)), ': ']);
+            if numDecoded(sentId)==stackSize % done for sentId
+              decodeCompleteCount = decodeCompleteCount + 1;
+              break;
             end
           end
         end
@@ -525,7 +497,8 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
     %% update history
     % overwrite previous history
     colIndices = (sentIndices-1)*beamSize + beamIndices;
-    beamHistory(1:sentPos, :) = beamHistory(1:sentPos, colIndices); 
+    tmp = beamHistory(1:sentPos, colIndices);
+    beamHistory(1:sentPos, :) = tmp; 
     beamHistory(sentPos+1, :) = beamWords;
 
     % align
@@ -573,14 +546,14 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
   end
 end
 
-function [allBestScores, allBestWords, indices] = addSortScores(allBestScores, allBestWords, beamScores, card, beamSize, batchSize)
+function [allBestScores, allBestWords, indices] = addSortScores(allBestScores, allBestWords, beamScores, beamSize, batchSize)
   % use previous beamScores, 1 * (beamSize*batchSize), update along the first dimentions
   allBestScores = bsxfun(@plus, allBestScores, beamScores);
-  allBestScores = reshape(allBestScores, [card*beamSize, batchSize]);
-  allBestWords = reshape(allBestWords, [card*beamSize, batchSize]);
+  allBestScores = reshape(allBestScores, [beamSize*beamSize, batchSize]);
+  allBestWords = reshape(allBestWords, [beamSize*beamSize, batchSize]);
 
-  % for each sent, select the best beamSize candidates, out of card*beamSize ones
-  [allBestScores, indices] = sort(allBestScores, 'descend'); % (card*beamSize) * batchSize
+  % for each sent, select the best beamSize candidates, out of beamSize*beamSize ones
+  [allBestScores, indices] = sort(allBestScores, 'descend'); % (beamSize*beamSize) * batchSize
 end
 
 %%
@@ -591,6 +564,7 @@ function [bestLogProbs, bestWords, logProbs, sortedLogProbs, sortedWords] = next
   if length(models)>1 % aggregate predictions from multiple models
     for ii=2:length(models)
       softmax_input = softmax_input + models{ii}.W_soft*softmax_h{ii};
+      x = models{ii}.W_soft*softmax_h{ii};
     end
     softmax_input = softmax_input./length(models);
   end

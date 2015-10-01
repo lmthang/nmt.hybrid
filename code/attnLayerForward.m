@@ -34,7 +34,7 @@ function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, 
     end
 
     % build context vectors
-    [srcHidVecs, h2sInfo] = buildSrcVecs(trainData.srcHidVecs, srcPositions, trainData.posMask, params, h2sInfo);
+    [srcHidVecs, h2sInfo] = buildSrcVecs(trainData.srcHidVecs, srcPositions, trainData.posMask, trainData.srcLens, trainData.srcMaxLen, params, h2sInfo);
 
     h2sInfo.srcMaskedIds = find(h2sInfo.alignMask==0);
   end % end else if attnGlobal
