@@ -1,15 +1,20 @@
 function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,varargin)
-%%%
-%
-% Test a trained LSTM model by generating translations for the test data
-% (stored under the params structure in the model file)
-%   stackSize: the maximum number of translations we want to get.
+% Test a trained LSTM model by generating translations.
+% Arguments:
+%   modelFiles: single or multiple models to decode. Multiple models are
+%     separated by commas.
+%   beamSize: number of hypotheses kept at each time step.
+%   stackSize: number of translations retrieved.
+%   batchSize: number of sentences decoded simultaneously. We only ensure
+%     accuracy of batchSize = 1 for now.
+%   outputFile: output translation file.
+%   varargin: other optional arguments.
 %
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 % Hieu Pham @ 2015, <hyhieu@cs.stanford.edu>
 %
 %%%
-  addpath(genpath(sprintf('%s/../../matlab', pwd)));
+%   addpath(genpath(sprintf('%s/../../matlab', pwd)));
   addpath(genpath(sprintf('%s/..', pwd)));
 
   %% Argument Parser
@@ -22,7 +27,7 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   addRequired(p,'outputFile',@ischar);
 
   % optional
-  addOptional(p,'gpuDevice', 1, @isnumeric); % choose the gpuDevice to use. 
+  addOptional(p,'gpuDevice', 0, @isnumeric); % choose the gpuDevice to use: 0 -- no GPU 
   addOptional(p,'align', 0, @isnumeric); % 1 -- output aignment from attention model
   addOptional(p,'assert', 0, @isnumeric); % 1 -- assert
   addOptional(p,'debug', 0, @isnumeric); % 1 -- debug
@@ -39,7 +44,7 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   
   % GPU settings
   decodeParams.isGPU = 0;
-  if ismac==0
+  if decodeParams.gpuDevice
     n = gpuDeviceCount;  
     if n>0 % GPU exists
       fprintf(2, '# %d GPUs exist. So, we will use GPUs.\n', n);
@@ -65,22 +70,16 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
     models{mm}.params = savedData.params;  
     
     % for backward compatibility  
-    fieldNames = {'attnGlobal', 'attnOpt', 'predictPos', 'tieEmb', 'sameLength', 'softmaxFeedInput'};
+    % TODO: remove
+    fieldNames = {'attnGlobal', 'attnOpt', 'predictPos', 'feedInput'};
     for ii=1:length(fieldNames)
       field = fieldNames{ii};
       if ~isfield(models{mm}.params, field)
         models{mm}.params.(field) = 0;
       end
     end
-    if models{mm}.params.attnFunc==1
-      models{mm}.params.attnGlobal = 1;
-    end
-    if ~isfield(models{mm}, 'W_emb_src')
-      models{mm}.W_emb_src = models{mm}.W_emb(:, models{mm}.params.tgtVocabSize+1:end);
-      models{mm}.W_emb_tgt = models{mm}.W_emb(:, 1:models{mm}.params.tgtVocabSize);
-    end
-    if ~isfield(models{mm}, 'W_h')
-      models{mm}.W_h = models{mm}.W_ah;
+    if isfield(models{mm}.params, 'softmaxFeedInput')
+      models{mm}.params.feedInput = models{mm}.params.softmaxFeedInput;
     end
 
     % convert absolute paths to local paths
@@ -153,13 +152,8 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   end
   printParams(2, params);
   
-  % same-length decoder
-  if params.sameLength
-    assert(decodeParams.batchSize==1);
-    fprintf(2, '## Same-length decoding\n');
-  end
-  
   % load test data
+  %% TODO: remove
   if strfind(params.testPrefix, '~lmthang') == 1
     params.testPrefix = strrep(params.testPrefix, '~lmthang', '/afs/cs.stanford.edu/u/lmthang');
   end
@@ -201,3 +195,13 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
 end
 
 
+%     if models{mm}.params.attnFunc==1
+%       models{mm}.params.attnGlobal = 1;
+%     end
+%     if ~isfield(models{mm}, 'W_emb_src')
+%       models{mm}.W_emb_src = models{mm}.W_emb(:, models{mm}.params.tgtVocabSize+1:end);
+%       models{mm}.W_emb_tgt = models{mm}.W_emb(:, 1:models{mm}.params.tgtVocabSize);
+%     end
+%     if ~isfield(models{mm}, 'W_h')
+%       models{mm}.W_h = models{mm}.W_ah;
+%     end

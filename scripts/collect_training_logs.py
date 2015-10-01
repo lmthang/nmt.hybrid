@@ -78,7 +78,11 @@ def process_files(in_file, out_dir):
   results = []
   for file_name in inf:
     file_name = clean_line(file_name)
-
+    if file_name == '':
+      results.append('')
+      sys.stderr.write('\n')
+      continue
+   
     # log
     log_file = os.path.expanduser(file_name + '/log')
     best_ppl = ''
@@ -95,23 +99,23 @@ def process_files(in_file, out_dir):
 
         prev_line = line
       log_inf.close()
-    #else:
-    #  sys.stderr.write('! File %s doesn\'t exist.\n' % log_file)
 
     # stderr
     stderr_file = os.path.expanduser(file_name + '/stderr')
+    if not os.path.exists(stderr_file):
+      stderr_file = os.path.expanduser(file_name + '.stderr')
     err_stat = ''
+    status = 'training'
     if os.path.exists(stderr_file):
       stderr_inf = codecs.open(stderr_file, 'r', 'utf-8')
       for line in stderr_inf: 
         m = re.search(err_pattern, line)
         if m != None:
           err_stat = m.group(1)
-
+        if re.search('Done training', line):
+          status = 'done'
       stderr_inf.close()
-    #else:
-    #  sys.stderr.write('! File %s doesn\'t exist.\n' % stderr_file)
-
+    eval_stat = status + ' ' + eval_stat
     
     results.append(eval_stat)
     sys.stderr.write('%s %s %s\n' % (eval_stat, file_name, err_stat))

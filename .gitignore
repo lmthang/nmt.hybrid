@@ -1,4 +1,4 @@
 *.pyc
 data/*
-output/*
+output*
 *.swp

@@ -37,10 +37,10 @@ function gradCheck(model, params)
   % for gradient check purpose
   if params.dropout<1 % use the same dropout mask
     curBatchSize = size(trainData.input, 1);
-    params.dropoutMask = (randSimpleMatrix([params.lstmSize curBatchSize], params.isGPU, params.dataType)<params.dropout)/params.dropout;
+    params.dropoutMask = (randMatrix([params.lstmSize curBatchSize], params.isGPU, params.dataType)<params.dropout)/params.dropout;
     
-    if params.softmaxFeedInput
-      params.dropoutMaskInput = (randSimpleMatrix([2*params.lstmSize curBatchSize], params.isGPU, params.dataType)<params.dropout)/params.dropout;
+    if params.feedInput
+      params.dropoutMaskInput = (randMatrix([2*params.lstmSize curBatchSize], params.isGPU, params.dataType)<params.dropout)/params.dropout;
     end
   end
   

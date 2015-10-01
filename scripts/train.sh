@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [[ $# -lt 16 || $# -gt 17 ]]; then
+if [[ $# -lt 15 || $# -gt 16 ]]; then
   echo -e "`basename $0`\tTrain LSTM models"
   echo -e "\ttrainPrefix\t\texpect train files trainPrefix.(srcLang|tgtLang)"
   echo -e "\tvalidPrefix\t\texpect valid files validPrefix.(srcLang|tgtLang)"
@@ -10,7 +10,6 @@ if [[ $# -lt 16 || $# -gt 17 ]]; then
   echo -e "\tsrcVocabFile\t\t\tSource vocab file"
   echo -e "\ttgtVocabFile\t\t\tTarget vocab file"
   echo -e "\toutDir\t\t\tOutput directory"
-  echo -e "\tbaseIndex\t\t\tBase index"
   echo -e "\tlstmSize\t\tDimension of source word vectors"
   echo -e "\tlearningRate\t\tLearning rate"
   echo -e "\tmaxGradNorm\t\tMax grad norm"
@@ -22,27 +21,24 @@ if [[ $# -lt 16 || $# -gt 17 ]]; then
   exit
 fi
 
-#MATLAB=/afs/cs/software/bin/matlab_r2013b
-MATLAB=matlab
-trainPrefix='../output/train.10k.id'
-validPrefix='../output/valid.3k.id'
-testPrefix='../output/test.3k.id'
-srcLang='de'
-tgtLang='en'
-srcVocabFile='../data/train.10k.de.vocab.1000'
-tgtVocabFile='../data/train.10k.en.vocab.1000'
+trainPrefix=$1
+validPrefix=$2
+testPrefix=$3
+srcLang=$4
+tgtLang=$5
+srcVocabFile=$6
+tgtVocabFile=$7
 outDir=$8
-baseIndex=$9
-lstmSize=${10}
-learningRate=${11}
-maxGradNorm=${12}
-initRange=${13}
-batchSize=${14}
-numEpoches=${15}
-logFreq=${16}
-basicOpt="'$trainPrefix','$validPrefix','$testPrefix','$srcLang','$tgtLang','$srcVocabFile','$tgtVocabFile','$outDir',$baseIndex,'lstmSize',$lstmSize,'maxGradNorm',$maxGradNorm,'learningRate',$learningRate,'initRange',$initRange,'batchSize',$batchSize,'numEpoches',$numEpoches,'logFreq',$logFreq"
-if [ $# -eq 17 ]; then
-  matlabCommand="trainLSTM($basicOpt,${17})"
+lstmSize=$9
+learningRate=${10}
+maxGradNorm=${11}
+initRange=${12}
+batchSize=${13}
+numEpoches=${14}
+logFreq=${15}
+basicOpt="'$trainPrefix','$validPrefix','$testPrefix','$srcLang','$tgtLang','$srcVocabFile','$tgtVocabFile','$outDir','lstmSize',$lstmSize,'maxGradNorm',$maxGradNorm,'learningRate',$learningRate,'initRange',$initRange,'batchSize',$batchSize,'numEpoches',$numEpoches,'logFreq',$logFreq"
+if [ $# -eq 16 ]; then
+  matlabCommand="trainLSTM($basicOpt,${16})"
 else
   matlabCommand="trainLSTM($basicOpt)"
 fi
@@ -54,7 +50,9 @@ mkdir -p $outDir
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 echo "# Script dir = $DIR"
 echo "cd $DIR/../code"
+cd $DIR/../code
 
-cd /home/hyhieu/Code/lstm_matlab/code
-$MATLAB -nodesktop -nodisplay -nosplash -r "$matlabCommand ; exit()"  # 
+#MATLAB="matlab"
+echo "$MATLAB -nodesktop -nodisplay -nosplash -r \"try; $matlabCommand ; catch ME; fprintf('\n! Exception: identifier=%s, name=%s\n', ME.identifier, ME.message); for k=1:length(ME.stack); fprintf('stack %d: file=%s, name=%s, line=%d\n', k, ME.stack(k).file, ME.stack(k).name, ME.stack(k).line); end; end; exit()\""
+$MATLAB -nodesktop -nodisplay -nosplash -r "try; $matlabCommand ; catch ME; fprintf('\n! Exception: identifier=%s, name=%s\n', ME.identifier, ME.message); for k=1:length(ME.stack); fprintf('stack %d: file=%s, name=%s, line=%d\n', k, ME.stack(k).file, ME.stack(k).name, ME.stack(k).line); end; end; exit()"
 

@@ -3,23 +3,23 @@ function [params] = evalValidTest(model, validData, testData, params)
   [validCosts] = evalCost(model, validData, params);
   [testCosts] = evalCost(model, testData, params);
   
-  validCounts = initCosts(params);
-  validCounts = updateCounts(validCounts, validData, params);
-  validCosts = scaleCosts(validCosts, validCounts, params);
+  validCounts = initCosts();
+  validCounts = updateCounts(validCounts, validData);
+  validCosts = scaleCosts(validCosts, validCounts);
   
-  testCounts = initCosts(params);
-  testCounts = updateCounts(testCounts, testData, params);
-  testCosts = scaleCosts(testCosts, testCounts, params);
+  testCounts = initCosts();
+  testCounts = updateCounts(testCounts, testData);
+  testCosts = scaleCosts(testCosts, testCounts);
   
   modelStr = wInfo(model);
   endTime = clock;
   timeElapsed = etime(endTime, startTime);
   
   params.curTestPerpWord = exp(testCosts.word);
-  
-  logStr = sprintf('# eval %.2f, %d, %d, %.2fK, %.2f, train=%s, valid=%s, test=%s,%s, time=%.2fs', params.curTestPerpWord, ...
+  [params.scaleTrainCosts] = scaleCosts(params.trainCosts, params.trainCounts);
+  logStr = sprintf('# eval %.2f, %d, %d, %.2fK, %.2f, train=%.2f, valid=%.2f, test=%.2f,%s, time=%.2fs', params.curTestPerpWord, ...
     params.epoch, params.iter, params.speed, params.lr, ...
-    getCostStr(params.scaleTrainCosts), getCostStr(validCosts), getCostStr(testCosts), modelStr, timeElapsed);
+    params.scaleTrainCosts.total, validCosts.total, testCosts.total, modelStr, timeElapsed);
   fprintf(2, '%s\n', logStr);
   fprintf(params.logId, '%s\n', logStr);
       
@@ -39,7 +39,7 @@ function [evalCosts] = evalCost(model, data, params) %input, inputMask, tgtOutpu
   numSents = size(data.input, 1);
   numBatches = floor((numSents-1)/params.batchSize) + 1;
 
-  [evalCosts] = initCosts(params);
+  [evalCosts] = initCosts();
   trainData.srcMaxLen = data.srcMaxLen;
   trainData.tgtMaxLen = data.tgtMaxLen;
   for batchId = 1 : numBatches
@@ -61,6 +61,6 @@ function [evalCosts] = evalCost(model, data, params) %input, inputMask, tgtOutpu
     
     % eval
     costs = lstmCostGrad(model, trainData, params, 1);
-    [evalCosts] = updateCosts(evalCosts, costs, params);
+    [evalCosts] = updateCosts(evalCosts, costs);
   end
 end

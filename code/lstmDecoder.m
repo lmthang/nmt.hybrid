@@ -65,11 +65,7 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
     if models{mm}.params.attnFunc
       models{mm}.params.numSrcHidVecs = srcMaxLen - 1;
       if models{mm}.params.attnGlobal
-        if models{mm}.params.attnOpt==0 % for attnOpt==1, we use variable-length alignment vectors
-          models{mm}.params.numAttnPositions = models{mm}.params.maxSentLen-1;
-        else % global, content-based alignments
-          models{mm}.params.numAttnPositions = models{mm}.params.numSrcHidVecs;
-        end
+        models{mm}.params.numAttnPositions = models{mm}.params.numSrcHidVecs;
       else % local
         models{mm}.params.numAttnPositions = 2*models{mm}.params.posWin + 1;
       end
@@ -134,7 +130,7 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
         c_t_1(:, maskedIds) = 0;
 
         % lstm cell
-        [lstm{mm}{ll}, h_t, c_t] = lstmUnit(W{mm}{ll}, x_t, h_t_1, c_t_1, ll, tt, srcMaxLen, models{mm}.params, 1);
+        [lstm{mm}{ll}, h_t, c_t] = lstmLayerForward(W{mm}{ll}, x_t, h_t_1, c_t_1, ll, tt, srcMaxLen, models{mm}.params, 1);
         lstm{mm}{ll}.h_t = h_t;
         lstm{mm}{ll}.c_t = c_t;
 
@@ -150,7 +146,7 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
         
         % h_t -> softmax_h
         if tt==srcMaxLen && ll==models{mm}.params.numLayers
-          modelData{mm}.posMask = curMask;
+          modelData{mm}.curMask = curMask;
           if models{mm}.params.attnFunc
             [softmax_h{mm}, h2sInfo] = attnLayerForward(h_t, models{mm}.params, models{mm}, modelData{mm}, tgtPos); 
           else
@@ -367,13 +363,13 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
         h_t_1 = beamStates{mm}{ll}.h_t;
         c_t_1 = beamStates{mm}{ll}.c_t;
 
-        [beamStates{mm}{ll}, h_t, c_t] = lstmUnit(W{mm}, x_t, h_t_1, c_t_1, ll, srcMaxLen+sentPos, srcMaxLen, models{mm}.params, 1);
+        [beamStates{mm}{ll}, h_t, c_t] = lstmLayerForward(W{mm}, x_t, h_t_1, c_t_1, ll, srcMaxLen+sentPos, srcMaxLen, models{mm}.params, 1);
         beamStates{mm}{ll}.h_t = h_t;
         beamStates{mm}{ll}.c_t = c_t;
 
         % h_t -> softmax_h
         if ll==models{mm}.params.numLayers
-          modelData{mm}.posMask = curMask;
+          modelData{mm}.curMask = curMask;
 
           if params.attnFunc
             [softmax_h{mm}, h2sInfo] = attnLayerForward(h_t, models{mm}.params, models{mm}, modelData{mm}, tgtPos); 

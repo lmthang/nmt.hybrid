@@ -49,7 +49,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   end
   
   % init costs
-  costs = initCosts(params);
+  costs = initCosts();
   
   %%%%%%%%%%%%%%%%%%%%
   %%% FORWARD PASS %%%
@@ -60,16 +60,8 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   softmax_h = zeroState;
   
   % attentional model
-  if params.attnFunc   
-    if params.attnGlobal % global
-      if params.attnOpt==0 % no src compare
-        startAttnId = 1;
-        endAttnId = params.numSrcHidVecs;
-        startHidId = params.numAttnPositions-params.numSrcHidVecs+1;
-        endHidId = params.numAttnPositions;
-      end
-      trainData.srcMaskedIds = [];
-    end
+  if params.attnGlobal % global
+    trainData.srcMaskedIds = [];
   end
   if params.attnFunc>0
     trainData.srcHidVecsOrig = zeroMatrix([params.lstmSize, curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);
@@ -129,7 +121,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       c_t_1(:, curMask.maskedIds) = 0;
       
       %% Core LSTM: input -> h_t
-      [lstms{ll, tt}, h_t{ll}, all_c_t{ll, tt}] = lstmUnit(W, x_t, h_t_1, c_t_1, ll, tt, srcMaxLen, params, isTest); 
+      [lstms{ll, tt}, h_t{ll}, all_c_t{ll, tt}] = lstmLayerForward(W, x_t, h_t_1, c_t_1, ll, tt, srcMaxLen, params, isTest); 
       % assert
       if params.assert
         assert(computeSum(h_t{ll}(:, curMask.maskedIds), params.isGPU)==0);
@@ -138,7 +130,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       %% Loss
       if tt>=srcMaxLen && ll==params.numLayers % decoding phase, tgtPos>=1
         %% predicting positions
-        trainData.posMask = curMask;
+        trainData.curMask = curMask;
         
         %% predicting words
         % h_t -> softmax_h
@@ -193,7 +185,6 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   if isTest==1 % don't compute grad
     return;
   end
-  trainData = rmfield(trainData, 'posMask');
   
   %%%%%%%%%%%%%%%%%%%%%
   %%% BACKWARD PASS %%%
@@ -252,11 +243,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         % attention models: srcHidVecs
         if params.attnFunc
           if params.attnGlobal 
-            if params.attnOpt==0 % fixed
-              grad.srcHidVecs(:, :, startAttnId:endAttnId) = grad.srcHidVecs(:, :, startAttnId:endAttnId) + grad_srcHidVecs(:, :, startHidId:endHidId);
-            else % variable
-              grad.srcHidVecs = grad.srcHidVecs + grad_srcHidVecs;
-            end
+            grad.srcHidVecs = grad.srcHidVecs + grad_srcHidVecs;
           else
             grad.srcHidVecs = reshape(grad.srcHidVecs, params.lstmSize, []);
             grad_srcHidVecs = reshape(grad_srcHidVecs, params.lstmSize, []);
@@ -289,7 +276,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       c_t = all_c_t{ll, tt};
       lstm = lstms{ll, tt};
       
-      [lstm_grad] = lstmUnitGrad(W, lstm, c_t, c_t_1, dc{ll}, dh{ll}, ll, tt, srcMaxLen, zeroState, maskedIds, params);
+      [lstm_grad] = lstmLayerBackward(W, lstm, c_t, c_t_1, dc{ll}, dh{ll}, ll, tt, srcMaxLen, zeroState, maskedIds, params);
       dc{ll} = lstm_grad.dc;
       
       % assert
@@ -318,7 +305,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
         end
 
         % feed softmax vector
-        if params.softmaxFeedInput && tt>srcMaxLen % for tt==srcMaxLen, we feed zero vector
+        if params.feedInput && tt>srcMaxLen % for tt==srcMaxLen, we feed zero vector
           grad_softmax_all{tgtPos-1} = grad_softmax_all{tgtPos-1} + lstm_grad.input(params.lstmSize+1:2*params.lstmSize, :);
         end
         
@@ -378,12 +365,8 @@ function [grad, params] = initGrad(model, params)
     params.numSrcHidVecs = params.srcMaxLen-1;
     assert(params.numSrcHidVecs<params.T);
     
-    if params.attnGlobal
-      if params.attnOpt==0 % for attnOpt==1, we use variable-length alignment vectors
-        params.numAttnPositions = params.maxSentLen-1;
-      else % global, content-based alignments
-        params.numAttnPositions = params.numSrcHidVecs;
-      end
+    if params.attnGlobal % global
+      params.numAttnPositions = params.numSrcHidVecs;
     else % local
       params.numAttnPositions = 2*params.posWin + 1;
     end
