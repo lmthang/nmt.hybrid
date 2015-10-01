@@ -65,7 +65,11 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
     if models{mm}.params.attnFunc
       models{mm}.params.numSrcHidVecs = srcMaxLen - 1;
       if models{mm}.params.attnGlobal
-        models{mm}.params.numAttnPositions = models{mm}.params.numSrcHidVecs;
+        if models{mm}.params.attnOpt==0 % for attnOpt==1, we use variable-length alignment vectors
+          models{mm}.params.numAttnPositions = models{mm}.params.maxSentLen-1;
+        else % global, content-based alignments
+          models{mm}.params.numAttnPositions = models{mm}.params.numSrcHidVecs;
+        end
       else % local
         models{mm}.params.numAttnPositions = 2*models{mm}.params.posWin + 1;
       end
@@ -245,7 +249,6 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
     alignInfo = [];
   end
   
-  
   %% first prediction
   numModels = length(models);
   [scores, words] = nextBeamStep(models, softmax_h, beamSize); %lstmStart{numLayers}.h_t, beamSize, params, data, curMask, tgtPos); % scores, words: beamSize * batchSize
@@ -256,14 +259,13 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
   %% matrix dimension note
   % note that we order matrices in the following dimension: n * numElements
   % columns correspond to the 1st sent go first, then the 2nd one, until the batchSize-th sent.
-  sentIndices = repmat(1:batchSize, beamSize, 1);
+  sentIndices = repmat(1:batchSize, [beamSize, 1]);
   sentIndices = sentIndices(:)'; % 1 ... 1, 2 ... 2, ...., batchSize ... batchSize . 1 * (beamSize*batchSize)
   
   %% init beam
   beamScores = scores(:)'; % 1 * numElements
   beamHistory = zeroMatrix([maxLen, numElements], params.isGPU, params.dataType); % maxLen * (numElements) 
   beamHistory(1, :) = words(:); % words for sent 1 go together, then sent 2, ...
-  % align
   if params.align
     alignHistory = zeroMatrix([maxLen, numElements], params.isGPU, params.dataType); % maxLen * (numElements) 
     % alignHistory(1, :) = firstAlignIdx;
@@ -294,7 +296,6 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
       curMask.mask = ones(1, numElements);
       curMask.unmaskedIds = 1:numElements;
       models{mm}.params.curBatchSize = numElements;
-    
     
       modelData{mm}.curBatchSize = numElements;
       modelData{mm}.srcLens = reshape(repmat(modelData{mm}.srcLens, beamSize, 1), 1, []);
@@ -425,7 +426,10 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
     end
     
     %% predict the next word
+    % allBestScores, allBestWords should have size beamSize * (beamSize*batchSize)
     [allBestScores, allBestWords] = nextBeamStep(models, softmax_h, beamSize);
+
+    % allBestWords, allBestScores should have size: (beamSize*beamSize) * batchSize
     [allBestScores, allBestWords, indices] = addSortScores(allBestScores, allBestWords, beamScores, beamSize, batchSize);
 
     %% build new beam
@@ -454,7 +458,7 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
 
       % update scores
       beamScores(startId:endId) = allBestScores(selectedIndices, sentId);
-            
+
       %% store translations
       endIndices = find(bestWords(1:selectedIndices(end))==params.tgtEos); % get words that are eos and ranked before the last hypothesis in the next beam
       if ~isempty(endIndices) && (sentPos+1)>=minLen % we don't want to start recording very short translations
@@ -493,7 +497,8 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
     %% update history
     % overwrite previous history
     colIndices = (sentIndices-1)*beamSize + beamIndices;
-    beamHistory(1:sentPos, :) = beamHistory(1:sentPos, colIndices); 
+    tmp = beamHistory(1:sentPos, colIndices);
+    beamHistory(1:sentPos, :) = tmp; 
     beamHistory(sentPos+1, :) = beamWords;
 
     % align
@@ -559,6 +564,7 @@ function [bestLogProbs, bestWords, logProbs, sortedLogProbs, sortedWords] = next
   if length(models)>1 % aggregate predictions from multiple models
     for ii=2:length(models)
       softmax_input = softmax_input + models{ii}.W_soft*softmax_h{ii};
+      x = models{ii}.W_soft*softmax_h{ii};
     end
     softmax_input = softmax_input./length(models);
   end

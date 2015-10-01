@@ -12,13 +12,14 @@
 % TODO move srcMaxLen out
 % IMPORTANT: we assume the sentences are reversed here
 % srcPositions = srcMaxLen - srcPositions
-function [srcVecsSub, h2sInfo] = buildSrcVecs(srcVecsAll, srcPositions, curMask, params, h2sInfo) % startAttnIds, endAttnIds, startIds, endIds, indices
+function [srcVecsSub, h2sInfo] = buildSrcVecs(srcVecsAll, srcPositions, curMask, srcLens, srcMaxLen, params, h2sInfo) % startAttnIds, endAttnIds, startIds, endIds, indices
   posWin = params.posWin;
   numPositions = 2*posWin+1;
   [lstmSize, batchSize, numSrcHidVecs] = size(srcVecsAll);
   
   % masking
   srcPositions(curMask.maskedIds) = [];
+  srcLens(curMask.maskedIds) = [];
   unmaskedIds = curMask.unmaskedIds;
   
   % flatten matrices of size batchSize*numPositions (not exactly batch size but close)
@@ -32,11 +33,12 @@ function [srcVecsSub, h2sInfo] = buildSrcVecs(srcVecsAll, srcPositions, curMask,
   % The below version is the only solution that is faster than for loop (3 times).
   % If startAttnIds = [ 2 4 6 8 10 ] and numPositions=3
   % then indicesAll = [ 2 4 6 8 10 3 5 7 9 11 4 6 8 10 12 ].
+  srcLens = repmat(srcLens, [1, numPositions]);
   startAttnIds = srcPositions-posWin;
   indicesAll = reshape(bsxfun(@plus, startAttnIds(:), 0:(numPositions-1)), 1, []); 
   
   % check those that are out of boundaries
-  excludeIds = find(indicesAll>numSrcHidVecs | indicesAll<1);
+  excludeIds = find(indicesAll>numSrcHidVecs | indicesAll<(srcMaxLen-srcLens+1));
   if ~isempty(excludeIds)
     indicesAll(excludeIds) = []; unmaskedIds(excludeIds) = []; indicesSub(excludeIds) = [];
   end
