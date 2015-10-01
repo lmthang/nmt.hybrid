@@ -146,7 +146,7 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
         
         % h_t -> softmax_h
         if tt==srcMaxLen && ll==models{mm}.params.numLayers
-          modelData{mm}.posMask = curMask;
+          modelData{mm}.curMask = curMask;
           if models{mm}.params.attnFunc
             [softmax_h{mm}, h2sInfo] = attnLayerForward(h_t, models{mm}.params, models{mm}, modelData{mm}, tgtPos); 
           else
@@ -372,7 +372,7 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
 
         % h_t -> softmax_h
         if ll==models{mm}.params.numLayers
-          modelData{mm}.posMask = curMask;
+          modelData{mm}.curMask = curMask;
 
           if params.attnFunc
             [softmax_h{mm}, h2sInfo] = attnLayerForward(h_t, models{mm}.params, models{mm}, modelData{mm}, tgtPos); 

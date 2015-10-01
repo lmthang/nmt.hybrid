@@ -156,7 +156,7 @@ def load_vocab_from_corpus(in_file, freq, max_vocab_size, unk='<unk>'):
       sys.stderr.write(' (%d) ' % num_lines)
   f.close()
   sys.stderr.write('\n  vocab_size=%d, num_train_words=%d, num_lines=%d\n' % (vocab_size, num_train_words, num_lines))
-  
+ 
   if freq>0 or max_vocab_size>0:
     (words, vocab_map, freq_map, vocab_size) = update_vocab(words, vocab_map, freq_map, freq, max_vocab_size, unk=unk)
   return (words, vocab_map, freq_map, vocab_size, num_train_words)
@@ -166,7 +166,8 @@ def update_vocab(words, vocab_map, freq_map, freq, max_vocab_size, sos='<s>', eo
   Filter out rare words (<freq) or keep the top vocab_size frequent words
   """
  
-  new_words = [unk, sos, eos]
+  special_words = [unk, sos, eos]
+  new_words = special_words
   new_vocab_map = {unk:0, sos:1, eos:2}
   vocab_size = 3
   if unk in words: # already have unk token
@@ -174,11 +175,11 @@ def update_vocab(words, vocab_map, freq_map, freq, max_vocab_size, sos='<s>', eo
     del freq_map[unk]
     words.remove(unk)
   else:
-    new_words = [unk, sos, eos]
     new_freq_map = {unk:0, sos:0, eos:0}
+
   if freq>0:
     for word in words:
-      if freq_map[word] < freq: # rare
+      if freq_map[word] < freq and word not in special_words: # rare
         new_freq_map[unk] += freq_map[word]
       else:
         new_words.append(word)

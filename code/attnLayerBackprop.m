@@ -26,7 +26,7 @@ function [grad_ht, attnGrad, grad_srcHidVecs] = attnLayerBackprop(model, grad_so
 
   % grad_contextVecs -> grad_srcHidVecs, grad_alignWeights
   grad_contextVecs = grad_input(1:params.lstmSize, :);
-  [grad_alignWeights, grad_srcHidVecs] = contextLayerBackprop(grad_contextVecs, h2sInfo.alignWeights, srcHidVecs, h2sInfo.posMask.unmaskedIds, params);
+  [grad_alignWeights, grad_srcHidVecs] = contextLayerBackprop(grad_contextVecs, h2sInfo.alignWeights, srcHidVecs, curMask.unmaskedIds, params);
 
   % grad_alignWeights -> grad_distWeights, grad_preAlignWeights
   if params.predictPos

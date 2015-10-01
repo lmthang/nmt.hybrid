@@ -130,7 +130,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       %% Loss
       if tt>=srcMaxLen && ll==params.numLayers % decoding phase, tgtPos>=1
         %% predicting positions
-        trainData.posMask = curMask;
+        trainData.curMask = curMask;
         
         %% predicting words
         % h_t -> softmax_h
@@ -185,7 +185,6 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   if isTest==1 % don't compute grad
     return;
   end
-  trainData = rmfield(trainData, 'posMask');
   
   %%%%%%%%%%%%%%%%%%%%%
   %%% BACKWARD PASS %%%
