@@ -1,4 +1,4 @@
-function [result] = randomMatrix(rangeSize, size, isGPU, type)
+function [result] = initMatrixRange(rangeSize, size, isGPU, type)
 %%%
 %
 % Initialize random matrix.

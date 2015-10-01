@@ -121,6 +121,7 @@ Here, we also use source reversing 'isReverse' and the input feeding approach 'f
 'isResume' is set to 0 to avoid loading existing models (done by default), so that you can try different attention architectures.
 
 * More grad checks:
-/scripts/run_grad_checks.sh > output/grad_checks.txt 2>&1
-Then compare with the provided data/grad_checks.txt
+./scripts/run_grad_checks.sh > output/grad_checks.txt 2>&1
+Then compare with the provided grad check outputs data/grad_checks.txt. They
+should look similar.
 

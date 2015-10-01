@@ -130,7 +130,7 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
         c_t_1(:, maskedIds) = 0;
 
         % lstm cell
-        [lstm{mm}{ll}, h_t, c_t] = lstmUnit(W{mm}{ll}, x_t, h_t_1, c_t_1, ll, tt, srcMaxLen, models{mm}.params, 1);
+        [lstm{mm}{ll}, h_t, c_t] = lstmLayerForward(W{mm}{ll}, x_t, h_t_1, c_t_1, ll, tt, srcMaxLen, models{mm}.params, 1);
         lstm{mm}{ll}.h_t = h_t;
         lstm{mm}{ll}.c_t = c_t;
 
@@ -366,7 +366,7 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
         h_t_1 = beamStates{mm}{ll}.h_t;
         c_t_1 = beamStates{mm}{ll}.c_t;
 
-        [beamStates{mm}{ll}, h_t, c_t] = lstmUnit(W{mm}, x_t, h_t_1, c_t_1, ll, srcMaxLen+sentPos, srcMaxLen, models{mm}.params, 1);
+        [beamStates{mm}{ll}, h_t, c_t] = lstmLayerForward(W{mm}, x_t, h_t_1, c_t_1, ll, srcMaxLen+sentPos, srcMaxLen, models{mm}.params, 1);
         beamStates{mm}{ll}.h_t = h_t;
         beamStates{mm}{ll}.c_t = c_t;
 

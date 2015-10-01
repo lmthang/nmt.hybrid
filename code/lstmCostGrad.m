@@ -121,7 +121,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       c_t_1(:, curMask.maskedIds) = 0;
       
       %% Core LSTM: input -> h_t
-      [lstms{ll, tt}, h_t{ll}, all_c_t{ll, tt}] = lstmUnit(W, x_t, h_t_1, c_t_1, ll, tt, srcMaxLen, params, isTest); 
+      [lstms{ll, tt}, h_t{ll}, all_c_t{ll, tt}] = lstmLayerForward(W, x_t, h_t_1, c_t_1, ll, tt, srcMaxLen, params, isTest); 
       % assert
       if params.assert
         assert(computeSum(h_t{ll}(:, curMask.maskedIds), params.isGPU)==0);
@@ -276,7 +276,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       c_t = all_c_t{ll, tt};
       lstm = lstms{ll, tt};
       
-      [lstm_grad] = lstmUnitGrad(W, lstm, c_t, c_t_1, dc{ll}, dh{ll}, ll, tt, srcMaxLen, zeroState, maskedIds, params);
+      [lstm_grad] = lstmLayerBackward(W, lstm, c_t, c_t_1, dc{ll}, dh{ll}, ll, tt, srcMaxLen, zeroState, maskedIds, params);
       dc{ll} = lstm_grad.dc;
       
       % assert

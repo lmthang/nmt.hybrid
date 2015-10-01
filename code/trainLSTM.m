@@ -338,52 +338,52 @@ function [model] = initLSTM(params)
   if params.isBi
     model.W_src = cell(params.numLayers, 1);    
     for ll=1:params.numLayers
-      model.W_src{ll} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
+      model.W_src{ll} = initMatrixRange(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
     end
   end
   
   % W_tgt
   model.W_tgt = cell(params.numLayers, 1);
   for ll=1:params.numLayers
-    model.W_tgt{ll} = randomMatrix(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
+    model.W_tgt{ll} = initMatrixRange(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
   end
   if params.feedInput % feed in src hidden states to the tgt
-    model.W_tgt{1} = randomMatrix(params.initRange, [4*params.lstmSize, 3*params.lstmSize], params.isGPU, params.dataType);
+    model.W_tgt{1} = initMatrixRange(params.initRange, [4*params.lstmSize, 3*params.lstmSize], params.isGPU, params.dataType);
   end
   
   % W_emb
   if params.isBi
-    model.W_emb_src = randomMatrix(params.initRange, [params.lstmSize, params.srcVocabSize], params.isGPU, params.dataType);
+    model.W_emb_src = initMatrixRange(params.initRange, [params.lstmSize, params.srcVocabSize], params.isGPU, params.dataType);
   end
-  model.W_emb_tgt = randomMatrix(params.initRange, [params.lstmSize, params.tgtVocabSize], params.isGPU, params.dataType);
+  model.W_emb_tgt = initMatrixRange(params.initRange, [params.lstmSize, params.tgtVocabSize], params.isGPU, params.dataType);
   
   %% h_t -> softmax input
   if params.attnFunc>0 % attention mechanism
     % predict positions
     if params.predictPos
       % transform h_t into h_pos = f(W_pos*h_t)
-      model.W_pos = randomMatrix(params.initRange, [params.softmaxSize, params.lstmSize], params.isGPU, params.dataType);
+      model.W_pos = initMatrixRange(params.initRange, [params.softmaxSize, params.lstmSize], params.isGPU, params.dataType);
       
       % regression, scale=sigmoid(v_pos*h_pos)
-      model.v_pos = randomMatrix(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
+      model.v_pos = initMatrixRange(params.initRange, [1, params.softmaxSize], params.isGPU, params.dataType);
     end
     
     % predict alignment weights
     % content-based alignments
     if params.attnOpt==1 % dot product, nothing to do here, softmax(H_src*h_t))
     elseif params.attnOpt==2 % general dot product: softmax(H_src*W_a*h_t))
-      model.W_a = randomMatrix(params.initRange, [params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
+      model.W_a = initMatrixRange(params.initRange, [params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
     elseif params.attnOpt==3 % similar to Bengio's style, plus: softmax(v_a*f(H_src + W_a*h_t))
-      model.W_a = randomMatrix(params.initRange, [params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
-      model.v_a = randomMatrix(params.initRange, [1, params.lstmSize], params.isGPU, params.dataType);
+      model.W_a = initMatrixRange(params.initRange, [params.lstmSize, params.lstmSize], params.isGPU, params.dataType);
+      model.v_a = initMatrixRange(params.initRange, [1, params.lstmSize], params.isGPU, params.dataType);
     end
     
     % attn_t = H_src * a_t % h_attn_t = f(W_h * [attn_t; h_t])
-    model.W_h = randomMatrix(params.initRange, [params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
+    model.W_h = initMatrixRange(params.initRange, [params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
   end
   
   %% softmax input -> predictions
-  model.W_soft = randomMatrix(params.initRange, [params.tgtVocabSize, params.softmaxSize], params.isGPU, params.dataType);
+  model.W_soft = initMatrixRange(params.initRange, [params.tgtVocabSize, params.softmaxSize], params.isGPU, params.dataType);
 end
 
 %% Things to do after each training iteration %%
