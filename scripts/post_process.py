@@ -71,31 +71,24 @@ def load_dict(dict_file):
   return dict_map
 
 def nist_bleu(script_dir, trans_file, src_sgm, tgt_sgm, lang):
-  sys.stderr.write('# NIST BLEU:\n')
-
   detok_trans_file = trans_file + '.detok'
-  cmd = 'perl %s/detokenizer.pl -l %s < %s > %s' % (script_dir, lang, trans_file, detok_trans_file)
-  sys.stderr.write('  %s\n' % cmd)
+
+  tok_lang = lang
+  if tok_lang == 'german': # adhoc for IWSLT
+    tok_lang = 'de'
+  cmd = 'perl %s/wmt/detokenizer.pl -l %s < %s > %s' % (script_dir, lang, trans_file, detok_trans_file)
   os.system(cmd)
   trans_file = detok_trans_file
   
-  norm_trans_file = trans_file + '.norm'
-  cmd = 'perl %s/normalize-punctuation.perl %s < %s > %s' % (script_dir, lang, trans_file, norm_trans_file)
-  sys.stderr.write('  %s\n' % cmd)
-  os.system(cmd)
-  trans_file = norm_trans_file
-  
   trans_sgm = trans_file + '.sgm'
-  cmd = '%s/wrap-xml.perl %s %s ours < %s > %s' % (script_dir, lang, src_sgm, trans_file, trans_sgm)
-  sys.stderr.write('  %s\n' % cmd)
+  cmd = '%s/wmt/wrap-xml.perl %s %s ours < %s > %s' % (script_dir, lang, src_sgm, trans_file, trans_sgm)
   os.system(cmd)
 
-  cmd = 'perl %s/mteval-v13a.pl -r %s -s %s -t %s -c' % (script_dir, tgt_sgm, src_sgm, trans_sgm)
-  sys.stderr.write('  %s\n' % cmd)
+  cmd = 'perl %s/wmt/mteval-v13a.pl -d 0 -r %s -s %s -t %s -c' % (script_dir, tgt_sgm, src_sgm, trans_sgm)
   os.system(cmd)
 
 def bleu(script_dir, trans_file, ref_file):
-  cmd = script_dir + '/multi-bleu.perl ' + ref_file + ' < ' + trans_file
+  cmd = script_dir + '/wmt/multi-bleu.perl ' + ref_file + ' < ' + trans_file
   sys.stderr.write('# BLEU: %s\n' % cmd)
   os.system(cmd)
 
@@ -219,15 +212,13 @@ def process_files(align_file, src_file, tgt_file, ref_file, dict_file, out_file,
 
   # evaluating 
   if is_ref:
-    script_dir = os.path.dirname(sys.argv[0]) + '/wmt'
+    script_dir = os.path.dirname(sys.argv[0])
     bleu(script_dir, new_tgt_file, ref_file)
-    if src_sgm != '' and tgt_sgm != '' and lang != '': # compute NIST BLEU score
-      nist_bleu(script_dir, new_tgt_file, src_sgm, tgt_sgm, lang)
-    
+   
     if is_align:
       bleu(script_dir, out_file, ref_file)
       if src_sgm != '' and tgt_sgm != '' and lang != '': # compute NIST BLEU score
-        nist_bleu(script_dir, new_tgt_file, src_sgm, tgt_sgm, lang)
+        nist_bleu(script_dir, out_file, src_sgm, tgt_sgm, lang)
 
 
 if __name__ == '__main__':

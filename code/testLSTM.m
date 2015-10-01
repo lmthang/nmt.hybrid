@@ -70,6 +70,7 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
     models{mm}.params = savedData.params;  
     
     % for backward compatibility  
+    % TODO: remove
     fieldNames = {'attnGlobal', 'attnOpt', 'predictPos', 'feedInput'};
     for ii=1:length(fieldNames)
       field = fieldNames{ii};
@@ -77,9 +78,12 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
         models{mm}.params.(field) = 0;
       end
     end
+    if isfield(models{mm}.params, 'softmaxFeedInput')
+      models{mm}.params.feedInput = models{mm}.params.softmaxFeedInput;
+    end
 
-    %% TODO: remove
     % convert absolute paths to local paths
+    % TODO: remove
     fieldNames = fields(models{mm}.params);
     for ii=1:length(fieldNames)
       field = fieldNames{ii};
