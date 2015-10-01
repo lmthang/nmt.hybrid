@@ -7,6 +7,7 @@ function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, 
 %
 %%%
   h2sInfo = [];
+  curMask = trainData.curMask;
   if params.attnGlobal % global
     srcHidVecs = trainData.absSrcHidVecs;
     h2sInfo.srcMaskedIds = trainData.srcMaskedIds;
@@ -25,7 +26,7 @@ function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, 
     if params.assert
       assert(isempty(find(srcPositions<1,1)));
       assert(isempty(find(trainData.tgtLens<=1,1)));
-      assert(isempty(find(srcPositions(trainData.posMask.unmaskedIds)>(trainData.srcLens(trainData.posMask.unmaskedIds)-1),1)));
+      assert(isempty(find(srcPositions(curMask.unmaskedIds)>(trainData.srcLens(curMask.unmaskedIds)-1),1)));
     end
       
     % reverse
@@ -34,12 +35,10 @@ function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, 
     end
 
     % build context vectors
-    [srcHidVecs, h2sInfo] = buildSrcVecs(trainData.srcHidVecs, srcPositions, trainData.posMask, params, h2sInfo);
+    [srcHidVecs, h2sInfo] = buildSrcVecs(trainData.srcHidVecs, srcPositions, curMask, params, h2sInfo);
 
     h2sInfo.srcMaskedIds = find(h2sInfo.alignMask==0);
   end % end else if attnGlobal
-
-  h2sInfo.posMask = trainData.posMask;
   
   % compute alignScores: numAttnPositions * curBatchSize
   % TODO: precompute for attnOpt2 and attnOpt3 (we can premultiply srcHidVecs with W_a (attnOpt2) or W_a_src (attnOpt3)
@@ -74,9 +73,9 @@ function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, 
     assert(computeSum(h2sInfo.alignWeights(h2sInfo.srcMaskedIds), params.isGPU)==0);
   end
   
-  h2sInfo.alignWeights(:, trainData.posMask.maskedIds) = 0;
+  h2sInfo.alignWeights(:, curMask.maskedIds) = 0;
   % alignWeights, srcHidVecs -> contextVecs
-  [contextVecs] = contextLayerForward(h2sInfo.alignWeights, srcHidVecs, trainData.posMask.unmaskedIds, params);
+  [contextVecs] = contextLayerForward(h2sInfo.alignWeights, srcHidVecs, curMask.unmaskedIds, params);
 
   % f(W_h*[context_t; h_t])
   h2sInfo.input = [contextVecs; h_t];

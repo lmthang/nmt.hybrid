@@ -2,10 +2,9 @@
 # Author: Thang Luong <luong.m.thang@gmail.com>, created on Mon Oct 13 01:22:15 PDT 2014
 
 """
-Module docstrings.
 """
 
-usage = 'USAGE DESCRIPTION.' 
+usage = 'Convert from text to integer format.' 
 
 ### Module imports ###
 import sys

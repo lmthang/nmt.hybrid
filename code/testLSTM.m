@@ -27,7 +27,7 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   addRequired(p,'outputFile',@ischar);
 
   % optional
-  addOptional(p,'gpuDevice', 1, @isnumeric); % choose the gpuDevice to use. 
+  addOptional(p,'gpuDevice', 0, @isnumeric); % choose the gpuDevice to use: 0 -- no GPU 
   addOptional(p,'align', 0, @isnumeric); % 1 -- output aignment from attention model
   addOptional(p,'assert', 0, @isnumeric); % 1 -- assert
   addOptional(p,'debug', 0, @isnumeric); % 1 -- debug
@@ -44,7 +44,7 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   
   % GPU settings
   decodeParams.isGPU = 0;
-  if ismac==0
+  if decodeParams.gpuDevice
     n = gpuDeviceCount;  
     if n>0 % GPU exists
       fprintf(2, '# %d GPUs exist. So, we will use GPUs.\n', n);
