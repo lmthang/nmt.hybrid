@@ -35,6 +35,13 @@ code/           - main Matlab code
 data/           - toy data
 scripts/        - utility scripts
 
+The code directory further divides into sub-directories:
+  basic/: define basic functions like sigmoid, prime. It also has an efficient way to aggreate embeddings.
+  layers/: we define various layers like attention, LSTM, etc.
+  misc/: things that we haven't categorized yet.
+  preprocess/: deal with data.
+  print/: print results, logs for debugging purposes.
+
 /*************/
 /** Example **/
 /*************/
@@ -70,7 +77,8 @@ which tells us additional information such as the current test perplexity, 34.40
 
 * Decode
 testLSTM('../output/basic/modelRecent.mat', 2, 10, 1, '../output/basic/translations.txt')
-Decode with beamSize 2, collect maximum 10 translations, batchSize 1. See testLSTM.m for more.
+Decode with beamSize 2, collect maximum 10 translations, batchSize 1. 
+Note that the testLSTM implicitly decodes the test file specified during training. To specifiy a different test file, use 'testPrefix', see testLSTM.m for more.
 
 Syntax:
 testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,varargin)
@@ -125,3 +133,4 @@ Here, we also use source reversing 'isReverse' and the input feeding approach 'f
 Then compare with the provided grad check outputs data/grad_checks.txt. They
 should look similar.
 
+Note: many different configurations will be run with the run_grad_checks.sh script. For many configuration, we set the 'initRange' to a large value 10, so you will notice the total gradient differences are large. This is to debug subtle mistakes; and if the total diff < 10, you can mostly be assured. We do note that with attnFunc=4, attnOpt=1, the diff is quite large; this is something to be checked though the model seems to work in practice.
