@@ -52,9 +52,10 @@ Here, we convert train/valid/test files in text format into integer format that 
 run_prepare_data.sh <trainFile> <validFile> <testFile> <vocabSize> <outDir>
 
 * Train a bilingual, encoder-decoder model
-Go into the code/ directory and run:
+In Matlab, go into the code/ directory and run:
 trainLSTM('../output/id.1000/train.10k', '../output/id.1000/valid.100', '../output/id.1000/test.100', 'de', 'en', '../output/id.1000/train.10k.de.vocab.1000', '../output/id.1000/train.10k.en.vocab.1000', '../output/basic')
 This trains a very basic model with all the default settings. See trainLSTM.m for more.
+(If you want to run directly from your terminal, checkout scripts/train.sh)
 
 The syntax is:
 trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFile,tgtVocabFile,outDir,varargin)
@@ -79,6 +80,7 @@ which tells us additional information such as the current test perplexity, 34.40
 testLSTM('../output/basic/modelRecent.mat', 2, 10, 1, '../output/basic/translations.txt')
 Decode with beamSize 2, collect maximum 10 translations, batchSize 1. 
 Note that the testLSTM implicitly decodes the test file specified during training. To specifiy a different test file, use 'testPrefix', see testLSTM.m for more.
+(If you want to run directly from your terminal, checkout scripts/test.sh)
 
 Syntax:
 testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,varargin)
