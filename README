@@ -8,17 +8,12 @@ Features:
 (c) Beam-search decoder: can decode multiple models.
 (d) Other features: dropout, train monolingual language models.
 
-If you make use of this code in your research, please cite our paper:
+If you make use of this code in your research, please cite our paper
 @InProceedings{luong-pham-manning:2015:EMNLP,
   author    = {Luong, Minh-Thang  and  Pham, Hieu  and  Manning, Christopher D.},
   title     = {Effective Approaches to Attention-based Neural Machine Translation},
   booktitle = {Proceedings of the 2015 Conference on Empirical Methods in Natural Language Processing},
-  month     = {September},
   year      = {2015},
-  address   = {Lisbon, Portugal},
-  publisher = {Association for Computational Linguistics},
-  pages     = {1412--1421},
-  url       = {http://aclweb.org/anthology/D15-1166}
 }
 
 Thang Luong <lmthang@stanford.edu>, 2014, 2015
