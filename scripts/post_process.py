@@ -113,8 +113,10 @@ def process_files(align_file, src_file, tgt_file, ref_file, dict_file, out_file,
     is_ref = 1
 
   # load dict
+  is_dict = 0
   if dict_file != '':
     dict_map = load_dict(dict_file)
+    is_dict = 1
 
   # out_file
   if out_file == '':
@@ -154,7 +156,7 @@ def process_files(align_file, src_file, tgt_file, ref_file, dict_file, out_file,
       new_tgt_tokens = []
       for tgt_pos in xrange(len(tgt_tokens)):
         tgt_token = tgt_tokens[tgt_pos]
-        if tgt_tokens[tgt_pos] == unk:
+        if tgt_tokens[tgt_pos] == unk and is_dict:
           unk_count = unk_count + 1
           if tgt_pos in t2s: # aligned unk
             debug_count = debug_count + 1
