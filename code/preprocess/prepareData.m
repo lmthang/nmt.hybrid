@@ -1,14 +1,13 @@
-%% Prepare data
-%
-%  Thang Luong @ 2014, 2015, <lmthang@stanford.edu>
-%
-%  organize data into matrix format and produce masks, add tgtVocabSize to srcSents:
+function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
+%  Organize data into matrix format and produce masks, add tgtVocabSize to srcSents:
 %   input:      numSents * (srcMaxLen+tgtMaxLen-1)
 %   tgtOutput: numSents * tgtMaxLen
 %   tgtMask  : numSents * tgtMaxLen, indicate where to ignore in the tgtOutput
 %  For the monolingual case, each src sent contains a single simple tgtSos,
 %   hence srcMaxLen = 1
-function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
+%
+%  Thang Luong @ 2014, 2015, <lmthang@stanford.edu>
+
   % sent lens
   if length(varargin)==2
     srcLens = varargin{1};
