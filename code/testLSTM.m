@@ -12,9 +12,7 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
 %
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 % Hieu Pham @ 2015, <hyhieu@cs.stanford.edu>
-%
-%%%
-%   addpath(genpath(sprintf('%s/../../matlab', pwd)));
+
   addpath(genpath(sprintf('%s/..', pwd)));
 
   %% Argument Parser
@@ -34,6 +32,7 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   addOptional(p,'minLenRatio', 0.5, @isnumeric); % decodeLen >= minLenRatio * srcMaxLen
   addOptional(p,'maxLenRatio', 1.5, @isnumeric); % decodeLen <= maxLenRatio * srcMaxLen
   addOptional(p,'testPrefix', '', @ischar); % to specify a different file for decoding
+  addOptional(p,'hasTgt', 1, @isnumeric); % 0 -- no ref translations (groundtruth)
 
   p.KeepUnmatched = true;
   parse(p,modelFiles,beamSize,stackSize,batchSize,outputFile,varargin{:})
@@ -98,23 +97,6 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
 %        end    
 %      end
 %    end
-
-    % convert local paths to absolute paths
-    fieldNames = fields(models{mm}.params);
-    for ii=1:length(fieldNames)
-      field = fieldNames{ii};
-      if ischar(models{mm}.params.(field))
-        if strfind(models{mm}.params.(field), '~lmthang/') ==1
-          models{mm}.params.(field) = strrep(models{mm}.params.(field), '~lmthang/', '/afs/ir/users/l/m/lmthang/');
-        end
-        if strfind(models{mm}.params.(field), '~lmthang/') ==1
-          models{mm}.params.(field) = strrep(models{mm}.params.(field), '~lmthang/', '/afs/cs.stanford.edu/u/lmthang/');
-        end
-        if strfind(models{mm}.params.(field), '~lmthang/') ==1
-          models{mm}.params.(field) = strrep(models{mm}.params.(field), '~lmthang/', '/home/lmthang/');
-        end    
-      end
-    end
    
     % load vocabs
     [models{mm}.params] = prepareVocabs(models{mm}.params);
@@ -152,12 +134,8 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   end
   printParams(2, params);
   
-  % load test data
-  %% TODO: remove
-  if strfind(params.testPrefix, '~lmthang') == 1
-    params.testPrefix = strrep(params.testPrefix, '~lmthang', '/afs/cs.stanford.edu/u/lmthang');
-  end
-  [srcSents, tgtSents, numSents]  = loadBiData(params, params.testPrefix, params.srcVocab, params.tgtVocab);
+  % load test data  
+  [srcSents, tgtSents, numSents]  = loadBiData(params, params.testPrefix, params.srcVocab, params.tgtVocab, -1, params.hasTgt);
   
   %%%%%%%%%%%%
   %% decode %%
@@ -205,3 +183,28 @@ end
 %     if ~isfield(models{mm}, 'W_h')
 %       models{mm}.W_h = models{mm}.W_ah;
 %     end
+
+%     % convert local paths to absolute paths
+%     fieldNames = fields(models{mm}.params);
+%     for ii=1:length(fieldNames)
+%       field = fieldNames{ii};
+%       if ischar(models{mm}.params.(field))
+%         if strfind(models{mm}.params.(field), '~lmthang/') ==1
+%           models{mm}.params.(field) = strrep(models{mm}.params.(field), '~lmthang/', '/afs/ir/users/l/m/lmthang/');
+%         end
+%         if strfind(models{mm}.params.(field), '~lmthang/') ==1
+%           models{mm}.params.(field) = strrep(models{mm}.params.(field), '~lmthang/', '/afs/cs.stanford.edu/u/lmthang/');
+%         end
+%         if strfind(models{mm}.params.(field), '~lmthang/') ==1
+%           models{mm}.params.(field) = strrep(models{mm}.params.(field), '~lmthang/', '/home/lmthang/');
+%         end    
+%       end
+%     end
+
+
+%   addpath(genpath(sprintf('%s/../../matlab', pwd)));
+%   %% TODO: remove
+%   if strfind(params.testPrefix, '~lmthang') == 1
+%     params.testPrefix = strrep(params.testPrefix, '~lmthang', '/afs/cs.stanford.edu/u/lmthang');
+%   end
+
