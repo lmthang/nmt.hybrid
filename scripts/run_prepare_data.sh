@@ -1,10 +1,10 @@
 #!/bin/bash
 # Author: Minh-Thang Luong <luong.m.thang@gmail.com>, created on Fri Nov 14 13:32:54 PST 2014
 
-if [[ ! $# -eq 6 && ! $# -eq 7 ]];
+if [[ $# -lt 5 || $# -gt 7 ]];
 then
   echo "`basename $0` trainFile validFile testFile vocabSize outDir [vocabFile] [freq]" 
-  exit
+  exit 1
 fi
 
 trainFile=$1
