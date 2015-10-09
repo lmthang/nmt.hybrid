@@ -143,8 +143,8 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
           modelData{mm}.srcHidVecsOrig(:, :, tt) = h_t;
 
           % done generating all srcHidVecs, collect
-          if tt==models{mm}.params.numSrcHidVecs
-            [modelData{mm}] = updateDataSrcVecs(modelData{mm}, models{mm}.params);
+          if tt==models{mm}.params.numSrcHidVecs && models{mm}.params.attnGlobal == 0 % local
+            modelData{mm}.srcHidVecs = modelData{mm}.srcHidVecsOrig;
           end
         end
         
@@ -302,7 +302,7 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
       
       % duplicate srcHidVecs
       if models{mm}.params.attnGlobal % soft, global
-        modelData{mm}.absSrcHidVecs = duplicateSrcHidVecs(modelData{mm}.absSrcHidVecs, batchSize, beamSize);
+        modelData{mm}.srcHidVecsOrig = duplicateSrcHidVecs(modelData{mm}.srcHidVecsOrig, batchSize, beamSize);
 
         if models{mm}.params.attnOpt==1 || models{mm}.params.attnOpt==2
            % alignMask: batchSize * numSrcHidVecs

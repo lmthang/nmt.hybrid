@@ -48,8 +48,8 @@ run_prepare_data.sh <trainFile> <validFile> <testFile> <vocabSize> <outDir>
 
 * Train a bilingual, encoder-decoder model
 In Matlab, go into the code/ directory and run:
-trainLSTM('../output/id.1000/train.10k', '../output/id.1000/valid.100', '../output/id.1000/test.100', 'de', 'en', '../output/id.1000/train.10k.de.vocab.1000', '../output/id.1000/train.10k.en.vocab.1000', '../output/basic')
-This trains a very basic model with all the default settings. See trainLSTM.m for more.
+trainLSTM('../output/id.1000/train.10k', '../output/id.1000/valid.100', '../output/id.1000/test.100', 'de', 'en', '../output/id.1000/train.10k.de.vocab.1000', '../output/id.1000/train.10k.en.vocab.1000', '../output/basic', 'isResume', 0)
+This trains a very basic model with all the default settings. We set 'isResume' to 0 so that it will train a new model each time you run the command instead of loading existing models. See trainLSTM.m for more.
 (To run directly from your terminal, checkout scripts/train.sh)
 
 The syntax is:
@@ -99,18 +99,18 @@ trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1)
 /** Advanced Examples **/
 /***********************/
 * Profiling
-trainLSTM('../output/id.1000/train.10k', '../output/id.1000/valid.100', '../output/id.1000/test.100', 'de', 'en', '../output/id.1000/train.10k.de.vocab.1000', '../output/id.1000/train.10k.en.vocab.1000', '../output/basic', 'isProfile', 1)
+trainLSTM('../output/id.1000/train.10k', '../output/id.1000/valid.100', '../output/id.1000/test.100', 'de', 'en', '../output/id.1000/train.10k.de.vocab.1000', '../output/id.1000/train.10k.en.vocab.1000', '../output/basic', 'isProfile', 1, 'isResume', 0)
 
 * Train a monolingual language model
-trainLSTM('../output/id.1000/train.10k', '../output/id.1000/valid.100','../output/id.1000/test.100', '', 'en', '','../output/id.1000/train.10k.en.vocab.1000', '../output/mono', 'isBi', 0)
+trainLSTM('../output/id.1000/train.10k', '../output/id.1000/valid.100','../output/id.1000/test.100', '', 'en', '','../output/id.1000/train.10k.en.vocab.1000', '../output/mono', 'isBi', 0, 'isResume', 0)
 
 * Train multi-layer model with dropout
-trainLSTM('../output/id.1000/train.10k', '../output/id.1000/valid.100', '../output/id.1000/test.100', 'de', 'en', '../output/id.1000/train.10k.de.vocab.1000', '../output/id.1000/train.10k.en.vocab.1000', '../output/advanced', 'numLayers', 2, 'lstmSize', 100, 'dropout', 0.8)
+trainLSTM('../output/id.1000/train.10k', '../output/id.1000/valid.100', '../output/id.1000/test.100', 'de', 'en', '../output/id.1000/train.10k.de.vocab.1000', '../output/id.1000/train.10k.en.vocab.1000', '../output/advanced', 'numLayers', 2, 'lstmSize', 100, 'dropout', 0.8, 'isResume', 0)
 
 We train a 2 stacking LSTM layers with 100 LSTM cells and 100-dim embeddings. Here, 0.8 means the dropout "keep" probability.
 
 * More control of hyperparameters
-trainLSTM('../output/id.1000/train.10k', '../output/id.1000/valid.100', '../output/id.1000/test.100', 'de', 'en', '../output/id.1000/train.10k.de.vocab.1000', '../output/id.1000/train.10k.en.vocab.1000', '../output/hypers', 'learningRate', 1.0, 'maxGradNorm', 5, 'initRange', 0.1, 'batchSize', 128, 'numEpoches', 10, 'finetuneEpoch', 5)
+trainLSTM('../output/id.1000/train.10k', '../output/id.1000/valid.100', '../output/id.1000/test.100', 'de', 'en', '../output/id.1000/train.10k.de.vocab.1000', '../output/id.1000/train.10k.en.vocab.1000', '../output/hypers', 'learningRate', 1.0, 'maxGradNorm', 5, 'initRange', 0.1, 'batchSize', 128, 'numEpoches', 10, 'finetuneEpoch', 5, 'isResume', 0)
 
 Apart from "obvious" hyperparameters, we want to scale our gradients whenever its norm averaged by batch size (128) is greater than 5. After training for 5 epochs, we start halving our learning rate each epoch. To have further control of learning rate schedule, see 'epochFraction' and 'finetuneRate' options in trainLSTM.m
 

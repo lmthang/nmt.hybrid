@@ -67,37 +67,7 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
     [savedData] = load(modelFile);
     models{mm} = savedData.model;
     models{mm}.params = savedData.params;  
-    
-    % for backward compatibility  
-    % TODO: remove
-    fieldNames = {'attnGlobal', 'attnOpt', 'predictPos', 'feedInput'};
-    for ii=1:length(fieldNames)
-      field = fieldNames{ii};
-      if ~isfield(models{mm}.params, field)
-        models{mm}.params.(field) = 0;
-      end
-    end
-    if isfield(models{mm}.params, 'softmaxFeedInput')
-      models{mm}.params.feedInput = models{mm}.params.softmaxFeedInput;
-    end
-
-    % convert absolute paths to local paths
-%    fieldNames = fields(models{mm}.params);
-%    for ii=1:length(fieldNames)
-%      field = fieldNames{ii};
-%      if ischar(models{mm}.params.(field))
-%        if strfind(models{mm}.params.(field), '/afs/ir/users/l/m/lmthang') ==1
-%          models{mm}.params.(field) = strrep(models{mm}.params.(field), '/afs/ir/users/l/m/lmthang', '~');
-%        end
-%        if strfind(models{mm}.params.(field), '/afs/cs.stanford.edu/u/lmthang') ==1
-%          models{mm}.params.(field) = strrep(models{mm}.params.(field), '/afs/cs.stanford.edu/u/lmthang', '~');
-%        end
-%        if strfind(models{mm}.params.(field), '/home/lmthang') ==1
-%          models{mm}.params.(field) = strrep(models{mm}.params.(field), '/home/lmthang', '~');
-%        end    
-%      end
-%    end
-   
+       
     % load vocabs
     [models{mm}.params] = prepareVocabs(models{mm}.params);
     
@@ -172,6 +142,35 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   fclose(params.logId);
 end
 
+%     % for backward compatibility  
+%     % TODO: remove
+%     fieldNames = {'attnGlobal', 'attnOpt', 'predictPos', 'feedInput'};
+%     for ii=1:length(fieldNames)
+%       field = fieldNames{ii};
+%       if ~isfield(models{mm}.params, field)
+%         models{mm}.params.(field) = 0;
+%       end
+%     end
+%     if isfield(models{mm}.params, 'softmaxFeedInput')
+%       models{mm}.params.feedInput = models{mm}.params.softmaxFeedInput;
+%     end
+% 
+%     % convert absolute paths to local paths
+%     fieldNames = fields(models{mm}.params);
+%     for ii=1:length(fieldNames)
+%      field = fieldNames{ii};
+%      if ischar(models{mm}.params.(field))
+%        if strfind(models{mm}.params.(field), '/afs/ir/users/l/m/lmthang') ==1
+%          models{mm}.params.(field) = strrep(models{mm}.params.(field), '/afs/ir/users/l/m/lmthang', '~');
+%        end
+%        if strfind(models{mm}.params.(field), '/afs/cs.stanford.edu/u/lmthang') ==1
+%          models{mm}.params.(field) = strrep(models{mm}.params.(field), '/afs/cs.stanford.edu/u/lmthang', '~');
+%        end
+%        if strfind(models{mm}.params.(field), '/home/lmthang') ==1
+%          models{mm}.params.(field) = strrep(models{mm}.params.(field), '/home/lmthang', '~');
+%        end    
+%      end
+%     end
 
 %     if models{mm}.params.attnFunc==1
 %       models{mm}.params.attnGlobal = 1;
@@ -200,11 +199,4 @@ end
 %         end    
 %       end
 %     end
-
-
-%   addpath(genpath(sprintf('%s/../../matlab', pwd)));
-%   %% TODO: remove
-%   if strfind(params.testPrefix, '~lmthang') == 1
-%     params.testPrefix = strrep(params.testPrefix, '~lmthang', '/afs/cs.stanford.edu/u/lmthang');
-%   end
 

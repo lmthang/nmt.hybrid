@@ -9,7 +9,7 @@ function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, 
   h2sInfo = [];
   curMask = trainData.curMask;
   if params.attnGlobal % global
-    srcHidVecs = trainData.absSrcHidVecs;
+    srcHidVecs = trainData.srcHidVecsOrig;
     h2sInfo.srcMaskedIds = trainData.srcMaskedIds;
   else % local
     % positions

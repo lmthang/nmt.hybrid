@@ -10,7 +10,7 @@ function [grad_ht, attnGrad, grad_srcHidVecs] = attnLayerBackprop(model, grad_so
   [grad_input, attnGrad.W_h] = hiddenLayerBackprop(model.W_h, grad_softmax_h, h2sInfo.input, params.nonlinear_f_prime, h2sInfo.softmax_h);
 
   if params.attnGlobal % soft attention
-    srcHidVecs = trainData.absSrcHidVecs;
+    srcHidVecs = trainData.srcHidVecsOrig;
   else % hard attention
     % TODO: if our GPUs have lots of memory, then we don't have to
     % regenerate srcHidVecs again :) Unfortuntely not!

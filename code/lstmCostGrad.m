@@ -13,18 +13,18 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   %%% INIT %%%
   %%%%%%%%%%%%
   tgtMaxLen = trainData.tgtMaxLen;
+  curBatchSize = size(trainData.input, 1);
   if params.isBi
     srcMaxLen = trainData.srcMaxLen;
-    T = srcMaxLen+tgtMaxLen-1;
-    trainData.numInputWords_src = sum(sum(trainData.srcMask(:, 1:end-1)));
-  else
+    trainData.srcTotalWordCount = sum(trainData.srcLens);
+  else % monolingual
     srcMaxLen = 1;
-    T = tgtMaxLen;
   end
+  T = srcMaxLen+tgtMaxLen-1;
+  
   input = trainData.input;
   inputMask = trainData.inputMask;
-  curBatchSize = size(input, 1);
-  trainData.numInputWords_tgt = sum(sum(trainData.tgtMask));
+  trainData.tgtTotalWordCount = sum(trainData.tgtLens);
   
   trainData.isTest = isTest;
   trainData.T = T;
@@ -160,8 +160,8 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       if tt<=params.numSrcHidVecs && ll==params.numLayers && params.attnFunc>0
         trainData.srcHidVecsOrig(:, :, tt) = h_t{ll};
         
-        if tt==params.numSrcHidVecs
-          [trainData] = updateDataSrcVecs(trainData, params);
+        if tt==params.numSrcHidVecs && params.attnGlobal == 0 % local
+          trainData.srcHidVecs = trainData.srcHidVecsOrig;
         end
       end
       
@@ -199,13 +199,13 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
 
   % emb grad
   if params.isBi
-    allEmbGrads_src = zeroMatrix([params.lstmSize, trainData.numInputWords_src], params.isGPU, params.dataType);
-    allEmbIndices_src = zeros(trainData.numInputWords_src, 1);
+    allEmbGrads_src = zeroMatrix([params.lstmSize, trainData.srcTotalWordCount], params.isGPU, params.dataType);
+    allEmbIndices_src = zeros(trainData.srcTotalWordCount, 1);
     wordCount_src = 0;
   end
   % update the decoder
-  allEmbGrads_tgt = zeroMatrix([params.lstmSize, trainData.numInputWords_tgt], params.isGPU, params.dataType);
-  allEmbIndices_tgt = zeros(trainData.numInputWords_tgt, 1);
+  allEmbGrads_tgt = zeroMatrix([params.lstmSize, trainData.tgtTotalWordCount], params.isGPU, params.dataType);
+  allEmbIndices_tgt = zeros(trainData.tgtTotalWordCount, 1);
   wordCount_tgt = 0;
   
   % NOTE: IMPORTANT for tt first, then for ll in other for attn3,4, pos2 models to work
