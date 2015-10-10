@@ -13,8 +13,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
 % With contributions from:
 %   Hieu Pham: beam-search decoder.
 
-
-%   addpath(genpath(sprintf('%s/../../matlab', pwd)));
   addpath(genpath(sprintf('%s/..', pwd)));
   
   %% Argument Parser
@@ -40,6 +38,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'epochFraction', 1.0, @isnumeric);
   addOptional(p,'finetuneEpoch', 5, @isnumeric); % epoch > finetuneEpoch, start halving learning rate every epochFraction of an epoch, e.g., every 0.5 epoch
   addOptional(p,'finetuneRate', 0.5, @isnumeric); % multiply learning rate by this factor each time we finetune
+  
+  % hack
+  addOptional(p,'epochIter', 0, @isnumeric); % if our train file is too large and we want to know the number of iterations in a epoch beforehand
   
   % advanced features
   addOptional(p,'dropout', 1, @isnumeric); % keep prob for dropout, i.e., 1 no dropout, <1: dropout
@@ -179,6 +180,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.modelFile = [outDir '/model.mat']; % store those with the best valid perplexity
   params.modelRecentFile = [outDir '/modelRecent.mat'];
   [model, params] = initLoadModel(params);
+  % for backward compatibility  
+  [params] = backwardCompatible(params, {'epochIter'});
   printParams(1, params);
   printParams(params.logId, params);
   
@@ -431,15 +434,23 @@ function [params, startTime] = postTrainIter(model, costs, gradNorm, trainData, 
   end
 
   % finetuning
-  if params.epoch > params.finetuneEpoch && mod(params.iter, params.finetuneCount)==0
-    fprintf(2, '# Finetuning %f -> %f\n', params.lr, params.lr*params.finetuneRate);
-    fprintf(params.logId, '# Finetuning %f -> %f\n', params.lr, params.lr*params.finetuneRate);
-    params.lr = params.lr*params.finetuneRate;
+  if params.epochIter > 0 % file large, use epochIter
+    if (params.iter / params.epochIter) >= params.finetuneEpoch && mod(params.iter, floor(params.epochIter*params.epochFraction))==0 
+      params = finetune(params);
+    end
+  elseif params.epoch > params.finetuneEpoch && mod(params.iter, params.finetuneCount)==0
+    params = finetune(params);
   end
 
   if params.epoch==1
     params.epochBatchCount = params.epochBatchCount + 1;
   end
+end
+
+function [params] = finetune(params)
+  fprintf(2, '# Finetuning at epoch %d, iter %d, %g -> %g\n', params.epoch, params.iter, params.lr, params.lr*params.finetuneRate);
+  fprintf(params.logId, '# Finetuning at epoch %d, iter %d, %g -> %g\n', params.epoch, params.iter, params.lr, params.lr*params.finetuneRate);
+  params.lr = params.lr*params.finetuneRate;
 end
 
 %% Things to do at the end of each training epoch %%
