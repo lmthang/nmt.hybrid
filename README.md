@@ -1,50 +1,63 @@
+Neural Machine Translation with improved Attention Mechanism
+============================================================
+
 Code to train Neural Machine Translation systems as described in our EMNLP paper
-"Effective Approaches to Attention-based Neural Machine Translation".
-https://aclweb.org/anthology/D/D15/D15-1166.pdf
+<a href="https://aclweb.org/anthology/D/D15/D15-1166.pdf">Effective Approaches
+to Attention-based Neural Machine Translation</a>.
 
-Features:
-(a) Multi-layer bilingual encoder-decoder models: GPU-enabled.
-(b) Attention mechanisms: global and local models.
-(c) Beam-search decoder: can decode multiple models.
-(d) Other features: dropout, train monolingual language models.
 
+## Features:
+- Multi-layer bilingual encoder-decoder models: GPU-enabled.
+- Attention mechanisms: global and local models.
+- Beam-search decoder: can decode multiple models.
+- Other features: dropout, train monolingual language models.
+
+## Citations:
 If you make use of this code in your research, please cite our paper
+```
 @InProceedings{luong-pham-manning:2015:EMNLP,
   author    = {Luong, Minh-Thang  and  Pham, Hieu  and  Manning, Christopher D.},
   title     = {Effective Approaches to Attention-based Neural Machine Translation},
   booktitle = {Proceedings of the 2015 Conference on Empirical Methods in Natural Language Processing},
   year      = {2015},
 }
+```
 
 Thang Luong <lmthang@stanford.edu>, 2014, 2015
 With contributions from:
   Hieu Pham <hyhieu@stanford.edu> -- beam-search decoder.
 
-/***********/
-/** Files **/
-/**********/
-README.TXT      - this file
+## Files
+
+```
+README.md       - this file
 code/           - main Matlab code
   trainLSTM.m: train models
   testLSTM.m: decode models
 data/           - toy data
 scripts/        - utility scripts
+```
 
 The code directory further divides into sub-directories:
+```
   basic/: define basic functions like sigmoid, prime. It also has an efficient way to aggreate embeddings.
   layers/: we define various layers like attention, LSTM, etc.
   misc/: things that we haven't categorized yet.
   preprocess/: deal with data.
   print/: print results, logs for debugging purposes.
+```
 
-/*************/
-/** Example **/
-/*************/
-* Prepare the data
+## Examples
+
+- Prepare the data
+```
 ./scripts/run_prepare_data.sh ./data/train.10k.en ./data/valid.100.en ./data/test.100.en 1000 ./output/id.1000
 ./scripts/run_prepare_data.sh ./data/train.10k.de ./data/valid.100.de ./data/test.100.de 1000 ./output/id.1000
+```
 Here, we convert train/valid/test files in text format into integer format that can be handled efficiently in Matlab. The script syntax is:
+```
 run_prepare_data.sh <trainFile> <validFile> <testFile> <vocabSize> <outDir>
+```
 
 * Train a bilingual, encoder-decoder model
 In Matlab, go into the code/ directory and run:
