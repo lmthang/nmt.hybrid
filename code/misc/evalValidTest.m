@@ -31,6 +31,10 @@ function [params] = evalValidTest(model, validData, testData, params)
     fprintf(2, '  save model test perplexity %.2f to %s\n', params.testPerplexity, params.modelFile);
     fprintf(params.logId, '  save model test perplexity %.2f to %s\n', params.testPerplexity, params.modelFile);
     save(params.modelFile, 'model', 'params');
+    
+    if params.saveHDF
+      saveHDF5([params.modelFile '.h5'], model, params);
+    end
   end
 end
 

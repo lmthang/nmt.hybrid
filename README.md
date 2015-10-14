@@ -11,6 +11,7 @@ to Attention-based Neural Machine Translation</a>.
 - Attention mechanisms: global and local models.
 - Beam-search decoder: can decode multiple models.
 - Other features: dropout, train monolingual language models.
+- End-to-end pipeline: scripts to preprocess, compute evaluation scores.
 
 ## Citations:
 If you make use of this code in your research, please cite our paper

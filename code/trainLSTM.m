@@ -56,6 +56,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'sortBatch', 1, @isnumeric); % 1: each time we read in 100 batches, we sort sentences by length.
   addOptional(p,'shuffle', 1, @isnumeric); % 1: shuffle training batches
   addOptional(p,'loadModel', '', @ischar); % To start training from
+  addOptional(p,'saveHDF', 0, @isnumeric); % 1: to save in HDF5 format
   
   % decoding
   addOptional(p,'decode', 1, @isnumeric); % 1: decode during training
@@ -179,6 +180,17 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.modelFile = [outDir '/model.mat']; % store those with the best valid perplexity
   params.modelRecentFile = [outDir '/modelRecent.mat'];
   [model, params] = initLoadModel(params);
+
+  % backward compatible
+  fieldNames = {'saveHDF'};
+  for ii=1:length(fieldNames)
+    field = fieldNames{ii};
+    if ~isfield(params, field)
+      params.(field) = 0;
+    end
+  end
+
+  % print
   printParams(1, params);
   printParams(params.logId, params);
   
@@ -501,7 +513,10 @@ function [params] = evalSaveDecode(model, validData, testData, params, srcTrainS
   fprintf(2, '  save model cur test perplexity %.2f to %s\n', params.curTestPerpWord, params.modelRecentFile);
   fprintf(params.logId, '  save model cur test perplexity %.2f to %s\n', params.curTestPerpWord, params.modelRecentFile);
   save(params.modelRecentFile, 'model', 'params');
-
+  if params.saveHDF
+    saveHDF5([params.modelRecentFile '.h5'], model, params);
+  end
+  
   % decode
   if params.isBi && params.decode==1
     validId = randi(validData.numSents);
