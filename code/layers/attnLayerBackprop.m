@@ -43,15 +43,15 @@ function [grad_ht, attnGrad, grad_srcHidVecs] = attnLayerBackprop(model, grad_so
   end
   
   % grad_scores -> grad_ht, grad_W_a / grad_srcHidVecs
-  if params.attnOpt==1 || params.attnOpt==2
-    % attnOpt 1: s_t = H_src * h_t
-    % attnOpt 2: s_t = H_src * W_a * h_t
-    [grad_ht, grad_srcHidVecs1] = srcCompareLayerBackprop(grad_scores, h2sInfo, srcHidVecs);
-
+  if params.attnOpt==1
+    % s_t = H_src * h_t
+    [grad_ht, grad_srcHidVecs1] = srcCompareLayerBackprop(grad_scores, h2sInfo.h_t, srcHidVecs);
+  elseif params.attnOpt==2
+    % s_t = H_src * W_a * h_t
+    [grad_ht, grad_srcHidVecs1] = srcCompareLayerBackprop(grad_scores, h2sInfo.transform_ht, srcHidVecs);
+    
     % grad_h_t -> W_a * h_t
-    if params.attnOpt==2
-      [grad_ht, attnGrad.W_a] = linearLayerBackprop(model.W_a, grad_ht, h2sInfo.h_t);
-    end
+    [grad_ht, attnGrad.W_a] = linearLayerBackprop(model.W_a, grad_ht, h2sInfo.h_t);
   elseif params.attnOpt==3 % s_t = softmax(v_a*f(W_a*[H_src; h_t]))
     % h2sInfo.scores = linearLayerForward(model.v_a, h2sInfo.src_ht_hid); % 1 * (curBatchSize * numAttnPositions)
     % first transpose grad_scores to curBatchSize*numPositions, then flatten

@@ -9,11 +9,11 @@ function [grad_mu] = distLayerBackprop(grad_distWeights, h2sInfo, params)
   end
 
   % grad_alignWeights -> grad_mu
-  % grad_d*d*scaleX/(2*distSigma)
+  % grad_d*d*scaleX/distSigma
   if params.isGPU
-    grad_mu = arrayfun(@gradMu, grad_distWeights(h2sInfo.linearIdSub), distWeights(h2sInfo.linearIdSub), h2sInfo.scaleX)/(2*params.distSigma);
+    grad_mu = arrayfun(@gradMu, grad_distWeights(h2sInfo.linearIdSub), distWeights(h2sInfo.linearIdSub), h2sInfo.scaleX)/params.distSigma;
   else
-   grad_mu = grad_distWeights(h2sInfo.linearIdSub).*distWeights(h2sInfo.linearIdSub).*h2sInfo.scaleX/(2*params.distSigma);
+   grad_mu = grad_distWeights(h2sInfo.linearIdSub).*distWeights(h2sInfo.linearIdSub).*h2sInfo.scaleX/params.distSigma;
   end
   
   % accumulate grad_mu
