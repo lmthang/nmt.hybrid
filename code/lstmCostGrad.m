@@ -296,13 +296,13 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       % Later, when we go back one time step, we will accumulate.
       dh{ll} = lstm_grad.input(end-params.lstmSize+1:end, :); 
       if ll==1 % collect embedding grad
-        %% those models that feed additional info into lstm input
-        % same-length decoder
-        if tt>=srcMaxLen
-          if tgtPos<=params.numSrcHidVecs
-            grad.srcHidVecs(:, unmaskedIds, tgtPos) = grad.srcHidVecs(:, unmaskedIds, tgtPos) + lstm_grad.input(params.lstmSize+1:2*params.lstmSize, unmaskedIds);
-          end
-        end
+%         %% those models that feed additional info into lstm input
+%         % same-length decoder
+%         if tt>=srcMaxLen
+%           if tgtPos<=params.numSrcHidVecs
+%             grad.srcHidVecs(:, unmaskedIds, tgtPos) = grad.srcHidVecs(:, unmaskedIds, tgtPos) + lstm_grad.input(params.lstmSize+1:2*params.lstmSize, unmaskedIds);
+%           end
+%         end
 
         % feed softmax vector
         if params.feedInput && tt>srcMaxLen % for tt==srcMaxLen, we feed zero vector
