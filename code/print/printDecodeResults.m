@@ -3,7 +3,7 @@ function printDecodeResults(decodeData, candidates, candScores, alignInfo, param
   startId = decodeData.startId;
   
   % output translations
-  [maxScores, bestIndices] = max(candScores); % stackSize * batchSize
+  [maxScores, bestIndices] = max(candScores, [], 1); % stackSize * batchSize
   for ii = 1:batchSize
     bestId = bestIndices(ii);
     translation = candidates{ii}{bestId}; 

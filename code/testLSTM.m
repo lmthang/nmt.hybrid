@@ -33,6 +33,7 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   addOptional(p,'maxLenRatio', 1.5, @isnumeric); % decodeLen <= maxLenRatio * srcMaxLen
   addOptional(p,'testPrefix', '', @ischar); % to specify a different file for decoding
   addOptional(p,'hasTgt', 1, @isnumeric); % 0 -- no ref translations (groundtruth)
+  addOptional(p,'forceDecoder', 0, @isnumeric); % 1 -- force the output to be equal to ref translations (groundtruth)
 
   p.KeepUnmatched = true;
   parse(p,modelFiles,beamSize,stackSize,batchSize,outputFile,varargin{:})
@@ -67,7 +68,12 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
     [savedData] = load(modelFile);
     models{mm} = savedData.model;
     models{mm}.params = savedData.params;  
-       
+
+    % backward compatible
+    if (isfield(models{mm}.params,'softmaxFeedInput')) && (~isfield(models{mm}.params,'feedInput'))
+      models{mm}.params.feedInput = models{mm}.params.softmaxFeedInput;
+    end
+
     % load vocabs
     [models{mm}.params] = prepareVocabs(models{mm}.params);
     
@@ -96,6 +102,15 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   end
   
   params = models{1}.params;
+  
+  % force decode
+  if decodeParams.forceDecoder==1
+    assert(params.forceDecoder == 1);
+    params.stackSize = 1;
+    params.beamSize = 1;
+    %params.batchSize = 1;
+  end
+  
   params.fid = fopen(params.outputFile, 'w');
   params.logId = fopen([outputFile '.log'], 'w'); 
   % align
@@ -105,6 +120,7 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   printParams(2, params);
   
   % load test data  
+
   [srcSents, tgtSents, numSents]  = loadBiData(params, params.testPrefix, params.srcVocab, params.tgtVocab, -1, params.hasTgt);
   
   %%%%%%%%%%%%
@@ -142,19 +158,6 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   fclose(params.logId);
 end
 
-%     % for backward compatibility  
-%     % TODO: remove
-%     fieldNames = {'attnGlobal', 'attnOpt', 'predictPos', 'feedInput'};
-%     for ii=1:length(fieldNames)
-%       field = fieldNames{ii};
-%       if ~isfield(models{mm}.params, field)
-%         models{mm}.params.(field) = 0;
-%       end
-%     end
-%     if isfield(models{mm}.params, 'softmaxFeedInput')
-%       models{mm}.params.feedInput = models{mm}.params.softmaxFeedInput;
-%     end
-% 
 %     % convert absolute paths to local paths
 %     fieldNames = fields(models{mm}.params);
 %     for ii=1:length(fieldNames)
@@ -170,17 +173,6 @@ end
 %          models{mm}.params.(field) = strrep(models{mm}.params.(field), '/home/lmthang', '~');
 %        end    
 %      end
-%     end
-
-%     if models{mm}.params.attnFunc==1
-%       models{mm}.params.attnGlobal = 1;
-%     end
-%     if ~isfield(models{mm}, 'W_emb_src')
-%       models{mm}.W_emb_src = models{mm}.W_emb(:, models{mm}.params.tgtVocabSize+1:end);
-%       models{mm}.W_emb_tgt = models{mm}.W_emb(:, 1:models{mm}.params.tgtVocabSize);
-%     end
-%     if ~isfield(models{mm}, 'W_h')
-%       models{mm}.W_h = models{mm}.W_ah;
 %     end
 
 %     % convert local paths to absolute paths
