@@ -251,6 +251,7 @@ function [candidates, candScores, alignInfo, otherInfo] = decodeBatch(models, pa
   
   %% first prediction
   numModels = length(models);
+  otherInfo = [];
   % scores, words: beamSize * batchSize
   if params.forceDecoder
     [scores, words, otherData] = nextBeamStep(models, softmax_h, beamSize, data.tgtOutput(:, 1)); 
