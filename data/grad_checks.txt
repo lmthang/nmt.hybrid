@@ -3,10 +3,10 @@ cd /Users/lmthang/nmt.matlab/scripts/../code
 
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1)
 [?1h=
-                                                                                                           < M A T L A B (R) >
-                                                                                                 Copyright 1984-2013 The MathWorks, Inc.
-                                                                                                    R2013a (8.1.0.604) 64-bit (maci64)
-                                                                                                            February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -28,6 +28,7 @@ For product information, visit www.mathworks.com.
 # decode = 1
 # dropout = 1
 # epochFraction = 1
+# epochIter = 0
 # feedInput = 1
 # finetuneEpoch = 5
 # finetuneRate = 0.5
@@ -75,7 +76,7 @@ For product information, visit www.mathworks.com.
 # beamSize = 12
 # stackSize = 100
 # unkPenalty = 0
-# lengthReward = 0
+# forceDecoder = 0
 # isGPU = 0
 # batchId = 1
 # maxRelDist = 2
@@ -220,14 +221,14 @@ For product information, visit www.mathworks.com.
  -0.010593	 -0.010593	diff=5.11469e-08
   local_diff=5.9648e-07
 # Num params=104, abs_diff=9.5194e-06
-Elapsed time is 0.604034 seconds.
+Elapsed time is 0.627800 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2)
 [?1h=
-                                                                                                           < M A T L A B (R) >
-                                                                                                 Copyright 1984-2013 The MathWorks, Inc.
-                                                                                                    R2013a (8.1.0.604) 64-bit (maci64)
-                                                                                                            February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -249,6 +250,7 @@ For product information, visit www.mathworks.com.
 # decode = 1
 # dropout = 1
 # epochFraction = 1
+# epochIter = 0
 # feedInput = 1
 # finetuneEpoch = 5
 # finetuneRate = 0.5
@@ -296,7 +298,7 @@ For product information, visit www.mathworks.com.
 # beamSize = 12
 # stackSize = 100
 # unkPenalty = 0
-# lengthReward = 0
+# forceDecoder = 0
 # isGPU = 0
 # batchId = 1
 # maxRelDist = 2
@@ -509,14 +511,14 @@ For product information, visit www.mathworks.com.
  -0.000024	 -0.000024	diff=3.53022e-11
   local_diff=1.53477e-10
 # Num params=168, abs_diff=2.69951e-07
-Elapsed time is 1.311225 seconds.
+Elapsed time is 1.281250 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8)
 [?1h=
-                                                                                                           < M A T L A B (R) >
-                                                                                                 Copyright 1984-2013 The MathWorks, Inc.
-                                                                                                    R2013a (8.1.0.604) 64-bit (maci64)
-                                                                                                            February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -538,6 +540,7 @@ For product information, visit www.mathworks.com.
 # decode = 1
 # dropout = 0.8
 # epochFraction = 1
+# epochIter = 0
 # feedInput = 1
 # finetuneEpoch = 5
 # finetuneRate = 0.5
@@ -585,7 +588,7 @@ For product information, visit www.mathworks.com.
 # beamSize = 12
 # stackSize = 100
 # unkPenalty = 0
-# lengthReward = 0
+# forceDecoder = 0
 # isGPU = 0
 # batchId = 1
 # maxRelDist = 2
@@ -798,14 +801,14 @@ For product information, visit www.mathworks.com.
   0.000008	  0.000008	diff=6.58698e-11
   local_diff=2.98428e-10
 # Num params=168, abs_diff=4.05027e-07
-Elapsed time is 1.322371 seconds.
+Elapsed time is 1.301458 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1)
 [?1h=
-                                                                                                           < M A T L A B (R) >
-                                                                                                 Copyright 1984-2013 The MathWorks, Inc.
-                                                                                                    R2013a (8.1.0.604) 64-bit (maci64)
-                                                                                                            February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -827,6 +830,7 @@ For product information, visit www.mathworks.com.
 # decode = 1
 # dropout = 0.8
 # epochFraction = 1
+# epochIter = 0
 # feedInput = 1
 # finetuneEpoch = 5
 # finetuneRate = 0.5
@@ -874,7 +878,7 @@ For product information, visit www.mathworks.com.
 # beamSize = 12
 # stackSize = 100
 # unkPenalty = 0
-# lengthReward = 0
+# forceDecoder = 0
 # isGPU = 0
 # batchId = 1
 # maxRelDist = 2
@@ -1097,14 +1101,14 @@ For product information, visit www.mathworks.com.
  -0.000001	 -0.000001	diff=3.30904e-13
   local_diff=3.54096e-12
 # Num params=176, abs_diff=1.08504e-08
-Elapsed time is 1.994661 seconds.
+Elapsed time is 1.891039 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 2, 'attnOpt', 1)
 [?1h=
-                                                                                                           < M A T L A B (R) >
-                                                                                                 Copyright 1984-2013 The MathWorks, Inc.
-                                                                                                    R2013a (8.1.0.604) 64-bit (maci64)
-                                                                                                            February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -1126,6 +1130,7 @@ For product information, visit www.mathworks.com.
 # decode = 1
 # dropout = 0.8
 # epochFraction = 1
+# epochIter = 0
 # feedInput = 1
 # finetuneEpoch = 5
 # finetuneRate = 0.5
@@ -1173,7 +1178,7 @@ For product information, visit www.mathworks.com.
 # beamSize = 12
 # stackSize = 100
 # unkPenalty = 0
-# lengthReward = 0
+# forceDecoder = 0
 # isGPU = 0
 # batchId = 1
 # maxRelDist = 2
@@ -1396,14 +1401,14 @@ For product information, visit www.mathworks.com.
  -0.000001	 -0.000001	diff=3.43641e-13
   local_diff=3.9844e-12
 # Num params=176, abs_diff=9.13034e-09
-Elapsed time is 2.245733 seconds.
+Elapsed time is 2.198109 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 1)
 [?1h=
-                                                                                                           < M A T L A B (R) >
-                                                                                                 Copyright 1984-2013 The MathWorks, Inc.
-                                                                                                    R2013a (8.1.0.604) 64-bit (maci64)
-                                                                                                            February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -1425,6 +1430,7 @@ For product information, visit www.mathworks.com.
 # decode = 1
 # dropout = 0.8
 # epochFraction = 1
+# epochIter = 0
 # feedInput = 1
 # finetuneEpoch = 5
 # finetuneRate = 0.5
@@ -1472,7 +1478,7 @@ For product information, visit www.mathworks.com.
 # beamSize = 12
 # stackSize = 100
 # unkPenalty = 0
-# lengthReward = 0
+# forceDecoder = 0
 # isGPU = 0
 # batchId = 1
 # maxRelDist = 2
@@ -1706,14 +1712,14 @@ For product information, visit www.mathworks.com.
   0.000005	  0.000005	diff=5.21204e-13
   local_diff=3.53775e-12
 # Num params=182, abs_diff=1.80573e-08
-Elapsed time is 2.784855 seconds.
+Elapsed time is 2.800874 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 2)
 [?1h=
-                                                                                                           < M A T L A B (R) >
-                                                                                                 Copyright 1984-2013 The MathWorks, Inc.
-                                                                                                    R2013a (8.1.0.604) 64-bit (maci64)
-                                                                                                            February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -1735,6 +1741,7 @@ For product information, visit www.mathworks.com.
 # decode = 1
 # dropout = 0.8
 # epochFraction = 1
+# epochIter = 0
 # feedInput = 1
 # finetuneEpoch = 5
 # finetuneRate = 0.5
@@ -1782,7 +1789,7 @@ For product information, visit www.mathworks.com.
 # beamSize = 12
 # stackSize = 100
 # unkPenalty = 0
-# lengthReward = 0
+# forceDecoder = 0
 # isGPU = 0
 # batchId = 1
 # maxRelDist = 2
@@ -2011,14 +2018,14 @@ For product information, visit www.mathworks.com.
  -0.000000	 -0.000000	diff=1.30872e-12
   local_diff=5.68434e-12
 # Num params=180, abs_diff=2.65297e-08
-Elapsed time is 2.013850 seconds.
+Elapsed time is 2.327037 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 3)
 [?1h=
-                                                                                                           < M A T L A B (R) >
-                                                                                                 Copyright 1984-2013 The MathWorks, Inc.
-                                                                                                    R2013a (8.1.0.604) 64-bit (maci64)
-                                                                                                            February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -2040,6 +2047,7 @@ For product information, visit www.mathworks.com.
 # decode = 1
 # dropout = 0.8
 # epochFraction = 1
+# epochIter = 0
 # feedInput = 1
 # finetuneEpoch = 5
 # finetuneRate = 0.5
@@ -2087,7 +2095,7 @@ For product information, visit www.mathworks.com.
 # beamSize = 12
 # stackSize = 100
 # unkPenalty = 0
-# lengthReward = 0
+# forceDecoder = 0
 # isGPU = 0
 # batchId = 1
 # maxRelDist = 2
@@ -2320,14 +2328,14 @@ For product information, visit www.mathworks.com.
   0.000005	  0.000005	diff=1.55398e-13
   local_diff=2.33666e-12
 # Num params=182, abs_diff=2.26531e-08
-Elapsed time is 2.097841 seconds.
+Elapsed time is 2.310169 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1)
 [?1h=
-                                                                                                           < M A T L A B (R) >
-                                                                                                 Copyright 1984-2013 The MathWorks, Inc.
-                                                                                                    R2013a (8.1.0.604) 64-bit (maci64)
-                                                                                                            February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -2349,6 +2357,7 @@ For product information, visit www.mathworks.com.
 # decode = 1
 # dropout = 1
 # epochFraction = 1
+# epochIter = 0
 # feedInput = 1
 # finetuneEpoch = 5
 # finetuneRate = 0.5
@@ -2396,7 +2405,7 @@ For product information, visit www.mathworks.com.
 # beamSize = 12
 # stackSize = 100
 # unkPenalty = 0
-# lengthReward = 0
+# forceDecoder = 0
 # isGPU = 0
 # batchId = 1
 # maxRelDist = 2
@@ -2541,14 +2550,14 @@ For product information, visit www.mathworks.com.
  -3.697104	 -3.697522	diff=0.000418031
   local_diff=0.00434995
 # Num params=104, abs_diff=4.55849
-Elapsed time is 0.621204 seconds.
+Elapsed time is 0.682383 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2)
 [?1h=
-                                                                                                           < M A T L A B (R) >
-                                                                                                 Copyright 1984-2013 The MathWorks, Inc.
-                                                                                                    R2013a (8.1.0.604) 64-bit (maci64)
-                                                                                                            February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -2570,6 +2579,7 @@ For product information, visit www.mathworks.com.
 # decode = 1
 # dropout = 1
 # epochFraction = 1
+# epochIter = 0
 # feedInput = 1
 # finetuneEpoch = 5
 # finetuneRate = 0.5
@@ -2617,7 +2627,7 @@ For product information, visit www.mathworks.com.
 # beamSize = 12
 # stackSize = 100
 # unkPenalty = 0
-# lengthReward = 0
+# forceDecoder = 0
 # isGPU = 0
 # batchId = 1
 # maxRelDist = 2
@@ -2830,14 +2840,14 @@ For product information, visit www.mathworks.com.
   0.026195	  0.025843	diff=0.000352205
   local_diff=0.00269699
 # Num params=168, abs_diff=4.19357
-Elapsed time is 1.358236 seconds.
+Elapsed time is 1.341065 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8)
 [?1h=
-                                                                                                           < M A T L A B (R) >
-                                                                                                 Copyright 1984-2013 The MathWorks, Inc.
-                                                                                                    R2013a (8.1.0.604) 64-bit (maci64)
-                                                                                                            February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -2859,6 +2869,7 @@ For product information, visit www.mathworks.com.
 # decode = 1
 # dropout = 0.8
 # epochFraction = 1
+# epochIter = 0
 # feedInput = 1
 # finetuneEpoch = 5
 # finetuneRate = 0.5
@@ -2906,7 +2917,7 @@ For product information, visit www.mathworks.com.
 # beamSize = 12
 # stackSize = 100
 # unkPenalty = 0
-# lengthReward = 0
+# forceDecoder = 0
 # isGPU = 0
 # batchId = 1
 # maxRelDist = 2
@@ -3119,14 +3130,14 @@ For product information, visit www.mathworks.com.
  -0.031845	 -0.032135	diff=0.000289784
   local_diff=0.00231588
 # Num params=168, abs_diff=14.882
-Elapsed time is 1.414226 seconds.
+Elapsed time is 1.399058 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1)
 [?1h=
-                                                                                                           < M A T L A B (R) >
-                                                                                                 Copyright 1984-2013 The MathWorks, Inc.
-                                                                                                    R2013a (8.1.0.604) 64-bit (maci64)
-                                                                                                            February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -3148,6 +3159,7 @@ For product information, visit www.mathworks.com.
 # decode = 1
 # dropout = 0.8
 # epochFraction = 1
+# epochIter = 0
 # feedInput = 1
 # finetuneEpoch = 5
 # finetuneRate = 0.5
@@ -3195,7 +3207,7 @@ For product information, visit www.mathworks.com.
 # beamSize = 12
 # stackSize = 100
 # unkPenalty = 0
-# lengthReward = 0
+# forceDecoder = 0
 # isGPU = 0
 # batchId = 1
 # maxRelDist = 2
@@ -3418,14 +3430,14 @@ For product information, visit www.mathworks.com.
   0.597443	  0.593744	diff=0.00369893
   local_diff=0.0140759
 # Num params=176, abs_diff=5.87875
-Elapsed time is 2.094074 seconds.
+Elapsed time is 1.909522 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 2, 'attnOpt', 1)
 [?1h=
-                                                                                                           < M A T L A B (R) >
-                                                                                                 Copyright 1984-2013 The MathWorks, Inc.
-                                                                                                    R2013a (8.1.0.604) 64-bit (maci64)
-                                                                                                            February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -3447,6 +3459,7 @@ For product information, visit www.mathworks.com.
 # decode = 1
 # dropout = 0.8
 # epochFraction = 1
+# epochIter = 0
 # feedInput = 1
 # finetuneEpoch = 5
 # finetuneRate = 0.5
@@ -3494,7 +3507,7 @@ For product information, visit www.mathworks.com.
 # beamSize = 12
 # stackSize = 100
 # unkPenalty = 0
-# lengthReward = 0
+# forceDecoder = 0
 # isGPU = 0
 # batchId = 1
 # maxRelDist = 2
@@ -3717,14 +3730,14 @@ For product information, visit www.mathworks.com.
   1.369741	  1.365478	diff=0.00426361
   local_diff=0.0150036
 # Num params=176, abs_diff=1.26177
-Elapsed time is 2.273014 seconds.
+Elapsed time is 2.463290 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 1)
 [?1h=
-                                                                                                           < M A T L A B (R) >
-                                                                                                 Copyright 1984-2013 The MathWorks, Inc.
-                                                                                                    R2013a (8.1.0.604) 64-bit (maci64)
-                                                                                                            February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -3746,6 +3759,7 @@ For product information, visit www.mathworks.com.
 # decode = 1
 # dropout = 0.8
 # epochFraction = 1
+# epochIter = 0
 # feedInput = 1
 # finetuneEpoch = 5
 # finetuneRate = 0.5
@@ -3793,7 +3807,7 @@ For product information, visit www.mathworks.com.
 # beamSize = 12
 # stackSize = 100
 # unkPenalty = 0
-# lengthReward = 0
+# forceDecoder = 0
 # isGPU = 0
 # batchId = 1
 # maxRelDist = 2
@@ -4027,14 +4041,14 @@ For product information, visit www.mathworks.com.
  -2.916310	 -2.926043	diff=0.00973229
   local_diff=0.0499206
 # Num params=182, abs_diff=230.43
-Elapsed time is 2.692014 seconds.
+Elapsed time is 2.702961 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 2)
 [?1h=
-                                                                                                           < M A T L A B (R) >
-                                                                                                 Copyright 1984-2013 The MathWorks, Inc.
-                                                                                                    R2013a (8.1.0.604) 64-bit (maci64)
-                                                                                                            February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -4056,6 +4070,7 @@ For product information, visit www.mathworks.com.
 # decode = 1
 # dropout = 0.8
 # epochFraction = 1
+# epochIter = 0
 # feedInput = 1
 # finetuneEpoch = 5
 # finetuneRate = 0.5
@@ -4103,7 +4118,7 @@ For product information, visit www.mathworks.com.
 # beamSize = 12
 # stackSize = 100
 # unkPenalty = 0
-# lengthReward = 0
+# forceDecoder = 0
 # isGPU = 0
 # batchId = 1
 # maxRelDist = 2
@@ -4332,14 +4347,14 @@ For product information, visit www.mathworks.com.
  -7.639216	 -7.644510	diff=0.0052939
   local_diff=0.0235115
 # Num params=180, abs_diff=23.7962
-Elapsed time is 2.047386 seconds.
+Elapsed time is 1.984481 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 3)
 [?1h=
-                                                                                                           < M A T L A B (R) >
-                                                                                                 Copyright 1984-2013 The MathWorks, Inc.
-                                                                                                    R2013a (8.1.0.604) 64-bit (maci64)
-                                                                                                            February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -4361,6 +4376,7 @@ For product information, visit www.mathworks.com.
 # decode = 1
 # dropout = 0.8
 # epochFraction = 1
+# epochIter = 0
 # feedInput = 1
 # finetuneEpoch = 5
 # finetuneRate = 0.5
@@ -4408,7 +4424,7 @@ For product information, visit www.mathworks.com.
 # beamSize = 12
 # stackSize = 100
 # unkPenalty = 0
-# lengthReward = 0
+# forceDecoder = 0
 # isGPU = 0
 # batchId = 1
 # maxRelDist = 2
@@ -4641,5 +4657,5 @@ For product information, visit www.mathworks.com.
  -2.028308	 -2.039860	diff=0.0115521
   local_diff=0.0553199
 # Num params=182, abs_diff=11.2245
-Elapsed time is 2.131154 seconds.
+Elapsed time is 2.131558 seconds.
 [?1l>

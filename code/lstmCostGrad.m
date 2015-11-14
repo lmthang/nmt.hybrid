@@ -83,6 +83,12 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       W_emb = model.W_emb_tgt;
     end
     
+    % prepare mask
+    trainData.maskInfo{tt}.mask = inputMask(:, tt)'; % curBatchSize * 1
+    trainData.maskInfo{tt}.unmaskedIds = find(trainData.maskInfo{tt}.mask);
+    trainData.maskInfo{tt}.maskedIds = find(~trainData.maskInfo{tt}.mask);
+    curMask = trainData.maskInfo{tt};
+        
     for ll=1:params.numLayers % layer
       W = W_layers{ll};
       
@@ -98,19 +104,11 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
 
       % current-time input
       if ll==1 % first layer
-        % prepare mask
-        trainData.maskInfo{tt}.mask = inputMask(:, tt)'; % curBatchSize * 1
-        trainData.maskInfo{tt}.unmaskedIds = find(trainData.maskInfo{tt}.mask);
-        trainData.maskInfo{tt}.maskedIds = find(~trainData.maskInfo{tt}.mask);
-        curMask = trainData.maskInfo{tt};
-        
         if tt>=srcMaxLen % decoder input
           x_t = getLstmDecoderInput(input(:, tt)', W_emb, softmax_h, params);
         else
           x_t = W_emb(:, input(:, tt));
         end
-        
-        
       else % subsequent layer, use the previous-layer hidden state
         x_t = h_t{ll-1};
       end
@@ -122,6 +120,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       
       %% Core LSTM: input -> h_t
       [lstms{ll, tt}, h_t{ll}, all_c_t{ll, tt}] = lstmLayerForward(W, x_t, h_t_1, c_t_1, ll, tt, srcMaxLen, params, isTest); 
+      
       % assert
       if params.assert
         assert(computeSum(h_t{ll}(:, curMask.maskedIds), params.isGPU)==0);
@@ -276,7 +275,8 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       c_t = all_c_t{ll, tt};
       lstm = lstms{ll, tt};
       
-      [lstm_grad] = lstmLayerBackward(W, lstm, c_t, c_t_1, dc{ll}, dh{ll}, ll, tt, srcMaxLen, zeroState, maskedIds, params);
+      [lstm_grad] = lstmLayerBackprop(W, lstm, c_t, c_t_1, dc{ll}, dh{ll}, ll, tt, srcMaxLen, zeroState, maskedIds, params);
+      
       dc{ll} = lstm_grad.dc;
       
       % assert
@@ -296,14 +296,6 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       % Later, when we go back one time step, we will accumulate.
       dh{ll} = lstm_grad.input(end-params.lstmSize+1:end, :); 
       if ll==1 % collect embedding grad
-%         %% those models that feed additional info into lstm input
-%         % same-length decoder
-%         if tt>=srcMaxLen
-%           if tgtPos<=params.numSrcHidVecs
-%             grad.srcHidVecs(:, unmaskedIds, tgtPos) = grad.srcHidVecs(:, unmaskedIds, tgtPos) + lstm_grad.input(params.lstmSize+1:2*params.lstmSize, unmaskedIds);
-%           end
-%         end
-
         % feed softmax vector
         if params.feedInput && tt>srcMaxLen % for tt==srcMaxLen, we feed zero vector
           grad_softmax_all{tgtPos-1} = grad_softmax_all{tgtPos-1} + lstm_grad.input(params.lstmSize+1:2*params.lstmSize, :);

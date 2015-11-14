@@ -1,6 +1,5 @@
-%% LSTM unit
-% Thang Luong @ 2014, <lmthang@stanford.edu>
-%
+function [lstm, h_t, c_t] = lstmLayerForward(W, x_t, h_t_1, c_t_1, ll, t, srcMaxLen, params, isTest)
+% LSTM unit
 % Input:
 %   W: parameter
 %   x_t: current input
@@ -9,21 +8,27 @@
 %
 % Output:
 %   lstm struct
-%%
-function [lstm, h_t, c_t] = lstmLayerForward(W, x_t, h_t_1, c_t_1, ll, t, srcMaxLen, params, isTest)
+% Thang Luong @ 2014, <lmthang@stanford.edu>
+
   %% dropout
   if params.dropout<1 && isTest==0
-    if ~params.isGradCheck
-      dropoutMask = (randMatrix(size(x_t), params.isGPU, params.dataType)<params.dropout)/params.dropout;
-    else % for gradient check use the same mask
-      if t>=srcMaxLen && ll==1 && params.feedInput % predict words
-        dropoutMask = params.dropoutMaskInput;
-      else
-        dropoutMask = params.dropoutMask;
-      end
-    end
+%     if ~params.isGradCheck
+%       dropoutMask = (randMatrix(size(x_t), params.isGPU, params.dataType)<params.dropout)/params.dropout;
+%     else % for gradient check use the same mask
+%       if t>=srcMaxLen && ll==1 && params.feedInput % predict words
+%         dropoutMask = params.dropoutMaskInput;
+%       else
+%         dropoutMask = params.dropoutMask;
+%       end
+%     end
+%     x_t = x_t.*dropoutMask;
     
-    x_t = x_t.*dropoutMask;
+    if ~params.isGradCheck
+      dropoutMask = (randMatrix([lstmSize, size(x_t, 2)], params.isGPU, params.dataType)<params.dropout)/params.dropout;
+    else % for gradient check use the same mask
+      dropoutMask = params.dropoutMask;
+    end
+    x_t(1:params.lstmSize,:) = x_t(1:params.lstmSize,:).*dropoutMask;
   end
   
   %% input, forget, output gates and input signals before applying non-linear functions
@@ -67,11 +72,12 @@ function [lstm, h_t, c_t] = lstmLayerForward(W, x_t, h_t_1, c_t_1, ll, t, srcMax
     lstm.f_c_t = f_c_t;
     
     if params.dropout<1 % store dropout mask
-      if t>=srcMaxLen && ll==1 && params.feedInput % predict words
-        lstm.dropoutMaskInput = dropoutMask;
-      else
-        lstm.dropoutMask = dropoutMask;
-      end
+%       if t>=srcMaxLen && ll==1 && params.feedInput % predict words
+%         lstm.dropoutMaskInput = dropoutMask;
+%       else
+%         lstm.dropoutMask = dropoutMask;
+%       end
+      lstm.dropoutMask = dropoutMask;
     end
   else
     lstm = [];
