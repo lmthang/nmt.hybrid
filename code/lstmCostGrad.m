@@ -37,15 +37,13 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   [grad, params] = initGrad(model, params);
   zeroState = zeroMatrix([params.lstmSize, params.curBatchSize], params.isGPU, params.dataType);
   
-  % current h_t and c_t over time
-  h_t = cell(params.numLayers, 1);
-  all_c_t = cell(params.numLayers, T);
-  lstms = cell(params.numLayers, T); % each cell contains intermediate results for that timestep needed for backprop
-  for ll=1:params.numLayers
-    h_t{ll} = zeroMatrix([params.lstmSize, curBatchSize], params.isGPU, params.dataType);
-    for tt=1:T
-      all_c_t{ll, tt} = zeroMatrix([params.lstmSize, curBatchSize], params.isGPU, params.dataType);
-    end
+  % lstm states over time
+  lstmStates = cell(T, 1);
+  % initState
+  prevState = cell(params.numLayers, 1);
+  for ll=1:params.numLayers % layer
+    prevState{ll}.h_t = zeroState;
+    prevState{ll}.c_t = zeroState;
   end
   
   % init costs
@@ -54,132 +52,51 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   %%%%%%%%%%%%%%%%%%%%
   %%% FORWARD PASS %%%
   %%%%%%%%%%%%%%%%%%%%
-  trainData.maskInfo = cell(T, 1);
-  grad_softmax_all = cell(tgtMaxLen, 1);
-  h2sInfoAll = cell(tgtMaxLen, 1);
-  softmax_h = zeroState;
   
-  % attentional model
-  if params.attnGlobal % global
-    trainData.srcMaskedIds = [];
-  end
+  % attention
   if params.attnFunc>0
+    if params.attnGlobal % global
+      trainData.srcMaskedIds = [];
+    end
     trainData.srcHidVecsOrig = zeroMatrix([params.lstmSize, curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);
   end
   
-  % Note: IMPORTANT. For attention-based models or positional models, it it
-  % important to build the top hidden states first before moving to the
-  % next time step. So DO NOT swap these for loops.
+  % prepare mask
+  maskInfo = cell(T, 1);
+  for tt=1:T
+    maskInfo{tt}.mask = inputMask(:, tt)'; % curBatchSize * 1
+    maskInfo{tt}.unmaskedIds = find(maskInfo{tt}.mask);
+    maskInfo{tt}.maskedIds = find(~maskInfo{tt}.mask);
+  end
+  
+  %% encoder
+  encLen = srcMaxLen - 1;
   if params.isBi
-    W_layers = model.W_src;
-    W_emb = model.W_emb_src;
-  end
-  for tt=1:T % time
-    tgtPos = tt-srcMaxLen+1;
+    isDecoder = 0;
+    [lstmStates(1:encLen), ~] = rnnLayerForward(encLen, model.W_src, model.W_emb_src, prevState, input(:, 1:encLen), maskInfo(1:encLen), params, isTest, isDecoder, trainData, model);
+    prevState = lstmStates{encLen};
     
-    % switch to decoder mode
-    if tt==srcMaxLen 
-      W_layers = model.W_tgt;
-      W_emb = model.W_emb_tgt;
+    % attention
+    if params.attnFunc>0
+      % Record src hidden states
+      for tt=1:params.numSrcHidVecs
+        trainData.srcHidVecsOrig(:, :, tt) = lstmStates{tt}{params.numLayers}.h_t;
+      end
+      
+      if params.attnGlobal == 0 % local
+        trainData.srcHidVecs = trainData.srcHidVecsOrig;
+      end
     end
-    
-    % prepare mask
-    trainData.maskInfo{tt}.mask = inputMask(:, tt)'; % curBatchSize * 1
-    trainData.maskInfo{tt}.unmaskedIds = find(trainData.maskInfo{tt}.mask);
-    trainData.maskInfo{tt}.maskedIds = find(~trainData.maskInfo{tt}.mask);
-    curMask = trainData.maskInfo{tt};
-        
-    for ll=1:params.numLayers % layer
-      W = W_layers{ll};
-      
-      %% Input
-      % previous-time input
-      if tt==1 % first time step
-        h_t_1 = zeroState;
-        c_t_1 = zeroState;
-      else
-        h_t_1 = h_t{ll};
-        c_t_1 = all_c_t{ll, tt-1};
-      end
-
-      % current-time input
-      if ll==1 % first layer
-        if tt>=srcMaxLen % decoder input
-          x_t = getLstmDecoderInput(input(:, tt)', W_emb, softmax_h, params);
-        else
-          x_t = W_emb(:, input(:, tt));
-        end
-      else % subsequent layer, use the previous-layer hidden state
-        x_t = h_t{ll-1};
-      end
-      
-      % masking
-      x_t(:, curMask.maskedIds) = 0; 
-      h_t_1(:, curMask.maskedIds) = 0;
-      c_t_1(:, curMask.maskedIds) = 0;
-      
-      %% Core LSTM: input -> h_t
-      [lstms{ll, tt}, h_t{ll}, all_c_t{ll, tt}] = lstmLayerForward(W, x_t, h_t_1, c_t_1, ll, tt, srcMaxLen, params, isTest); 
-      
-      % assert
-      if params.assert
-        assert(computeSum(h_t{ll}(:, curMask.maskedIds), params.isGPU)==0);
-      end
-      
-      %% Loss
-      if tt>=srcMaxLen && ll==params.numLayers % decoding phase, tgtPos>=1
-        %% predicting positions
-        trainData.curMask = curMask;
-        
-        %% predicting words
-        % h_t -> softmax_h
-        if params.attnFunc
-          % TODO: save memory here, h2sInfo.input only keeps track of srcHidVecs or attnVecs, but not h_t.
-          [softmax_h, h2sInfoAll{tgtPos}] = attnLayerForward(h_t{ll}, params, model, trainData, tgtPos);
-        else
-          softmax_h = h_t{ll};
-        end
-        
-        % softmax_h -> loss
-        predWords = trainData.tgtOutput(:, tgtPos)';
-        [cost, probs, scores, scoreIndices] = softmaxLayerForward(model.W_soft, softmax_h, predWords, curMask);
-        costs.total = costs.total + cost;
-        costs.word = costs.word + cost;
-                
-        % backprop: loss -> softmax_h
-        if isTest==0
-          % loss -> softmax_h
-          [grad_W_soft, grad_softmax_all{tgtPos}] = softmaxLayerBackprop(model.W_soft, softmax_h, probs, scoreIndices);
-          grad.W_soft = grad.W_soft + grad_W_soft;
-        end
-      end
-      
-    
-      %% Record src hidden states
-      if tt<=params.numSrcHidVecs && ll==params.numLayers && params.attnFunc>0
-        trainData.srcHidVecsOrig(:, :, tt) = h_t{ll};
-        
-        if tt==params.numSrcHidVecs && params.attnGlobal == 0 % local
-          trainData.srcHidVecs = trainData.srcHidVecsOrig;
-        end
-      end
-      
-      
-      % assert
-      if params.assert
-        assert(computeSum(h_t{ll}(:, curMask.maskedIds), params.isGPU)==0);
-        assert(computeSum(all_c_t{ll, tt}(:, curMask.maskedIds), params.isGPU)==0);
-        
-        if tt>=srcMaxLen && ll==params.numLayers
-          assert(computeSum(scores(:, curMask.maskedIds), params.isGPU)==0);
-          
-          if isTest==0
-            assert(computeSum(grad_softmax_all{tgtPos}(:, curMask.maskedIds), params.isGPU)==0);
-          end
-        end
-      end
-    end % end for t
   end
+  
+  %% decoder
+  decLen = T - srcMaxLen + 1;
+  isDecoder = 1;
+  [lstmStates(encLen+1:T), attnInfos] = rnnLayerForward(decLen, model.W_tgt, model.W_emb_tgt, prevState, input(:, encLen+1:T), maskInfo(encLen+1:T), params, isTest, isDecoder, trainData, model);
+  
+  %% softmax
+  [costs.total, grad.W_soft, grad_softmax_all] = softmaxCostGrad(decLen, lstmStates(encLen+1:T), attnInfos, model.W_soft, trainData.tgtOutput, maskInfo(encLen+1:T), params, isTest);
+  costs.word = costs.total;
   
   if isTest==1 % don't compute grad
     return;
@@ -208,10 +125,10 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   wordCount_tgt = 0;
   
   % NOTE: IMPORTANT for tt first, then for ll in other for attn3,4, pos2 models to work
+  W_layers = model.W_tgt;
   for tt=T:-1:1 % time
-    curMask = trainData.maskInfo{tt};
-    unmaskedIds = curMask.unmaskedIds;
-    maskedIds = curMask.maskedIds;
+    unmaskedIds = maskInfo{tt}.unmaskedIds;
+    maskedIds = maskInfo{tt}.maskedIds;
     tgtPos = tt-srcMaxLen+1;
     
     % switch to encoder. NOTE: we assume W_layers has been set to 
@@ -223,10 +140,10 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
     if (tt>=srcMaxLen)
       if params.attnFunc
         % softmax_h -> h_t
-        h2sInfo = h2sInfoAll{tgtPos};
-        [grad_tgt_ht, attnGrad, grad_srcHidVecs] = attnLayerBackprop(model, grad_softmax_all{tgtPos}, trainData, h2sInfo, params, curMask);
+        h2sInfo = attnInfos{tgtPos};
+        [grad_tgt_ht, attnGrad, grad_srcHidVecs] = attnLayerBackprop(model, grad_softmax_all{tgtPos}, trainData, h2sInfo, params, maskInfo{tt});
         if params.assert
-          assert(computeSum(grad_tgt_ht(:, curMask.maskedIds), params.isGPU)==0);
+          assert(computeSum(grad_tgt_ht(:, maskedIds), params.isGPU)==0);
         end
       
         fields = fieldnames(attnGrad);
@@ -270,12 +187,12 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       if tt==1
         c_t_1 = [];
       else
-        c_t_1 = all_c_t{ll, tt-1};
+        c_t_1 = lstmStates{tt-1}{ll}.c_t; %all_c_t{ll, tt-1};
       end
-      c_t = all_c_t{ll, tt};
-      lstm = lstms{ll, tt};
+      c_t = lstmStates{tt}{ll}.c_t; %all_c_t{ll, tt};
+      %lstm = lstms{ll, tt};
       
-      [lstm_grad] = lstmLayerBackprop(W, lstm, c_t, c_t_1, dc{ll}, dh{ll}, ll, tt, srcMaxLen, zeroState, maskedIds, params);
+      [lstm_grad] = lstmLayerBackprop(W, lstmStates{tt}{ll}, c_t, c_t_1, dc{ll}, dh{ll}, tt, zeroState, maskedIds, params); % ll, tt, srcMaxLen, 
       
       dc{ll} = lstm_grad.dc;
       
@@ -323,15 +240,15 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   
   % grad W_emb
   if params.isBi
-      allEmbGrads_src(:, wordCount_src+1:end) = [];
-      allEmbIndices_src(wordCount_src+1:end) = [];
-      [grad.W_emb_src, grad.indices_src] = aggregateMatrix(allEmbGrads_src, allEmbIndices_src, params.isGPU, params.dataType);
-    end
+    allEmbGrads_src(:, wordCount_src+1:end) = [];
+    allEmbIndices_src(wordCount_src+1:end) = [];
+    [grad.W_emb_src, grad.indices_src] = aggregateMatrix(allEmbGrads_src, allEmbIndices_src, params.isGPU, params.dataType);
+  end
 
-    % update the decoder
-    allEmbGrads_tgt(:, wordCount_tgt+1:end) = [];
-    allEmbIndices_tgt(wordCount_tgt+1:end) = [];
-    [grad.W_emb_tgt, grad.indices_tgt] = aggregateMatrix(allEmbGrads_tgt, allEmbIndices_tgt, params.isGPU, params.dataType);
+  % update the decoder
+  allEmbGrads_tgt(:, wordCount_tgt+1:end) = [];
+  allEmbIndices_tgt(wordCount_tgt+1:end) = [];
+  [grad.W_emb_tgt, grad.indices_tgt] = aggregateMatrix(allEmbGrads_tgt, allEmbIndices_tgt, params.isGPU, params.dataType);
     
   % remove unused variables
   if params.attnFunc>0

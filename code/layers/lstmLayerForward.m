@@ -1,4 +1,4 @@
-function [lstm, h_t, c_t] = lstmLayerForward(W, x_t, h_t_1, c_t_1, ll, t, srcMaxLen, params, isTest)
+function [lstmState] = lstmLayerForward(W, x_t, h_t_1, c_t_1, params, isTest) %  ll, t, srcMaxLen,
 % LSTM unit
 % Input:
 %   W: parameter
@@ -24,7 +24,7 @@ function [lstm, h_t, c_t] = lstmLayerForward(W, x_t, h_t_1, c_t_1, ll, t, srcMax
 %     x_t = x_t.*dropoutMask;
     
     if ~params.isGradCheck
-      dropoutMask = (randMatrix([lstmSize, size(x_t, 2)], params.isGPU, params.dataType)<params.dropout)/params.dropout;
+      dropoutMask = (randMatrix([params.lstmSize, size(x_t, 2)], params.isGPU, params.dataType)<params.dropout)/params.dropout;
     else % for gradient check use the same mask
       dropoutMask = params.dropoutMask;
     end
@@ -63,13 +63,22 @@ function [lstm, h_t, c_t] = lstmLayerForward(W, x_t, h_t_1, c_t_1, ll, t, srcMax
     end
   end
   
+  
+  % assert
+  if params.assert
+    assert(computeSum(h_t(:, maskedIds), params.isGPU)==0);
+    assert(computeSum(c_t(:, maskedIds), params.isGPU)==0);
+  end
+  
+  lstmState.h_t = h_t;
+  lstmState.c_t = c_t;
   if (isTest==0) % store intermediate results
-    lstm.input = input;
-    lstm.i_gate = i_gate;
-    lstm.f_gate = f_gate;
-    lstm.o_gate = o_gate;
-    lstm.a_signal = a_signal;
-    lstm.f_c_t = f_c_t;
+    lstmState.input = input;
+    lstmState.i_gate = i_gate;
+    lstmState.f_gate = f_gate;
+    lstmState.o_gate = o_gate;
+    lstmState.a_signal = a_signal;
+    lstmState.f_c_t = f_c_t;
     
     if params.dropout<1 % store dropout mask
 %       if t>=srcMaxLen && ll==1 && params.feedInput % predict words
@@ -77,10 +86,8 @@ function [lstm, h_t, c_t] = lstmLayerForward(W, x_t, h_t_1, c_t_1, ll, t, srcMax
 %       else
 %         lstm.dropoutMask = dropoutMask;
 %       end
-      lstm.dropoutMask = dropoutMask;
+      lstmState.dropoutMask = dropoutMask;
     end
-  else
-    lstm = [];
   end
 end
 

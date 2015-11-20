@@ -1,4 +1,4 @@
-function [lstm_grad] = lstmLayerBackprop(W, lstm, c_t, c_t_1, dc, dh, ll, t, srcMaxLen, zero_state, maskedIds, params)
+function [lstm_grad] = lstmLayerBackprop(W, lstm, c_t, c_t_1, dc, dh, t, zero_state, maskedIds, params) % ll, t, srcMaxLen, 
   dh(:, maskedIds) = 0;
   dc(:, maskedIds) = 0;
   
