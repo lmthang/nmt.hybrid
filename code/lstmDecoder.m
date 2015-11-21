@@ -145,9 +145,8 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
         
         % h_t -> softmax_h
         if tt==srcMaxLen && ll==models{mm}.params.numLayers
-          modelData{mm}.curMask = curMask;
           if models{mm}.params.attnFunc
-            [h2sInfo] = attnLayerForward(h_t, models{mm}.params, models{mm}, modelData{mm}, tgtPos); 
+            [h2sInfo] = attnLayerForward(h_t, models{mm}.params, models{mm}, modelData{mm}, curMask, tgtPos); 
             softmax_h{mm} = h2sInfo.softmax_h;
           else
             softmax_h{mm} = h_t;
@@ -383,10 +382,8 @@ function [candidates, candScores, alignInfo, otherInfo] = decodeBatch(models, pa
 
         % h_t -> softmax_h
         if ll==models{mm}.params.numLayers
-          modelData{mm}.curMask = curMask;
-
           if params.attnFunc
-            [h2sInfo] = attnLayerForward(h_t, models{mm}.params, models{mm}, modelData{mm}, tgtPos); 
+            [h2sInfo] = attnLayerForward(h_t, models{mm}.params, models{mm}, modelData{mm}, curMask, tgtPos); 
             softmax_h{mm} = h2sInfo.softmax_h;
           else
             softmax_h{mm} = h_t;
