@@ -11,6 +11,7 @@ function [totalCost, grad_W_soft_total, grad_softmax_all] = softmaxCostGrad(T, l
 
 grad_softmax_all = cell(T, 1);
 totalCost = 0;
+grad_W_soft_total = 0;
 for tt=1:T % time
   % h_t -> softmax_h
   if params.attnFunc

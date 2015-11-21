@@ -52,7 +52,6 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   %%%%%%%%%%%%%%%%%%%%
   %%% FORWARD PASS %%%
   %%%%%%%%%%%%%%%%%%%%
-  
   % attention
   if params.attnFunc>0
     if params.attnGlobal % global
