@@ -1,0 +1,94 @@
+function [dc, dh, grad_W_rnn, grad_W_emb, grad_emb_indices, attnGrad, grad_srcHidVecs_total] = rnnLayerBackprop(T, model, W_rnn, lstmStates, initState, ...
+  grad_softmax_all, dc, dh, attnInfos, input, maskInfos, params, isDecoder, trainData)
+% Running Multi-layer RNN for one time step.
+% Input:
+%   W_rnn: recurrent connections of multiple layers, e.g., W_rnn{ll}.
+%   prevState: previous hidden state, e.g., for LSTM, prevState.c{ll}, prevState.h{ll}.
+%   input: indices for the current batch
+%   isTest: 1 -- don't store intermediate results
+%
+% Output:
+%   nextState
+%
+% Thang Luong @ 2015, <lmthang@stanford.edu>
+
+% emb
+totalWordCount = params.curBatchSize * T;
+allEmbGrads = zeroMatrix([params.lstmSize, totalWordCount], params.isGPU, params.dataType);
+allEmbIndices = zeros(totalWordCount, 1);
+wordCount = 0;
+
+% attention
+if params.attnFunc && isDecoder
+  grad_srcHidVecs_total = zeroMatrix([params.lstmSize, params.curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);
+else
+  grad_srcHidVecs_total = [];
+  attnGrad = [];
+end
+
+for tt=T:-1:1 % time
+  unmaskedIds = maskInfos{tt}.unmaskedIds;
+
+  % attention
+  if params.attnFunc && isDecoder
+    % attention: softmax_h -> h_t
+    h2sInfo = attnInfos{tt};
+    [topHidGrad, attnStepGrad, grad_srcHidVecs] = attnLayerBackprop(model, grad_softmax_all{tt}, trainData, h2sInfo, params, maskInfos{tt});
+    fields = fieldnames(attnStepGrad);
+    for ii=1:length(fields)
+      field = fields{ii};
+      if tt==T
+        attnGrad.(field) = attnStepGrad.(field);
+      else
+        attnGrad.(field) = attnGrad.(field) + attnStepGrad.(field);
+      end
+    end
+
+    % srcHidVecs
+    if params.attnGlobal 
+      grad_srcHidVecs_total = grad_srcHidVecs_total + grad_srcHidVecs;
+    else
+      grad_srcHidVecs_total = reshape(grad_srcHidVecs_total, params.lstmSize, []);
+      grad_srcHidVecs_total(:, h2sInfo.linearIdAll) = grad_srcHidVecs_total(:, h2sInfo.linearIdAll) + grad_srcHidVecs(:, h2sInfo.linearIdSub);
+      grad_srcHidVecs_total = reshape(grad_srcHidVecs_total, [params.lstmSize, params.curBatchSize, params.numSrcHidVecs]);
+    end
+  else % non-attention
+    topHidGrad = grad_softmax_all{tt};
+  end
+
+  if tt>1
+    prevState = lstmStates{tt-1};
+  else
+    prevState = initState;
+  end
+
+  %% multi-layer RNN backprop
+  [dc, dh, d_emb, d_W_rnn, d_feed_input] = rnnStepLayerBackprop(W_rnn, prevState, lstmStates{tt}, topHidGrad, dc, dh, maskInfos{tt}, params, isDecoder);
+
+  % recurrent grad
+  for ll=params.numLayers:-1:1 % layer
+    if tt==T
+      grad_W_rnn{ll} = d_W_rnn{ll};
+    else
+      grad_W_rnn{ll} = grad_W_rnn{ll} + d_W_rnn{ll};
+    end
+  end
+
+  % softmax feedinput, bottom grad send back to top grad in the previous
+  % time step
+  if params.feedInput && isDecoder && tt>1
+    grad_softmax_all{tt-1} = grad_softmax_all{tt-1} + d_feed_input;
+  end
+
+  % emb grad
+  embIndices = input(unmaskedIds, tt)';
+  embGrad = d_emb(1:params.lstmSize, unmaskedIds);
+  numWords = length(embIndices);
+  allEmbIndices(wordCount+1:wordCount+numWords) = embIndices;
+  allEmbGrads(:, wordCount+1:wordCount+numWords) = embGrad;
+  wordCount = wordCount + numWords;
+end % end for time
+
+allEmbGrads(:, wordCount+1:end) = [];
+allEmbIndices(wordCount+1:end) = [];
+[grad_W_emb, grad_emb_indices] = aggregateMatrix(allEmbGrads, allEmbIndices, params.isGPU, params.dataType);

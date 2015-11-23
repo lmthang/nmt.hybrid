@@ -400,7 +400,7 @@ function [params, startTime] = postTrainIter(model, costs, gradNorm, trainData, 
   
   [params.trainCosts] = updateCosts(params.trainCosts, costs);
   
-  if mod(params.iter, params.logFreq) == 0
+  if mod(params.iter, params.logFreq*10) == 0
     % profile
     if params.isProfile
       if ismac

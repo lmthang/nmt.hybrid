@@ -130,7 +130,7 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
         c_t_1(:, maskedIds) = 0;
 
         % lstm cell
-        [lstm{mm}{ll}] = lstmLayerForward(W{mm}{ll}, x_t, h_t_1, c_t_1, models{mm}.params, 1); % ll, tt, srcMaxLen, 
+        [lstm{mm}{ll}] = lstmUnitForward(W{mm}{ll}, x_t, h_t_1, c_t_1, models{mm}.params, 1); % ll, tt, srcMaxLen, 
         h_t = lstm{mm}{ll}.h_t;
         
         % attention
@@ -377,7 +377,7 @@ function [candidates, candScores, alignInfo, otherInfo] = decodeBatch(models, pa
         h_t_1 = beamStates{mm}{ll}.h_t;
         c_t_1 = beamStates{mm}{ll}.c_t;
 
-        [beamStates{mm}{ll}] = lstmLayerForward(W{mm}, x_t, h_t_1, c_t_1, models{mm}.params, 1); %  ll, srcMaxLen+sentPos, srcMaxLen
+        [beamStates{mm}{ll}] = lstmUnitForward(W{mm}, x_t, h_t_1, c_t_1, models{mm}.params, 1); %  ll, srcMaxLen+sentPos, srcMaxLen
         h_t = beamStates{mm}{ll}.h_t;
 
         % h_t -> softmax_h

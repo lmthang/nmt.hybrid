@@ -1,4 +1,4 @@
-function [lstmState] = lstmLayerForward(W, x_t, h_t_1, c_t_1, params, isTest) %  ll, t, srcMaxLen,
+function [lstmState] = lstmUnitForward(W, x_t, h_t_1, c_t_1, params, isTest) %  ll, t, srcMaxLen,
 % LSTM unit
 % Input:
 %   W: parameter
