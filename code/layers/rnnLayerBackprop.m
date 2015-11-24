@@ -1,14 +1,11 @@
-function [dc, dh, grad_W_rnn, grad_W_emb, grad_emb_indices, attnGrad, grad_srcHidVecs_total] = rnnLayerBackprop(T, model, W_rnn, lstmStates, initState, ...
-  grad_softmax_all, dc, dh, attnInfos, input, maskInfos, params, isDecoder, trainData)
+function [dc, dh, grad_W_rnn, grad_W_emb, grad_emb_indices, attnGrad, grad_srcHidVecs_total] = rnnLayerBackprop(T, W_rnn, rnnStates, initState, ...
+  top_grads, dc, dh, input, maskInfos, params, isDecoder, attnInfos, trainData, model)
 % Running Multi-layer RNN for one time step.
 % Input:
 %   W_rnn: recurrent connections of multiple layers, e.g., W_rnn{ll}.
-%   prevState: previous hidden state, e.g., for LSTM, prevState.c{ll}, prevState.h{ll}.
+%   initState: begin state
 %   input: indices for the current batch
-%   isTest: 1 -- don't store intermediate results
-%
-% Output:
-%   nextState
+%   isDecoder: 1 -- on the decoder side
 %
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 
@@ -33,7 +30,7 @@ for tt=T:-1:1 % time
   if params.attnFunc && isDecoder
     % attention: softmax_h -> h_t
     h2sInfo = attnInfos{tt};
-    [topHidGrad, attnStepGrad, grad_srcHidVecs] = attnLayerBackprop(model, grad_softmax_all{tt}, trainData, h2sInfo, params, maskInfos{tt});
+    [cur_top_grad, attnStepGrad, grad_srcHidVecs] = attnLayerBackprop(model, top_grads{tt}, trainData, h2sInfo, params, maskInfos{tt});
     fields = fieldnames(attnStepGrad);
     for ii=1:length(fields)
       field = fields{ii};
@@ -53,17 +50,17 @@ for tt=T:-1:1 % time
       grad_srcHidVecs_total = reshape(grad_srcHidVecs_total, [params.lstmSize, params.curBatchSize, params.numSrcHidVecs]);
     end
   else % non-attention
-    topHidGrad = grad_softmax_all{tt};
+    cur_top_grad = top_grads{tt};
   end
 
   if tt>1
-    prevState = lstmStates{tt-1};
+    prevState = rnnStates{tt-1};
   else
     prevState = initState;
   end
 
   %% multi-layer RNN backprop
-  [dc, dh, d_emb, d_W_rnn, d_feed_input] = rnnStepLayerBackprop(W_rnn, prevState, lstmStates{tt}, topHidGrad, dc, dh, maskInfos{tt}, params, isDecoder);
+  [dc, dh, d_emb, d_W_rnn, d_feed_input] = rnnStepLayerBackprop(W_rnn, prevState, rnnStates{tt}, cur_top_grad, dc, dh, maskInfos{tt}, params, isDecoder);
 
   % recurrent grad
   for ll=params.numLayers:-1:1 % layer
@@ -77,7 +74,7 @@ for tt=T:-1:1 % time
   % softmax feedinput, bottom grad send back to top grad in the previous
   % time step
   if params.feedInput && isDecoder && tt>1
-    grad_softmax_all{tt-1} = grad_softmax_all{tt-1} + d_feed_input;
+    top_grads{tt-1} = top_grads{tt-1} + d_feed_input;
   end
 
   % emb grad
