@@ -10,7 +10,7 @@
 %   With help from Hieu Pham.
 %
 %%
-function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
+function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, data, params)
   % backward compatibility: not a cell, single model, put into a cell format
   if ~iscell(models)
     tmpModels = cell(1, 1);
@@ -27,13 +27,8 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
   srcMaxLen = data.srcMaxLen;
   batchSize = size(input, 1);
   data.curBatchSize = batchSize;
-
-%   printSent(2, input(1, 1:srcMaxLen-1), params.srcVocab, '  src: ');
-%   if params.isReverse
-%     printSent(2, input(1, srcMaxLen-1:-1:1), params.srcVocab, ' rsrc: ');
-%   end
-%   printSent(2, input(1, srcMaxLen+1:end), params.tgtVocab, '  tgt: ');
       
+
   %% init
   fprintf(2, '# Decoding batch of %d sents, srcMaxLen=%d, %s\n', batchSize, srcMaxLen, datestr(now));
   fprintf(params.logId, '# Decoding batch of %d sents, srcMaxLen=%d, %s\n', batchSize, srcMaxLen, datestr(now));
@@ -64,6 +59,7 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
     % attention
     if models{mm}.params.attnFunc
       models{mm}.params.numSrcHidVecs = srcMaxLen - 1;
+
       if models{mm}.params.attnGlobal
         if models{mm}.params.attnOpt==0 % for attnOpt==1, we use variable-length alignment vectors
           models{mm}.params.numAttnPositions = models{mm}.params.maxSentLen-1;
@@ -212,10 +208,14 @@ function [candidates, candScores, alignInfo] = lstmDecoder(models, data, params)
   else
     minLen = 2;
   end
-  maxLen = floor(srcMaxLen*params.maxLenRatio);
+  if params.forceDecoder
+    maxLen = data.tgtMaxLen;
+  else
+    maxLen = floor(srcMaxLen*params.maxLenRatio);
+  end
   
   sentIndices = data.startId:(data.startId+batchSize-1);
-  [candidates, candScores, alignInfo] = decodeBatch(models, params, lstm, softmax_h, minLen, maxLen, beamSize, stackSize, batchSize, sentIndices, srcMaxLen, modelData, zeroStates, firstAlignIdx);
+  [candidates, candScores, alignInfo, otherInfo] = decodeBatch(models, params, lstm, softmax_h, minLen, maxLen, beamSize, stackSize, batchSize, sentIndices, srcMaxLen, modelData, firstAlignIdx, data);
   endTime = clock;
   timeElapsed = etime(endTime, startTime);
   fprintf(2, '  Done, minLen=%d, maxLen=%d, speed %f sents/s, time %.0fs, %s\n', minLen, maxLen, batchSize/timeElapsed, timeElapsed, datestr(now));
@@ -230,7 +230,7 @@ end
 %   - beamSize
 %   - stackSize: maximum number of translations collected for one example
 %%
-function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmStart, softmax_h, minLen, maxLen, beamSize, stackSize, batchSize, originalSentIndices, srcMaxLen, modelData, zeroStates, firstAlignIdx)
+function [candidates, candScores, alignInfo, otherInfo] = decodeBatch(models, params, lstmStart, softmax_h, minLen, maxLen, beamSize, stackSize, batchSize, originalSentIndices, srcMaxLen, modelData, firstAlignIdx, data)
   numElements = batchSize*beamSize;
   
   candidates = cell(batchSize, 1);
@@ -251,7 +251,15 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
   
   %% first prediction
   numModels = length(models);
-  [scores, words] = nextBeamStep(models, softmax_h, beamSize); %lstmStart{numLayers}.h_t, beamSize, params, data, curMask, tgtPos); % scores, words: beamSize * batchSize
+  otherInfo = [];
+  % scores, words: beamSize * batchSize
+  if params.forceDecoder
+    [scores, words, otherData] = nextBeamStep(models, softmax_h, beamSize, data.tgtOutput(:, 1)); 
+    otherInfo.forceDecodeOutputs = zeroMatrix([maxLen, numElements], params.isGPU, params.dataType); % maxLen * (numElements) 
+    otherInfo.forceDecodeOutputs(1, :) = otherData.maxWords;
+  else
+    [scores, words] = nextBeamStep(models, softmax_h, beamSize);
+  end
 
   % TODO: by right, we should filter out words == params.tgtEos, but I
   % think for good models, we don't have to worry :)
@@ -268,7 +276,6 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
   beamHistory(1, :) = words(:); % words for sent 1 go together, then sent 2, ...
   if params.align
     alignHistory = zeroMatrix([maxLen, numElements], params.isGPU, params.dataType); % maxLen * (numElements) 
-    % alignHistory(1, :) = firstAlignIdx;
     for ii=1:batchSize
       alignHistory(1,(ii-1)*beamSize+1:ii*beamSize) = firstAlignIdx(ii);
     end
@@ -286,7 +293,7 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
     softmax_h{mm} = reshape(repmat(softmax_h{mm}, beamSize, 1),  models{mm}.params.lstmSize, numElements); 
   end
   
-  
+
   curMask.mask = ones(1, batchSize);
   curMask.unmaskedIds = 1:batchSize;
   curMask.maskedIds = [];
@@ -330,6 +337,10 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
     W_emb{mm} = models{mm}.W_emb_tgt;
   end
 
+  if beamSize == 1 % useful for force decoding
+    doneFlags = zeros(1, batchSize); % mark if we have finished decoding a sentence
+  end
+  
   for sentPos = 1 : (maxLen-1)
     %% Description:
     % At this point, hypotheses of length sentPos are completed.
@@ -427,7 +438,12 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
     
     %% predict the next word
     % allBestScores, allBestWords should have size beamSize * (beamSize*batchSize)
-    [allBestScores, allBestWords] = nextBeamStep(models, softmax_h, beamSize);
+    if params.forceDecoder
+      [allBestScores, allBestWords, otherData] = nextBeamStep(models, softmax_h, beamSize, data.tgtOutput(:, tgtPos));
+      otherInfo.forceDecodeOutputs(tgtPos, :) = otherData.maxWords;
+    else
+      [allBestScores, allBestWords] = nextBeamStep(models, softmax_h, beamSize);
+    end
 
     % allBestWords, allBestScores should have size: (beamSize*beamSize) * batchSize
     [allBestScores, allBestWords, indices] = addSortScores(allBestScores, allBestWords, beamScores, beamSize, batchSize);
@@ -439,28 +455,40 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
       
       % get candidates
       selectedIndices = find(bestWords~=params.tgtEos, beamSize);
+      if ~isempty(selectedIndices)
+        % update words
+        startId = (sentId-1)*beamSize+1;
+        endId = sentId*beamSize;
+        sentWords = bestWords(selectedIndices);
+        beamWords(startId:endId) = sentWords;
 
-      % update words
-      startId = (sentId-1)*beamSize+1;
-      endId = sentId*beamSize;
-      sentWords = bestWords(selectedIndices);
-      beamWords(startId:endId) = sentWords;
+        % align
+        if params.align
+          bestAlignIds = alignIdx(rowIndices, sentId);
+          beamAlignIds(startId:endId) = bestAlignIds(selectedIndices);
+        end
 
-      % align
-      if params.align
-        bestAlignIds = alignIdx(rowIndices, sentId);
-        beamAlignIds(startId:endId) = bestAlignIds(selectedIndices);
+        % update beam
+        sentBeamIndices = floor((rowIndices(selectedIndices)-1)/beamSize) + 1;
+        beamIndices(startId:endId) = sentBeamIndices;
+
+        % update scores
+        beamScores(startId:endId) = allBestScores(selectedIndices, sentId);
+
+        % get words that are eos and ranked before the last hypothesis in the next beam
+        endIndices = find(bestWords(1:selectedIndices(end))==params.tgtEos); 
+      else % special case, happen for beamSize = 1, useful for force decoding
+        assert(beamSize == 1);
+        assert(bestWords == params.tgtEos);
+        if doneFlags(sentId) == 1
+          continue;
+        else
+          doneFlags(sentId) = 1;
+          endIndices = 1;
+        end
       end
       
-      % update beam
-      sentBeamIndices = floor((rowIndices(selectedIndices)-1)/beamSize) + 1;
-      beamIndices(startId:endId) = sentBeamIndices;
-
-      % update scores
-      beamScores(startId:endId) = allBestScores(selectedIndices, sentId);
-
       %% store translations
-      endIndices = find(bestWords(1:selectedIndices(end))==params.tgtEos); % get words that are eos and ranked before the last hypothesis in the next beam
       if ~isempty(endIndices) && (sentPos+1)>=minLen % we don't want to start recording very short translations
         numTranslations = length(endIndices);
         eosBeamIndices = floor((rowIndices(endIndices)-1)/beamSize) + 1;
@@ -484,7 +512,6 @@ function [candidates, candScores, alignInfo] = decodeBatch(models, params, lstmS
               alignInfo{sentId}{numDecoded(sentId)} = [alignments(:, ii); lastAlignIds(ii)];
             end
 
-            %printSent(2, translations(:, ii), params.vocab, ['  trans sent ' num2str(originalSentIndices(sentId)) ', ' num2str(transScores(ii)), ': ']);
             if numDecoded(sentId)==stackSize % done for sentId
               decodeCompleteCount = decodeCompleteCount + 1;
               break;
@@ -553,27 +580,38 @@ function [allBestScores, allBestWords, indices] = addSortScores(allBestScores, a
   allBestWords = reshape(allBestWords, [beamSize*beamSize, batchSize]);
 
   % for each sent, select the best beamSize candidates, out of beamSize*beamSize ones
-  [allBestScores, indices] = sort(allBestScores, 'descend'); % (beamSize*beamSize) * batchSize
+  if beamSize > 1
+    [allBestScores, indices] = sort(allBestScores, 'descend'); % (beamSize*beamSize) * batchSize
+  else
+    indices = ones(1, batchSize);
+  end
 end
 
 %%
 % return bestLogProbs, bestWords of sizes beamSize * curBatchSize
 %%
-function [bestLogProbs, bestWords, logProbs, sortedLogProbs, sortedWords] = nextBeamStep(models, softmax_h, beamSize) %h_t, beamSize, params, data, curMask, tgtPos)
+function [bestLogProbs, bestWords, otherData] = nextBeamStep(models, softmax_h, beamSize, varargin)
   softmax_input = models{1}.W_soft*softmax_h{1};
   if length(models)>1 % aggregate predictions from multiple models
     for ii=2:length(models)
       softmax_input = softmax_input + models{ii}.W_soft*softmax_h{ii};
-      x = models{ii}.W_soft*softmax_h{ii};
     end
     softmax_input = softmax_input./length(models);
   end
   [logProbs] = softmaxDecode(softmax_input);
   
   % sort
-  [sortedLogProbs, sortedWords] = sort(logProbs, 'descend');
-  bestWords = sortedWords(1:beamSize, :);
-  bestLogProbs = sortedLogProbs(1:beamSize, :);
+  if length(varargin)==1 % force decoder
+    correctWords = reshape(varargin{1}, 1, []);
+    bestWords = correctWords;
+    bestLogProbs = logProbs(sub2ind(size(logProbs), correctWords, 1:size(logProbs, 2)));
+    [~, otherData.maxWords] = max(logProbs, [], 1);
+  else
+    [sortedLogProbs, sortedWords] = sort(logProbs, 'descend');
+    bestWords = sortedWords(1:beamSize, :);
+    bestLogProbs = sortedLogProbs(1:beamSize, :);
+    otherData = [];
+  end
 end
 
 function [logProbs] = softmaxDecode(scores)

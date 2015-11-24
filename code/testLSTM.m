@@ -33,6 +33,9 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   addOptional(p,'maxLenRatio', 1.5, @isnumeric); % decodeLen <= maxLenRatio * srcMaxLen
   addOptional(p,'testPrefix', '', @ischar); % to specify a different file for decoding
   addOptional(p,'hasTgt', 1, @isnumeric); % 0 -- no ref translations (groundtruth)
+  
+  % force decoding: always feed the correct words (groundtruth)
+  addOptional(p,'forceDecoder', 0, @isnumeric); 
 
   p.KeepUnmatched = true;
   parse(p,modelFiles,beamSize,stackSize,batchSize,outputFile,varargin{:})
@@ -67,7 +70,12 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
     [savedData] = load(modelFile);
     models{mm} = savedData.model;
     models{mm}.params = savedData.params;  
-       
+
+    % backward compatible
+    if (isfield(models{mm}.params,'softmaxFeedInput')) && (~isfield(models{mm}.params,'feedInput'))
+      models{mm}.params.feedInput = models{mm}.params.softmaxFeedInput;
+    end
+
     % load vocabs
     [models{mm}.params] = prepareVocabs(models{mm}.params);
     
@@ -96,6 +104,13 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   end
   
   params = models{1}.params;
+  
+  % force decode
+  if decodeParams.forceDecoder
+    params.stackSize = 1;
+    params.beamSize = 1;
+  end
+  
   params.fid = fopen(params.outputFile, 'w');
   params.logId = fopen([outputFile '.log'], 'w'); 
   % align
@@ -127,10 +142,10 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
     decodeData.startId = startId;
     
     % call lstmDecoder
-    [candidates, candScores, alignInfo] = lstmDecoder(models, decodeData, params); 
+    [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, decodeData, params); 
     
     % print results
-    printDecodeResults(decodeData, candidates, candScores, alignInfo, params, 1);
+    printDecodeResults(decodeData, candidates, candScores, alignInfo, otherInfo, params, 1);
   end
 
   endTime = clock;
@@ -142,19 +157,6 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   fclose(params.logId);
 end
 
-%     % for backward compatibility  
-%     % TODO: remove
-%     fieldNames = {'attnGlobal', 'attnOpt', 'predictPos', 'feedInput'};
-%     for ii=1:length(fieldNames)
-%       field = fieldNames{ii};
-%       if ~isfield(models{mm}.params, field)
-%         models{mm}.params.(field) = 0;
-%       end
-%     end
-%     if isfield(models{mm}.params, 'softmaxFeedInput')
-%       models{mm}.params.feedInput = models{mm}.params.softmaxFeedInput;
-%     end
-% 
 %     % convert absolute paths to local paths
 %     fieldNames = fields(models{mm}.params);
 %     for ii=1:length(fieldNames)
@@ -172,16 +174,6 @@ end
 %      end
 %     end
 
-%     if models{mm}.params.attnFunc==1
-%       models{mm}.params.attnGlobal = 1;
-%     end
-%     if ~isfield(models{mm}, 'W_emb_src')
-%       models{mm}.W_emb_src = models{mm}.W_emb(:, models{mm}.params.tgtVocabSize+1:end);
-%       models{mm}.W_emb_tgt = models{mm}.W_emb(:, 1:models{mm}.params.tgtVocabSize);
-%     end
-%     if ~isfield(models{mm}, 'W_h')
-%       models{mm}.W_h = models{mm}.W_ah;
-%     end
 
 %     % convert local paths to absolute paths
 %     fieldNames = fields(models{mm}.params);
