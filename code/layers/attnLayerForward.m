@@ -1,4 +1,4 @@
-function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, tgtPos)
+function [h2sInfo] = attnLayerForward(h_t, params, model, trainData, curMask, tgtPos)
 %%%
 %
 % Attentional Layer: from lstm hidden state to softmax hidden state.
@@ -7,7 +7,6 @@ function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, 
 %
 %%%
   h2sInfo = [];
-  curMask = trainData.curMask;
   if params.attnGlobal % global
     srcHidVecs = trainData.srcHidVecsOrig;
     h2sInfo.srcMaskedIds = trainData.srcMaskedIds;
