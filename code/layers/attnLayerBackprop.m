@@ -86,6 +86,10 @@ function [grad_ht, attnGrad, grad_srcHidVecs] = attnLayerBackprop(model, grad_so
     [grad_ht1, attnGrad.W_pos, attnGrad.v_pos] = scaleLayerBackprop(model.W_pos, model.v_pos, grad_scales, h2sInfo.h_t, h2sInfo.scales, h2sInfo.posForwData, params);
     grad_ht = grad_ht + grad_ht1;
   end
+  
+  if params.assert
+    assert(computeSum(grad_ht(:, curMask.maskedIds), params.isGPU)==0);
+  end
 end
 
 
