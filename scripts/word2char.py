@@ -33,6 +33,8 @@ def deescape(line):
 
 def main(in_file, out_file, ngram_size):
   """Main body"""
+
+  print "# ngram_size = ", ngram_size
   inf = codecs.open(in_file, 'r', 'utf-8')
   ouf = codecs.open(out_file, 'w', 'utf-8')
 
@@ -43,6 +45,7 @@ def main(in_file, out_file, ngram_size):
   line_count = 0
   word_count = 0
   ngram_count = 0
+  word_boundary = "#B#"
   for line in inf:
     line = deescape(line.strip())
     tokens = line.split()
@@ -62,11 +65,12 @@ def main(in_file, out_file, ngram_size):
 
         # if start_id == 0: # begin of word
         #   ngram = '#B#' + ngram
-        if end_id == num_chars: # end of word
-          ngram += '#E#'
+        #if end_id == num_chars: # end of word
+        #  ngram += '#E#'
 
         ngrams.append(ngram)
         start_id += ngram_size
+      ngrams.append(word_boundary)
 
     ouf.write('%s\n' % ' '.join(ngrams))
     if line_count == 0:
@@ -84,7 +88,7 @@ def main(in_file, out_file, ngram_size):
   ouf.close()
 
 if __name__ == '__main__':
-  ngram_size = sys.argv[1]
+  ngram_size = int(sys.argv[1])
   in_file = sys.argv[2]
   out_file = sys.argv[3]
   main(in_file, out_file, ngram_size)

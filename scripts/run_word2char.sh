@@ -35,17 +35,18 @@ function execute_check {
 }
 
 execute_check "" "mkdir -p $outDir"
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 devBase=`basename $devPrefix`
-execute_check "" "python ./experimental/users/thangluong/scripts/word2char.py $n $devPrefix.$src $devPrefix.${n}gram.$src"
-execute_check "" "python ./experimental/users/thangluong/scripts/word2char.py $n $devPrefix.$tgt $devPrefix.${n}gram.$tgt"
+execute_check "" "python $SCRIPT_DIR/word2char.py $n $devPrefix.$src $devPrefix.${n}gram.$src"
+execute_check "" "python $SCRIPT_DIR/word2char.py $n $devPrefix.$tgt $devPrefix.${n}gram.$tgt"
 
 testBase=`basename $testPrefix`
-execute_check "" "python ./experimental/users/thangluong/scripts/word2char.py $n $testPrefix.$src $testPrefix.${n}gram.$src"
-execute_check "" "python ./experimental/users/thangluong/scripts/word2char.py $n $testPrefix.$tgt $testPrefix.${n}gram.$tgt"
+execute_check "" "python $SCRIPT_DIR/word2char.py $n $testPrefix.$src $testPrefix.${n}gram.$src"
+execute_check "" "python $SCRIPT_DIR/word2char.py $n $testPrefix.$tgt $testPrefix.${n}gram.$tgt"
 
 trainBase=`basename $trainPrefix`
-execute_check "" "python ./experimental/users/thangluong/scripts/word2char.py $n $trainPrefix.$src $trainPrefix.${n}gram.$src"
-execute_check "" "python ./experimental/users/thangluong/scripts/word2char.py $n $trainPrefix.$tgt $trainPrefix.${n}gram.$tgt"
+execute_check "" "python $SCRIPT_DIR/word2char.py $n $trainPrefix.$src $trainPrefix.${n}gram.$src"
+execute_check "" "python $SCRIPT_DIR/word2char.py $n $trainPrefix.$tgt $trainPrefix.${n}gram.$tgt"
 
 
