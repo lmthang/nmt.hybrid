@@ -82,6 +82,7 @@ def process_files(in_file, out_file):
   train_stats = {}
   test_stats = {}
   model_count = 0
+  log_freqs = []
   for line in inf:
     tokens = line.split()
     file_name = tokens[0]
@@ -98,40 +99,55 @@ def process_files(in_file, out_file):
       train_stats[model] = {}
       sys.stderr.write('# model %s\n%s\n' % (model, log_file))
       ouf.write('\t%s' % model)
-      
+     
+      prev_iter = -1
+      done_log_freq = False
       for line in log_inf:
         eval_m = re.search(eval_pattern, line)
-       
         if eval_m != None:
           eval_stat = eval_m.group(1)
+          print eval_stat       
           tokens = re.split(', ', eval_stat)
-          iter = int(tokens[-3])
+          cur_iter = int(tokens[-3])
           train_cost = eval_m.group(2)
           test_cost = eval_m.group(4)
-          #if iter not in train_stats[model]:
-          train_stats[model][iter] = test_cost
-
+          print cur_iter, train_cost, test_cost
+          #if cur_iter not in train_stats[model]:
+          train_stats[model][cur_iter] = test_cost
+          
+          # guess log freq
+          if prev_iter == -1:
+            prev_iter = cur_iter
+          elif done_log_freq == False and prev_iter > -1:
+            done_log_freq = True
+            log_freqs.append(cur_iter - prev_iter)
       log_inf.close()
   ouf.write('\n')
 
   num_models = len(models) 
   sys.stderr.write('# Num models = %d\n' % num_models)
-  log_freq = 5000
+  #log_freq = 5000
 
-  iter = 0
+  # make sure all models have the same log freq
+  for i in xrange(1, num_models):
+    assert log_freqs[i] == log_freqs[0]
+  log_freq = log_freqs[0]
+  sys.stderr.write('# log_freq = %d\n' % log_freq)
+
+  cur_iter = 0
   while(1):
-    iter += log_freq
+    cur_iter += log_freq
     results = []
     for ii in xrange(num_models):
       model = models[ii]
-      if iter in train_stats[model]:
-        results.append(train_stats[model][iter])
+      if cur_iter in train_stats[model]:
+        results.append(train_stats[model][cur_iter])
     if len(results)==0:
       break
     if len(results)==num_models: # have train_stats for all models
-      ouf.write('%d\t%s\n' % (iter, '\t'.join(results)))
+      ouf.write('%d\t%s\n' % (cur_iter, '\t'.join(results)))
     else:
-      sys.stderr.write('iter %d, only %d models\n' % (iter, len(results)))
+      sys.stderr.write('iter %d, only %d models\n' % (cur_iter, len(results)))
     
   inf.close()
   ouf.close()
