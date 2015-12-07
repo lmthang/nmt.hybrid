@@ -59,6 +59,13 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'loadModel', '', @ischar); % To start training from
   addOptional(p,'saveHDF', 0, @isnumeric); % 1: to save in HDF5 format
   
+  % char-based models
+  addOptional(p,'charShortList', 0, @isnumeric); % list of frequent words after which we will learn compositions from characters
+  addOptional(p,'charPrefix', '', @ischar); % list of characters
+  %addOptional(p,'charMapFile', '', @ischar); % map words into sequences of chars (in integers)
+  % trainLSTM('../output/id.shortlist.100/train.10k', '../output/id.shortlist.100/valid.100', '../output/id.shortlist.100/test.100', 'de', 'en', '../output/id.1000/shortlist.100.de.vocab', '../output/id.1000/shortlist.100.en.vocab', '../output/basic', 'isResume', 0, 'charShortList', 100, 'charPrefix', '../output/id.1000/shortlist.100'); 
+  %'../output/id.1000/shortlist.100.de.char.vocab', 'tgtCharVocabFile', '../output/id.1000/shortlist.100.en.char.vocab', 'srcCharMapFile', '../output/id.1000/shortlist.100.de.char.map', 'srcCharMapFile', '../output/id.1000/shortlist.100.en.char.map')
+  
   % decoding
   addOptional(p,'decode', 1, @isnumeric); % 1: decode during training
   addOptional(p,'minLenRatio', 0.5, @isnumeric);
@@ -176,7 +183,22 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   
   %% Load vocabs
   [params] = prepareVocabs(params);
-    
+  
+  %% char-level
+  if params.charShortList > 0
+    assert(params.charShortList < params.srcVocabSize);
+    assert(params.charShortList < params.tgtVocabSize);
+    % '../output/id.1000/shortlist.100.de.char.vocab', 'tgtCharVocabFile', '../output/id.1000/shortlist.100.en.char.vocab', 'srcCharMapFile', '../output/id.1000/shortlist.100.de.char.map', 'srcCharMapFile', '../output/id.1000/shortlist.100.en.char.map')
+    params.srcCharVocabFile = [params.charPrefix '.' params.srcLang '.char.vocab'];
+    params.tgtCharVocabFile = [params.charPrefix '.' params.tgtLang '.char.vocab'];
+    params.srcCharMapFile = [params.charPrefix '.' params.srcLang '.char.map'];
+    params.tgtCharMapFile = [params.charPrefix '.' params.tgtLang '.char.map'];
+    [srcCharVocab] = loadVocab(params.srcCharVocabFile);
+    [tgtCharVocab] = loadVocab(params.tgtCharVocabFile);
+    [srcCharMap] = loadWord2CharMap(params.srcCharMapFile);
+    [tgtCharMap] = loadWord2CharMap(params.tgtCharMapFile);
+  end
+  
   %% Init / Load Model Parameters
   params.modelFile = [outDir '/model.mat']; % store those with the best valid perplexity
   params.modelRecentFile = [outDir '/modelRecent.mat'];

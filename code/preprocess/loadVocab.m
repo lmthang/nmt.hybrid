@@ -1,4 +1,4 @@
-function [vocab, freqs, varargout] = loadVocab(vocabFile)
+function [vocab, freqs] = loadVocab(vocabFile)
 %% 
 % Thang Luong @ 2012, 2015 <lmthang@stanford.edu>
 % Read vocab file in UTF-8 format.
@@ -6,7 +6,7 @@ function [vocab, freqs, varargout] = loadVocab(vocabFile)
 
   fid = fopen(vocabFile,'r');
   fprintf(1, '# Loading vocab from file %s ...\n', vocabFile);
-  fileLines = textscan(fid, '%s', 'delimiter', '\n'); %, 'bufsize', 100000);
+  fileLines = textscan(fid, '%s', 'delimiter', '\n');
   fclose(fid);
   fileLines=fileLines{1};
 
@@ -22,7 +22,7 @@ function [vocab, freqs, varargout] = loadVocab(vocabFile)
 		  word = temp{1};
 		  index = temp{2}; % ignore
 		  freq = str2double(temp{3});
-		  if prevIndex~=-1
+      if prevIndex ~= -1
         assert((prevIndex + 1)==index);
         prevIndex = index;
       end
