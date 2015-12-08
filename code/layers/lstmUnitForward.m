@@ -1,34 +1,34 @@
-function [lstmState] = lstmUnitForward(W, x_t, h_t_1, c_t_1, params, isTest) %  ll, t, srcMaxLen,
+function [lstmState] = lstmUnitForward(W, x_t, h_t_1, c_t_1, params, isTest, isFeedInput)
 % LSTM unit
 % Input:
 %   W: parameter
 %   x_t: current input
-%   h_t, c_t: previous hidden state, cell state
+%   h_t_1, c_t_1: previous hidden state, cell state
 %   isTest: 1 -- don't store intermediate results
 %
 % Output:
-%   lstm struct
-% Thang Luong @ 2014, <lmthang@stanford.edu>
+%   lstmState struct
+% Thang Luong @ 2014, 2015, <lmthang@stanford.edu>
 
   %% dropout
   if params.dropout<1 && isTest==0
-%     if ~params.isGradCheck
-%       dropoutMask = (randMatrix(size(x_t), params.isGPU, params.dataType)<params.dropout)/params.dropout;
-%     else % for gradient check use the same mask
-%       if t>=srcMaxLen && ll==1 && params.feedInput % predict words
-%         dropoutMask = params.dropoutMaskInput;
-%       else
-%         dropoutMask = params.dropoutMask;
-%       end
-%     end
-%     x_t = x_t.*dropoutMask;
-    
     if ~params.isGradCheck
-      dropoutMask = (randMatrix([params.lstmSize, size(x_t, 2)], params.isGPU, params.dataType)<params.dropout)/params.dropout;
+      dropoutMask = (randMatrix(size(x_t), params.isGPU, params.dataType)<params.dropout)/params.dropout;
     else % for gradient check use the same mask
-      dropoutMask = params.dropoutMask;
+      if isFeedInput %t>=srcMaxLen && ll==1 && params.feedInput % predict words
+        dropoutMask = params.dropoutMaskInput;
+      else
+        dropoutMask = params.dropoutMask;
+      end
     end
-    x_t(1:params.lstmSize,:) = x_t(1:params.lstmSize,:).*dropoutMask;
+    x_t = x_t.*dropoutMask;
+    
+%     if ~params.isGradCheck
+%       dropoutMask = (randMatrix([params.lstmSize, size(x_t, 2)], params.isGPU, params.dataType)<params.dropout)/params.dropout;
+%     else % for gradient check use the same mask
+%       dropoutMask = params.dropoutMask;
+%     end
+%     x_t(1:params.lstmSize,:) = x_t(1:params.lstmSize,:).*dropoutMask;
   end
   
   %% input, forget, output gates and input signals before applying non-linear functions
@@ -81,12 +81,12 @@ function [lstmState] = lstmUnitForward(W, x_t, h_t_1, c_t_1, params, isTest) %  
     lstmState.f_c_t = f_c_t;
     
     if params.dropout<1 % store dropout mask
-%       if t>=srcMaxLen && ll==1 && params.feedInput % predict words
-%         lstm.dropoutMaskInput = dropoutMask;
-%       else
-%         lstm.dropoutMask = dropoutMask;
-%       end
-      lstmState.dropoutMask = dropoutMask;
+      if isFeedInput % t>=srcMaxLen && ll==1 && params.feedInput % predict words
+        lstmState.dropoutMaskInput = dropoutMask;
+      else
+        lstmState.dropoutMask = dropoutMask;
+      end
+%       lstmState.dropoutMask = dropoutMask;
     end
   end
 end

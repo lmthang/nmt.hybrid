@@ -1,4 +1,4 @@
-function [lstmStates, attnInfo] = rnnLayerForward(T, W_rnn, W_emb, prevState, input, maskInfos, params, isTest, isDecoder, trainData, model)
+function [lstmStates, attnInfo] = rnnLayerForward(T, W_rnn, W_emb, prevState, input, maskInfos, params, isTest, isFeedInput, isDecoder, trainData, model)
 % Running Multi-layer RNN for one time step.
 % Input:
 %   W_rnn: recurrent connections of multiple layers, e.g., W_rnn{ll}.
@@ -29,7 +29,7 @@ for tt=1:T % time
   end
   
   % multi-layer RNN
-  [lstmStates{tt}] = rnnStepLayerForward(W_rnn, prevState, x_t, maskInfos{tt}.maskedIds, params, isTest);
+  [lstmStates{tt}] = rnnStepLayerForward(W_rnn, prevState, x_t, maskInfos{tt}.maskedIds, params, isTest, isFeedInput);
   
   % attention
   if isDecoder && params.attnFunc 

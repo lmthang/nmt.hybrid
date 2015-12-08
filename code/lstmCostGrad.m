@@ -72,9 +72,10 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   
   if params.isBi
     isDecoder = 0;
+    isFeedInput = 0;
     [srcMaskInfos] = prepareMask(trainData.srcMask);
     [encStates, ~] = rnnLayerForward(encLen, model.W_src, model.W_emb_src, zeroState, trainData.srcInput, srcMaskInfos, ...
-      params, isTest, isDecoder, trainData, model);
+      params, isTest, isFeedInput, isDecoder, trainData, model);
     lastEncState = encStates{end};
     
     % attention
@@ -93,9 +94,10 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   %% decoder
   decLen = T - srcMaxLen + 1;
   isDecoder = 1;
+  isFeedInput = params.feedInput;
   [tgtMaskInfos] = prepareMask(trainData.tgtMask);
   [decStates, attnInfos] = rnnLayerForward(decLen, model.W_tgt, model.W_emb_tgt, lastEncState, trainData.tgtInput, tgtMaskInfos, ...
-    params, isTest, isDecoder, trainData, model);
+    params, isTest, isFeedInput, isDecoder, trainData, model);
   
   %% softmax
   [costs.total, grad.W_soft, dec_top_grads] = softmaxCostGrad(decLen, decStates, attnInfos, model.W_soft, trainData.tgtOutput, tgtMaskInfos, params, isTest);
@@ -118,9 +120,10 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   
   % decoder
   isDecoder = 1;
+  isFeedInput = params.feedInput;
   [dc, dh, grad.W_tgt, grad.W_emb_tgt, grad.indices_tgt, attnGrad, grad.srcHidVecs] = rnnLayerBackprop(decLen, model.W_tgt, ...
     decStates, lastEncState, ...
-    dec_top_grads, dc, dh, trainData.tgtInput, tgtMaskInfos, params, isDecoder, attnInfos, trainData, model);
+    dec_top_grads, dc, dh, trainData.tgtInput, tgtMaskInfos, params, isFeedInput, isDecoder, attnInfos, trainData, model);
   if params.attnFunc % copy attention grads 
     [grad] = copyStruct(attnGrad, grad);
   end
@@ -133,8 +136,9 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
     end
     
     isDecoder = 0;
+    isFeedInput = 0;
     [~, ~, grad.W_src, grad.W_emb_src, grad.indices_src, ~, ~] = rnnLayerBackprop(encLen, model.W_src, encStates, zeroState, ...
-    enc_top_grads, dc, dh, trainData.srcInput, srcMaskInfos, params, isDecoder, attnInfos, trainData, model);
+    enc_top_grads, dc, dh, trainData.srcInput, srcMaskInfos, params, isFeedInput, isDecoder, attnInfos, trainData, model);
   end
 
     

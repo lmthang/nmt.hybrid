@@ -1,4 +1,4 @@
-function [nextState] = rnnStepLayerForward(W_rnn, prevState, input_emb, maskedIds, params, isTest)
+function [nextState] = rnnStepLayerForward(W_rnn, prevState, input_emb, maskedIds, params, isTest, isFeedInput)
 % Running Multi-layer RNN for one time step.
 % Input:
 %   W_rnn: recurrent connections of multiple layers, e.g., W_rnn{ll}.
@@ -31,7 +31,7 @@ for ll=1:params.numLayers % layer
   c_t_1(:, maskedIds) = 0;
 
   % core LSTM
-  [nextState{ll}] = lstmUnitForward(W_rnn{ll}, x_t, h_t_1, c_t_1, params, isTest); % % ll, tt, srcMaxLen, 
+  [nextState{ll}] = lstmUnitForward(W_rnn{ll}, x_t, h_t_1, c_t_1, params, isTest, ll==1 && isFeedInput); % % ll, tt, srcMaxLen, 
   
   % assert
   if params.assert
