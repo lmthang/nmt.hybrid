@@ -13,7 +13,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   %%% INIT %%%
   %%%%%%%%%%%%
   tgtMaxLen = trainData.tgtMaxLen;
-  curBatchSize = size(trainData.input, 1);
+  curBatchSize = size(trainData.tgtInput, 1);
   if params.isBi
     srcMaxLen = trainData.srcMaxLen;
     trainData.srcTotalWordCount = sum(trainData.srcLens);
@@ -22,8 +22,8 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   end
   T = srcMaxLen+tgtMaxLen-1;
   
-  input = trainData.input;
-  inputMask = trainData.inputMask;
+  %input = trainData.input;
+  %inputMask = trainData.inputMask;
   trainData.tgtTotalWordCount = sum(trainData.tgtLens);
   
   trainData.isTest = isTest;
@@ -58,20 +58,22 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
     trainData.srcHidVecsOrig = zeroMatrix([params.lstmSize, curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);
   end
   
-  % prepare mask
-  maskInfos = cell(T, 1);
-  for tt=1:T
-    maskInfos{tt}.mask = inputMask(:, tt)'; % curBatchSize * 1
-    maskInfos{tt}.unmaskedIds = find(maskInfos{tt}.mask);
-    maskInfos{tt}.maskedIds = find(~maskInfos{tt}.mask);
-  end
+%   % prepare mask
+%   maskInfos = cell(T, 1);
+%   for tt=1:T
+%     maskInfos{tt}.mask = inputMask(:, tt)'; % curBatchSize * 1
+%     maskInfos{tt}.unmaskedIds = find(maskInfos{tt}.mask);
+%     maskInfos{tt}.maskedIds = find(~maskInfos{tt}.mask);
+%   end
   
   %% encoder
   lastEncState = zeroState;
   encLen = srcMaxLen - 1;
+  
   if params.isBi
     isDecoder = 0;
-    [encStates, ~] = rnnLayerForward(encLen, model.W_src, model.W_emb_src, zeroState, input(:, 1:encLen), maskInfos(1:encLen), ...
+    [srcMaskInfos] = prepareMask(trainData.srcMask);
+    [encStates, ~] = rnnLayerForward(encLen, model.W_src, model.W_emb_src, zeroState, trainData.srcInput, srcMaskInfos, ...
       params, isTest, isDecoder, trainData, model);
     lastEncState = encStates{end};
     
@@ -91,11 +93,12 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   %% decoder
   decLen = T - srcMaxLen + 1;
   isDecoder = 1;
-  [decStates, attnInfos] = rnnLayerForward(decLen, model.W_tgt, model.W_emb_tgt, lastEncState, input(:, encLen+1:T), maskInfos(encLen+1:T), ...
+  [tgtMaskInfos] = prepareMask(trainData.tgtMask);
+  [decStates, attnInfos] = rnnLayerForward(decLen, model.W_tgt, model.W_emb_tgt, lastEncState, trainData.tgtInput, tgtMaskInfos, ...
     params, isTest, isDecoder, trainData, model);
   
   %% softmax
-  [costs.total, grad.W_soft, dec_top_grads] = softmaxCostGrad(decLen, decStates, attnInfos, model.W_soft, trainData.tgtOutput, maskInfos(encLen+1:T), params, isTest);
+  [costs.total, grad.W_soft, dec_top_grads] = softmaxCostGrad(decLen, decStates, attnInfos, model.W_soft, trainData.tgtOutput, tgtMaskInfos, params, isTest);
   costs.word = costs.total;
   
   if isTest==1 % don't compute grad
@@ -117,7 +120,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   isDecoder = 1;
   [dc, dh, grad.W_tgt, grad.W_emb_tgt, grad.indices_tgt, attnGrad, grad.srcHidVecs] = rnnLayerBackprop(decLen, model.W_tgt, ...
     decStates, lastEncState, ...
-    dec_top_grads, dc, dh, input(:, encLen+1:T), maskInfos(encLen+1:T), params, isDecoder, attnInfos, trainData, model);
+    dec_top_grads, dc, dh, trainData.tgtInput, tgtMaskInfos, params, isDecoder, attnInfos, trainData, model);
   if params.attnFunc % copy attention grads 
     [grad] = copyStruct(attnGrad, grad);
   end
@@ -131,7 +134,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
     
     isDecoder = 0;
     [~, ~, grad.W_src, grad.W_emb_src, grad.indices_src, ~, ~] = rnnLayerBackprop(encLen, model.W_src, encStates, zeroState, ...
-    enc_top_grads, dc, dh, input(:, 1:encLen), maskInfos(1:encLen), params, isDecoder, attnInfos, trainData, model);
+    enc_top_grads, dc, dh, trainData.srcInput, srcMaskInfos, params, isDecoder, attnInfos, trainData, model);
   end
 
     

@@ -22,10 +22,8 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
   beamSize = params.beamSize;
   stackSize = params.stackSize;
   
-  input = data.input;
-  inputMask = data.inputMask; 
   srcMaxLen = data.srcMaxLen;
-  batchSize = size(input, 1);
+  batchSize = size(data.srcInput, 1);
   data.curBatchSize = batchSize;
       
 
@@ -93,13 +91,15 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
   end
   
   for tt=1:srcMaxLen % time
-    maskedIds = find(~inputMask(:, tt)); % curBatchSize * 1
     tgtPos = tt-srcMaxLen+1; % = 1
     if tt==srcMaxLen % due to implementation in lstmCostGrad, we have to switch to W_tgt here. THIS IS VERY IMPORTANT!
       for mm=1:numModels
         W{mm} = models{mm}.W_tgt;
         W_emb{mm} = models{mm}.W_emb_tgt;
       end
+      maskedIds = find(~data.tgtMask(:, 1)); % curBatchSize * 1
+    else
+      maskedIds = find(~data.srcMask(:, tt)); % curBatchSize * 1
     end
     
     for mm=1:numModels % model
@@ -116,9 +116,9 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
         % current-time input
         if ll==1 % first layer
           if tt==srcMaxLen % decoder input
-            x_t = getLstmDecoderInput(input(:, tt), W_emb{mm}, softmax_h{mm}, models{mm}.params);
+            x_t = getLstmDecoderInput(data.tgtInput(:, 1), W_emb{mm}, softmax_h{mm}, models{mm}.params);
           else
-            x_t = W_emb{mm}(:, input(:, tt));
+            x_t = W_emb{mm}(:, data.srcInput(:, tt));
           end
         else % subsequent layer, use the previous-layer hidden state
           x_t = lstm{mm}{ll-1}.h_t;

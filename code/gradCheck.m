@@ -36,7 +36,7 @@ function gradCheck(model, params)
     
   % for gradient check purpose
   if params.dropout<1 % use the same dropout mask
-    curBatchSize = size(trainData.input, 1);
+    curBatchSize = size(trainData.tgtInput, 1);
     params.dropoutMask = (randMatrix([params.lstmSize curBatchSize], params.isGPU, params.dataType)<params.dropout)/params.dropout;
     
 %     if params.feedInput
@@ -108,25 +108,3 @@ function gradCheck(model, params)
   
   fprintf(2, '# Num params=%d, abs_diff=%g\n', numParams, total_abs_diff);
 end
-
-% params.posModel==2 || 
-
-%% class-based softmax %%
-%   % W_soft_inclass
-%   if params.numClasses>0
-%     full_grad_W_soft_inclass = zeroMatrix(size(model.W_soft_inclass), params.isGPU, params.dataType);
-%     if params.isGPU
-%       full_grad_W_soft_inclass(:, :, grad.classIndices) = gather(grad.W_soft_inclass);
-%     else
-%       full_grad_W_soft_inclass(:, :, grad.classIndices) = grad.W_soft_inclass;
-%     end
-%     grad.W_soft_inclass = full_grad_W_soft_inclass;
-%   end
-
-%% Unused
-%   if params.separateEmb==1
-%   else
-%     full_grad_W_emb = zeroMatrix(size(model.W_emb), params.isGPU, params.dataType);
-%     full_grad_W_emb(:, grad.indices) = grad.W_emb;
-%     grad.W_emb = full_grad_W_emb;
-%   end
