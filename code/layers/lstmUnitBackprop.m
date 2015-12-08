@@ -1,4 +1,13 @@
-function [dc, dh, d_input, d_W_rnn] = lstmUnitBackprop(W, lstm, c_t_1, dc, dh, maskedIds, params) % ll, t, srcMaxLen, t, zero_state, 
+function [dc, dh, d_input, d_W_rnn] = lstmUnitBackprop(W, lstm, c_t_1, dc, dh, maskedIds, params, isFeedInput)
+% LSTM unit back prop
+% Input:
+%   W: recurrent parameters
+%   c_t_1: previous cell state
+%
+% Output:
+%   gradients with respect to c, h, input, and the recurrent connenctions
+% Thang Luong @ 2014, 2015, <lmthang@stanford.edu>
+
   dh(:, maskedIds) = 0;
   dc(:, maskedIds) = 0;
   
@@ -22,11 +31,7 @@ function [dc, dh, d_input, d_W_rnn] = lstmUnitBackprop(W, lstm, c_t_1, dc, dh, m
     
     % df = f'(f_g)*c_{t-1}*dc
     df = arrayfun(@sigmoidPrimeTriple, lstm.f_gate, c_t_1, dc); % lstm{ll, t-1}.c_t
-%     if t>1
-%       df = arrayfun(@sigmoidPrimeTriple, lstm.f_gate, c_t_1, dc); % lstm{ll, t-1}.c_t
-%     else
-%       df = zero_state;
-%     end
+    
     % da = f'(a_signal)*i_g*dc
     da = arrayfun(@tanhPrimeTriple, lstm.a_signal, lstm.i_gate, dc);
   else
@@ -48,11 +53,7 @@ function [dc, dh, d_input, d_W_rnn] = lstmUnitBackprop(W, lstm, c_t_1, dc, dh, m
     di = params.nonlinear_gate_f_prime(lstm.i_gate).*lstm.a_signal.*dc;
     % df = f'(f_g)*c_{t-1}*dc
     df = params.nonlinear_gate_f_prime(lstm.f_gate).*c_t_1.*dc; % lstm{ll, t-1}.c_t
-%     if t>1
-%       df = params.nonlinear_gate_f_prime(lstm.f_gate).*c_t_1.*dc; % lstm{ll, t-1}.c_t
-%     else
-%       df = zero_state;
-%     end
+
     % da = f'(a_signal)*i_g*dc
     da = params.nonlinear_f_prime(lstm.a_signal).*lstm.i_gate.*dc;   
   end
@@ -69,12 +70,12 @@ function [dc, dh, d_input, d_W_rnn] = lstmUnitBackprop(W, lstm, c_t_1, dc, dh, m
  
   % dropout
   if params.dropout<1
-%     if t>=srcMaxLen && ll==1 && params.feedInput % predict words
-%       d_input(1:2*params.lstmSize, :) = d_input(1:2*params.lstmSize, :).*lstm.dropoutMaskInput; % dropout x_t, s_t
-%     else
-%       d_input(1:params.lstmSize, :) = d_input(1:params.lstmSize, :).*lstm.dropoutMask; % dropout x_t
-%     end
-    d_input(1:params.lstmSize, :) = d_input(1:params.lstmSize, :).*lstm.dropoutMask; % dropout x_t
+    if isFeedInput % t>=srcMaxLen && ll==1 && params.feedInput % predict words
+      d_input(1:2*params.lstmSize, :) = d_input(1:2*params.lstmSize, :).*lstm.dropoutMaskInput; % dropout x_t, s_t
+    else
+      d_input(1:params.lstmSize, :) = d_input(1:params.lstmSize, :).*lstm.dropoutMask; % dropout x_t
+    end
+%     d_input(1:params.lstmSize, :) = d_input(1:params.lstmSize, :).*lstm.dropoutMask; % dropout x_t
   end
   
   % clip hidden/cell derivatives
@@ -126,12 +127,3 @@ end
 function [value] = plusMult(x, y, z)
   value = x + y*z;
 end
-
-% (params.posModel==2 && mod(t-srcMaxLen+1, 2)==0) || 
-  %lstm_grad.dx = d_xh(1:params.lstmSize, :); 
-  %dh =  d_xh(params.lstmSize+1:end, :);
- 
-  %if params.debug==2 && params.batchId==1 && (t==srcMaxLen || t==1)
-  %  fprintf(2, '# t %d, l %d\n dc:%s, dh:%s\n f_g:%s, i_g:%s, o_g:%s\n grad:%s\n', t, ll, wInfo(dc), wInfo(dh), wInfo(lstm.f_gate), wInfo(lstm.i_gate), wInfo(lstm.o_gate), wInfo(lstm_grad));
-  %end
- 

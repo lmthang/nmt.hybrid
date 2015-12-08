@@ -1,4 +1,5 @@
-function [dc, dh, d_emb, grad_W_rnn, d_feed_input] = rnnStepLayerBackprop(W_rnn, prev_state, cur_state, cur_top_grad, dc, dh, maskInfo, params, isDecoder)
+function [dc, dh, d_emb, grad_W_rnn, d_feed_input] = rnnStepLayerBackprop(W_rnn, prev_state, cur_state, cur_top_grad, dc, dh, ...
+  maskInfo, params, isFeedInput, isDecoder)
 % Backprop multi-layer RNN for one time step.
 % Input:
 %   W_rnn: recurrent connections of multiple layers, e.g., W_rnn{ll}.
@@ -19,7 +20,7 @@ for ll=params.numLayers:-1:1 % layer
   end
 
   % cell backprop
-  [dc{ll}, dh{ll}, d_input, grad_W_rnn{ll}] = lstmUnitBackprop(W_rnn{ll}, cur_state{ll}, prev_state{ll}.c_t, dc{ll}, dh{ll}, maskedIds, params);
+  [dc{ll}, dh{ll}, d_input, grad_W_rnn{ll}] = lstmUnitBackprop(W_rnn{ll}, cur_state{ll}, prev_state{ll}.c_t, dc{ll}, dh{ll}, maskedIds, params, ll==1 && isFeedInput);
 
   % pass down hidden state grad to the below layer 
   cur_top_grad = d_input;

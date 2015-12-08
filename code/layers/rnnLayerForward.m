@@ -1,4 +1,4 @@
-function [lstmStates, attnInfo] = rnnLayerForward(T, W_rnn, W_emb, prevState, input, maskInfo, params, isTest, isDecoder, trainData, model)
+function [lstmStates, attnInfo] = rnnLayerForward(T, W_rnn, W_emb, prevState, input, maskInfos, params, isTest, isFeedInput, isDecoder, trainData, model)
 % Running Multi-layer RNN for one time step.
 % Input:
 %   W_rnn: recurrent connections of multiple layers, e.g., W_rnn{ll}.
@@ -10,7 +10,7 @@ function [lstmStates, attnInfo] = rnnLayerForward(T, W_rnn, W_emb, prevState, in
 %   nextState
 %
 % Thang Luong @ 2015, <lmthang@stanford.edu>
-
+  
 batchSize = size(input, 1);
 lstmStates = cell(T, 1);
 softmax_h = zeroMatrix([params.lstmSize, batchSize], params.isGPU, params.dataType);
@@ -29,12 +29,12 @@ for tt=1:T % time
   end
   
   % multi-layer RNN
-  [lstmStates{tt}] = rnnStepLayerForward(W_rnn, prevState, x_t, maskInfo{tt}.maskedIds, params, isTest);
+  [lstmStates{tt}] = rnnStepLayerForward(W_rnn, prevState, x_t, maskInfos{tt}.maskedIds, params, isTest, isFeedInput);
   
   % attention
   if isDecoder && params.attnFunc 
     % TODO: save memory here, h2sInfo.input only keeps track of srcHidVecs or attnVecs, but not h_t.
-    [attnInfo{tt}] = attnLayerForward(lstmStates{tt}{params.numLayers}.h_t, params, model, trainData, maskInfo{tt}, tt);
+    [attnInfo{tt}] = attnLayerForward(lstmStates{tt}{params.numLayers}.h_t, params, model, trainData, maskInfos{tt}, tt);
     softmax_h = attnInfo{tt}.softmax_h;
   else
     softmax_h = lstmStates{tt}{params.numLayers}.h_t;

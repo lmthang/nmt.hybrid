@@ -96,8 +96,8 @@ end
 
 
 function printSrc(fid, data, ii, params, sentId)
-  mask = data.inputMask(ii,1:data.srcMaxLen-1);
-  src = data.input(ii,mask);
+  mask = data.srcMask(ii,:);
+  src = data.srcInput(ii,mask);
   printSent(fid, src, params.srcVocab, ['  src ' num2str(sentId) ': ']);
   
   if params.isReverse
@@ -106,7 +106,7 @@ function printSrc(fid, data, ii, params, sentId)
 end
 
 function printRef(fid, data, ii, params, sentId)
-  mask = data.inputMask(ii, data.srcMaxLen:end);
+  mask = data.tgtMask(ii, :);
   ref = data.tgtOutput(ii,mask);
   printSent(fid, ref, params.tgtVocab, ['  ref ' num2str(sentId) ': ']);
 end

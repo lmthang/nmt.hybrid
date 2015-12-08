@@ -1,5 +1,5 @@
 function [dc, dh, grad_W_rnn, grad_W_emb, grad_emb_indices, attnGrad, grad_srcHidVecs_total] = rnnLayerBackprop(T, W_rnn, rnnStates, initState, ...
-  top_grads, dc, dh, input, maskInfos, params, isDecoder, attnInfos, trainData, model)
+  top_grads, dc, dh, input, maskInfos, params, isFeedInput, isDecoder, attnInfos, trainData, model)
 % Running Multi-layer RNN for one time step.
 % Input:
 %   W_rnn: recurrent connections of multiple layers, e.g., W_rnn{ll}.
@@ -60,7 +60,8 @@ for tt=T:-1:1 % time
   end
 
   %% multi-layer RNN backprop
-  [dc, dh, d_emb, d_W_rnn, d_feed_input] = rnnStepLayerBackprop(W_rnn, prevState, rnnStates{tt}, cur_top_grad, dc, dh, maskInfos{tt}, params, isDecoder);
+  [dc, dh, d_emb, d_W_rnn, d_feed_input] = rnnStepLayerBackprop(W_rnn, prevState, rnnStates{tt}, cur_top_grad, dc, dh, maskInfos{tt}, params...
+    , isFeedInput, isDecoder);
 
   % recurrent grad
   for ll=params.numLayers:-1:1 % layer
