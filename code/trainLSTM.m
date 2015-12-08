@@ -193,10 +193,10 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     params.tgtCharVocabFile = [params.charPrefix '.' params.tgtLang '.char.vocab'];
     params.srcCharMapFile = [params.charPrefix '.' params.srcLang '.char.map'];
     params.tgtCharMapFile = [params.charPrefix '.' params.tgtLang '.char.map'];
-    [srcCharVocab] = loadVocab(params.srcCharVocabFile);
-    [tgtCharVocab] = loadVocab(params.tgtCharVocabFile);
-    [srcCharMap] = loadWord2CharMap(params.srcCharMapFile);
-    [tgtCharMap] = loadWord2CharMap(params.tgtCharMapFile);
+    [params.srcCharVocab] = loadVocab(params.srcCharVocabFile);
+    [params.tgtCharVocab] = loadVocab(params.tgtCharVocabFile);
+    [params.srcCharMap] = loadWord2CharMap(params.srcCharMapFile);
+    [params.tgtCharMap] = loadWord2CharMap(params.tgtCharMapFile);
   end
   
   %% Init / Load Model Parameters
