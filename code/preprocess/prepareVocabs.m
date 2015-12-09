@@ -28,27 +28,40 @@ function [params] = prepareVocabs(params)
   %% src vocab
   if params.isBi
     fprintf(2, '## Bilingual setting\n');
+    params.srcOrigVocabSize = length(srcVocab);
     
-    % add eos, sos, zero
-    srcVocab{end+1} = '<s_sos>'; % not learn
+    % add sos, eos not learn
+    srcVocab{end+1} = '<s_sos>';
     params.srcSos = length(srcVocab);
     srcVocab{end+1} = '<s_eos>';
     params.srcEos = length(srcVocab);
     
-    % here we have src eos, so we don't need tgt sos.
+    % char
+    if params.charShortList
+      srcVocab{end+1} = '<s_rare>';
+      params.srcRare = length(srcVocab);
+    end
+    
     params.srcVocabSize = length(srcVocab);
   else
     fprintf(2, '## Monolingual setting\n');
   end
     
   %% tgt vocab  
-  params.nullPosId = 0;
-    
+  params.tgtOrigVocabSize = length(tgtVocab);
+  
   % add eos, sos
   tgtVocab{end+1} = '<t_sos>';
   params.tgtSos = length(tgtVocab);
   tgtVocab{end+1} = '<t_eos>';
-  params.tgtEos = length(tgtVocab); 
+  params.tgtEos = length(tgtVocab);
+  
+    % char
+  if params.charShortList
+    tgtVocab{end+1} = '<t_rare>';
+    params.tgtRare = length(tgtVocab);
+  end
+
   params.tgtVocabSize = length(tgtVocab);
   
   %% finalize vocab
@@ -61,3 +74,20 @@ function [params] = prepareVocabs(params)
   
   params.tgtVocab = tgtVocab;
 end
+
+%     params.srcSos = lookup(srcVocab, '<s>');
+%     assert(~isempty(params.srcSos));
+
+%   params.tgtSos = lookup(tgtVocab, '<s>');
+%   params.tgtEos = lookup(tgtVocab, '</s>');
+%   assert(~isempty(params.tgtSos) && ~isempty(params.tgtEos));
+
+% function [id] = lookup(vocab, str)
+%   id = find(strcmp(str, vocab), 1);
+% end
+
+%     tgtVocab = {'a', 'b', '<s>', '</s>'};
+% 
+%     if params.isBi
+%       srcVocab = {'x', 'y', '<s>', '</s>'};
+%     end

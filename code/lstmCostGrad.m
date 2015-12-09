@@ -22,8 +22,6 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   end
   T = srcMaxLen+tgtMaxLen-1;
   
-  %input = trainData.input;
-  %inputMask = trainData.inputMask;
   trainData.tgtTotalWordCount = sum(trainData.tgtLens);
   
   trainData.isTest = isTest;
@@ -57,14 +55,6 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
     end
     trainData.srcHidVecsOrig = zeroMatrix([params.lstmSize, curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);
   end
-  
-%   % prepare mask
-%   maskInfos = cell(T, 1);
-%   for tt=1:T
-%     maskInfos{tt}.mask = inputMask(:, tt)'; % curBatchSize * 1
-%     maskInfos{tt}.unmaskedIds = find(maskInfos{tt}.mask);
-%     maskInfos{tt}.maskedIds = find(~maskInfos{tt}.mask);
-%   end
   
   %% encoder
   lastEncState = zeroState;

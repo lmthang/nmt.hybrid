@@ -63,7 +63,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'charShortList', 0, @isnumeric); % list of frequent words after which we will learn compositions from characters
   addOptional(p,'charPrefix', '', @ischar); % list of characters
   %addOptional(p,'charMapFile', '', @ischar); % map words into sequences of chars (in integers)
-  % trainLSTM('../output/id.shortlist.100/train.10k', '../output/id.shortlist.100/valid.100', '../output/id.shortlist.100/test.100', 'de', 'en', '../output/id.1000/shortlist.100.de.vocab', '../output/id.1000/shortlist.100.en.vocab', '../output/basic', 'isResume', 0, 'charShortList', 100, 'charPrefix', '../output/id.1000/shortlist.100'); 
+  % trainLSTM('../output/id.shortlist.100/train.10k', '../output/id.shortlist.100/valid.100', '../output/id.shortlist.100/test.100', 'de', 'en', '../output/id.1000/shortlist.100.de.vocab', '../output/id.1000/shortlist.100.en.vocab', '../output/basic', 'isResume', 0, 'charShortList', 100, 'charPrefix', '../output/id.1000/shortlist.100', 'logFreq', 1); 
   %'../output/id.1000/shortlist.100.de.char.vocab', 'tgtCharVocabFile', '../output/id.1000/shortlist.100.en.char.vocab', 'srcCharMapFile', '../output/id.1000/shortlist.100.de.char.map', 'srcCharMapFile', '../output/id.1000/shortlist.100.en.char.map')
   
   % decoding
