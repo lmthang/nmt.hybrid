@@ -16,7 +16,7 @@ function [h2sInfo] = attnLayerForward(h_t, params, model, trainData, curMask, tg
       [mu, h2sInfo] = regressPositions(model, h_t, trainData.srcLens, params);
       srcPositions = floor(mu);
     else % monotonic alignments
-      srcPositions = tgtPos*ones(1, trainData.curBatchSize);
+      srcPositions = tgtPos*ones(1, params.curBatchSize);
       flags = srcPositions>(trainData.srcLens-1);
       srcPositions(flags) = trainData.srcLens(flags)-1;
     end
@@ -30,11 +30,11 @@ function [h2sInfo] = attnLayerForward(h_t, params, model, trainData, curMask, tg
       
     % reverse
     if params.isReverse
-      srcPositions = trainData.srcMaxLen - srcPositions;
+      srcPositions = params.srcMaxLen - srcPositions;
     end
 
     % build context vectors
-    [srcHidVecs, h2sInfo] = buildSrcVecs(trainData.srcHidVecs, srcPositions, curMask, trainData.srcLens, trainData.srcMaxLen, params, h2sInfo);
+    [srcHidVecs, h2sInfo] = buildSrcVecs(trainData.srcHidVecs, srcPositions, curMask, trainData.srcLens, params.srcMaxLen, params, h2sInfo);
 
     h2sInfo.srcMaskedIds = find(h2sInfo.alignMask==0);
   end % end else if attnGlobal
@@ -62,7 +62,7 @@ function [h2sInfo] = attnLayerForward(h_t, params, model, trainData, curMask, tg
 
   % attn4: local, regression, multiply with distWeights
   if params.predictPos
-    [h2sInfo.distWeights, h2sInfo.scaleX] = distLayerForward(mu, h2sInfo, trainData, params); % numAttnPositions*curBatchSize
+    [h2sInfo.distWeights, h2sInfo.scaleX] = distLayerForward(mu, h2sInfo, params); % numAttnPositions*curBatchSize
     h2sInfo.preAlignWeights = h2sInfo.alignWeights;
     h2sInfo.alignWeights =  h2sInfo.preAlignWeights.* h2sInfo.distWeights; % weighted by distances
   end

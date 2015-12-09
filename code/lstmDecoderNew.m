@@ -10,7 +10,7 @@
 %   With help from Hieu Pham.
 %
 %%
-function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, data, params)
+function [candidates, candScores, alignInfo, otherInfo] = lstmDecoderNew(models, data, params)
   % backward compatibility: not a cell, single model, put into a cell format
   if ~iscell(models)
     tmpModels = cell(1, 1);
@@ -25,7 +25,8 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
   srcMaxLen = data.srcMaxLen;
   batchSize = size(data.srcInput, 1);
   %data.curBatchSize = batchSize;
-      
+%   params.srcMaxLen = srcMaxLen;
+%   params.curBatchSize = batchSize;
 
   %% init
   fprintf(2, '# Decoding batch of %d sents, srcMaxLen=%d, %s\n', batchSize, srcMaxLen, datestr(now));
@@ -40,20 +41,22 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
   %%%%%%%%%%%%
   %% multiple models
   numModels = length(models);
-  lstm = cell(numModels, 1); % lstm can be over written, as we do not need to backprop
-  softmax_h = cell(numModels, 1);
+  %lstm = cell(numModels, 1); % lstm can be over written, as we do not need to backprop
+  %softmax_h = cell(numModels, 1);
   W = cell(numModels, 1);
   W_emb = cell(numModels, 1);
   modelData = cell(numModels, 1);
   zeroStates = cell(numModels, 1);
   firstAlignIdx = [];
   for mm=1:numModels
-    lstm{mm} = cell(models{mm}.params.numLayers, 1);
-    zeroStates{mm} = zeroMatrix([models{mm}.params.lstmSize, batchSize], params.isGPU, params.dataType);
-    softmax_h{mm} = zeroStates{mm};
-    modelData{mm} = data;
+    %lstm{mm} = cell(models{mm}.params.numLayers, 1);
     models{mm}.params.curBatchSize = batchSize;
     models{mm}.params.srcMaxLen = srcMaxLen;
+    [zeroStates{mm}] = createZeroState(models{mm}.params);
+    %zeroStates{mm} = zeroMatrix([models{mm}.params.lstmSize, batchSize], params.isGPU, params.dataType);
+    %softmax_h{mm} = zeroStates{mm};
+    modelData{mm} = data;
+    
     
     % attention
     if models{mm}.params.attnFunc
@@ -91,112 +94,182 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
     end
   end
   
-  for tt=1:srcMaxLen % time
-    tgtPos = tt-srcMaxLen+1; % = 1
-    if tt==srcMaxLen % due to implementation in lstmCostGrad, we have to switch to W_tgt here. THIS IS VERY IMPORTANT!
-      for mm=1:numModels
-        W{mm} = models{mm}.W_tgt;
-        W_emb{mm} = models{mm}.W_emb_tgt;
-      end
-      maskedIds = find(~data.tgtMask(:, 1)); % curBatchSize * 1
-    else
-      maskedIds = find(~data.srcMask(:, tt)); % curBatchSize * 1
-    end
+  % encoder
+  lastEncStates = cell(numModels, 1);
+  encLen = srcMaxLen - 1;
+  isTest = 1;
+  for mm=1:numModels
+    isDecoder = 0;
+    isFeedInput = 0;
+    [srcMaskInfos] = prepareMask(modelData{mm}.srcMask);
+    [encStates, modelData{mm}, ~] = rnnLayerForward(encLen, models{mm}.W_src, models{mm}.W_emb_src, zeroStates{mm}, modelData{mm}.srcInput, ...
+      srcMaskInfos, models{mm}.params, isTest, isFeedInput, isDecoder, modelData{mm}, models{mm});
+    lastEncStates{mm} = encStates{end};
     
-    for mm=1:numModels % model
-      for ll=1:models{mm}.params.numLayers % layer
-        % previous-time input
-        if tt==1 % first time step
-          h_t_1 = zeroStates{mm};
-          c_t_1 = zeroStates{mm};
+    % feed input
+    if models{mm}.params.feedInput
+      lastEncStates{mm}{end}.softmax_h = zeroMatrix([models{mm}.params.lstmSize, batchSize], params.isGPU, params.dataType);
+    end
+  end
+  
+  
+  % first decoder timestep
+  decLen = 1;
+  isDecoder = 1;
+  lastDecStates = cell(numModels, 1);
+  for mm=1:numModels
+    isFeedInput = models{mm}.params.feedInput;
+    [tgtMaskInfos] = prepareMask(modelData{mm}.tgtMask(:, 1));
+    [decStates, ~, attnInfos] = rnnLayerForward(decLen, models{mm}.W_tgt, models{mm}.W_emb_tgt, lastEncStates{mm}, ...
+      modelData{mm}.tgtInput(:, 1), tgtMaskInfos, models{mm}.params, isTest, isFeedInput, isDecoder, modelData{mm}, models{mm});
+    lastDecStates{mm} = decStates{end};
+    
+    % output alignment
+    if params.align 
+      if models{mm}.params.attnGlobal==0 % local
+        [startIds, endIds, startAttnIds, endAttnIds] = computeAttnBound(attnInfos.srcPositions, models{mm}.params);
+      end
+
+      for sentId=1:batchSize % go through each sent
+        srcLen = modelData{mm}.srcLens(sentId);
+
+        if models{mm}.params.attnGlobal
+          alignWeights{sentId} = alignWeights{sentId} + attnInfos.alignWeights(end-srcLen+2:end, sentId);
         else
-          h_t_1 = lstm{mm}{ll}.h_t; 
-          c_t_1 = lstm{mm}{ll}.c_t;
-        end
+          if startIds(sentId)<=endIds(sentId)
+            offset = srcMaxLen-srcLen;
 
-        % current-time input
-        if ll==1 % first layer
-          if tt==srcMaxLen % decoder input
-            x_t = getLstmDecoderInput(data.tgtInput(:, 1), W_emb{mm}, softmax_h{mm}, models{mm}.params);
-          else
-            x_t = W_emb{mm}(:, data.srcInput(:, tt));
-          end
-        else % subsequent layer, use the previous-layer hidden state
-          x_t = lstm{mm}{ll-1}.h_t;
-        end
-
-        % masking
-        x_t(:, maskedIds) = 0; 
-        h_t_1(:, maskedIds) = 0;
-        c_t_1(:, maskedIds) = 0;
-
-        % lstm cell
-        [lstm{mm}{ll}] = lstmUnitForward(W{mm}{ll}, x_t, h_t_1, c_t_1, models{mm}.params, 1); % ll, tt, srcMaxLen, 
-        h_t = lstm{mm}{ll}.h_t;
-        
-        % attention
-        if tt<=models{mm}.params.numSrcHidVecs && ll==models{mm}.params.numLayers
-          modelData{mm}.srcHidVecsOrig(:, :, tt) = h_t;
-
-          % done generating all srcHidVecs, collect
-          if tt==models{mm}.params.numSrcHidVecs && models{mm}.params.attnGlobal == 0 % local
-            modelData{mm}.srcHidVecs = modelData{mm}.srcHidVecsOrig;
-          end
-        end
-        
-        % h_t -> softmax_h
-        if tt==srcMaxLen && ll==models{mm}.params.numLayers
-          if models{mm}.params.attnFunc
-            [h2sInfo] = attnLayerForward(h_t, models{mm}.params, models{mm}, modelData{mm}, curMask, tgtPos); 
-            softmax_h{mm} = h2sInfo.softmax_h;
-          else
-            softmax_h{mm} = h_t;
-          end
-          
-          % output alignment
-          if params.align 
-            if models{mm}.params.attnGlobal==0 % local
-              [startIds, endIds, startAttnIds, endAttnIds] = computeAttnBound(h2sInfo.srcPositions, models{mm}.params);
+            % out of boundary
+            if startAttnIds(sentId) <= offset
+              startIds(sentId) = startIds(sentId) + offset + 1 - startAttnIds(sentId);
+              startAttnIds(sentId) = offset + 1;
             end
-            
-            for sentId=1:batchSize % go through each sent
-              srcLen = modelData{mm}.srcLens(sentId);
 
-              if models{mm}.params.attnGlobal
-                alignWeights{sentId} = alignWeights{sentId} + h2sInfo.alignWeights(end-srcLen+2:end, sentId);
-              else
-                if startIds(sentId)<=endIds(sentId)
-                  offset = srcMaxLen-srcLen;
-
-                  % out of boundary
-                  if startAttnIds(sentId) <= offset
-                    startIds(sentId) = startIds(sentId) + offset + 1 - startAttnIds(sentId);
-                    startAttnIds(sentId) = offset + 1;
-                  end
-
-                  indices = startAttnIds(sentId)-offset:endAttnIds(sentId)-offset;
-                  alignWeights{sentId}(indices) = alignWeights{sentId}(indices) + h2sInfo.alignWeights(startIds(sentId):endIds(sentId), sentId);
-                end
-              end
-            end
-            
-            if mm==numModels
-              firstAlignIdx = zeroMatrix([1, batchSize], params.isGPU, params.dataType);
-              for sentId=1:batchSize % go through each sent
-                [~, firstAlignIdx(sentId)] = max(alignWeights{sentId}, [], 1); % srcLen includes eos, alignWeights excludes eos.
-              end
-            end % end if last model
+            indices = startAttnIds(sentId)-offset:endAttnIds(sentId)-offset;
+            alignWeights{sentId}(indices) = alignWeights{sentId}(indices) + attnInfos.alignWeights(startIds(sentId):endIds(sentId), sentId);
           end
         end
+      end
 
-        % assert
-        if params.assert
-          assert(sum(sum(abs(lstm{mm}{ll}.c_t(:, maskedIds))))<1e-5);
-          assert(sum(sum(abs(lstm{mm}{ll}.h_t(:, maskedIds))))<1e-5);
+      if mm==numModels
+        firstAlignIdx = zeroMatrix([1, batchSize], params.isGPU, params.dataType);
+        for sentId=1:batchSize % go through each sent
+          [~, firstAlignIdx(sentId)] = max(alignWeights{sentId}, [], 1); % srcLen includes eos, alignWeights excludes eos.
         end
-      end % end for layer
-    end % end for model
-  end % end for time
+      end % end if last model
+    end
+  end
+  
+  
+%   for tt=1:srcMaxLen % time
+%     tgtPos = tt-srcMaxLen+1; % = 1
+%     if tt==srcMaxLen % due to implementation in lstmCostGrad, we have to switch to W_tgt here. THIS IS VERY IMPORTANT!
+%       for mm=1:numModels
+%         W{mm} = models{mm}.W_tgt;
+%         W_emb{mm} = models{mm}.W_emb_tgt;
+%       end
+%       maskedIds = find(~data.tgtMask(:, 1)); % curBatchSize * 1
+%     else
+%       maskedIds = find(~data.srcMask(:, tt)); % curBatchSize * 1
+%     end
+%     
+%     for mm=1:numModels % model
+%       for ll=1:models{mm}.params.numLayers % layer
+%         
+%         % previous-time input
+%         if tt==1 % first time step
+%           h_t_1 = zeroStates{mm};
+%           c_t_1 = zeroStates{mm};
+%         else
+%           h_t_1 = lstm{mm}{ll}.h_t; 
+%           c_t_1 = lstm{mm}{ll}.c_t;
+%         end
+% 
+%         % current-time input
+%         if ll==1 % first layer
+%           if tt==srcMaxLen % decoder input
+%             x_t = getLstmDecoderInput(data.tgtInput(:, 1), W_emb{mm}, softmax_h{mm}, models{mm}.params);
+%           else
+%             x_t = W_emb{mm}(:, data.srcInput(:, tt));
+%           end
+%         else % subsequent layer, use the previous-layer hidden state
+%           x_t = lstm{mm}{ll-1}.h_t;
+%         end
+% 
+%         % masking
+%         x_t(:, maskedIds) = 0; 
+%         h_t_1(:, maskedIds) = 0;
+%         c_t_1(:, maskedIds) = 0;
+% 
+%         % lstm cell
+%         [lstm{mm}{ll}] = lstmUnitForward(W{mm}{ll}, x_t, h_t_1, c_t_1, models{mm}.params, 1); % ll, tt, srcMaxLen, 
+%         h_t = lstm{mm}{ll}.h_t;
+%         
+%         % attention
+%         if tt<=models{mm}.params.numSrcHidVecs && ll==models{mm}.params.numLayers
+%           modelData{mm}.srcHidVecsOrig(:, :, tt) = h_t;
+% 
+%           % done generating all srcHidVecs, collect
+%           if tt==models{mm}.params.numSrcHidVecs && models{mm}.params.attnGlobal == 0 % local
+%             modelData{mm}.srcHidVecs = modelData{mm}.srcHidVecsOrig;
+%           end
+%         end
+%         
+%   
+% 
+%         % assert
+%         if params.assert
+%           assert(sum(sum(abs(lstm{mm}{ll}.c_t(:, maskedIds))))<1e-5);
+%           assert(sum(sum(abs(lstm{mm}{ll}.h_t(:, maskedIds))))<1e-5);
+%         end
+%       end % end for layer
+%       
+%       % h_t -> softmax_h
+%       if tt==srcMaxLen && ll==models{mm}.params.numLayers
+%         if models{mm}.params.attnFunc
+%           [h2sInfo] = attnLayerForward(h_t, models{mm}.params, models{mm}, modelData{mm}, curMask, tgtPos); 
+%           softmax_h{mm} = h2sInfo.softmax_h;
+%         else
+%           softmax_h{mm} = h_t;
+%         end
+% 
+%         % output alignment
+%         if params.align 
+%           if models{mm}.params.attnGlobal==0 % local
+%             [startIds, endIds, startAttnIds, endAttnIds] = computeAttnBound(h2sInfo.srcPositions, models{mm}.params);
+%           end
+% 
+%           for sentId=1:batchSize % go through each sent
+%             srcLen = modelData{mm}.srcLens(sentId);
+% 
+%             if models{mm}.params.attnGlobal
+%               alignWeights{sentId} = alignWeights{sentId} + h2sInfo.alignWeights(end-srcLen+2:end, sentId);
+%             else
+%               if startIds(sentId)<=endIds(sentId)
+%                 offset = srcMaxLen-srcLen;
+% 
+%                 % out of boundary
+%                 if startAttnIds(sentId) <= offset
+%                   startIds(sentId) = startIds(sentId) + offset + 1 - startAttnIds(sentId);
+%                   startAttnIds(sentId) = offset + 1;
+%                 end
+% 
+%                 indices = startAttnIds(sentId)-offset:endAttnIds(sentId)-offset;
+%                 alignWeights{sentId}(indices) = alignWeights{sentId}(indices) + h2sInfo.alignWeights(startIds(sentId):endIds(sentId), sentId);
+%               end
+%             end
+%           end
+% 
+%           if mm==numModels
+%             firstAlignIdx = zeroMatrix([1, batchSize], params.isGPU, params.dataType);
+%             for sentId=1:batchSize % go through each sent
+%               [~, firstAlignIdx(sentId)] = max(alignWeights{sentId}, [], 1); % srcLen includes eos, alignWeights excludes eos.
+%             end
+%           end % end if last model
+%         end
+%       end 
+%     end % end for model
+%   end % end for time
   
   %%%%%%%%%%%%
   %% decode %%
@@ -215,7 +288,7 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
   end
   
   sentIndices = data.startId:(data.startId+batchSize-1);
-  [candidates, candScores, alignInfo, otherInfo] = decodeBatch(models, params, lstm, softmax_h, minLen, maxLen, beamSize, stackSize, batchSize, sentIndices, srcMaxLen, modelData, firstAlignIdx, data);
+  [candidates, candScores, alignInfo, otherInfo] = decodeBatch(models, params, lastDecStates, minLen, maxLen, beamSize, stackSize, batchSize, sentIndices, srcMaxLen, modelData, firstAlignIdx, data);
   endTime = clock;
   timeElapsed = etime(endTime, startTime);
   fprintf(2, '  Done, minLen=%d, maxLen=%d, speed %f sents/s, time %.0fs, %s\n', minLen, maxLen, batchSize/timeElapsed, timeElapsed, datestr(now));
@@ -230,7 +303,7 @@ end
 %   - beamSize
 %   - stackSize: maximum number of translations collected for one example
 %%
-function [candidates, candScores, alignInfo, otherInfo] = decodeBatch(models, params, lstmStart, softmax_h, minLen, maxLen, beamSize, stackSize, batchSize, originalSentIndices, srcMaxLen, modelData, firstAlignIdx, data)
+function [candidates, candScores, alignInfo, otherInfo] = decodeBatch(models, params, lastDecStates, minLen, maxLen, beamSize, stackSize, batchSize, originalSentIndices, srcMaxLen, modelData, firstAlignIdx, data)
   numElements = batchSize*beamSize;
   
   candidates = cell(batchSize, 1);
@@ -254,11 +327,11 @@ function [candidates, candScores, alignInfo, otherInfo] = decodeBatch(models, pa
   otherInfo = [];
   % scores, words: beamSize * batchSize
   if params.forceDecoder
-    [scores, words, otherData] = nextBeamStep(models, softmax_h, beamSize, data.tgtOutput(:, 1)); 
+    [scores, words, otherData] = nextBeamStep(models, lastDecStates, beamSize, data.tgtOutput(:, 1)); 
     otherInfo.forceDecodeOutputs = zeroMatrix([maxLen, numElements], params.isGPU, params.dataType); % maxLen * (numElements) 
     otherInfo.forceDecodeOutputs(1, :) = otherData.maxWords;
   else
-    [scores, words] = nextBeamStep(models, softmax_h, beamSize);
+    [scores, words] = nextBeamStep(models, lastDecStates, beamSize);
   end
 
   % TODO: by right, we should filter out words == params.tgtEos, but I
@@ -286,11 +359,11 @@ function [candidates, candScores, alignInfo, otherInfo] = decodeBatch(models, pa
   for mm=1:numModels % model    
     beamStates{mm} = cell(models{mm}.params.numLayers, 1);
     for ll=1:models{mm}.params.numLayers % lstmSize * numElements
-      beamStates{mm}{ll}.c_t = reshape(repmat(lstmStart{mm}{ll}.c_t, beamSize, 1),  models{mm}.params.lstmSize, numElements); 
-      beamStates{mm}{ll}.h_t = reshape(repmat(lstmStart{mm}{ll}.h_t, beamSize, 1),  models{mm}.params.lstmSize, numElements); 
+      beamStates{mm}{ll}.c_t = reshape(repmat(lastDecStates{mm}{ll}.c_t, beamSize, 1),  models{mm}.params.lstmSize, numElements); 
+      beamStates{mm}{ll}.h_t = reshape(repmat(lastDecStates{mm}{ll}.h_t, beamSize, 1),  models{mm}.params.lstmSize, numElements); 
     end
     
-    softmax_h{mm} = reshape(repmat(softmax_h{mm}, beamSize, 1),  models{mm}.params.lstmSize, numElements); 
+    lastDecStates{mm}{end}.softmax_h = reshape(repmat(lastDecStates{mm}{end}.softmax_h, beamSize, 1),  models{mm}.params.lstmSize, numElements); 
   end
   
 
@@ -370,7 +443,7 @@ function [candidates, candScores, alignInfo, otherInfo] = decodeBatch(models, pa
         W{mm} = models{mm}.W_tgt{ll};
         % current input
         if ll == 1
-          x_t = getLstmDecoderInput(words, W_emb{mm}, softmax_h{mm}, models{mm}.params);
+          x_t = getLstmDecoderInput(words, W_emb{mm}, lastDecStates{mm}{end}.softmax_h, models{mm}.params);
         else
           x_t = beamStates{mm}{ll-1}.h_t;
         end
@@ -385,9 +458,9 @@ function [candidates, candScores, alignInfo, otherInfo] = decodeBatch(models, pa
         if ll==models{mm}.params.numLayers
           if params.attnFunc
             [h2sInfo] = attnLayerForward(h_t, models{mm}.params, models{mm}, modelData{mm}, curMask, tgtPos); 
-            softmax_h{mm} = h2sInfo.softmax_h;
+            lastDecStates{mm}{end}.softmax_h = h2sInfo.softmax_h;
           else
-            softmax_h{mm} = h_t;
+            lastDecStates{mm}{end}.softmax_h = h_t;
           end
           
           % align
@@ -437,10 +510,10 @@ function [candidates, candScores, alignInfo, otherInfo] = decodeBatch(models, pa
     %% predict the next word
     % allBestScores, allBestWords should have size beamSize * (beamSize*batchSize)
     if params.forceDecoder
-      [allBestScores, allBestWords, otherData] = nextBeamStep(models, softmax_h, beamSize, data.tgtOutput(:, tgtPos));
+      [allBestScores, allBestWords, otherData] = nextBeamStep(models, lastDecStates, beamSize, data.tgtOutput(:, tgtPos));
       otherInfo.forceDecodeOutputs(tgtPos, :) = otherData.maxWords;
     else
-      [allBestScores, allBestWords] = nextBeamStep(models, softmax_h, beamSize);
+      [allBestScores, allBestWords] = nextBeamStep(models, lastDecStates, beamSize);
     end
 
     % allBestWords, allBestScores should have size: (beamSize*beamSize) * batchSize
@@ -539,7 +612,7 @@ function [candidates, candScores, alignInfo, otherInfo] = decodeBatch(models, pa
         beamStates{mm}{ll}.c_t = beamStates{mm}{ll}.c_t(:, colIndices); 
         beamStates{mm}{ll}.h_t = beamStates{mm}{ll}.h_t(:, colIndices);
       end
-      softmax_h{mm} = softmax_h{mm}(:, colIndices);
+      lastDecStates{mm}{end}.softmax_h = lastDecStates{mm}{end}.softmax_h(:, colIndices);
     end
     
     if decodeCompleteCount==batchSize % done decoding the entire batch
@@ -588,11 +661,11 @@ end
 %%
 % return bestLogProbs, bestWords of sizes beamSize * curBatchSize
 %%
-function [bestLogProbs, bestWords, otherData] = nextBeamStep(models, softmax_h, beamSize, varargin)
-  softmax_input = models{1}.W_soft*softmax_h{1};
+function [bestLogProbs, bestWords, otherData] = nextBeamStep(models, lastDecStates, beamSize, varargin)
+  softmax_input = models{1}.W_soft*lastDecStates{1}{end}.softmax_h;
   if length(models)>1 % aggregate predictions from multiple models
     for ii=2:length(models)
-      softmax_input = softmax_input + models{ii}.W_soft*softmax_h{ii};
+      softmax_input = softmax_input + models{ii}.W_soft*lastDecStates{ii}{end}.softmax_h;
     end
     softmax_input = softmax_input./length(models);
   end

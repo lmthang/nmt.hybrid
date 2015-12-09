@@ -1,4 +1,4 @@
-function [totalCost, grad_W_soft_total, grad_softmax_all] = softmaxCostGrad(T, lstmStates, attnInfos, W_soft, tgtOutput, maskInfos, params, isTest)
+function [totalCost, grad_W_soft_total, grad_softmax_all] = softmaxCostGrad(T, lstmStates, W_soft, tgtOutput, maskInfos, params, isTest)
 %%%
 %
 % Compute softmax cost/grad for LSTM. 
@@ -13,12 +13,7 @@ grad_softmax_all = cell(T, 1);
 totalCost = 0;
 grad_W_soft_total = 0;
 for tt=1:T % time
-  % h_t -> softmax_h
-  if params.attnFunc
-    softmax_h = attnInfos{tt}.softmax_h;
-  else
-    softmax_h = lstmStates{tt}{params.numLayers}.h_t;
-  end
+  softmax_h = lstmStates{tt}{end}.softmax_h;
 
   % softmax_h -> loss
   predWords = tgtOutput(:, tt)';
