@@ -174,7 +174,6 @@ end
 %      end
 %     end
 
-
 %     % convert local paths to absolute paths
 %     fieldNames = fields(models{mm}.params);
 %     for ii=1:length(fieldNames)

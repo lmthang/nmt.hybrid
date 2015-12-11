@@ -1,5 +1,5 @@
 function [dc, dh, grad_W_rnn, grad_W_emb, grad_emb_indices, attnGrad, grad_srcHidVecs_total] = rnnLayerBackprop(T, W_rnn, rnnStates, initState, ...
-  top_grads, dc, dh, input, maskInfos, params, isFeedInput, isDecoder, attnInfos, trainData, model)
+  top_grads, dc, dh, input, masks, params, isFeedInput, isDecoder, attnInfos, trainData, model)
 % Running Multi-layer RNN for one time step.
 % Input:
 %   W_rnn: recurrent connections of multiple layers, e.g., W_rnn{ll}.
@@ -22,6 +22,9 @@ else
   grad_srcHidVecs_total = [];
   attnGrad = [];
 end
+
+% masks
+[maskInfos] = prepareMask(masks);
 
 for tt=T:-1:1 % time
   unmaskedIds = maskInfos{tt}.unmaskedIds;

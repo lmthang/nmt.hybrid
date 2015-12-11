@@ -12,7 +12,7 @@
 % TODO move srcMaxLen out
 % IMPORTANT: we assume the sentences are reversed here
 % srcPositions = srcMaxLen - srcPositions
-function [srcVecsSub, h2sInfo] = buildSrcVecs(srcVecsAll, srcPositions, curMask, srcLens, srcMaxLen, params, h2sInfo) % startAttnIds, endAttnIds, startIds, endIds, indices
+function [srcVecsSub, h2sInfo] = buildSrcVecs(srcVecsAll, srcPositions, curMask, srcLens, srcMaxLen, params, h2sInfo)
   posWin = params.posWin;
   numPositions = 2*posWin+1;
   [lstmSize, batchSize, numSrcHidVecs] = size(srcVecsAll);
@@ -21,6 +21,9 @@ function [srcVecsSub, h2sInfo] = buildSrcVecs(srcVecsAll, srcPositions, curMask,
   srcPositions(curMask.maskedIds) = [];
   srcLens(curMask.maskedIds) = [];
   unmaskedIds = curMask.unmaskedIds;
+  if size(unmaskedIds, 1) > 1 % make sure it's a row vector
+    unmaskedIds = unmaskedIds';
+  end
   
   % flatten matrices of size batchSize*numPositions (not exactly batch size but close)
   % init. IMPORTANT: don't swap these two lines
