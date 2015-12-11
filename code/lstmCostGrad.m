@@ -19,7 +19,6 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   else % monolingual
     srcMaxLen = 1;
   end
-  T = srcMaxLen+tgtMaxLen-1;
   
   params.curBatchSize = curBatchSize;
   params.srcMaxLen = srcMaxLen;
@@ -54,7 +53,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   end
   
   %% decoder
-  decLen = T - srcMaxLen + 1;
+  decLen = tgtMaxLen;
   isDecoder = 1;
   [decStates, ~, attnInfos] = rnnLayerForward(decLen, model.W_tgt, model.W_emb_tgt, lastEncState, trainData.tgtInput, trainData.tgtMask, ...
     params, isTest, isDecoder, trainData, model);

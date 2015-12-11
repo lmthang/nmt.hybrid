@@ -34,8 +34,3 @@ for tt=1:T % time
   % store all states
   lstmStates{tt} = prevState;
 end
-
-% % attention, store information on the encoder side
-% if params.attnFunc && isDecoder == 0 && params.attnGlobal == 0 % attention, encoder, local
-%   trainData.srcHidVecs = trainData.srcHidVecsOrig;
-% end
