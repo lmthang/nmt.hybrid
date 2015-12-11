@@ -23,7 +23,8 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   
   params.curBatchSize = curBatchSize;
   params.srcMaxLen = srcMaxLen;
-  % params.T = T;
+
+  [params] = setAttnParams(params);
   [grad, params] = initGrad(model, params);
   zeroBatch = zeroMatrix([params.lstmSize, params.curBatchSize], params.isGPU, params.dataType);
   
@@ -120,7 +121,6 @@ function [grad, params] = initGrad(model, params)
   end
   
   %% backprop to src hidden states for attention and positional models
-  [params] = setAttnParams(params);
   if params.attnFunc>0
     % we extract trainData.srcHidVecs later, which contains all src hidden states, lstmSize * curBatchSize * numSrcHidVecs 
     grad.srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);

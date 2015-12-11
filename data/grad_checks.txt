@@ -221,7 +221,7 @@ For product information, visit www.mathworks.com.
  -0.010593	 -0.010593	diff=5.11469e-08
   local_diff=5.9648e-07
 # Num params=104, abs_diff=9.5194e-06
-Elapsed time is 0.671477 seconds.
+Elapsed time is 0.657349 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2)
 [?1h=
@@ -511,7 +511,7 @@ For product information, visit www.mathworks.com.
  -0.000024	 -0.000024	diff=3.53022e-11
   local_diff=1.53477e-10
 # Num params=168, abs_diff=2.69951e-07
-Elapsed time is 1.310419 seconds.
+Elapsed time is 1.380867 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8)
 [?1h=
@@ -801,7 +801,7 @@ For product information, visit www.mathworks.com.
   0.000008	  0.000008	diff=6.58698e-11
   local_diff=2.98428e-10
 # Num params=168, abs_diff=4.05027e-07
-Elapsed time is 1.407647 seconds.
+Elapsed time is 1.377720 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1)
 [?1h=
@@ -1101,7 +1101,7 @@ For product information, visit www.mathworks.com.
  -0.000001	 -0.000001	diff=3.30904e-13
   local_diff=3.54096e-12
 # Num params=176, abs_diff=1.08504e-08
-Elapsed time is 2.037149 seconds.
+Elapsed time is 2.093677 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 1)
 [?1h=
@@ -1412,7 +1412,7 @@ For product information, visit www.mathworks.com.
   0.000005	  0.000005	diff=5.21204e-13
   local_diff=3.53775e-12
 # Num params=182, abs_diff=1.80573e-08
-Elapsed time is 2.789014 seconds.
+Elapsed time is 2.696456 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 2)
 [?1h=
@@ -1718,7 +1718,7 @@ For product information, visit www.mathworks.com.
  -0.000000	 -0.000000	diff=1.30872e-12
   local_diff=5.68434e-12
 # Num params=180, abs_diff=2.65297e-08
-Elapsed time is 2.239954 seconds.
+Elapsed time is 2.171386 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 3)
 [?1h=
@@ -2028,7 +2028,7 @@ For product information, visit www.mathworks.com.
   0.000005	  0.000005	diff=1.55398e-13
   local_diff=2.33666e-12
 # Num params=182, abs_diff=2.26531e-08
-Elapsed time is 2.277122 seconds.
+Elapsed time is 2.152395 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1)
 [?1h=
@@ -2250,7 +2250,7 @@ For product information, visit www.mathworks.com.
  -3.697104	 -3.697522	diff=0.000418031
   local_diff=0.00434995
 # Num params=104, abs_diff=4.55849
-Elapsed time is 0.663399 seconds.
+Elapsed time is 0.864124 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2)
 [?1h=
@@ -2540,7 +2540,7 @@ For product information, visit www.mathworks.com.
   0.026195	  0.025843	diff=0.000352205
   local_diff=0.00269699
 # Num params=168, abs_diff=4.19357
-Elapsed time is 1.415352 seconds.
+Elapsed time is 1.333852 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8)
 [?1h=
@@ -2830,7 +2830,7 @@ For product information, visit www.mathworks.com.
  -0.031845	 -0.032135	diff=0.000289784
   local_diff=0.00231588
 # Num params=168, abs_diff=14.882
-Elapsed time is 1.382429 seconds.
+Elapsed time is 1.435990 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1)
 [?1h=
@@ -3130,7 +3130,7 @@ For product information, visit www.mathworks.com.
   0.597443	  0.593744	diff=0.00369893
   local_diff=0.0140759
 # Num params=176, abs_diff=5.87875
-Elapsed time is 2.016087 seconds.
+Elapsed time is 2.763112 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 1)
 [?1h=
@@ -3441,7 +3441,7 @@ For product information, visit www.mathworks.com.
  -2.916310	 -2.926043	diff=0.00973229
   local_diff=0.0499206
 # Num params=182, abs_diff=230.43
-Elapsed time is 3.817480 seconds.
+Elapsed time is 2.872647 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 2)
 [?1h=
@@ -3747,7 +3747,7 @@ For product information, visit www.mathworks.com.
  -7.639216	 -7.644510	diff=0.0052939
   local_diff=0.0235115
 # Num params=180, abs_diff=23.7962
-Elapsed time is 2.246190 seconds.
+Elapsed time is 2.018828 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 3)
 [?1h=
@@ -4057,5 +4057,5 @@ For product information, visit www.mathworks.com.
  -2.028308	 -2.039860	diff=0.0115521
   local_diff=0.0553199
 # Num params=182, abs_diff=11.2245
-Elapsed time is 2.194470 seconds.
+Elapsed time is 2.271586 seconds.
 [?1l>

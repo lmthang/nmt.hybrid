@@ -89,10 +89,3 @@ function [mu, h2sInfo] = regressPositions(model, h_t, srcLens, params)
   % scales -> srcPositions
   mu = h2sInfo.scales.*(srcLens-1) + 1;
 end
-
-    
-%     h2sInfo.src_ht_hid = params.nonlinear_f(bsxfun(@plus, srcHidVecs, model.W_a*h_t)); % lstmSize * curBatchSize * numAttnPositions
-%     alignScores = squeeze(sum(bsxfun(@times, h2sInfo.src_ht_hid, model.v_a), 1))'; % numAttnPositions * curBatchSize
-%     if params.curBatchSize==1 || params.numAttnPositions==1 % handle special cases that causing squeezing to transpose row/col vectors.
-%       alignScores = alignScores';
-%     end
