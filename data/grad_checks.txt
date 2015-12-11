@@ -221,7 +221,7 @@ For product information, visit www.mathworks.com.
  -0.010593	 -0.010593	diff=5.11469e-08
   local_diff=5.9648e-07
 # Num params=104, abs_diff=9.5194e-06
-Elapsed time is 0.674977 seconds.
+Elapsed time is 0.671477 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2)
 [?1h=
@@ -511,7 +511,7 @@ For product information, visit www.mathworks.com.
  -0.000024	 -0.000024	diff=3.53022e-11
   local_diff=1.53477e-10
 # Num params=168, abs_diff=2.69951e-07
-Elapsed time is 1.340797 seconds.
+Elapsed time is 1.310419 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8)
 [?1h=
@@ -801,7 +801,7 @@ For product information, visit www.mathworks.com.
   0.000008	  0.000008	diff=6.58698e-11
   local_diff=2.98428e-10
 # Num params=168, abs_diff=4.05027e-07
-Elapsed time is 1.460181 seconds.
+Elapsed time is 1.407647 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1)
 [?1h=
@@ -1101,307 +1101,7 @@ For product information, visit www.mathworks.com.
  -0.000001	 -0.000001	diff=3.30904e-13
   local_diff=3.54096e-12
 # Num params=176, abs_diff=1.08504e-08
-Elapsed time is 2.059677 seconds.
-[?1l>
-## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 2, 'attnOpt', 1)
-[?1h=
-                                                                   < M A T L A B (R) >
-                                                         Copyright 1984-2013 The MathWorks, Inc.
-                                                            R2013a (8.1.0.604) 64-bit (maci64)
-                                                                    February 15, 2013
-
- 
-To get started, type one of these: helpwin, helpdesk, or demo.
-For product information, visit www.mathworks.com.
- 
-
-  Student License -- for use in conjunction with courses offered at a
-  degree-granting institution.  Professional and commercial use prohibited.
-
-## Bilingual setting
-# Init LSTM parameters using dataType=double, initRange=0.1
-  Model size = 176, individual sizes:  W_src{1}=32 W_src{2}=32 W_tgt{1}=48 W_tgt{2}=32 W_emb_src=8 W_emb_tgt=8 W_h=8 W_soft=8
-# assert = 0
-# attnFunc = 2
-# attnOpt = 1
-# batchSize = 10
-# dataType = double
-# debug = 0
-# decode = 1
-# dropout = 0.8
-# epochFraction = 1
-# epochIter = 0
-# feedInput = 1
-# finetuneEpoch = 5
-# finetuneRate = 0.5
-# gpuDevice = 0
-# initRange = 0.1
-# isBi = 1
-# isClip = 1
-# isGradCheck = 1
-# isProfile = 0
-# isResume = 0
-# isReverse = 1
-# learningRate = 1
-# loadModel = 
-# logFreq = 10
-# lstmOpt = 0
-# lstmSize = 2
-# maxGradNorm = 5
-# maxLenRatio = 1.5
-# maxSentLen = 7
-# minLenRatio = 0.5
-# numEpoches = 10
-# numLayers = 2
-# onlyCPU = 0
-# outDir = ../output/gradcheck
-# posWin = 1
-# saveHDF = 0
-# seed = 0
-# shuffle = 1
-# sortBatch = 1
-# srcLang = 
-# srcVocabFile = 
-# testPrefix = 
-# tgtLang = 
-# tgtVocabFile = 
-# trainPrefix = 
-# validPrefix = 
-# chunkSize = 12800
-# baseIndex = 0
-# clipForward = 50
-# clipBackward = 1000
-# nonlinear_gate_f = sigmoid
-# nonlinear_gate_f_prime = sigmoidPrime
-# nonlinear_f = tanh
-# nonlinear_f_prime = tanhPrime
-# beamSize = 12
-# stackSize = 100
-# unkPenalty = 0
-# forceDecoder = 0
-# isGPU = 0
-# batchId = 1
-# maxRelDist = 2
-# logId = 3
-# srcSos = 3
-# srcEos = 4
-# srcVocabSize = 4
-# nullPosId = 0
-# tgtSos = 3
-# tgtEos = 4
-# tgtVocabSize = 4
-# modelFile = ../output/gradcheck/model.mat
-# modelRecentFile = ../output/gradcheck/modelRecent.mat
-# softmaxSize = 2
-# lr = 1
-# epoch = 1
-# bestCostValid = 100000
-# testPerplexity = 100000
-# curTestPerpWord = 100000
-# startIter = 0
-# iter = 0
-# epochBatchCount = 0
-# finetuneCount = 0
-# modelSize = 176
-  src input 1: <s_sos> y x x
-  src mask: 0  1  1  1
-  tgt input 1: <t_sos> a b <t_eos> <t_eos>
-  tgt output 1: a b <t_eos> <t_eos> <t_eos>
-  tgt mask: 1  1  1  0  0
-# W_src{1}, [8 4]
- -0.000000	 -0.000000	diff=1.00682e-12
-  0.000000	  0.000000	diff=4.10463e-13
- -0.000000	 -0.000000	diff=9.1179e-13
-  0.000000	  0.000000	diff=2.77132e-13
- -0.000000	 -0.000000	diff=1.39262e-12
- -0.000000	 -0.000000	diff=1.16909e-12
- -0.000001	 -0.000001	diff=4.57946e-11
- -0.000004	 -0.000004	diff=2.13365e-11
- -0.000000	 -0.000000	diff=9.94076e-13
-  0.000000	  0.000000	diff=6.87737e-13
- -0.000000	 -0.000000	diff=1.50568e-13
-  0.000000	  0.000000	diff=3.7984e-13
- -0.000000	 -0.000000	diff=4.37766e-13
- -0.000000	 -0.000000	diff=3.16153e-13
- -0.000002	 -0.000002	diff=4.39517e-11
- -0.000004	 -0.000004	diff=2.11532e-11
-  0.000000	  0.000000	diff=6.10978e-13
-  0.000000	  0.000000	diff=9.872e-13
- -0.000000	 -0.000000	diff=5.21277e-13
-  0.000000	  0.000000	diff=3.83041e-14
- -0.000000	 -0.000000	diff=3.04863e-13
- -0.000000	 -0.000000	diff=5.798e-13
- -0.000000	 -0.000000	diff=5.07095e-11
- -0.000000	 -0.000000	diff=7.39185e-14
- -0.000000	 -0.000000	diff=3.68753e-13
- -0.000000	 -0.000000	diff=5.10464e-13
-  0.000000	  0.000000	diff=7.54102e-13
- -0.000000	 -0.000000	diff=3.49398e-13
-  0.000000	  0.000000	diff=4.06092e-13
-  0.000000	  0.000000	diff=1.46799e-13
-  0.000000	  0.000000	diff=1.45171e-13
-  0.000000	  0.000000	diff=1.35981e-10
-  local_diff=3.32858e-10
-# W_src{2}, [8 4]
- -0.000000	 -0.000000	diff=9.94039e-13
-  0.000000	  0.000000	diff=7.09621e-13
- -0.000000	 -0.000000	diff=7.10013e-13
- -0.000000	 -0.000000	diff=1.28542e-13
- -0.000000	 -0.000000	diff=1.62636e-12
-  0.000000	  0.000000	diff=8.29224e-13
-  0.000000	  0.000000	diff=6.75561e-13
-  0.000001	  0.000001	diff=5.58098e-13
-  0.000000	  0.000000	diff=2.36e-13
-  0.000000	  0.000000	diff=3.62247e-13
-  0.000000	  0.000000	diff=3.4663e-13
-  0.000000	  0.000000	diff=7.31499e-13
-  0.000000	  0.000000	diff=3.58772e-13
- -0.000000	 -0.000000	diff=3.48844e-13
-  0.000001	  0.000001	diff=6.3317e-13
- -0.000000	 -0.000000	diff=8.23115e-13
- -0.000000	 -0.000000	diff=5.30504e-13
- -0.000000	 -0.000000	diff=6.40815e-13
- -0.000000	 -0.000000	diff=1.12032e-12
- -0.000000	 -0.000000	diff=9.68066e-13
- -0.000000	 -0.000000	diff=1.01182e-12
-  0.000000	  0.000000	diff=5.57179e-14
- -0.000000	 -0.000000	diff=1.26359e-11
-  0.000000	  0.000000	diff=1.08893e-12
- -0.000000	  0.000000	diff=9.64731e-13
-  0.000000	  0.000000	diff=4.16891e-13
-  0.000000	  0.000000	diff=4.15302e-13
-  0.000000	  0.000000	diff=1.9618e-13
-  0.000000	  0.000000	diff=5.73878e-13
- -0.000000	 -0.000000	diff=6.43719e-13
-  0.000000	  0.000000	diff=1.03396e-13
- -0.000000	 -0.000000	diff=6.44888e-11
-  local_diff=9.59267e-11
-# W_tgt{1}, [8 6]
- -0.000000	 -0.000000	diff=6.27344e-13
-  0.000000	  0.000000	diff=3.45178e-13
- -0.000000	 -0.000000	diff=5.13035e-13
-  0.000000	  0.000000	diff=4.03299e-13
- -0.000000	 -0.000000	diff=2.03007e-13
-  0.000000	  0.000000	diff=1.12807e-12
-  0.000001	  0.000001	diff=5.77612e-12
- -0.000007	 -0.000007	diff=6.1619e-11
-  0.000000	  0.000000	diff=2.11837e-13
- -0.000000	 -0.000000	diff=3.17509e-13
- -0.000000	 -0.000000	diff=8.23338e-13
- -0.000000	 -0.000000	diff=5.76446e-14
-  0.000000	  0.000000	diff=7.79159e-13
- -0.000000	 -0.000000	diff=1.35227e-12
- -0.000001	 -0.000001	diff=1.31202e-11
-  0.000021	  0.000021	diff=1.45809e-10
-  0.000000	  0.000000	diff=1.33583e-15
-  0.000000	  0.000000	diff=5.01089e-14
-  0.000000	 -0.000000	diff=1.83561e-15
-  0.000000	  0.000000	diff=2.60209e-13
- -0.000000	 -0.000000	diff=7.10424e-13
-  0.000000	  0.000000	diff=2.37335e-13
-  0.000000	  0.000000	diff=7.26867e-13
- -0.000000	 -0.000000	diff=2.71566e-13
-  0.000000	  0.000000	diff=5.80086e-15
-  0.000000	 -0.000000	diff=9.12846e-14
-  0.000000	  0.000000	diff=3.23838e-15
-  0.000000	  0.000000	diff=3.32946e-13
-  0.000000	  0.000000	diff=4.94568e-15
-  0.000000	  0.000000	diff=1.74542e-13
-  0.000000	  0.000000	diff=1.32655e-12
- -0.000000	 -0.000000	diff=4.30784e-13
-  0.000000	  0.000000	diff=8.60046e-13
-  0.000000	  0.000000	diff=6.73768e-14
-  0.000000	  0.000000	diff=1.64926e-12
-  0.000000	  0.000000	diff=7.03402e-13
-  0.000000	  0.000000	diff=3.73832e-13
-  0.000000	  0.000000	diff=5.43852e-13
- -0.000000	 -0.000000	diff=1.24347e-11
- -0.000000	 -0.000000	diff=1.45079e-12
- -0.000000	 -0.000000	diff=1.46289e-13
- -0.000000	 -0.000000	diff=4.5974e-13
-  0.000000	  0.000000	diff=3.89856e-13
- -0.000000	 -0.000000	diff=1.04191e-12
-  0.000000	  0.000000	diff=1.11576e-12
- -0.000000	 -0.000000	diff=8.44952e-13
- -0.000000	 -0.000000	diff=1.91115e-12
-  0.000000	  0.000000	diff=4.75661e-10
-  local_diff=7.37369e-10
-# W_tgt{2}, [8 4]
- -0.000000	 -0.000000	diff=1.41493e-12
- -0.000000	 -0.000000	diff=1.29582e-12
-  0.000000	  0.000000	diff=1.05933e-12
- -0.000000	 -0.000000	diff=4.21304e-14
- -0.000000	 -0.000000	diff=1.18868e-12
- -0.000000	 -0.000000	diff=1.14641e-12
- -0.000000	 -0.000000	diff=7.20908e-13
- -0.000005	 -0.000005	diff=5.25477e-12
- -0.000000	 -0.000000	diff=4.31499e-13
- -0.000000	 -0.000000	diff=1.06529e-14
- -0.000000	 -0.000000	diff=7.19436e-13
-  0.000000	  0.000000	diff=5.14255e-13
- -0.000000	 -0.000000	diff=1.47678e-13
- -0.000000	 -0.000000	diff=1.2811e-13
- -0.000000	 -0.000000	diff=9.6039e-13
- -0.000009	 -0.000009	diff=6.60416e-11
- -0.000000	 -0.000000	diff=7.06819e-13
-  0.000000	  0.000000	diff=6.41519e-13
-  0.000000	  0.000000	diff=1.22134e-13
- -0.000000	 -0.000000	diff=9.9486e-13
- -0.000000	  0.000000	diff=8.22917e-13
-  0.000000	  0.000000	diff=4.77771e-13
-  0.000000	  0.000000	diff=1.50875e-12
-  0.000000	  0.000000	diff=2.23206e-12
- -0.000000	  0.000000	diff=7.47401e-13
- -0.000000	 -0.000000	diff=7.51045e-13
- -0.000000	 -0.000000	diff=6.1671e-13
-  0.000000	  0.000000	diff=8.81805e-13
-  0.000000	 -0.000000	diff=7.98399e-14
-  0.000000	  0.000000	diff=1.81927e-13
- -0.000000	 -0.000000	diff=9.83274e-13
-  0.000000	  0.000000	diff=1.7868e-10
-  local_diff=2.71506e-10
-# W_emb_src, [2 4]
-  0.000001	  0.000001	diff=1.55717e-10
-  0.000003	  0.000003	diff=2.00983e-09
- -0.000001	 -0.000001	diff=3.59504e-10
-  0.000002	  0.000002	diff=1.37937e-10
-  0.000000	  0.000000	diff=0
-  0.000000	  0.000000	diff=0
-  0.000000	  0.000000	diff=0
-  0.000000	  0.000000	diff=0
-  local_diff=2.66299e-09
-# W_emb_tgt, [2 4]
-  0.000002	  0.000002	diff=1.17511e-09
- -0.000001	 -0.000001	diff=3.12484e-10
-  0.000005	  0.000005	diff=1.0729e-09
- -0.000001	 -0.000001	diff=3.14212e-10
-  0.000008	  0.000008	diff=1.71919e-09
- -0.000001	 -0.000001	diff=3.95614e-10
-  0.000000	  0.000000	diff=0
-  0.000000	  0.000000	diff=0
-  local_diff=4.9895e-09
-# W_h, [2 4]
-  0.000006	  0.000006	diff=6.8639e-13
- -0.000001	 -0.000001	diff=4.76547e-13
- -0.000008	 -0.000008	diff=6.12672e-13
- -0.000000	 -0.000000	diff=9.23256e-13
-  0.000001	  0.000001	diff=7.98344e-13
-  0.000006	  0.000006	diff=4.21413e-12
-  0.000010	  0.000010	diff=1.98399e-11
- -0.000001	 -0.000001	diff=8.65859e-12
-  local_diff=3.62098e-11
-# W_soft, [4 2]
-  0.000000	  0.000000	diff=2.61591e-13
- -0.000008	 -0.000008	diff=2.15846e-13
-  0.000008	  0.000008	diff=2.56495e-14
- -0.000001	 -0.000001	diff=6.39148e-13
-  0.000000	  0.000000	diff=8.53785e-13
- -0.000009	 -0.000009	diff=5.09233e-13
-  0.000010	  0.000010	diff=1.13551e-12
- -0.000001	 -0.000001	diff=3.43641e-13
-  local_diff=3.9844e-12
-# Num params=176, abs_diff=9.13034e-09
-Elapsed time is 2.402950 seconds.
+Elapsed time is 2.037149 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 1)
 [?1h=
@@ -1712,7 +1412,7 @@ For product information, visit www.mathworks.com.
   0.000005	  0.000005	diff=5.21204e-13
   local_diff=3.53775e-12
 # Num params=182, abs_diff=1.80573e-08
-Elapsed time is 2.848905 seconds.
+Elapsed time is 2.789014 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 2)
 [?1h=
@@ -2018,7 +1718,7 @@ For product information, visit www.mathworks.com.
  -0.000000	 -0.000000	diff=1.30872e-12
   local_diff=5.68434e-12
 # Num params=180, abs_diff=2.65297e-08
-Elapsed time is 2.216864 seconds.
+Elapsed time is 2.239954 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 3)
 [?1h=
@@ -2328,7 +2028,7 @@ For product information, visit www.mathworks.com.
   0.000005	  0.000005	diff=1.55398e-13
   local_diff=2.33666e-12
 # Num params=182, abs_diff=2.26531e-08
-Elapsed time is 2.268799 seconds.
+Elapsed time is 2.277122 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1)
 [?1h=
@@ -2550,7 +2250,7 @@ For product information, visit www.mathworks.com.
  -3.697104	 -3.697522	diff=0.000418031
   local_diff=0.00434995
 # Num params=104, abs_diff=4.55849
-Elapsed time is 0.697665 seconds.
+Elapsed time is 0.663399 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2)
 [?1h=
@@ -2840,7 +2540,7 @@ For product information, visit www.mathworks.com.
   0.026195	  0.025843	diff=0.000352205
   local_diff=0.00269699
 # Num params=168, abs_diff=4.19357
-Elapsed time is 1.337795 seconds.
+Elapsed time is 1.415352 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8)
 [?1h=
@@ -3130,7 +2830,7 @@ For product information, visit www.mathworks.com.
  -0.031845	 -0.032135	diff=0.000289784
   local_diff=0.00231588
 # Num params=168, abs_diff=14.882
-Elapsed time is 1.400900 seconds.
+Elapsed time is 1.382429 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1)
 [?1h=
@@ -3430,307 +3130,7 @@ For product information, visit www.mathworks.com.
   0.597443	  0.593744	diff=0.00369893
   local_diff=0.0140759
 # Num params=176, abs_diff=5.87875
-Elapsed time is 2.096988 seconds.
-[?1l>
-## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 2, 'attnOpt', 1)
-[?1h=
-                                                                   < M A T L A B (R) >
-                                                         Copyright 1984-2013 The MathWorks, Inc.
-                                                            R2013a (8.1.0.604) 64-bit (maci64)
-                                                                    February 15, 2013
-
- 
-To get started, type one of these: helpwin, helpdesk, or demo.
-For product information, visit www.mathworks.com.
- 
-
-  Student License -- for use in conjunction with courses offered at a
-  degree-granting institution.  Professional and commercial use prohibited.
-
-## Bilingual setting
-# Init LSTM parameters using dataType=double, initRange=10
-  Model size = 176, individual sizes:  W_src{1}=32 W_src{2}=32 W_tgt{1}=48 W_tgt{2}=32 W_emb_src=8 W_emb_tgt=8 W_h=8 W_soft=8
-# assert = 0
-# attnFunc = 2
-# attnOpt = 1
-# batchSize = 10
-# dataType = double
-# debug = 0
-# decode = 1
-# dropout = 0.8
-# epochFraction = 1
-# epochIter = 0
-# feedInput = 1
-# finetuneEpoch = 5
-# finetuneRate = 0.5
-# gpuDevice = 0
-# initRange = 10
-# isBi = 1
-# isClip = 1
-# isGradCheck = 1
-# isProfile = 0
-# isResume = 0
-# isReverse = 1
-# learningRate = 1
-# loadModel = 
-# logFreq = 10
-# lstmOpt = 0
-# lstmSize = 2
-# maxGradNorm = 5
-# maxLenRatio = 1.5
-# maxSentLen = 7
-# minLenRatio = 0.5
-# numEpoches = 10
-# numLayers = 2
-# onlyCPU = 0
-# outDir = ../output/gradcheck
-# posWin = 1
-# saveHDF = 0
-# seed = 0
-# shuffle = 1
-# sortBatch = 1
-# srcLang = 
-# srcVocabFile = 
-# testPrefix = 
-# tgtLang = 
-# tgtVocabFile = 
-# trainPrefix = 
-# validPrefix = 
-# chunkSize = 12800
-# baseIndex = 0
-# clipForward = 50
-# clipBackward = 1000
-# nonlinear_gate_f = sigmoid
-# nonlinear_gate_f_prime = sigmoidPrime
-# nonlinear_f = tanh
-# nonlinear_f_prime = tanhPrime
-# beamSize = 12
-# stackSize = 100
-# unkPenalty = 0
-# forceDecoder = 0
-# isGPU = 0
-# batchId = 1
-# maxRelDist = 2
-# logId = 3
-# srcSos = 3
-# srcEos = 4
-# srcVocabSize = 4
-# nullPosId = 0
-# tgtSos = 3
-# tgtEos = 4
-# tgtVocabSize = 4
-# modelFile = ../output/gradcheck/model.mat
-# modelRecentFile = ../output/gradcheck/modelRecent.mat
-# softmaxSize = 2
-# lr = 1
-# epoch = 1
-# bestCostValid = 100000
-# testPerplexity = 100000
-# curTestPerpWord = 100000
-# startIter = 0
-# iter = 0
-# epochBatchCount = 0
-# finetuneCount = 0
-# modelSize = 176
-  src input 1: <s_sos> y x x
-  src mask: 0  1  1  1
-  tgt input 1: <t_sos> a b <t_eos> <t_eos>
-  tgt output 1: a b <t_eos> <t_eos> <t_eos>
-  tgt mask: 1  1  1  0  0
-# W_src{1}, [8 4]
-  0.000061	  0.000063	diff=1.14033e-06
-  0.000000	  0.000000	diff=3.00703e-20
- -0.000001	 -0.000001	diff=2.43391e-08
-  0.000000	 -0.000000	diff=2.03751e-20
-  1.598115	  1.619879	diff=0.0217646
-  0.000000	  0.000000	diff=9.8931e-13
- -0.000000	 -0.000000	diff=1.33701e-12
-  0.000000	  0.000000	diff=3.47409e-23
- -0.000021	 -0.000021	diff=1.27894e-07
-  0.000000	 -0.000000	diff=9.98835e-21
-  0.000000	  0.000000	diff=2.64048e-09
-  0.000000	  0.000000	diff=6.76793e-21
- -0.540478	 -0.538155	diff=0.00232351
-  0.000000	  0.000000	diff=1.90417e-12
- -0.000000	 -0.000000	diff=6.8113e-13
-  0.000000	 -0.000000	diff=1.44788e-25
-  0.000013	  0.000013	diff=4.89536e-08
-  0.000000	  0.000000	diff=6.2002e-21
- -0.000000	 -0.000000	diff=1.02215e-09
-  0.000000	 -0.000000	diff=4.20114e-21
-  0.333147	  0.334056	diff=0.000908381
- -0.000000	 -0.000000	diff=3.91612e-13
-  0.000000	  0.000000	diff=1.27061e-12
-  0.000000	  0.000000	diff=8.98762e-26
-  0.000000	 -0.000000	diff=1.1947e-19
-  0.000000	  0.000000	diff=8.21273e-37
-  0.000000	  0.000000	diff=2.48781e-21
-  0.000000	 -0.000000	diff=2.3831e-37
-  0.000000	 -0.000000	diff=3.0965e-15
-  0.000000	  0.000000	diff=1.3098e-31
-  0.000000	  0.000000	diff=2.68406e-30
-  0.000000	  0.000000	diff=1.19049e-41
-  local_diff=0.0249978
-# W_src{2}, [8 4]
- -0.617718	 -0.619705	diff=0.00198731
-  0.021043	  0.020986	diff=5.66543e-05
- -0.002601	 -0.002589	diff=1.20638e-05
- -0.485520	 -0.495032	diff=0.00951202
- -0.029864	 -0.030163	diff=0.000299766
- -0.163171	 -0.163806	diff=0.000634219
- -0.000000	 -0.000000	diff=3.52261e-09
-  0.000187	  0.000185	diff=1.26696e-06
- -0.000000	 -0.000000	diff=1.03642e-12
-  0.000000	 -0.000000	diff=1.77936e-16
-  0.000000	  0.000000	diff=6.48523e-15
-  0.000000	  0.000000	diff=1.35094e-12
-  0.000000	 -0.000000	diff=4.31116e-15
-  0.000000	 -0.000000	diff=1.4058e-14
-  0.000000	 -0.000000	diff=1.77982e-19
-  0.000000	  0.000000	diff=2.14464e-20
- -0.014843	 -0.014844	diff=9.82977e-07
- -0.000660	 -0.000660	diff=3.88977e-08
-  0.000122	  0.000122	diff=3.06781e-08
-  0.026047	  0.026021	diff=2.6316e-05
- -0.001424	 -0.001424	diff=6.64023e-08
-  0.008857	  0.008857	diff=3.51121e-07
-  0.000000	  0.000000	diff=1.3216e-13
- -0.000004	 -0.000004	diff=5.49124e-10
-  0.104834	  0.104628	diff=0.000206588
-  0.000057	  0.000057	diff=1.96845e-07
- -0.001748	 -0.001742	diff=5.93261e-06
- -0.357719	 -0.362831	diff=0.0051125
-  0.001188	  0.001192	diff=4.07334e-06
-  0.003774	  0.003760	diff=1.38016e-05
-  0.000000	  0.000000	diff=3.32927e-10
-  0.000000	  0.000000	diff=6.78049e-12
-  local_diff=0.0178742
-# W_tgt{1}, [8 6]
-  0.000000	 -0.000000	diff=3.64521e-13
-  0.001202	  0.001222	diff=1.99971e-05
- -0.013150	 -0.012935	diff=0.000214829
-  0.000000	 -0.000000	diff=1.89698e-18
-  0.000000	 -0.000000	diff=4.02153e-16
-  0.000000	  0.000000	diff=1.81398e-13
- -0.000000	 -0.000000	diff=6.9467e-13
-  0.000000	  0.000000	diff=1.22419e-83
- -0.000000	 -0.000000	diff=5.37897e-13
-  0.002945	  0.003028	diff=8.28415e-05
-  0.012190	  0.012383	diff=0.000192325
- -0.000000	 -0.000000	diff=1.27508e-11
- -0.000000	 -0.000000	diff=3.27605e-11
-  0.000248	  0.000252	diff=3.98536e-06
-  0.000000	  0.000000	diff=1.64638e-09
-  0.602204	  0.332424	diff=0.26978
- -0.000000	 -0.000000	diff=6.11596e-13
-  0.000349	  0.000350	diff=1.03004e-06
- -0.000000	 -0.000000	diff=5.50529e-11
- -0.000000	 -0.000000	diff=6.38376e-13
- -0.000000	 -0.000000	diff=2.25832e-13
-  0.000005	  0.000005	diff=1.51635e-09
-  0.000000	  0.000000	diff=1.24275e-12
- -0.002118	 -0.002188	diff=6.93002e-05
- -0.000000	 -0.000000	diff=3.86756e-13
-  0.000060	  0.000060	diff=1.62704e-08
- -0.004019	 -0.003999	diff=2.03726e-05
- -0.000000	 -0.000000	diff=1.01096e-12
- -0.000000	 -0.000000	diff=5.25207e-13
-  0.000004	  0.000004	diff=9.84273e-10
-  0.000000	  0.000000	diff=1.04065e-12
- -0.008173	 -0.008193	diff=2.05895e-05
- -0.000000	 -0.000000	diff=4.00593e-13
- -0.000040	 -0.000040	diff=1.59395e-07
-  0.002978	  0.002990	diff=1.1395e-05
-  0.000000	  0.000000	diff=3.51646e-13
-  0.000000	 -0.000000	diff=1.09986e-14
- -0.000000	 -0.000000	diff=4.6098e-10
-  0.000000	  0.000000	diff=3.16724e-17
-  0.000000	  0.000000	diff=1.13804e-09
-  0.000000	  0.000000	diff=7.27476e-13
-  0.000006	  0.000006	diff=3.89407e-09
-  0.000001	  0.000001	diff=6.06911e-10
-  0.000000	 -0.000000	diff=1.67412e-13
-  0.000000	  0.000000	diff=1.72219e-15
-  0.000000	  0.000000	diff=1.09513e-11
-  0.000000	 -0.000000	diff=1.88697e-17
- -0.000000	 -0.000000	diff=2.88829e-11
-  local_diff=0.270417
-# W_tgt{2}, [8 4]
- -0.175210	 -0.175110	diff=0.000100706
-  9.597680	  9.485425	diff=0.112255
- -0.000035	 -0.000034	diff=1.64564e-07
-  0.267411	  0.266341	diff=0.00106973
- -0.033202	 -0.033027	diff=0.000174488
- -0.189598	 -0.190844	diff=0.00124634
- -0.012200	 -0.012085	diff=0.000115511
- 33.009175	 32.911640	diff=0.0975347
- -0.063497	 -0.063442	diff=5.55872e-05
- -0.004914	 -0.004906	diff=7.90412e-06
- -0.000011	 -0.000011	diff=1.51054e-08
-  0.000092	  0.000092	diff=4.49994e-07
- -0.013243	 -0.013186	diff=5.71214e-05
- -0.043948	 -0.044045	diff=9.66596e-05
- -0.004409	 -0.004393	diff=1.59736e-05
- -0.006678	 -0.006660	diff=1.81012e-05
-  0.097839	  0.097477	diff=0.000361606
- -0.234949	 -0.234980	diff=3.07385e-05
- -0.019669	 -0.019581	diff=8.8299e-05
-  0.009509	  0.009371	diff=0.000137478
-  0.039917	  0.039969	diff=5.14222e-05
-  0.001465	  0.001314	diff=0.00015135
-  0.008065	  0.007753	diff=0.0003117
- -1.858609	 -2.015357	diff=0.156747
- -0.175691	 -0.175771	diff=8.04325e-05
-  0.214071	  0.214326	diff=0.000254952
-  0.010279	  0.010258	diff=2.04712e-05
-  0.082892	  0.083836	diff=0.000943297
- -0.025454	 -0.025494	diff=3.91905e-05
- -0.110080	 -0.110173	diff=9.31544e-05
-  0.062606	  0.062556	diff=4.99121e-05
-  4.774354	  4.777763	diff=0.00340948
-  local_diff=0.375519
-# W_emb_src, [2 4]
- -0.000013	 -0.000013	diff=2.16719e-07
- -0.000000	 -0.000000	diff=6.70394e-13
-  1.433897	  1.451330	diff=0.0174331
-  4.797114	  5.013339	diff=0.216225
-  0.000000	  0.000000	diff=0
-  0.000000	  0.000000	diff=0
-  0.000000	  0.000000	diff=0
-  0.000000	  0.000000	diff=0
-  local_diff=0.233658
-# W_emb_tgt, [2 4]
-  0.000000	  0.000000	diff=6.97205e-16
- -0.000001	 -0.000001	diff=1.84173e-08
- -0.009699	 -0.009533	diff=0.000166086
-  0.045445	  0.042139	diff=0.00330592
-  0.000000	  0.000000	diff=2.67387e-09
- -0.000000	 -0.000000	diff=1.49441e-09
-  0.000000	  0.000000	diff=0
-  0.000000	  0.000000	diff=0
-  local_diff=0.00347202
-# W_h, [2 4]
-  0.109902	  0.108277	diff=0.00162507
-  0.196290	  0.194484	diff=0.00180629
- 11.726673	 11.712820	diff=0.0138525
- -2.404595	 -2.406832	diff=0.0022372
-  6.535793	  6.388006	diff=0.147787
-  6.748657	  6.600512	diff=0.148145
-  1.739624	  1.740216	diff=0.000592443
-  1.253463	  1.248681	diff=0.00478228
-  local_diff=0.320828
-# W_soft, [4 2]
- -2.177200	 -2.180135	diff=0.00293497
-  1.585059	  1.584995	diff=6.40285e-05
-  1.479411	  1.478612	diff=0.000799475
- -0.881152	 -0.883472	diff=0.00232
- -5.971407	 -5.975791	diff=0.00438437
-  4.362419	  4.362344	diff=7.49875e-05
-  0.248131	  0.247969	diff=0.000162132
-  1.369741	  1.365478	diff=0.00426361
-  local_diff=0.0150036
-# Num params=176, abs_diff=1.26177
-Elapsed time is 2.374142 seconds.
+Elapsed time is 2.016087 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 1)
 [?1h=
@@ -4041,7 +3441,7 @@ For product information, visit www.mathworks.com.
  -2.916310	 -2.926043	diff=0.00973229
   local_diff=0.0499206
 # Num params=182, abs_diff=230.43
-Elapsed time is 2.949589 seconds.
+Elapsed time is 3.817480 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 2)
 [?1h=
@@ -4347,7 +3747,7 @@ For product information, visit www.mathworks.com.
  -7.639216	 -7.644510	diff=0.0052939
   local_diff=0.0235115
 # Num params=180, abs_diff=23.7962
-Elapsed time is 2.162169 seconds.
+Elapsed time is 2.246190 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 3)
 [?1h=
@@ -4657,5 +4057,5 @@ For product information, visit www.mathworks.com.
  -2.028308	 -2.039860	diff=0.0115521
   local_diff=0.0553199
 # Num params=182, abs_diff=11.2245
-Elapsed time is 2.346188 seconds.
+Elapsed time is 2.194470 seconds.
 [?1l>

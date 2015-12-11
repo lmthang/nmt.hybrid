@@ -1,4 +1,4 @@
-function [h2sInfo] = attnLayerForward(h_t, params, model, trainData, curMask, tgtPos)
+function [h2sInfo] = attnLayerForward(h_t, params, model, trainData, curMask)
 %%%
 %
 % Attentional Layer: from lstm hidden state to softmax hidden state.
@@ -9,17 +9,10 @@ function [h2sInfo] = attnLayerForward(h_t, params, model, trainData, curMask, tg
   h2sInfo = [];
   if params.attnGlobal % global
     srcHidVecs = trainData.srcHidVecsOrig;
-    h2sInfo.srcMaskedIds = trainData.srcMaskedIds;
+    h2sInfo.srcMaskedIds = [];
   else % local
-    % positions
-    if params.predictPos % predictive alignments
-      [mu, h2sInfo] = regressPositions(model, h_t, trainData.srcLens, params);
-      srcPositions = floor(mu);
-    else % monotonic alignments
-      srcPositions = tgtPos*ones(1, params.curBatchSize);
-      flags = srcPositions>(trainData.srcLens-1);
-      srcPositions(flags) = trainData.srcLens(flags)-1;
-    end
+    [mu, h2sInfo] = regressPositions(model, h_t, trainData.srcLens, params);
+    srcPositions = floor(mu);
     
     % assert
     if params.assert
@@ -34,7 +27,7 @@ function [h2sInfo] = attnLayerForward(h_t, params, model, trainData, curMask, tg
     end
 
     % build context vectors
-    [srcHidVecs, h2sInfo] = buildSrcVecs(trainData.srcHidVecs, srcPositions, curMask, trainData.srcLens, params.srcMaxLen, params, h2sInfo);
+    [srcHidVecs, h2sInfo] = buildSrcVecs(trainData.srcHidVecsOrig, srcPositions, curMask, trainData.srcLens, params.srcMaxLen, params, h2sInfo);
 
     h2sInfo.srcMaskedIds = find(h2sInfo.alignMask==0);
   end % end else if attnGlobal
@@ -60,8 +53,8 @@ function [h2sInfo] = attnLayerForward(h_t, params, model, trainData, curMask, tg
   % normalize -> alignWeights
   h2sInfo.alignWeights = normLayerForward(alignScores, h2sInfo.srcMaskedIds);
 
-  % attn4: local, regression, multiply with distWeights
-  if params.predictPos
+  % local, regression, multiply with distWeights
+  if params.attnGlobal == 0
     [h2sInfo.distWeights, h2sInfo.scaleX] = distLayerForward(mu, h2sInfo, params); % numAttnPositions*curBatchSize
     h2sInfo.preAlignWeights = h2sInfo.alignWeights;
     h2sInfo.alignWeights =  h2sInfo.preAlignWeights.* h2sInfo.distWeights; % weighted by distances

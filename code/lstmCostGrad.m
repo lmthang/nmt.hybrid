@@ -16,24 +16,14 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   curBatchSize = size(trainData.tgtInput, 1);
   if params.isBi
     srcMaxLen = trainData.srcMaxLen;
-    trainData.srcTotalWordCount = sum(trainData.srcLens);
   else % monolingual
     srcMaxLen = 1;
   end
   T = srcMaxLen+tgtMaxLen-1;
   
-  %input = trainData.input;
-  %inputMask = trainData.inputMask;
-  trainData.tgtTotalWordCount = sum(trainData.tgtLens);
-  
-  trainData.isTest = isTest;
-  trainData.T = T;
-  %trainData.srcMaxLen = srcMaxLen;
-  %trainData.curBatchSize = curBatchSize;
-  
   params.curBatchSize = curBatchSize;
   params.srcMaxLen = srcMaxLen;
-  params.T = T;
+  % params.T = T;
   [grad, params] = initGrad(model, params);
   zeroBatch = zeroMatrix([params.lstmSize, params.curBatchSize], params.isGPU, params.dataType);
   
@@ -46,23 +36,13 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   %%%%%%%%%%%%%%%%%%%%
   %%% FORWARD PASS %%%
   %%%%%%%%%%%%%%%%%%%%
-  % attention
-  if params.attnFunc>0
-    if params.attnGlobal % global
-      trainData.srcMaskedIds = [];
-    end
-    trainData.srcHidVecsOrig = zeroMatrix([params.lstmSize, curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);
-  end
-  
   %% encoder
   lastEncState = zeroState;
   encLen = srcMaxLen - 1;
   if params.isBi
     isDecoder = 0;
-    isFeedInput = 0;
-    [srcMaskInfos] = prepareMask(trainData.srcMask);
-    [encStates, trainData, ~] = rnnLayerForward(encLen, model.W_src, model.W_emb_src, zeroState, trainData.srcInput, srcMaskInfos, ...
-      params, isTest, isFeedInput, isDecoder, trainData, model);
+    [encStates, trainData, ~] = rnnLayerForward(encLen, model.W_src, model.W_emb_src, zeroState, trainData.srcInput, trainData.srcMask, ...
+      params, isTest, isDecoder, trainData, model);
     lastEncState = encStates{end};
     
     % feed input
@@ -74,13 +54,11 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   %% decoder
   decLen = T - srcMaxLen + 1;
   isDecoder = 1;
-  isFeedInput = params.feedInput;
-  [tgtMaskInfos] = prepareMask(trainData.tgtMask);
-  [decStates, ~, attnInfos] = rnnLayerForward(decLen, model.W_tgt, model.W_emb_tgt, lastEncState, trainData.tgtInput, tgtMaskInfos, ...
-    params, isTest, isFeedInput, isDecoder, trainData, model);
+  [decStates, ~, attnInfos] = rnnLayerForward(decLen, model.W_tgt, model.W_emb_tgt, lastEncState, trainData.tgtInput, trainData.tgtMask, ...
+    params, isTest, isDecoder, trainData, model);
   
   %% softmax
-  [costs.total, grad.W_soft, dec_top_grads] = softmaxCostGrad(decLen, decStates, model.W_soft, trainData.tgtOutput, tgtMaskInfos, params, isTest);
+  [costs.total, grad.W_soft, dec_top_grads] = softmaxCostGrad(decLen, decStates, model.W_soft, trainData.tgtOutput, trainData.tgtMask, params, isTest);
   costs.word = costs.total;
   
   if isTest==1 % don't compute grad
@@ -103,7 +81,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   isFeedInput = params.feedInput;
   [dc, dh, grad.W_tgt, grad.W_emb_tgt, grad.indices_tgt, attnGrad, grad.srcHidVecs] = rnnLayerBackprop(decLen, model.W_tgt, ...
     decStates, lastEncState, ...
-    dec_top_grads, dc, dh, trainData.tgtInput, tgtMaskInfos, params, isFeedInput, isDecoder, attnInfos, trainData, model);
+    dec_top_grads, dc, dh, trainData.tgtInput, trainData.tgtMask, params, isFeedInput, isDecoder, attnInfos, trainData, model);
   if params.attnFunc % copy attention grads 
     [grad] = copyStruct(attnGrad, grad);
   end
@@ -118,7 +96,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
     isDecoder = 0;
     isFeedInput = 0;
     [~, ~, grad.W_src, grad.W_emb_src, grad.indices_src, ~, ~] = rnnLayerBackprop(encLen, model.W_src, encStates, zeroState, ...
-    enc_top_grads, dc, dh, trainData.srcInput, srcMaskInfos, params, isFeedInput, isDecoder, attnInfos, trainData, model);
+    enc_top_grads, dc, dh, trainData.srcInput, trainData.srcMask, params, isFeedInput, isDecoder, attnInfos, trainData, model);
   end
 
     
@@ -142,19 +120,9 @@ function [grad, params] = initGrad(model, params)
   end
   
   %% backprop to src hidden states for attention and positional models
+  [params] = setAttnParams(params);
   if params.attnFunc>0
-    params.numSrcHidVecs = params.srcMaxLen-1;
-    assert(params.numSrcHidVecs<params.T);
-    
-    if params.attnGlobal % global
-      params.numAttnPositions = params.numSrcHidVecs;
-    else % local
-      params.numAttnPositions = 2*params.posWin + 1;
-    end
-    
     % we extract trainData.srcHidVecs later, which contains all src hidden states, lstmSize * curBatchSize * numSrcHidVecs 
     grad.srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);
-  else
-    params.numSrcHidVecs = 0;
   end
 end
