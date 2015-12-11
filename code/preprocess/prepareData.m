@@ -66,21 +66,6 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
     tgtOutput(ii, 1:tgtLen) = tgtSent(1:tgtLen); % tgtOutput: word1 ... word_n eos
   end
   
-  % char
-  if params.charShortList
-    assert(params.srcRare > params.srcSos);
-    assert(params.tgtRare > params.tgtSos);
-    assert(params.tgtRare > params.tgtEos);
-    assert(params.charShortList < params.srcVocabSize);
-    assert(params.charShortList < params.tgtVocabSize);
-    if params.isBi
-      data.srcRareFlags = srcInput > params.charShortList;
-      %srcInput(data.srcRareFlags) = params.srcRare;
-    end
-    data.tgtRareFlags = tgtInput > params.charShortList;
-    %tgtInput(data.tgtRareFlags) = params.tgtRare;
-  end
-  
   % mask
   if params.isBi
     data.srcMask = srcInput~=params.srcSos;

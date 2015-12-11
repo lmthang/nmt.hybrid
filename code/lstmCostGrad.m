@@ -32,7 +32,19 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   
   % init costs
   costs = initCosts();
-  
+    
+  % char
+  if params.charShortList
+    assert(params.charShortList < params.srcVocabSize);
+    assert(params.charShortList < params.tgtVocabSize);
+    if params.isBi
+      srcRareFlags = trainData.srcInput > params.charShortList;
+      srcRareWords = unique(trainData.srcInput(srcRareFlags));
+      [wordReps] = char2wordReps(srcRareWords, params.srcCharMap, params.srcCharVocab, params.srcSos);
+    end
+    data.tgtRareFlags = tgtInput > params.charShortList;
+    %tgtInput(data.tgtRareFlags) = params.tgtRare;
+  end
   
   %%%%%%%%%%%%%%%%%%%%
   %%% FORWARD PASS %%%

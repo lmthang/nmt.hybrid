@@ -183,14 +183,15 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   if params.charShortList > 0
     assert(params.charShortList < params.srcVocabSize);
     assert(params.charShortList < params.tgtVocabSize);
-    % '../output/id.1000/shortlist.100.de.char.vocab', 'tgtCharVocabFile', '../output/id.1000/shortlist.100.en.char.vocab', 'srcCharMapFile', '../output/id.1000/shortlist.100.de.char.map', 'srcCharMapFile', '../output/id.1000/shortlist.100.en.char.map')
+    
     params.srcCharVocabFile = [params.charPrefix '.' params.srcLang '.char.vocab'];
-    params.tgtCharVocabFile = [params.charPrefix '.' params.tgtLang '.char.vocab'];
     params.srcCharMapFile = [params.charPrefix '.' params.srcLang '.char.map'];
-    params.tgtCharMapFile = [params.charPrefix '.' params.tgtLang '.char.map'];
     [params.srcCharVocab] = loadVocab(params.srcCharVocabFile);
-    [params.tgtCharVocab] = loadVocab(params.tgtCharVocabFile);
     [params.srcCharMap] = loadWord2CharMap(params.srcCharMapFile);
+    
+    params.tgtCharVocabFile = [params.charPrefix '.' params.tgtLang '.char.vocab'];
+    params.tgtCharMapFile = [params.charPrefix '.' params.tgtLang '.char.map'];
+    [params.tgtCharVocab] = loadVocab(params.tgtCharVocabFile);
     [params.tgtCharMap] = loadWord2CharMap(params.tgtCharMapFile);
   end
   

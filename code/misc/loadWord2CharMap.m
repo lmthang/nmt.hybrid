@@ -13,6 +13,6 @@ function [word2charMap] = loadWord2CharMap(mapFile)
 
   word2charMap = cell(1,length(fileLines));
   for ii = 1:length(fileLines)
-    word2charMap{ii}=regexp(fileLines{ii},' ','split');
+    word2charMap{ii} = strsplit(fileLines{ii},' ') + 1; %cell2mat(regexp(fileLines{ii},' ','split'));
   end
 end
