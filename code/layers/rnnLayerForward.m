@@ -1,4 +1,4 @@
-function [lstmStates, trainData, attnInfos] = rnnLayerForward(T, W_rnn, W_emb, prevState, input, masks, params, ...
+function [lstmStates, trainData, attnInfos] = rnnLayerForward(W_rnn, W_emb, prevState, input, masks, params, ...
   isTest, isDecoder, trainData, model)
 % Running Multi-layer RNN for one time step.
 % Input:
@@ -12,6 +12,7 @@ function [lstmStates, trainData, attnInfos] = rnnLayerForward(T, W_rnn, W_emb, p
 %
 % Thang Luong @ 2015, <lmthang@stanford.edu>
   
+T = size(input, 2);
 lstmStates = cell(T, 1);
 
 % attention

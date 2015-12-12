@@ -1,4 +1,4 @@
-function [dc, dh, grad_W_rnn, grad_W_emb, grad_emb_indices, attnGrad, grad_srcHidVecs_total] = rnnLayerBackprop(T, W_rnn, rnnStates, initState, ...
+function [dc, dh, grad_W_rnn, grad_W_emb, grad_emb_indices, attnGrad, grad_srcHidVecs_total] = rnnLayerBackprop(W_rnn, rnnStates, initState, ...
   top_grads, dc, dh, input, masks, params, isFeedInput, isDecoder, attnInfos, trainData, model)
 % Running Multi-layer RNN for one time step.
 % Input:
@@ -8,6 +8,8 @@ function [dc, dh, grad_W_rnn, grad_W_emb, grad_emb_indices, attnGrad, grad_srcHi
 %   isDecoder: 1 -- on the decoder side
 %
 % Thang Luong @ 2015, <lmthang@stanford.edu>
+
+T = size(input, 2);
 
 % emb
 totalWordCount = params.curBatchSize * T;
