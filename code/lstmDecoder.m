@@ -55,7 +55,7 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
   for mm=1:numModels
     isDecoder = 0;
     [encStates, modelData{mm}, ~] = rnnLayerForward(models{mm}.W_src, models{mm}.W_emb_src, zeroStates{mm}, modelData{mm}.srcInput, ...
-      modelData{mm}.srcMask, models{mm}.params, isTest, isDecoder, modelData{mm}, models{mm});
+      modelData{mm}.srcMask, models{mm}.params, isTest, isDecoder, models{mm}.params.attnFunc, modelData{mm}, models{mm});
     prevStates{mm} = encStates{end};
     
     % feed input
@@ -73,7 +73,8 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
   attnInfos = cell(numModels, 1);
   for mm=1:numModels
     [prevStates{mm}, attnInfos{mm}] = rnnStepLayerForward(models{mm}.W_tgt, models{mm}.W_emb_tgt, prevStates{mm}, ...
-      modelData{mm}.tgtInput(:, 1), modelData{mm}.tgtMask(:, 1), models{mm}.params, isTest, isDecoder, models{mm}, modelData{mm});
+      modelData{mm}.tgtInput(:, 1), modelData{mm}.tgtMask(:, 1), models{mm}.params, isTest, isDecoder, ...
+      models{mm}.params.attnFunc, modelData{mm}, models{mm});
   end
  
   % output alignment
@@ -223,7 +224,7 @@ originalSentIndices, modelData, firstAlignIdx, data)
     %% compute next lstm hidden states
     for mm=1:numModels
       [beamStates{mm}, attnInfos{mm}] = rnnStepLayerForward(models{mm}.W_tgt, models{mm}.W_emb_tgt, beamStates{mm}, ...
-        beamHistory(sentPos, :), oneMask, models{mm}.params, isTest, isDecoder, models{mm}, modelData{mm});
+        beamHistory(sentPos, :), oneMask, models{mm}.params, isTest, isDecoder, models{mm}.params.attnFunc, modelData{mm}, models{mm});
     end
 
     %% output alignment

@@ -1,11 +1,12 @@
-function [nextState, attnInfo] = rnnStepLayerForward(W_rnn, W_emb, prevState, input, mask, params, isTest, isDecoder, model, trainData)
+function [nextState, attnInfo] = rnnStepLayerForward(W_rnn, W_emb, prevState, input, mask, params, isTest, isDecoder, ...
+  isAttn, attnData, model)
 % Running Multi-layer RNN for one time step.
 % Input:
 %   W_rnn: recurrent connections of multiple layers, e.g., W_rnn{ll}.
 %   prevState: previous hidden state, e.g., for LSTM, prevState.c{ll}, prevState.h{ll}.
 %   input: to feed the very first layer, lstmSize * batchSize
 %   isTest: 1 -- don't store intermediate results
-%
+%   attnData: only needed when isDecoder=1, has attnData.srcHidVecsOrig and attnData.srcLens
 % Output:
 %   nextState
 %
@@ -56,9 +57,9 @@ end
 attnInfo = [];
 if isDecoder
   % attention
-  if params.attnFunc 
+  if isAttn 
     % TODO: save memory here, attnInfo.input only keeps track of srcHidVecs or attnVecs, but not h_t.
-    [attnInfo] = attnLayerForward(nextState{end}.h_t, params, model, trainData, maskInfo);
+    [attnInfo] = attnLayerForward(nextState{end}.h_t, params, model, attnData, maskInfo);
     nextState{end}.softmax_h = attnInfo.softmax_h;
   else
     nextState{end}.softmax_h = nextState{end}.h_t;
