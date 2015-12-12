@@ -62,6 +62,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   % char-based models
   addOptional(p,'charShortList', 0, @isnumeric); % list of frequent words after which we will learn compositions from characters
   addOptional(p,'charPrefix', '', @ischar); % list of characters
+  addOptional(p,'charNumLayers', 1, @isnumeric);
   %addOptional(p,'charMapFile', '', @ischar); % map words into sequences of chars (in integers)
   % trainLSTM('../output/id.shortlist.100/train.10k', '../output/id.shortlist.100/valid.100', '../output/id.shortlist.100/test.100', 'de', 'en', '../output/id.1000/shortlist.100.de.vocab', '../output/id.1000/shortlist.100.en.vocab', '../output/basic', 'isResume', 0, 'charShortList', 100, 'charPrefix', '../output/id.1000/shortlist.100', 'logFreq', 1); 
   %'../output/id.1000/shortlist.100.de.char.vocab', 'tgtCharVocabFile', '../output/id.1000/shortlist.100.en.char.vocab', 'srcCharMapFile', '../output/id.1000/shortlist.100.de.char.map', 'srcCharMapFile', '../output/id.1000/shortlist.100.en.char.map')
@@ -186,13 +187,15 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     
     params.srcCharVocabFile = [params.charPrefix '.' params.srcLang '.char.vocab'];
     params.srcCharMapFile = [params.charPrefix '.' params.srcLang '.char.map'];
-    [params.srcCharVocab] = loadVocab(params.srcCharVocabFile);
-    [params.srcCharMap] = loadWord2CharMap(params.srcCharMapFile);
+    params.srcCharVocab = loadVocab(params.srcCharVocabFile);
+    params.srcCharMap = loadWord2CharMap(params.srcCharMapFile);
+    params.srcCharVocabSize = length(params.srcCharVocab);
     
     params.tgtCharVocabFile = [params.charPrefix '.' params.tgtLang '.char.vocab'];
     params.tgtCharMapFile = [params.charPrefix '.' params.tgtLang '.char.map'];
-    [params.tgtCharVocab] = loadVocab(params.tgtCharVocabFile);
-    [params.tgtCharMap] = loadWord2CharMap(params.tgtCharMapFile);
+    params.tgtCharVocab = loadVocab(params.tgtCharVocabFile);
+    params.tgtCharMap = loadWord2CharMap(params.tgtCharMapFile);
+    params.tgtCharVocabSize = length(params.tgtCharVocab);
   end
   
   %% Init / Load Model Parameters
@@ -380,6 +383,27 @@ function [model] = initLSTM(params)
     model.W_emb_src = initMatrixRange(params.initRange, [params.lstmSize, params.srcVocabSize], params.isGPU, params.dataType);
   end
   model.W_emb_tgt = initMatrixRange(params.initRange, [params.lstmSize, params.tgtVocabSize], params.isGPU, params.dataType);
+  
+  
+  % char
+  if params.charShortList > 0
+    % src
+    if params.isBi
+      model.W_char_src = cell(params.charNumLayers, 1);    
+      for ll=1:params.charNumLayers
+        model.W_char_src{ll} = initMatrixRange(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
+      end
+      model.W_char_emb_src = initMatrixRange(params.initRange, [params.lstmSize, params.srcCharVocabSize], params.isGPU, params.dataType);
+    end
+    
+    % tgt
+    model.W_char_tgt = cell(params.charNumLayers, 1);    
+    for ll=1:params.charNumLayers
+      model.W_char_tgt{ll} = initMatrixRange(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
+    end
+    model.W_char_emb_tgt = initMatrixRange(params.initRange, [params.lstmSize, params.tgtCharVocabSize], params.isGPU, params.dataType);
+  end
+  
   
   %% h_t -> softmax input
   if params.attnFunc>0 % attention mechanism

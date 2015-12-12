@@ -37,13 +37,24 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   if params.charShortList
     assert(params.charShortList < params.srcVocabSize);
     assert(params.charShortList < params.tgtVocabSize);
+    charParams = params;
+    charParams.numLayers = params.charNumLayers;
+    
+    % src
     if params.isBi
       srcRareFlags = trainData.srcInput > params.charShortList;
       srcRareWords = unique(trainData.srcInput(srcRareFlags));
-      [wordReps] = char2wordReps(srcRareWords, zeroState, params.srcCharMap, params.srcCharVocab, params.srcSos);
+      [charData.srcRareWordReps] = char2wordReps(model.W_char_src, model.W_char_emb_src, srcRareWords, zeroState, params.srcCharMap, ...
+        params.srcCharVocab, charParams, isTest);
+      charData.srcRareWordMap = data2map(srcRareWords);
     end
-    data.tgtRareFlags = tgtInput > params.charShortList;
-    %tgtInput(data.tgtRareFlags) = params.tgtRare;
+    
+    % tgt
+    tgtRareFlags = trainData.tgtInput > params.charShortList;
+    tgtRareWords = unique(trainData.tgtInput(tgtRareFlags));
+    [charData.tgtRareWordReps] = char2wordReps(model.W_char_tgt, model.W_char_emb_tgt, tgtRareWords, zeroState, params.tgtCharMap, ...
+      params.tgtCharVocab, charParams, isTest);
+    charData.tgtRareWordMap = data2map(tgtRareWords);
   end
   
   %%%%%%%%%%%%%%%%%%%%
@@ -54,7 +65,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   if params.isBi
     isDecoder = 0;
     [encStates, trainData, ~] = rnnLayerForward(model.W_src, model.W_emb_src, zeroState, trainData.srcInput, trainData.srcMask, ...
-      params, isTest, isDecoder, params.attnFunc, trainData, model);
+      params, isTest, isDecoder, params.attnFunc, trainData, model, charData);
     lastEncState = encStates{end};
     
     % feed input
@@ -66,7 +77,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   %% decoder
   isDecoder = 1;
   [decStates, ~, attnInfos] = rnnLayerForward(model.W_tgt, model.W_emb_tgt, lastEncState, trainData.tgtInput, trainData.tgtMask, ...
-    params, isTest, isDecoder, params.attnFunc, trainData, model);
+    params, isTest, isDecoder, params.attnFunc, trainData, model, charData);
   
   %% softmax
   [costs.total, grad.W_soft, dec_top_grads] = softmaxCostGrad(decStates, model.W_soft, trainData.tgtOutput, trainData.tgtMask, ...
@@ -93,7 +104,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   isFeedInput = params.feedInput;
   [dc, dh, grad.W_tgt, grad.W_emb_tgt, grad.indices_tgt, attnGrad, grad.srcHidVecs] = rnnLayerBackprop(model.W_tgt, ...
     decStates, lastEncState, ...
-    dec_top_grads, dc, dh, trainData.tgtInput, trainData.tgtMask, params, isFeedInput, isDecoder, attnInfos, trainData, model);
+    dec_top_grads, dc, dh, trainData.tgtInput, trainData.tgtMask, params, isFeedInput, isDecoder, attnInfos, trainData, model, charData);
   if params.attnFunc % copy attention grads 
     [grad] = copyStruct(attnGrad, grad);
   end

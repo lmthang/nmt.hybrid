@@ -1,14 +1,16 @@
-function [wordReps] = char2wordReps(rareWords, W_rnn, W_emb, prevState, charMap, charVocab, padSymbol)
+function [wordReps] = char2wordReps(W_rnn, W_emb, rareWords, prevState, charMap, charVocab, charParams, isTest)
   charSeqs = charMap(rareWords);
   charVocab(charSeqs{1})
-  [batch, mask] = rightBatch(charSeqs, padSymbol);
+  [batch, mask] = rightBatch(charSeqs, charParams.srcSos);
   
   % TODO: sort & split batches
   isDecoder = 0;
   isAttn = 0;
   attnData = [];
+  model = [];
   [encStates, ~, ~] = rnnLayerForward(W_rnn, W_emb, prevState, batch, mask, ...
-      params, isTest, isDecoder, isAttn, attnData, model);
+    charParams, isTest, isDecoder, isAttn, attnData, model);
+  wordReps = encStates{end}{end}.h_t;
 end
 
 function [batch, mask] = rightBatch(seqs, padSymbol)
