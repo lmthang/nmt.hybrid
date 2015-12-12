@@ -1,4 +1,4 @@
-function [totalCost, grad_W_soft_total, grad_softmax_all] = softmaxCostGrad(T, lstmStates, W_soft, tgtOutput, masks, params, isTest)
+function [totalCost, grad_W_soft_total, grad_softmax_all] = softmaxCostGrad(lstmStates, W_soft, output, masks, params, isTest)
 %%%
 %
 % Compute softmax cost/grad for LSTM. 
@@ -8,6 +8,8 @@ function [totalCost, grad_W_soft_total, grad_softmax_all] = softmaxCostGrad(T, l
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 %
 %%%
+
+T = size(output, 2);
 
 % mask
 [maskInfos] = prepareMask(masks);
@@ -19,7 +21,7 @@ for tt=1:T % time
   softmax_h = lstmStates{tt}{end}.softmax_h;
 
   % softmax_h -> loss
-  predWords = tgtOutput(:, tt)';
+  predWords = output(:, tt)';
   [cost, probs, scores, scoreIndices] = softmaxLayerForward(W_soft, softmax_h, predWords, maskInfos{tt});
   totalCost = totalCost + cost;
 

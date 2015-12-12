@@ -51,11 +51,10 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
   
   % encoder
   prevStates = cell(numModels, 1);
-  encLen = srcMaxLen - 1;
   isTest = 1;
   for mm=1:numModels
     isDecoder = 0;
-    [encStates, modelData{mm}, ~] = rnnLayerForward(encLen, models{mm}.W_src, models{mm}.W_emb_src, zeroStates{mm}, modelData{mm}.srcInput, ...
+    [encStates, modelData{mm}, ~] = rnnLayerForward(models{mm}.W_src, models{mm}.W_emb_src, zeroStates{mm}, modelData{mm}.srcInput, ...
       modelData{mm}.srcMask, models{mm}.params, isTest, isDecoder, modelData{mm}, models{mm});
     prevStates{mm} = encStates{end};
     
