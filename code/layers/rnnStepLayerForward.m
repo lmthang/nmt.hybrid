@@ -1,4 +1,4 @@
-function [nextState, attnInfo] = rnnStepLayerForward(W_rnn, W_emb, prevState, input, mask, params, isTest, isDecoder, ...
+function [nextState, attnInfo] = rnnStepLayerForward(W_rnn, input_emb, prevState, mask, params, isTest, isDecoder, ...
   isAttn, attnData, model)
 % Running Multi-layer RNN for one time step.
 % Input:
@@ -22,9 +22,7 @@ maskInfo.maskedIds = find(~maskInfo.mask);
 
 % emb input
 if isDecoder && params.feedInput
-  input_emb = [W_emb(:, input); prevState{end}.softmax_h];
-else
-  input_emb = W_emb(:, input);
+  input_emb = [input_emb; prevState{end}.softmax_h];
 end
 
 for ll=1:numLayers % layer

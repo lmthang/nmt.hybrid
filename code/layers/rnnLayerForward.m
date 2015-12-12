@@ -26,7 +26,7 @@ end
 
 for tt=1:T % time
   % multi-layer RNN
-  [prevState, attnInfos{tt}] = rnnStepLayerForward(W_rnn, W_emb, prevState, input(:, tt), masks(:, tt), params, isTest, isDecoder, ...
+  [prevState, attnInfos{tt}] = rnnStepLayerForward(W_rnn, W_emb(:, input(:, tt)), prevState, masks(:, tt), params, isTest, isDecoder, ...
     isAttn, attnData, model);
   
   % encoder, attention
