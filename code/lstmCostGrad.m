@@ -54,7 +54,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   if params.isBi
     isDecoder = 0;
     [encStates, trainData, ~] = rnnLayerForward(model.W_src, model.W_emb_src, zeroState, trainData.srcInput, trainData.srcMask, ...
-      params, isTest, isDecoder, trainData, model);
+      params, isTest, isDecoder, params.attnFunc, trainData, model);
     lastEncState = encStates{end};
     
     % feed input
@@ -66,7 +66,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   %% decoder
   isDecoder = 1;
   [decStates, ~, attnInfos] = rnnLayerForward(model.W_tgt, model.W_emb_tgt, lastEncState, trainData.tgtInput, trainData.tgtMask, ...
-    params, isTest, isDecoder, trainData, model);
+    params, isTest, isDecoder, params.attnFunc, trainData, model);
   
   %% softmax
   [costs.total, grad.W_soft, dec_top_grads] = softmaxCostGrad(decStates, model.W_soft, trainData.tgtOutput, trainData.tgtMask, ...
