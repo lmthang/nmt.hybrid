@@ -1,11 +1,14 @@
-function [wordReps] = char2wordReps(rareWords, prevState, charMap, charVocab, padSymbol)
+function [wordReps] = char2wordReps(rareWords, W_rnn, W_emb, prevState, charMap, charVocab, padSymbol)
   charSeqs = charMap(rareWords);
   charVocab(charSeqs{1})
   [batch, mask] = rightBatch(charSeqs, padSymbol);
   
   % TODO: sort & split batches
-  [encStates, trainData, ~] = rnnLayerForward(model.W_src, model.W_emb_src, prevState, batch, mask, ...
-      params, isTest, isDecoder, trainData, model);
+  isDecoder = 0;
+  isAttn = 0;
+  attnData = [];
+  [encStates, ~, ~] = rnnLayerForward(W_rnn, W_emb, prevState, batch, mask, ...
+      params, isTest, isDecoder, isAttn, attnData, model);
 end
 
 function [batch, mask] = rightBatch(seqs, padSymbol)
