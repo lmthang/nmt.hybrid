@@ -10,10 +10,12 @@ function [dc, dh, d_emb, grad_W_rnn, d_feed_input] = rnnStepLayerBackprop(W_rnn,
 %
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 
+numLayers = length(W_rnn);
+
 unmaskedIds = maskInfo.unmaskedIds;
 maskedIds = maskInfo.maskedIds;
-grad_W_rnn = cell(params.numLayers, 1);
-for ll=params.numLayers:-1:1 % layer
+grad_W_rnn = cell(numLayers, 1);
+for ll=numLayers:-1:1 % layer
   % add grad from the top
   if ~isempty(cur_top_grad)
     dh{ll}(:, unmaskedIds) = dh{ll}(:, unmaskedIds) + cur_top_grad(1:params.lstmSize, unmaskedIds);

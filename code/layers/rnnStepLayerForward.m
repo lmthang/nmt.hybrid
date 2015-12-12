@@ -12,7 +12,8 @@ function [nextState, attnInfo] = rnnStepLayerForward(W_rnn, W_emb, prevState, in
 %
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 
-nextState = cell(params.numLayers, 1);
+numLayers = length(W_rnn);
+nextState = cell(numLayers, 1);
 
 % mask
 maskInfo.mask = mask;
@@ -26,7 +27,7 @@ else
   input_emb = W_emb(:, input);
 end
 
-for ll=1:params.numLayers % layer
+for ll=1:numLayers % layer
   % previous state
   h_t_1 = prevState{ll}.h_t;
   c_t_1 = prevState{ll}.c_t;
