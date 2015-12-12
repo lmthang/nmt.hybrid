@@ -40,7 +40,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
     if params.isBi
       srcRareFlags = trainData.srcInput > params.charShortList;
       srcRareWords = unique(trainData.srcInput(srcRareFlags));
-      [wordReps] = char2wordReps(srcRareWords, params.srcCharMap, params.srcCharVocab, params.srcSos);
+      [wordReps] = char2wordReps(srcRareWords, zeroState, params.srcCharMap, params.srcCharVocab, params.srcSos);
     end
     data.tgtRareFlags = tgtInput > params.charShortList;
     %tgtInput(data.tgtRareFlags) = params.tgtRare;
