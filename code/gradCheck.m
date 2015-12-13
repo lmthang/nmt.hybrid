@@ -23,11 +23,11 @@ function gradCheck(model, params)
   for ii=1:params.batchSize
     if params.isBi
       srcLen = randi([1, srcTrainMaxLen-1]);
-      srcTrainSents{ii} = randi([1, params.srcVocabSize - 2], 1, srcLen);
+      srcTrainSents{ii} = randi([1, params.srcVocabSize - 2], 1, srcLen) + 2;
     end
 
     tgtLen = randi([1, tgtTrainMaxLen-1]);
-    tgtTrainSents{ii} = randi([1, params.tgtVocabSize - 2], 1, tgtLen);
+    tgtTrainSents{ii} = randi([1, params.tgtVocabSize - 2], 1, tgtLen) + 2;
   end
 
   % prepare data

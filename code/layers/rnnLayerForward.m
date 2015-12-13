@@ -1,5 +1,5 @@
 function [lstmStates, attnData, attnInfos] = rnnLayerForward(W_rnn, W_emb, prevState, input, masks, params, ...
-  isTest, isDecoder, isAttn, attnData, model)
+  isTest, isDecoder, isAttn, attnData, model, isChar, charData)
 % Running Multi-layer RNN for one time step.
 % Input:
 %   W_rnn: recurrent connections of multiple layers, e.g., W_rnn{ll}.
@@ -25,8 +25,32 @@ if isAttn && isDecoder == 0 % encoder
 end
 
 for tt=1:T % time
+  if isChar
+    inputEmb = zeroMatrix([params.lstmSize, params.curBatchSize], params.isGPU, params.dataType);
+    
+    % charData.rareFlags: to know which words are rare
+    % charData.rareWordReps: the actual rare word representations
+    % rareWordMap: to find out indices in rareWordReps
+    
+    rareIds = find(charData.rareFlags(:, tt));
+    freqIds = find(~charData.rareFlags(:, tt));
+    assert((length(rareIds) + length(freqIds)) == params.curBatchSize);
+    assert(isempty(intersect(rareIds, freqIds)) == 1);
+    
+    if isDecoder == 0 % encoder
+      inputEmb(:, rareIds) = charData.rareWordReps(:, params.srcRareWordMap(input(rareIds, tt)));
+    else % decoder
+      inputEmb(:, rareIds) = charData.rareWordReps(:, params.tgtRareWordMap(input(rareIds, tt)));
+    end
+    
+    % embeddings for frequent words
+    inputEmb(:, freqIds) = W_emb(:, input(freqIds, tt));
+  else
+    inputEmb = W_emb(:, input(:, tt));
+  end
+  
   % multi-layer RNN
-  [prevState, attnInfos{tt}] = rnnStepLayerForward(W_rnn, W_emb(:, input(:, tt)), prevState, masks(:, tt), params, isTest, isDecoder, ...
+  [prevState, attnInfos{tt}] = rnnStepLayerForward(W_rnn, inputEmb, prevState, masks(:, tt), params, isTest, isDecoder, ...
     isAttn, attnData, model);
   
   % encoder, attention
