@@ -45,7 +45,6 @@ function [params] = prepareVocabs(params)
   if params.isBi
     params.srcVocab = srcVocab;
   else
-    %params.inVocabSize = params.tgtVocabSize;
     params.srcVocab = [];
   end
   
