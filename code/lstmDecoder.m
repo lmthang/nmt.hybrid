@@ -52,10 +52,11 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
   % encoder
   prevStates = cell(numModels, 1);
   isTest = 1;
+  isDecoder = 0;
   for mm=1:numModels
-    isDecoder = 0;
+    % encRnnFlags = struct('decode', 0, 'test', 1, 'attn', models{mm}.params.attnFunc, 'feedInput', 0);
     [encStates, modelData{mm}, ~] = rnnLayerForward(models{mm}.W_src, models{mm}.W_emb_src, zeroStates{mm}, modelData{mm}.srcInput, ...
-      modelData{mm}.srcMask, models{mm}.params, isTest, isDecoder, models{mm}.params.attnFunc, modelData{mm}, models{mm});
+      modelData{mm}.srcMask, models{mm}.params, isTest, isDecoder, models{mm}.params.attnFunc, modelData{mm}, models{mm}); % encRnnFlags
     prevStates{mm} = encStates{end};
     
     % feed input
@@ -69,12 +70,13 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
   %% decode %%
   %%%%%%%%%%%%
   % first decoder timestep
-  isDecoder = 1;
   attnInfos = cell(numModels, 1);
+  isTest = 1;
+  isDecoder = 1;
   for mm=1:numModels
+    % decRnnFlags = struct('decode', 1, 'test', 1, 'attn', models{mm}.params.attnFunc, 'feedInput', models{mm}.params.feedInput);
     [prevStates{mm}, attnInfos{mm}] = rnnStepLayerForward(models{mm}.W_tgt, models{mm}.W_emb_tgt(:, modelData{mm}.tgtInput(:, 1)), ...
-      prevStates{mm}, modelData{mm}.tgtMask(:, 1), models{mm}.params, isTest, isDecoder, ...
-      models{mm}.params.attnFunc, modelData{mm}, models{mm});
+      prevStates{mm}, modelData{mm}.tgtMask(:, 1), models{mm}.params, isTest, isDecoder, models{mm}.params.attnFunc, modelData{mm}, models{mm}); % decRnnFlags
   end
  
   % output alignment
@@ -203,8 +205,6 @@ originalSentIndices, modelData, firstAlignIdx, data)
     doneFlags = zeros(1, batchSize); % mark if we have finished decoding a sentence
   end
   
-  isDecoder = 1;
-  isTest = 1;
   attnInfos = cell(numModels, 1);
   for sentPos = 1 : (maxLen-1)
     %% Description:
@@ -222,9 +222,12 @@ originalSentIndices, modelData, firstAlignIdx, data)
     tgtPos = sentPos+1;
     
     %% compute next lstm hidden states
+    isTest = 1;
+    isDecoder = 1;
     for mm=1:numModels
+      % decRnnFlags = struct('decode', 1, 'test', 1, 'attn', models{mm}.params.attnFunc, 'feedInput', models{mm}.params.feedInput);
       [beamStates{mm}, attnInfos{mm}] = rnnStepLayerForward(models{mm}.W_tgt, models{mm}.W_emb_tgt(:, beamHistory(sentPos, :)), beamStates{mm}, ...
-        oneMask, models{mm}.params, isTest, isDecoder, models{mm}.params.attnFunc, modelData{mm}, models{mm});
+        oneMask, models{mm}.params, isTest, isDecoder, models{mm}.params.attnFunc, modelData{mm}, models{mm}); % decRnnFlags
     end
 
     %% output alignment

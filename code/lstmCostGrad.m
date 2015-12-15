@@ -38,9 +38,9 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   %% encoder
   lastEncState = zeroState;
   if params.isBi
-    isDecoder = 0;
+    encRnnFlags = struct('decode', 0, 'test', isTest, 'attn', params.attnFunc, 'feedInput', 0);
     [encStates, trainData, ~] = rnnLayerForward(model.W_src, model.W_emb_src, zeroState, trainData.srcInput, trainData.srcMask, ...
-      params, isTest, isDecoder, params.attnFunc, trainData, model);
+      params, encRnnFlags, trainData, model);
     lastEncState = encStates{end};
     
     % feed input
@@ -50,9 +50,9 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   end
   
   %% decoder
-  isDecoder = 1;
+  decRnnFlags = struct('decode', 1, 'test', isTest, 'attn', params.attnFunc, 'feedInput', params.feedInput);
   [decStates, ~, attnInfos] = rnnLayerForward(model.W_tgt, model.W_emb_tgt, lastEncState, trainData.tgtInput, trainData.tgtMask, ...
-    params, isTest, isDecoder, params.attnFunc, trainData, model);
+    params, decRnnFlags, trainData, model);
   
   %% softmax
   [costs.total, grad.W_soft, dec_top_grads] = softmaxCostGrad(decStates, model.W_soft, trainData.tgtOutput, trainData.tgtMask, ...
@@ -74,17 +74,17 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
     dc{ll} = zeroBatch;
   end
   
-  % decoder
+  %% decoder
   isDecoder = 1;
   isFeedInput = params.feedInput;
   [dc, dh, grad.W_tgt, grad.W_emb_tgt, grad.indices_tgt, attnGrad, grad.srcHidVecs] = rnnLayerBackprop(model.W_tgt, ...
-    decStates, lastEncState, ...
-    dec_top_grads, dc, dh, trainData.tgtInput, trainData.tgtMask, params, isFeedInput, isDecoder, attnInfos, trainData, model);
+    decStates, lastEncState, dec_top_grads, dc, dh, trainData.tgtInput, trainData.tgtMask, params, isFeedInput, isDecoder, ...
+    attnInfos, trainData, model);
   if params.attnFunc % copy attention grads 
     [grad] = copyStruct(attnGrad, grad);
   end
     
-  % encoder
+  %% encoder
   if params.isBi
     enc_top_grads = cell(srcMaxLen - 1, 1);
     for tt=1:params.numSrcHidVecs % attention

@@ -63,8 +63,8 @@ for tt=T:-1:1 % time
   end
 
   %% multi-layer RNN backprop
-  [dc, dh, d_emb, d_W_rnn, d_feed_input] = rnnStepLayerBackprop(W_rnn, prevState, rnnStates{tt}, cur_top_grad, dc, dh, maskInfos{tt}, params...
-    , isFeedInput, isDecoder);
+  [dc, dh, d_emb, d_W_rnn, d_feed_input] = rnnStepLayerBackprop(W_rnn, prevState, rnnStates{tt}, cur_top_grad, dc, dh, maskInfos{tt}, ...
+    params, isFeedInput);
 
   % recurrent grad
   for ll=params.numLayers:-1:1 % layer
@@ -77,7 +77,7 @@ for tt=T:-1:1 % time
 
   % softmax feedinput, bottom grad send back to top grad in the previous
   % time step
-  if params.feedInput && isDecoder && tt>1
+  if isFeedInput && tt>1
     top_grads{tt-1} = top_grads{tt-1} + d_feed_input;
   end
 

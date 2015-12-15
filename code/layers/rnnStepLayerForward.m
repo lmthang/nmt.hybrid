@@ -1,5 +1,4 @@
-function [nextState, attnInfo] = rnnStepLayerForward(W_rnn, input_emb, prevState, mask, params, isTest, isDecoder, ...
-  isAttn, attnData, model)
+function [nextState, attnInfo] = rnnStepLayerForward(W_rnn, input_emb, prevState, mask, params, isTest, isDecoder, isAttn, attnData, model) % rnnFlags
 % Running Multi-layer RNN for one time step.
 % Input:
 %   W_rnn: recurrent connections of multiple layers, e.g., W_rnn{ll}.
@@ -21,7 +20,7 @@ maskInfo.unmaskedIds = find(maskInfo.mask);
 maskInfo.maskedIds = find(~maskInfo.mask);
 
 % emb input
-if isDecoder && params.feedInput
+if isDecoder && params.feedInput % rnnFlags.feedInput
   input_emb = [input_emb; prevState{end}.softmax_h];
 end
 
@@ -43,7 +42,8 @@ for ll=1:numLayers % layer
   c_t_1(:, maskInfo.maskedIds) = 0;
 
   % core LSTM
-  [nextState{ll}] = lstmUnitForward(W_rnn{ll}, x_t, h_t_1, c_t_1, params, isTest, ll==1 && isDecoder && params.feedInput);
+  % rnnFlags.feedInput = (ll==1 && rnnFlags.decode && rnnFlags.feedInput);
+  [nextState{ll}] = lstmUnitForward(W_rnn{ll}, x_t, h_t_1, c_t_1, params, isTest, ll==1 && isDecoder && params.feedInput); % rnnFlags.test, ll==1 && rnnFlags.decode && rnnFlags.feedInput); %rnnFlags);
   
   % assert
   if params.assert
@@ -54,9 +54,9 @@ end
 
 % decoder
 attnInfo = [];
-if isDecoder
+if isDecoder % rnnFlags.decode
   % attention
-  if isAttn 
+  if isAttn % rnnFlags.attn 
     % TODO: save memory here, attnInfo.input only keeps track of srcHidVecs or attnVecs, but not h_t.
     [attnInfo] = attnLayerForward(nextState{end}.h_t, params, model, attnData, maskInfo);
     nextState{end}.softmax_h = attnInfo.softmax_h;
