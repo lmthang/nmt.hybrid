@@ -1,4 +1,4 @@
-function [lstmStates, attnData, attnInfos] = rnnLayerForward(W_rnn, W_emb, prevState, input, masks, params, isTest, isDecoder, isAttn, attnData, model) % rnnFlags
+function [lstmStates, attnData, attnInfos] = rnnLayerForward(W_rnn, W_emb, prevState, input, masks, params, rnnFlags, attnData, model)
 % Running Multi-layer RNN for one time step.
 % Input:
 %   W_rnn: recurrent connections of multiple layers, e.g., W_rnn{ll}.
@@ -18,17 +18,17 @@ lstmStates = cell(T, 1);
 
 % attention
 attnInfos = cell(T, 1);
-if isAttn && isDecoder == 0 % rnnFlags.attn && rnnFlags.decode == 0 % encoder
+if rnnFlags.attn && rnnFlags.decode == 0 % encoder
   assert(T <= params.numSrcHidVecs);
   attnData.srcHidVecsOrig = zeroMatrix([params.lstmSize, params.curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);
 end
 
 for tt=1:T % time
   % multi-layer RNN
-  [prevState, attnInfos{tt}] = rnnStepLayerForward(W_rnn, W_emb(:, input(:, tt)), prevState, masks(:, tt), params, isTest, isDecoder, isAttn, attnData, model); % rnnFlags
+  [prevState, attnInfos{tt}] = rnnStepLayerForward(W_rnn, W_emb(:, input(:, tt)), prevState, masks(:, tt), params, rnnFlags, attnData, model);
   
   % encoder, attention
-  if isAttn && isDecoder == 0 % rnnFlags.attn && rnnFlags.decode == 0
+  if rnnFlags.attn && rnnFlags.decode == 0
     attnData.srcHidVecsOrig(:, :, tt) = prevState{end}.h_t;
   end
   

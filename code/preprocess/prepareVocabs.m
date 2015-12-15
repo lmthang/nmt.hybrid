@@ -13,49 +13,33 @@ function [params] = prepareVocabs(params)
 
   %% grad check
   if params.isGradCheck
-    tgtVocab = {'<s>', '</s>', 'a', 'b'};
-
     if params.isBi
       srcVocab = {'<s>', '</s>', 'x', 'y'};
+      params.srcSos = 1;
     end
+    tgtVocab = {'<s>', '</s>', 'a', 'b'};
+    params.tgtSos = 1;
+    params.tgtEos = 2;
   else
-    [tgtVocab] = loadVocab(params.tgtVocabFile);    
     if params.isBi
       [srcVocab] = loadVocab(params.srcVocabFile);
+      srcVocab{end+1} = '<s_sos>'; % not learn
+      params.srcSos = length(srcVocab);
     end
-  end
-  
-  %% src vocab
-  if params.isBi
-    fprintf(2, '## Bilingual setting\n');
-
-    params.srcSos = lookup(srcVocab, '<s>');
-    assert(~isempty(params.srcSos));
     
-    % here we have src eos, so we don't need tgt sos.
-    params.srcVocabSize = length(srcVocab);
-  else
-    fprintf(2, '## Monolingual setting\n');
+    [tgtVocab] = loadVocab(params.tgtVocabFile);  
+    tgtVocab{end+1} = '<t_sos>';
+    params.tgtSos = length(tgtVocab);
+    tgtVocab{end+1} = '<t_eos>';
+    params.tgtEos = length(tgtVocab); 
   end
-    
-  %% tgt vocab    
-  % add eos, sos
-  params.tgtSos = lookup(tgtVocab, '<s>');
-  params.tgtEos = lookup(tgtVocab, '</s>');
-  assert(~isempty(params.tgtSos) && ~isempty(params.tgtEos));
-  
-  params.tgtVocabSize = length(tgtVocab);
   
   %% finalize vocab
   if params.isBi
     params.srcVocab = srcVocab;
-  else
-    params.srcVocab = [];
+    params.srcVocabSize = length(srcVocab);
   end
   
   params.tgtVocab = tgtVocab;
-end
-
-function [id] = lookup(vocab, str)
-  id = find(strcmp(str, vocab), 1);
+  params.tgtVocabSize = length(tgtVocab);
 end
