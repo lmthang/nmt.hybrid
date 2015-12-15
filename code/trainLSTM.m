@@ -157,7 +157,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     params.batchId = 1;
     params.maxSentLen = 7;
     params.posWin = 1;
-    params.maxRelDist = 2;
   end
   
   %% attention
@@ -178,27 +177,15 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.logId = fopen([outDir '/log'], 'a');
   
   %% Load vocabs
-  [params] = prepareVocabs(params);
-  
-  %% char-level
+  % char
   if params.charShortList > 0
-    assert(params.charShortList < params.srcVocabSize);
-    assert(params.charShortList < params.tgtVocabSize);
-    
     params.srcCharVocabFile = [params.charPrefix '.' params.srcLang '.char.vocab'];
     params.srcCharMapFile = [params.charPrefix '.' params.srcLang '.char.map'];
-    params.srcCharVocab = loadVocab(params.srcCharVocabFile);
-    params.srcCharMap = loadWord2CharMap(params.srcCharMapFile);
-    params.srcCharVocabSize = length(params.srcCharVocab);
-    params.srcRareWordMap = zeros(1, params.srcVocabSize);
-    
     params.tgtCharVocabFile = [params.charPrefix '.' params.tgtLang '.char.vocab'];
     params.tgtCharMapFile = [params.charPrefix '.' params.tgtLang '.char.map'];
-    params.tgtCharVocab = loadVocab(params.tgtCharVocabFile);
-    params.tgtCharMap = loadWord2CharMap(params.tgtCharMapFile);
-    params.tgtCharVocabSize = length(params.tgtCharVocab);
-    params.tgtRareWordMap = zeros(1, params.tgtVocabSize);
   end
+  [params] = prepareVocabs(params);
+
   
   %% Init / Load Model Parameters
   params.modelFile = [outDir '/model.mat']; % store those with the best valid perplexity

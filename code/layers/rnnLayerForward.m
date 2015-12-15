@@ -31,12 +31,10 @@ for tt=1:T % time
     % charData.rareFlags: to know which words are rare
     % charData.rareWordReps: the actual rare word representations
     % rareWordMap: to find out indices in rareWordReps
-    
     rareIds = find(charData.rareFlags(:, tt));
     freqIds = find(~charData.rareFlags(:, tt));
-    assert((length(rareIds) + length(freqIds)) == params.curBatchSize);
-    assert(isempty(intersect(rareIds, freqIds)) == 1);
     
+    % embeddings for rare words
     if isDecoder == 0 % encoder
       inputEmb(:, rareIds) = charData.rareWordReps(:, params.srcRareWordMap(input(rareIds, tt)));
     else % decoder

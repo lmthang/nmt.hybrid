@@ -33,9 +33,8 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   costs = initCosts();
     
   % char
-  if params.charShortList
-    assert(params.charShortList < params.srcVocabSize);
-    assert(params.charShortList < params.tgtVocabSize);
+  isChar = params.charShortList;
+  if isChar
     charParams = params;
     charParams.numLayers = params.charNumLayers;
     
@@ -44,9 +43,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       srcCharData.rareFlags = trainData.srcInput > params.charShortList;
       srcRareWords = unique(trainData.srcInput(srcCharData.rareFlags));
       srcCharData.rareWordReps = char2wordReps(model.W_char_src, model.W_char_emb_src, srcRareWords, params.srcCharMap, ...
-        charParams, isTest); % params.srcCharVocab,
-      
-      %srcCharData.rareWordMap = data2map(srcRareWords);
+        charParams, isTest);
       params.srcRareWordMap(srcRareWords) = 1:length(srcRareWords);
     end
     
@@ -54,8 +51,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
     tgtCharData.rareFlags = trainData.tgtInput > params.charShortList;
     tgtRareWords = unique(trainData.tgtInput(tgtCharData.rareFlags));
     tgtCharData.rareWordReps = char2wordReps(model.W_char_tgt, model.W_char_emb_tgt, tgtRareWords, params.tgtCharMap, ...
-      charParams, isTest); % params.tgtCharVocab, 
-    %tgtCharData.rareWordMap = data2map(tgtRareWords);
+      charParams, isTest);
     params.tgtRareWordMap(tgtRareWords) = 1:length(tgtRareWords);
   else
     srcCharData = [];
@@ -70,7 +66,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   if params.isBi
     isDecoder = 0;
     [encStates, trainData, ~] = rnnLayerForward(model.W_src, model.W_emb_src, zeroState, trainData.srcInput, trainData.srcMask, ...
-      params, isTest, isDecoder, params.attnFunc, trainData, model, params.charShortList, srcCharData);
+      params, isTest, isDecoder, params.attnFunc, trainData, model, isChar, srcCharData);
     
     
     lastEncState = encStates{end};
@@ -84,7 +80,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   %% decoder
   isDecoder = 1;
   [decStates, ~, attnInfos] = rnnLayerForward(model.W_tgt, model.W_emb_tgt, lastEncState, trainData.tgtInput, trainData.tgtMask, ...
-    params, isTest, isDecoder, params.attnFunc, trainData, model, params.charShortList, tgtCharData);
+    params, isTest, isDecoder, params.attnFunc, trainData, model, isChar, tgtCharData);
   
   %% softmax
   [costs.total, grad.W_soft, dec_top_grads] = softmaxCostGrad(decStates, model.W_soft, trainData.tgtOutput, trainData.tgtMask, ...

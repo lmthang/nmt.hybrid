@@ -13,42 +13,70 @@ function [params] = prepareVocabs(params)
 
   %% grad check
   if params.isGradCheck
-    tgtVocab = {'<s>', '</s>', 'a', 'b'};
-
+    % word
     if params.isBi
-      srcVocab = {'<s>', '</s>', 'x', 'y'};
+      params.srcVocab = {'<s>', '</s>', 'x', 'y'};
+    end
+    params.tgtVocab = {'<s>', '</s>', 'a', 'b'};
+      
+    % char
+    if params.charShortList
+      assert(params.charShortList == 4);
+      if params.isBi
+        params.srcVocab = {'<s>', '</s>', 'x', 'y', 'xy', 'xz', 'z', 'xyz'};
+        params.srcCharVocab = {'x', 'y', 'z'};
+        params.srcCharMap = {[], [], [], [], [1 2], [1 3], 3, [1 2 3]};
+      end
+      
+      params.tgtVocab = {'<s>', '</s>', 'a', 'b', 'ab', 'ac', 'c', 'abc'};
+      params.tgtCharVocab = {'a', 'b', 'c'};
+      params.tgtCharMap = {[], [], [], [], [1 2], [1 3], 3, [1 2 3]};
     end
   else
-    [tgtVocab] = loadVocab(params.tgtVocabFile);    
+    % word
     if params.isBi
-      [srcVocab] = loadVocab(params.srcVocabFile);
+      [params.srcVocab] = loadVocab(params.srcVocabFile);
+    end
+    [params.tgtVocab] = loadVocab(params.tgtVocabFile);    
+    
+    % char
+    if params.charShortList
+      params.srcCharVocab = loadVocab(params.srcCharVocabFile);
+      params.srcCharMap = loadWord2CharMap(params.srcCharMapFile);
+      
+      params.tgtCharVocab = loadVocab(params.tgtCharVocabFile);
+      params.tgtCharMap = loadWord2CharMap(params.tgtCharMapFile);
+    else
     end
   end
-  
+      
   %% src vocab
   if params.isBi
     fprintf(2, '## Bilingual setting\n');
-    params.srcSos = lookup(srcVocab, '<s>');
+    params.srcSos = lookup(params.srcVocab, '<s>');
     assert(~isempty(params.srcSos));
-    params.srcVocabSize = length(srcVocab);
+    params.srcVocabSize = length(params.srcVocab);
   else
     fprintf(2, '## Monolingual setting\n');
   end
     
   %% tgt vocab 
-  params.tgtSos = lookup(tgtVocab, '<s>');
-  params.tgtEos = lookup(tgtVocab, '</s>');
+  params.tgtSos = lookup(params.tgtVocab, '<s>');
+  params.tgtEos = lookup(params.tgtVocab, '</s>');
   assert(~isempty(params.tgtSos) && ~isempty(params.tgtEos));
-  params.tgtVocabSize = length(tgtVocab);
+  params.tgtVocabSize = length(params.tgtVocab);
   
-  %% finalize vocab
-  if params.isBi
-    params.srcVocab = srcVocab;
-  else
-    params.srcVocab = [];
+  %% char
+  if params.charShortList
+    assert(params.charShortList < params.srcVocabSize);
+    assert(params.charShortList < params.tgtVocabSize);
+
+    params.srcCharVocabSize = length(params.srcCharVocab);
+    params.srcRareWordMap = zeros(1, params.srcVocabSize);
+
+    params.tgtCharVocabSize = length(params.tgtCharVocab);
+    params.tgtRareWordMap = zeros(1, params.tgtVocabSize);
   end
-  
-  params.tgtVocab = tgtVocab;
 end
 
 function [id] = lookup(vocab, str)
