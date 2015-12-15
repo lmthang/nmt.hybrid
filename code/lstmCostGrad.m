@@ -12,7 +12,6 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   %%%%%%%%%%%%
   %%% INIT %%%
   %%%%%%%%%%%%
-  tgtMaxLen = trainData.tgtMaxLen;
   curBatchSize = size(trainData.tgtInput, 1);
   if params.isBi
     srcMaxLen = trainData.srcMaxLen;

@@ -149,7 +149,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     params.batchId = 1;
     params.maxSentLen = 7;
     params.posWin = 1;
-    params.maxRelDist = 2;
   end
   
   %% attention
