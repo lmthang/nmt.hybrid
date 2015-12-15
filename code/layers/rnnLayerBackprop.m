@@ -29,8 +29,6 @@ end
 [maskInfos] = prepareMask(masks);
 
 for tt=T:-1:1 % time
-  unmaskedIds = maskInfos{tt}.unmaskedIds;
-
   % attention
   if params.attnFunc && isDecoder
     % attention: softmax_h -> h_t
@@ -84,11 +82,10 @@ for tt=T:-1:1 % time
   end
 
   % emb grad
-  embIndices = input(unmaskedIds, tt)';
-  embGrad = d_emb(1:params.lstmSize, unmaskedIds);
-  numWords = length(embIndices);
-  allEmbIndices(wordCount+1:wordCount+numWords) = embIndices;
-  allEmbGrads(:, wordCount+1:wordCount+numWords) = embGrad;
+  unmaskedIds = maskInfos{tt}.unmaskedIds;
+  numWords = length(unmaskedIds);
+  allEmbIndices(wordCount+1:wordCount+numWords) = input(unmaskedIds, tt);
+  allEmbGrads(:, wordCount+1:wordCount+numWords) = d_emb(1:params.lstmSize, unmaskedIds);
   wordCount = wordCount + numWords;
 end % end for time
 
