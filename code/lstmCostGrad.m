@@ -75,10 +75,8 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   end
   
   %% decoder
-  isDecoder = 1;
-  isFeedInput = params.feedInput;
   [dc, dh, grad.W_tgt, grad.W_emb_tgt, grad.indices_tgt, attnGrad, grad.srcHidVecs] = rnnLayerBackprop(model.W_tgt, ...
-    decStates, lastEncState, dec_top_grads, dc, dh, trainData.tgtInput, trainData.tgtMask, params, isFeedInput, isDecoder, ...
+    decStates, lastEncState, dec_top_grads, dc, dh, trainData.tgtInput, trainData.tgtMask, params, decRnnFlags, ...
     attnInfos, trainData, model);
   if params.attnFunc % copy attention grads 
     [grad] = copyStruct(attnGrad, grad);
@@ -91,10 +89,8 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       enc_top_grads{tt} = grad.srcHidVecs(:,:,tt);
     end
     
-    isDecoder = 0;
-    isFeedInput = 0;
     [~, ~, grad.W_src, grad.W_emb_src, grad.indices_src, ~, ~] = rnnLayerBackprop(model.W_src, encStates, zeroState, ...
-    enc_top_grads, dc, dh, trainData.srcInput, trainData.srcMask, params, isFeedInput, isDecoder, attnInfos, trainData, model);
+    enc_top_grads, dc, dh, trainData.srcInput, trainData.srcMask, params, encRnnFlags, attnInfos, trainData, model);
   end
 
     
