@@ -16,7 +16,6 @@ For product information, visit www.mathworks.com.
   Student License -- for use in conjunction with courses offered at a
   degree-granting institution.  Professional and commercial use prohibited.
 
-## Bilingual setting
 # Init LSTM parameters using dataType=double, initRange=0.1
   Model size = 104, individual sizes:  W_src{1}=32 W_tgt{1}=48 W_emb_src=8 W_emb_tgt=8 W_soft=8
 # assert = 0
@@ -79,12 +78,11 @@ For product information, visit www.mathworks.com.
 # forceDecoder = 0
 # isGPU = 0
 # batchId = 1
-# maxRelDist = 2
 # logId = 3
 # srcSos = 1
-# srcVocabSize = 4
 # tgtSos = 1
 # tgtEos = 2
+# srcVocabSize = 4
 # tgtVocabSize = 4
 # modelFile = ../output/gradcheck/model.mat
 # modelRecentFile = ../output/gradcheck/modelRecent.mat
@@ -219,7 +217,7 @@ For product information, visit www.mathworks.com.
   0.001638	  0.001638	diff=1.81453e-08
   local_diff=2.54315e-07
 # Num params=104, abs_diff=6.26517e-06
-Elapsed time is 0.743927 seconds.
+Elapsed time is 0.691633 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2)
 [?1h=
@@ -236,7 +234,6 @@ For product information, visit www.mathworks.com.
   Student License -- for use in conjunction with courses offered at a
   degree-granting institution.  Professional and commercial use prohibited.
 
-## Bilingual setting
 # Init LSTM parameters using dataType=double, initRange=0.1
   Model size = 168, individual sizes:  W_src{1}=32 W_src{2}=32 W_tgt{1}=48 W_tgt{2}=32 W_emb_src=8 W_emb_tgt=8 W_soft=8
 # assert = 0
@@ -299,12 +296,11 @@ For product information, visit www.mathworks.com.
 # forceDecoder = 0
 # isGPU = 0
 # batchId = 1
-# maxRelDist = 2
 # logId = 3
 # srcSos = 1
-# srcVocabSize = 4
 # tgtSos = 1
 # tgtEos = 2
+# srcVocabSize = 4
 # tgtVocabSize = 4
 # modelFile = ../output/gradcheck/model.mat
 # modelRecentFile = ../output/gradcheck/modelRecent.mat
@@ -507,7 +503,7 @@ For product information, visit www.mathworks.com.
   0.000062	  0.000062	diff=8.33019e-11
   local_diff=3.90799e-10
 # Num params=168, abs_diff=2.11166e-07
-Elapsed time is 1.431010 seconds.
+Elapsed time is 1.526120 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8)
 [?1h=
@@ -524,7 +520,6 @@ For product information, visit www.mathworks.com.
   Student License -- for use in conjunction with courses offered at a
   degree-granting institution.  Professional and commercial use prohibited.
 
-## Bilingual setting
 # Init LSTM parameters using dataType=double, initRange=0.1
   Model size = 168, individual sizes:  W_src{1}=32 W_src{2}=32 W_tgt{1}=48 W_tgt{2}=32 W_emb_src=8 W_emb_tgt=8 W_soft=8
 # assert = 0
@@ -587,12 +582,11 @@ For product information, visit www.mathworks.com.
 # forceDecoder = 0
 # isGPU = 0
 # batchId = 1
-# maxRelDist = 2
 # logId = 3
 # srcSos = 1
-# srcVocabSize = 4
 # tgtSos = 1
 # tgtEos = 2
+# srcVocabSize = 4
 # tgtVocabSize = 4
 # modelFile = ../output/gradcheck/model.mat
 # modelRecentFile = ../output/gradcheck/modelRecent.mat
@@ -795,7 +789,7 @@ For product information, visit www.mathworks.com.
   0.000095	  0.000095	diff=1.45087e-10
   local_diff=7.11253e-10
 # Num params=168, abs_diff=2.9617e-07
-Elapsed time is 1.521546 seconds.
+Elapsed time is 1.422960 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1)
 [?1h=
@@ -812,7 +806,6 @@ For product information, visit www.mathworks.com.
   Student License -- for use in conjunction with courses offered at a
   degree-granting institution.  Professional and commercial use prohibited.
 
-## Bilingual setting
 # Init LSTM parameters using dataType=double, initRange=0.1
   Model size = 176, individual sizes:  W_src{1}=32 W_src{2}=32 W_tgt{1}=48 W_tgt{2}=32 W_emb_src=8 W_emb_tgt=8 W_h=8 W_soft=8
 # assert = 0
@@ -875,12 +868,11 @@ For product information, visit www.mathworks.com.
 # forceDecoder = 0
 # isGPU = 0
 # batchId = 1
-# maxRelDist = 2
 # logId = 3
 # srcSos = 1
-# srcVocabSize = 4
 # tgtSos = 1
 # tgtEos = 2
+# srcVocabSize = 4
 # tgtVocabSize = 4
 # modelFile = ../output/gradcheck/model.mat
 # modelRecentFile = ../output/gradcheck/modelRecent.mat
@@ -1093,7 +1085,7 @@ For product information, visit www.mathworks.com.
  -0.000000	 -0.000000	diff=4.66816e-13
   local_diff=5.69079e-12
 # Num params=176, abs_diff=8.54535e-09
-Elapsed time is 2.096316 seconds.
+Elapsed time is 2.062545 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 1)
 [?1h=
@@ -1110,7 +1102,6 @@ For product information, visit www.mathworks.com.
   Student License -- for use in conjunction with courses offered at a
   degree-granting institution.  Professional and commercial use prohibited.
 
-## Bilingual setting
 # Init LSTM parameters using dataType=double, initRange=0.1
   Model size = 182, individual sizes:  W_src{1}=32 W_src{2}=32 W_tgt{1}=48 W_tgt{2}=32 W_emb_src=8 W_emb_tgt=8 W_pos=4 v_pos=2 W_h=8 W_soft=8
 # assert = 0
@@ -1176,9 +1167,9 @@ For product information, visit www.mathworks.com.
 # distSigma = 0.5
 # logId = 3
 # srcSos = 1
-# srcVocabSize = 4
 # tgtSos = 1
 # tgtEos = 2
+# srcVocabSize = 4
 # tgtVocabSize = 4
 # modelFile = ../output/gradcheck/model.mat
 # modelRecentFile = ../output/gradcheck/modelRecent.mat
@@ -1401,7 +1392,7 @@ For product information, visit www.mathworks.com.
   0.000001	  0.000001	diff=1.38259e-14
   local_diff=1.8999e-12
 # Num params=182, abs_diff=2.59737e-08
-Elapsed time is 2.795907 seconds.
+Elapsed time is 2.878973 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 2)
 [?1h=
@@ -1418,7 +1409,6 @@ For product information, visit www.mathworks.com.
   Student License -- for use in conjunction with courses offered at a
   degree-granting institution.  Professional and commercial use prohibited.
 
-## Bilingual setting
 # Init LSTM parameters using dataType=double, initRange=0.1
   Model size = 180, individual sizes:  W_src{1}=32 W_src{2}=32 W_tgt{1}=48 W_tgt{2}=32 W_emb_src=8 W_emb_tgt=8 W_a=4 W_h=8 W_soft=8
 # assert = 0
@@ -1483,9 +1473,9 @@ For product information, visit www.mathworks.com.
 # batchId = 1
 # logId = 3
 # srcSos = 1
-# srcVocabSize = 4
 # tgtSos = 1
 # tgtEos = 2
+# srcVocabSize = 4
 # tgtVocabSize = 4
 # modelFile = ../output/gradcheck/model.mat
 # modelRecentFile = ../output/gradcheck/modelRecent.mat
@@ -1704,7 +1694,7 @@ For product information, visit www.mathworks.com.
  -0.000004	 -0.000004	diff=9.63901e-13
   local_diff=5.68557e-12
 # Num params=180, abs_diff=2.78697e-08
-Elapsed time is 2.056976 seconds.
+Elapsed time is 2.198152 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 3)
 [?1h=
@@ -1721,7 +1711,6 @@ For product information, visit www.mathworks.com.
   Student License -- for use in conjunction with courses offered at a
   degree-granting institution.  Professional and commercial use prohibited.
 
-## Bilingual setting
 # Init LSTM parameters using dataType=double, initRange=0.1
   Model size = 182, individual sizes:  W_src{1}=32 W_src{2}=32 W_tgt{1}=48 W_tgt{2}=32 W_emb_src=8 W_emb_tgt=8 W_a=4 v_a=2 W_h=8 W_soft=8
 # assert = 0
@@ -1786,9 +1775,9 @@ For product information, visit www.mathworks.com.
 # batchId = 1
 # logId = 3
 # srcSos = 1
-# srcVocabSize = 4
 # tgtSos = 1
 # tgtEos = 2
+# srcVocabSize = 4
 # tgtVocabSize = 4
 # modelFile = ../output/gradcheck/model.mat
 # modelRecentFile = ../output/gradcheck/modelRecent.mat
@@ -2011,7 +2000,7 @@ For product information, visit www.mathworks.com.
   0.000001	  0.000001	diff=1.09243e-12
   local_diff=5.74496e-12
 # Num params=182, abs_diff=2.66949e-08
-Elapsed time is 2.320212 seconds.
+Elapsed time is 2.227197 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1)
 [?1h=
@@ -2028,7 +2017,6 @@ For product information, visit www.mathworks.com.
   Student License -- for use in conjunction with courses offered at a
   degree-granting institution.  Professional and commercial use prohibited.
 
-## Bilingual setting
 # Init LSTM parameters using dataType=double, initRange=10
   Model size = 104, individual sizes:  W_src{1}=32 W_tgt{1}=48 W_emb_src=8 W_emb_tgt=8 W_soft=8
 # assert = 0
@@ -2093,9 +2081,9 @@ For product information, visit www.mathworks.com.
 # batchId = 1
 # logId = 3
 # srcSos = 1
-# srcVocabSize = 4
 # tgtSos = 1
 # tgtEos = 2
+# srcVocabSize = 4
 # tgtVocabSize = 4
 # modelFile = ../output/gradcheck/model.mat
 # modelRecentFile = ../output/gradcheck/modelRecent.mat
@@ -2230,7 +2218,7 @@ For product information, visit www.mathworks.com.
  -1.280499	 -1.287202	diff=0.00670337
   local_diff=0.0190718
 # Num params=104, abs_diff=1.87614
-Elapsed time is 0.682779 seconds.
+Elapsed time is 0.709005 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2)
 [?1h=
@@ -2247,7 +2235,6 @@ For product information, visit www.mathworks.com.
   Student License -- for use in conjunction with courses offered at a
   degree-granting institution.  Professional and commercial use prohibited.
 
-## Bilingual setting
 # Init LSTM parameters using dataType=double, initRange=10
   Model size = 168, individual sizes:  W_src{1}=32 W_src{2}=32 W_tgt{1}=48 W_tgt{2}=32 W_emb_src=8 W_emb_tgt=8 W_soft=8
 # assert = 0
@@ -2312,9 +2299,9 @@ For product information, visit www.mathworks.com.
 # batchId = 1
 # logId = 3
 # srcSos = 1
-# srcVocabSize = 4
 # tgtSos = 1
 # tgtEos = 2
+# srcVocabSize = 4
 # tgtVocabSize = 4
 # modelFile = ../output/gradcheck/model.mat
 # modelRecentFile = ../output/gradcheck/modelRecent.mat
@@ -2517,7 +2504,7 @@ For product information, visit www.mathworks.com.
  -0.000000	 -0.000000	diff=2.25247e-14
   local_diff=2.37121e-12
 # Num params=168, abs_diff=1.99492e-07
-Elapsed time is 1.416990 seconds.
+Elapsed time is 1.373524 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8)
 [?1h=
@@ -2534,7 +2521,6 @@ For product information, visit www.mathworks.com.
   Student License -- for use in conjunction with courses offered at a
   degree-granting institution.  Professional and commercial use prohibited.
 
-## Bilingual setting
 # Init LSTM parameters using dataType=double, initRange=10
   Model size = 168, individual sizes:  W_src{1}=32 W_src{2}=32 W_tgt{1}=48 W_tgt{2}=32 W_emb_src=8 W_emb_tgt=8 W_soft=8
 # assert = 0
@@ -2599,9 +2585,9 @@ For product information, visit www.mathworks.com.
 # batchId = 1
 # logId = 3
 # srcSos = 1
-# srcVocabSize = 4
 # tgtSos = 1
 # tgtEos = 2
+# srcVocabSize = 4
 # tgtVocabSize = 4
 # modelFile = ../output/gradcheck/model.mat
 # modelRecentFile = ../output/gradcheck/modelRecent.mat
@@ -2804,7 +2790,7 @@ For product information, visit www.mathworks.com.
   0.026354	  0.026330	diff=2.37666e-05
   local_diff=0.000308046
 # Num params=168, abs_diff=0.00622106
-Elapsed time is 1.507864 seconds.
+Elapsed time is 1.539143 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1)
 [?1h=
@@ -2821,7 +2807,6 @@ For product information, visit www.mathworks.com.
   Student License -- for use in conjunction with courses offered at a
   degree-granting institution.  Professional and commercial use prohibited.
 
-## Bilingual setting
 # Init LSTM parameters using dataType=double, initRange=10
   Model size = 176, individual sizes:  W_src{1}=32 W_src{2}=32 W_tgt{1}=48 W_tgt{2}=32 W_emb_src=8 W_emb_tgt=8 W_h=8 W_soft=8
 # assert = 0
@@ -2886,9 +2871,9 @@ For product information, visit www.mathworks.com.
 # batchId = 1
 # logId = 3
 # srcSos = 1
-# srcVocabSize = 4
 # tgtSos = 1
 # tgtEos = 2
+# srcVocabSize = 4
 # tgtVocabSize = 4
 # modelFile = ../output/gradcheck/model.mat
 # modelRecentFile = ../output/gradcheck/modelRecent.mat
@@ -3101,7 +3086,7 @@ For product information, visit www.mathworks.com.
   0.121598	  0.118874	diff=0.00272319
   local_diff=0.00978448
 # Num params=176, abs_diff=0.391137
-Elapsed time is 2.014684 seconds.
+Elapsed time is 2.021188 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 1)
 [?1h=
@@ -3118,7 +3103,6 @@ For product information, visit www.mathworks.com.
   Student License -- for use in conjunction with courses offered at a
   degree-granting institution.  Professional and commercial use prohibited.
 
-## Bilingual setting
 # Init LSTM parameters using dataType=double, initRange=10
   Model size = 182, individual sizes:  W_src{1}=32 W_src{2}=32 W_tgt{1}=48 W_tgt{2}=32 W_emb_src=8 W_emb_tgt=8 W_pos=4 v_pos=2 W_h=8 W_soft=8
 # assert = 0
@@ -3184,9 +3168,9 @@ For product information, visit www.mathworks.com.
 # distSigma = 0.5
 # logId = 3
 # srcSos = 1
-# srcVocabSize = 4
 # tgtSos = 1
 # tgtEos = 2
+# srcVocabSize = 4
 # tgtVocabSize = 4
 # modelFile = ../output/gradcheck/model.mat
 # modelRecentFile = ../output/gradcheck/modelRecent.mat
@@ -3409,7 +3393,7 @@ For product information, visit www.mathworks.com.
  -0.960663	 -0.964000	diff=0.00333755
   local_diff=0.0135464
 # Num params=182, abs_diff=0.0192775
-Elapsed time is 2.816651 seconds.
+Elapsed time is 2.928397 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 2)
 [?1h=
@@ -3426,7 +3410,6 @@ For product information, visit www.mathworks.com.
   Student License -- for use in conjunction with courses offered at a
   degree-granting institution.  Professional and commercial use prohibited.
 
-## Bilingual setting
 # Init LSTM parameters using dataType=double, initRange=10
   Model size = 180, individual sizes:  W_src{1}=32 W_src{2}=32 W_tgt{1}=48 W_tgt{2}=32 W_emb_src=8 W_emb_tgt=8 W_a=4 W_h=8 W_soft=8
 # assert = 0
@@ -3491,9 +3474,9 @@ For product information, visit www.mathworks.com.
 # batchId = 1
 # logId = 3
 # srcSos = 1
-# srcVocabSize = 4
 # tgtSos = 1
 # tgtEos = 2
+# srcVocabSize = 4
 # tgtVocabSize = 4
 # modelFile = ../output/gradcheck/model.mat
 # modelRecentFile = ../output/gradcheck/modelRecent.mat
@@ -3712,7 +3695,7 @@ For product information, visit www.mathworks.com.
   0.000003	  0.000003	diff=1.50438e-08
   local_diff=6.76852e-06
 # Num params=180, abs_diff=0.00103182
-Elapsed time is 2.067016 seconds.
+Elapsed time is 2.109499 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 3)
 [?1h=
@@ -3729,7 +3712,6 @@ For product information, visit www.mathworks.com.
   Student License -- for use in conjunction with courses offered at a
   degree-granting institution.  Professional and commercial use prohibited.
 
-## Bilingual setting
 # Init LSTM parameters using dataType=double, initRange=10
   Model size = 182, individual sizes:  W_src{1}=32 W_src{2}=32 W_tgt{1}=48 W_tgt{2}=32 W_emb_src=8 W_emb_tgt=8 W_a=4 v_a=2 W_h=8 W_soft=8
 # assert = 0
@@ -3794,9 +3776,9 @@ For product information, visit www.mathworks.com.
 # batchId = 1
 # logId = 3
 # srcSos = 1
-# srcVocabSize = 4
 # tgtSos = 1
 # tgtEos = 2
+# srcVocabSize = 4
 # tgtVocabSize = 4
 # modelFile = ../output/gradcheck/model.mat
 # modelRecentFile = ../output/gradcheck/modelRecent.mat
@@ -4019,5 +4001,5 @@ For product information, visit www.mathworks.com.
  -0.972414	 -0.975781	diff=0.00336772
   local_diff=0.013588
 # Num params=182, abs_diff=0.0148659
-Elapsed time is 2.227980 seconds.
+Elapsed time is 2.177881 seconds.
 [?1l>

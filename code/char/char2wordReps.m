@@ -4,17 +4,12 @@ function [wordReps] = char2wordReps(W_rnn, W_emb, rareWords, charMap, charParams
   [batch, mask] = rightBatch(charSeqs, charParams.srcSos);
   
   % TODO: sort & split batches
-  isDecoder = 0;
-  isAttn = 0;
-  attnData = [];
-  model = [];
-  isChar = 0;
-  charData = [];
+  rnnFlags = struct('decode', 0, 'test', isTest, 'attn', 0, 'feedInput', 0, 'char', 0);
   charParams.curBatchSize = length(rareWords);
   assert(charParams.curBatchSize == size(batch, 1));
   prevState = createZeroState(charParams);
   [encStates, ~, ~] = rnnLayerForward(W_rnn, W_emb, prevState, batch, mask, ...
-    charParams, isTest, isDecoder, isAttn, attnData, model, isChar, charData);
+    charParams, rnnFlags, [], [], []);
   wordReps = encStates{end}{end}.h_t;
 end
 

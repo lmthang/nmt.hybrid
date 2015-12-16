@@ -1,4 +1,4 @@
-function [lstmState] = lstmUnitForward(W, x_t, h_t_1, c_t_1, params, isTest, isFeedInput)
+function [lstmState] = lstmUnitForward(W, x_t, h_t_1, c_t_1, params, rnnFlags)
 % LSTM unit
 % Input:
 %   W: parameter
@@ -11,11 +11,11 @@ function [lstmState] = lstmUnitForward(W, x_t, h_t_1, c_t_1, params, isTest, isF
 % Thang Luong @ 2014, 2015, <lmthang@stanford.edu>
 
   %% dropout
-  if params.dropout<1 && isTest==0
+  if params.dropout<1 && rnnFlags.test==0
     if ~params.isGradCheck
       dropoutMask = (randMatrix(size(x_t), params.isGPU, params.dataType)<params.dropout)/params.dropout;
     else % for gradient check use the same mask
-      if isFeedInput %t>=srcMaxLen && ll==1 && params.feedInput % predict words
+      if rnnFlags.feedInput
         dropoutMask = params.dropoutMaskInput;
       else
         dropoutMask = params.dropoutMask;
@@ -72,7 +72,7 @@ function [lstmState] = lstmUnitForward(W, x_t, h_t_1, c_t_1, params, isTest, isF
   
   lstmState.h_t = h_t;
   lstmState.c_t = c_t;
-  if (isTest==0) % store intermediate results
+  if (rnnFlags.test==0) % store intermediate results
     lstmState.input = input;
     lstmState.i_gate = i_gate;
     lstmState.f_gate = f_gate;
@@ -81,7 +81,7 @@ function [lstmState] = lstmUnitForward(W, x_t, h_t_1, c_t_1, params, isTest, isF
     lstmState.f_c_t = f_c_t;
     
     if params.dropout<1 % store dropout mask
-      if isFeedInput % t>=srcMaxLen && ll==1 && params.feedInput % predict words
+      if rnnFlags.feedInput
         lstmState.dropoutMaskInput = dropoutMask;
       else
         lstmState.dropoutMask = dropoutMask;

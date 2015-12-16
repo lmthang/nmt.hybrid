@@ -1,5 +1,4 @@
-function [lstmStates, attnData, attnInfos] = rnnLayerForward(W_rnn, W_emb, prevState, input, masks, params, ...
-  isTest, isDecoder, isAttn, attnData, model, isChar, charData)
+function [lstmStates, attnData, attnInfos] = rnnLayerForward(W_rnn, W_emb, prevState, input, masks, params, rnnFlags, attnData, model, charData)
 % Running Multi-layer RNN for one time step.
 % Input:
 %   W_rnn: recurrent connections of multiple layers, e.g., W_rnn{ll}.
@@ -19,13 +18,13 @@ lstmStates = cell(T, 1);
 
 % attention
 attnInfos = cell(T, 1);
-if isAttn && isDecoder == 0 % encoder
+if rnnFlags.attn && rnnFlags.decode == 0 % encoder
   assert(T <= params.numSrcHidVecs);
   attnData.srcHidVecsOrig = zeroMatrix([params.lstmSize, params.curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);
 end
 
 for tt=1:T % time
-  if isChar
+  if rnnFlags.char
     inputEmb = zeroMatrix([params.lstmSize, params.curBatchSize], params.isGPU, params.dataType);
     
     % charData.rareFlags: to know which words are rare
@@ -35,7 +34,7 @@ for tt=1:T % time
     freqIds = find(~charData.rareFlags(:, tt));
     
     % embeddings for rare words
-    if isDecoder == 0 % encoder
+    if rnnFlags.decode == 0 % encoder
       inputEmb(:, rareIds) = charData.rareWordReps(:, params.srcRareWordMap(input(rareIds, tt)));
     else % decoder
       inputEmb(:, rareIds) = charData.rareWordReps(:, params.tgtRareWordMap(input(rareIds, tt)));
@@ -48,11 +47,10 @@ for tt=1:T % time
   end
   
   % multi-layer RNN
-  [prevState, attnInfos{tt}] = rnnStepLayerForward(W_rnn, inputEmb, prevState, masks(:, tt), params, isTest, isDecoder, ...
-    isAttn, attnData, model);
+  [prevState, attnInfos{tt}] = rnnStepLayerForward(W_rnn, inputEmb, prevState, masks(:, tt), params, rnnFlags, attnData, model);
   
   % encoder, attention
-  if isAttn && isDecoder == 0 
+  if rnnFlags.attn && rnnFlags.decode == 0
     attnData.srcHidVecsOrig(:, :, tt) = prevState{end}.h_t;
   end
   

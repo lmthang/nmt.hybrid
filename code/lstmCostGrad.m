@@ -64,11 +64,9 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   %% encoder
   lastEncState = zeroState;
   if params.isBi
-    isDecoder = 0;
+    encRnnFlags = struct('decode', 0, 'test', isTest, 'attn', params.attnFunc, 'feedInput', 0, 'char', isChar);
     [encStates, trainData, ~] = rnnLayerForward(model.W_src, model.W_emb_src, zeroState, trainData.srcInput, trainData.srcMask, ...
-      params, isTest, isDecoder, params.attnFunc, trainData, model, isChar, srcCharData);
-    
-    
+      params, encRnnFlags, trainData, model, srcCharData);
     lastEncState = encStates{end};
     
     % feed input
@@ -78,9 +76,9 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   end
   
   %% decoder
-  isDecoder = 1;
+  decRnnFlags = struct('decode', 1, 'test', isTest, 'attn', params.attnFunc, 'feedInput', params.feedInput, 'char', isChar);
   [decStates, ~, attnInfos] = rnnLayerForward(model.W_tgt, model.W_emb_tgt, lastEncState, trainData.tgtInput, trainData.tgtMask, ...
-    params, isTest, isDecoder, params.attnFunc, trainData, model, isChar, tgtCharData);
+    params, decRnnFlags, trainData, model, tgtCharData);
   
   %% softmax
   [costs.total, grad.W_soft, dec_top_grads] = softmaxCostGrad(decStates, model.W_soft, trainData.tgtOutput, trainData.tgtMask, ...
@@ -102,27 +100,23 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
     dc{ll} = zeroBatch;
   end
   
-  % decoder
-  isDecoder = 1;
-  isFeedInput = params.feedInput;
+  %% decoder
   [dc, dh, grad.W_tgt, grad.W_emb_tgt, grad.indices_tgt, attnGrad, grad.srcHidVecs] = rnnLayerBackprop(model.W_tgt, ...
-    decStates, lastEncState, ...
-    dec_top_grads, dc, dh, trainData.tgtInput, trainData.tgtMask, params, isFeedInput, isDecoder, attnInfos, trainData, model);
+    decStates, lastEncState, dec_top_grads, dc, dh, trainData.tgtInput, trainData.tgtMask, params, decRnnFlags, ...
+    attnInfos, trainData, model);
   if params.attnFunc % copy attention grads 
     [grad] = copyStruct(attnGrad, grad);
   end
     
-  % encoder
+  %% encoder
   if params.isBi
     enc_top_grads = cell(srcMaxLen - 1, 1);
     for tt=1:params.numSrcHidVecs % attention
       enc_top_grads{tt} = grad.srcHidVecs(:,:,tt);
     end
     
-    isDecoder = 0;
-    isFeedInput = 0;
     [~, ~, grad.W_src, grad.W_emb_src, grad.indices_src, ~, ~] = rnnLayerBackprop(model.W_src, encStates, zeroState, ...
-    enc_top_grads, dc, dh, trainData.srcInput, trainData.srcMask, params, isFeedInput, isDecoder, attnInfos, trainData, model);
+    enc_top_grads, dc, dh, trainData.srcInput, trainData.srcMask, params, encRnnFlags, attnInfos, trainData, model);
   end
 
     

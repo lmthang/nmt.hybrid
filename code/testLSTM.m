@@ -75,6 +75,24 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
     if (isfield(models{mm}.params,'softmaxFeedInput')) && (~isfield(models{mm}.params,'feedInput'))
       models{mm}.params.feedInput = models{mm}.params.softmaxFeedInput;
     end
+    [models{mm}.params] = backwardCompatible(models{mm}.params, {'charShortList'});
+    
+    % convert absolute paths to local paths
+    fieldNames = fields(models{mm}.params);
+    for ii=1:length(fieldNames)
+     field = fieldNames{ii};
+     if ischar(models{mm}.params.(field))
+       if strfind(models{mm}.params.(field), '/afs/ir/users/l/m/lmthang') ==1
+         models{mm}.params.(field) = strrep(models{mm}.params.(field), '/afs/ir/users/l/m/lmthang', '~');
+       end
+       if strfind(models{mm}.params.(field), '/afs/cs.stanford.edu/u/lmthang') ==1
+         models{mm}.params.(field) = strrep(models{mm}.params.(field), '/afs/cs.stanford.edu/u/lmthang', '~');
+       end
+       if strfind(models{mm}.params.(field), '/home/lmthang') ==1
+         models{mm}.params.(field) = strrep(models{mm}.params.(field), '/home/lmthang', '~');
+       end    
+     end
+    end
 
     % load vocabs
     [models{mm}.params] = prepareVocabs(models{mm}.params);
@@ -156,23 +174,6 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   fclose(params.fid);
   fclose(params.logId);
 end
-
-%     % convert absolute paths to local paths
-%     fieldNames = fields(models{mm}.params);
-%     for ii=1:length(fieldNames)
-%      field = fieldNames{ii};
-%      if ischar(models{mm}.params.(field))
-%        if strfind(models{mm}.params.(field), '/afs/ir/users/l/m/lmthang') ==1
-%          models{mm}.params.(field) = strrep(models{mm}.params.(field), '/afs/ir/users/l/m/lmthang', '~');
-%        end
-%        if strfind(models{mm}.params.(field), '/afs/cs.stanford.edu/u/lmthang') ==1
-%          models{mm}.params.(field) = strrep(models{mm}.params.(field), '/afs/cs.stanford.edu/u/lmthang', '~');
-%        end
-%        if strfind(models{mm}.params.(field), '/home/lmthang') ==1
-%          models{mm}.params.(field) = strrep(models{mm}.params.(field), '/home/lmthang', '~');
-%        end    
-%      end
-%     end
 
 %     % convert local paths to absolute paths
 %     fieldNames = fields(models{mm}.params);

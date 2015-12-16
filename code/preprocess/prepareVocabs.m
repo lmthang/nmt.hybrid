@@ -16,9 +16,12 @@ function [params] = prepareVocabs(params)
     % word
     if params.isBi
       params.srcVocab = {'<s>', '</s>', 'x', 'y'};
+      % params.srcSos = 1;
     end
     params.tgtVocab = {'<s>', '</s>', 'a', 'b'};
-      
+    % params.tgtSos = 1;
+    % params.tgtEos = 2;
+    
     % char
     if params.charShortList
       assert(params.charShortList == 4);
@@ -38,7 +41,7 @@ function [params] = prepareVocabs(params)
       [params.srcVocab] = loadVocab(params.srcVocabFile);
     end
     [params.tgtVocab] = loadVocab(params.tgtVocabFile);    
-    
+
     % char
     if params.charShortList
       params.srcCharVocab = loadVocab(params.srcCharVocabFile);
@@ -55,6 +58,9 @@ function [params] = prepareVocabs(params)
     fprintf(2, '## Bilingual setting\n');
     params.srcSos = lookup(params.srcVocab, '<s>');
     assert(~isempty(params.srcSos));
+%     params.srcVocab{end+1} = '<s_sos>'; % not learn
+%     params.srcSos = length(params.srcVocab);
+    
     params.srcVocabSize = length(params.srcVocab);
   else
     fprintf(2, '## Monolingual setting\n');
@@ -64,6 +70,12 @@ function [params] = prepareVocabs(params)
   params.tgtSos = lookup(params.tgtVocab, '<s>');
   params.tgtEos = lookup(params.tgtVocab, '</s>');
   assert(~isempty(params.tgtSos) && ~isempty(params.tgtEos));
+  
+%   params.tgtVocab{end+1} = '<t_sos>';
+%   params.tgtSos = length(params.tgtVocab);
+%   params.tgtVocab{end+1} = '<t_eos>';
+%   params.tgtEos = length(params.tgtVocab); 
+
   params.tgtVocabSize = length(params.tgtVocab);
   
   %% char
