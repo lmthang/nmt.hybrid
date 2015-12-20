@@ -1,26 +1,37 @@
-function [wordReps] = char2wordReps(W_rnn, W_emb, rareWords, charMap, charParams, isTest)
+function [states, batch, mask, maxLen, numSeqs] = char2wordReps(W_rnn, W_emb, rareWords, charMap, charParams, isTest)
   
   charSeqs = charMap(rareWords);
-  [batch, mask] = rightBatch(charSeqs, charParams.srcSos);
+  [batch, mask, maxLen, numSeqs] = rightBatch(charSeqs, charParams.charSos, charParams.charEos);
   
   % TODO: sort & split batches
   rnnFlags = struct('decode', 0, 'test', isTest, 'attn', 0, 'feedInput', 0, 'char', 0);
-  charParams.curBatchSize = length(rareWords);
-  assert(charParams.curBatchSize == size(batch, 1));
   prevState = createZeroState(charParams);
-  [encStates, ~, ~] = rnnLayerForward(W_rnn, W_emb, prevState, batch, mask, ...
+  [states, ~, ~] = rnnLayerForward(W_rnn, W_emb, prevState, batch, mask, ...
     charParams, rnnFlags, [], [], []);
-  wordReps = encStates{end}{end}.h_t;
+  % wordReps = states{end}{end}.h_t;
 end
 
-function [batch, mask] = rightBatch(seqs, padSymbol)
+function [batch, mask, maxLen, numSeqs] = rightBatch(seqs, padSymbol, eos)
   numSeqs = length(seqs);
   lens = cellfun(@(x) length(x), seqs);
   maxLen = max(lens);
+  
+  % append eos
+  if eos > 0
+    maxLen = maxLen + 1;
+  end
+  
+  
   batch = padSymbol*ones(numSeqs, maxLen);
   for ii=1:numSeqs
     len = lens(ii);
-    batch(ii, maxLen-len+1:end) = seqs{ii}(1:len);      
+    
+    if eos > 0
+      batch(ii, end-len:end-1) = seqs{ii}(1:len);
+      batch(ii, end) = eos;
+    else
+      batch(ii, end-len+1:end) = seqs{ii}(1:len);      
+    end
   end
   mask = batch ~= padSymbol;
 end

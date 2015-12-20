@@ -8,7 +8,7 @@ function gradCheck(model, params)
 %%%
   delta = 0.01; % set to 0.01 to debug on GPU.
 
-  % generate pseudo data
+  %% generate pseudo data
   if params.isBi
     srcTrainMaxLen = params.maxSentLen-2;
     srcTrainSents = cell(1, params.batchSize);
@@ -34,6 +34,7 @@ function gradCheck(model, params)
   [trainData] = prepareData(srcTrainSents, tgtTrainSents, 0, params);
   printTrainBatch(trainData, params);
     
+  %% grad check
   % for gradient check purpose
   if params.dropout<1 % use the same dropout mask
     curBatchSize = size(trainData.tgtInput, 1);
@@ -56,6 +57,17 @@ function gradCheck(model, params)
   full_grad_W_emb_tgt = zeroMatrix(size(model.W_emb_tgt), params.isGPU, params.dataType);
   full_grad_W_emb_tgt(:, grad.indices_tgt) = grad.W_emb_tgt;
   grad.W_emb_tgt = full_grad_W_emb_tgt;
+  
+  % char
+  if params.charShortList
+    full_grad_W_emb_src_char = zeroMatrix(size(model.W_emb_src_char), params.isGPU, params.dataType);
+    full_grad_W_emb_src_char(:, grad.indices_src_char) = grad.W_emb_src_char;
+    grad.W_emb_src_char = full_grad_W_emb_src_char;
+
+    full_grad_W_emb_tgt_char = zeroMatrix(size(model.W_emb_tgt_char), params.isGPU, params.dataType);
+    full_grad_W_emb_tgt_char(:, grad.indices_tgt_char) = grad.W_emb_tgt_char;
+    grad.W_emb_tgt_char = full_grad_W_emb_tgt_char;
+  end
   
   % empirical grad
   total_abs_diff = 0;

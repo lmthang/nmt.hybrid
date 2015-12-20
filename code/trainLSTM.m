@@ -312,6 +312,15 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       % update the decoder
       model.W_emb_tgt(:, grad.indices_tgt) = model.W_emb_tgt(:, grad.indices_tgt) - scaleLr*grad.W_emb_tgt;
       
+      % char
+      if params.charShortList
+        if params.isBi
+          model.W_emb_src_char(:, grad.indices_src_char) = model.W_emb_src_char(:, grad.indices_src_char) - scaleLr*grad.W_emb_src_char;  
+        end
+        % update the decoder
+        model.W_emb_tgt_char(:, grad.indices_tgt_char) = model.W_emb_tgt_char(:, grad.indices_tgt_char) - scaleLr*grad.W_emb_tgt_char;
+      end
+
       %% logging, eval, save, decode, fine-tuning, etc.
       [params, startTime] = postTrainIter(model, costs, gradNorm, trainData, validData, testData, params, startTime, srcTrainSents, tgtTrainSents);
     end % end for batchId
@@ -367,30 +376,30 @@ function [model] = initLSTM(params)
     model.W_tgt{1} = initMatrixRange(params.initRange, [4*params.lstmSize, 3*params.lstmSize], params.isGPU, params.dataType);
   end
   
+  %% NOTE: convention here, parameters under model struct that starts with W_emb are updated sparsely.
   % W_emb
   if params.isBi
     model.W_emb_src = initMatrixRange(params.initRange, [params.lstmSize, params.srcVocabSize], params.isGPU, params.dataType);
   end
   model.W_emb_tgt = initMatrixRange(params.initRange, [params.lstmSize, params.tgtVocabSize], params.isGPU, params.dataType);
   
-  
   % char
   if params.charShortList > 0
     % src
     if params.isBi
-      model.W_char_src = cell(params.charNumLayers, 1);    
+      model.W_src_char = cell(params.charNumLayers, 1);    
       for ll=1:params.charNumLayers
-        model.W_char_src{ll} = initMatrixRange(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
+        model.W_src_char{ll} = initMatrixRange(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
       end
-      model.W_char_emb_src = initMatrixRange(params.initRange, [params.lstmSize, params.srcCharVocabSize], params.isGPU, params.dataType);
+      model.W_emb_src_char = initMatrixRange(params.initRange, [params.lstmSize, params.srcCharVocabSize], params.isGPU, params.dataType);
     end
     
     % tgt
-    model.W_char_tgt = cell(params.charNumLayers, 1);    
+    model.W_tgt_char = cell(params.charNumLayers, 1);    
     for ll=1:params.charNumLayers
-      model.W_char_tgt{ll} = initMatrixRange(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
+      model.W_tgt_char{ll} = initMatrixRange(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
     end
-    model.W_char_emb_tgt = initMatrixRange(params.initRange, [params.lstmSize, params.tgtCharVocabSize], params.isGPU, params.dataType);
+    model.W_emb_tgt_char = initMatrixRange(params.initRange, [params.lstmSize, params.tgtCharVocabSize], params.isGPU, params.dataType);
   end
   
   

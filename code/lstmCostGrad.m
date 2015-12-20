@@ -35,24 +35,15 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   % char
   isChar = params.charShortList;
   if isChar
-    charParams = params;
-    charParams.numLayers = params.charNumLayers;
-    
     % src
     if params.isBi
-      srcCharData.rareFlags = trainData.srcInput > params.charShortList;
-      srcRareWords = unique(trainData.srcInput(srcCharData.rareFlags));
-      srcCharData.rareWordReps = char2wordReps(model.W_char_src, model.W_char_emb_src, srcRareWords, params.srcCharMap, ...
-        charParams, isTest);
-      params.srcRareWordMap(srcRareWords) = 1:length(srcRareWords);
+      [srcCharData] = charForward(model.W_src_char, model.W_emb_src_char, trainData.srcInput, params.srcCharMap, ...
+        params.srcVocabSize, params.charShortList, params, isTest);
     end
     
     % tgt
-    tgtCharData.rareFlags = trainData.tgtInput > params.charShortList;
-    tgtRareWords = unique(trainData.tgtInput(tgtCharData.rareFlags));
-    tgtCharData.rareWordReps = char2wordReps(model.W_char_tgt, model.W_char_emb_tgt, tgtRareWords, params.tgtCharMap, ...
-      charParams, isTest);
-    params.tgtRareWordMap(tgtRareWords) = 1:length(tgtRareWords);
+    [tgtCharData] = charForward(model.W_tgt_char, model.W_emb_tgt_char, trainData.tgtInput, params.tgtCharMap, ...
+        params.tgtVocabSize, params.charShortList, params, isTest);
   else
     srcCharData = [];
     tgtCharData = [];
@@ -93,21 +84,23 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   %%% BACKWARD PASS %%%
   %%%%%%%%%%%%%%%%%%%%%
   % h_t and c_t gradients accumulate over time per layer
-  dh = cell(params.numLayers, 1);
-  dc = cell(params.numLayers, 1); 
-  for ll=params.numLayers:-1:1 % layer
-    dh{ll} = zeroBatch;
-    dc{ll} = zeroBatch;
+  zeroGrad = cell(params.numLayers, 1); 
+  for ll=1:params.numLayers
+    zeroGrad{ll} = zeroBatch;
   end
   
   %% decoder
-  [dc, dh, grad.W_tgt, grad.W_emb_tgt, grad.indices_tgt, attnGrad, grad.srcHidVecs] = rnnLayerBackprop(model.W_tgt, ...
-    decStates, lastEncState, dec_top_grads, dc, dh, trainData.tgtInput, trainData.tgtMask, params, decRnnFlags, ...
+  [dc, dh, grad.W_tgt, grad.W_emb_tgt, grad.indices_tgt, attnGrad, grad.srcHidVecs, charGrad] = rnnLayerBackprop(model.W_tgt, ...
+    decStates, lastEncState, dec_top_grads, zeroGrad, zeroGrad, trainData.tgtInput, trainData.tgtMask, params, decRnnFlags, ...
     attnInfos, trainData, model);
   if params.attnFunc % copy attention grads 
     [grad] = copyStruct(attnGrad, grad);
   end
-    
+  % char backprop
+  if isChar
+    [grad.W_char_tgt, grad.W_emb_tgt_char, grad.indices_tgt_char] = charBackprop(model.W_tgt_char, tgtCharData, charGrad);
+  end
+  
   %% encoder
   if params.isBi
     enc_top_grads = cell(srcMaxLen - 1, 1);
@@ -115,8 +108,13 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
       enc_top_grads{tt} = grad.srcHidVecs(:,:,tt);
     end
     
-    [~, ~, grad.W_src, grad.W_emb_src, grad.indices_src, ~, ~] = rnnLayerBackprop(model.W_src, encStates, zeroState, ...
+    [~, ~, grad.W_src, grad.W_emb_src, grad.indices_src, ~, ~, charGrad] = rnnLayerBackprop(model.W_src, encStates, zeroState, ...
     enc_top_grads, dc, dh, trainData.srcInput, trainData.srcMask, params, encRnnFlags, attnInfos, trainData, model);
+  
+    % char backprop
+    if isChar
+      [grad.W_char_src, grad.W_emb_src_char, grad.indices_src_char] = charBackprop(model.W_src_char, srcCharData, charGrad);
+    end
   end
 
     
@@ -144,4 +142,39 @@ function [grad, params] = initGrad(model, params)
     % we extract trainData.srcHidVecs later, which contains all src hidden states, lstmSize * curBatchSize * numSrcHidVecs 
     grad.srcHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);
   end
+end
+
+function [charData] = charForward(W_rnn, W_emb, input, charMap, vocabSize, charShortList, params, isTest)  
+  charData.rareFlags = input > charShortList;
+  rareWords = unique(input(charData.rareFlags));
+  
+  charData.params = params;
+  charData.params.numLayers = params.charNumLayers;
+  charData.params.curBatchSize = length(rareWords);
+  
+  [charData.states, charData.batch, charData.mask, charData.maxLen, charData.numSeqs] = char2wordReps(W_rnn, W_emb, ...
+    rareWords, charMap, charData.params, isTest);
+  charData.rareWordMap = sparse(rareWords, 1, 1:length(rareWords), vocabSize, 1);
+  charData.rareWordReps = charData.states{end}{end}.h_t;
+end
+
+function [grad_W_rnn, grad_W_emb, emb_indices] = charBackprop(W_rnn, charData, charGrad)
+  assert(length(charGrad.indices) == charData.numSeqs);
+  topGrads = cell(charData.maxLen, 1);
+  topGrads{end} = charGrad.embs(:, charData.rareWordMap(charGrad.indices));
+  
+  % init state
+  params = charData.params;
+  zeroBatch = zeroMatrix([params.lstmSize, params.curBatchSize], params.isGPU, params.dataType);
+  zeroState = cell(params.numLayers, 1);
+  zeroGrad = cell(params.numLayers, 1);
+  for ll=1:params.numLayers % layer
+    zeroState{ll}.h_t = zeroBatch;
+    zeroState{ll}.c_t = zeroBatch;
+    zeroGrad{ll} = zeroBatch;
+  end
+  
+  charRnnFlags = struct('decode', 0, 'attn', 0, 'feedInput', 0, 'char', 0);
+  [~, ~, grad_W_rnn, grad_W_emb, emb_indices, ~, ~, ~] = rnnLayerBackprop(W_rnn, charData.states, zeroState, ...
+  topGrads, zeroGrad, zeroGrad, charData.batch, charData.mask, charData.params, charRnnFlags, [], [], []);
 end
