@@ -29,14 +29,13 @@ function [params] = prepareVocabs(params)
         params.srcVocab = {'<s>', '</s>', 'x', 'y', 'xy', 'xz', 'z', 'xyz'};
         params.srcCharVocab = {'<c_s>', '</c_s>', 'x', 'y', 'z'};
         params.srcCharMap = {[], [], [], [], [3 4], [3 5], 5, [3 4 5]};
+%         params.srcCharMap = {[], [], [], [], [1 2], [1 3], 3, [1 2 3]};
       end
       
       params.tgtVocab = {'<s>', '</s>', 'a', 'b', 'ab', 'ac', 'c', 'abc'};
       params.tgtCharVocab = {'<c_s>', '</c_s>', 'a', 'b', 'c'};
       params.tgtCharMap = {[], [], [], [], [3 4], [3 5], 5, [3 4 5]};
-      
-      params.charSos = 1;
-      params.charEos = 2;
+%       params.tgtCharMap = {[], [], [], [], [1 2], [1 3], 3, [1 2 3]};
     end
   else
     % word
@@ -44,30 +43,25 @@ function [params] = prepareVocabs(params)
       [params.srcVocab] = loadVocab(params.srcVocabFile);
     end
     [params.tgtVocab] = loadVocab(params.tgtVocabFile);    
-
+    
     % char
     if params.charShortList
       params.srcCharVocab = loadVocab(params.srcCharVocabFile);
       params.srcCharMap = loadWord2CharMap(params.srcCharMapFile);
-      
+
       params.tgtCharVocab = loadVocab(params.tgtCharVocabFile);
       params.tgtCharMap = loadWord2CharMap(params.tgtCharMapFile);
       
       % sos
-      srcCharSos = lookup(params.srcCharVocab, '<c_s>');
-      tgtCharSos = lookup(params.tgtCharVocab, '<c_s>');
-      assert(srcCharSos == tgtCharSos);
-      params.charSos = srcCharSos;
+      params.srcCharVocab{end+1} = '<c_s>'; % not learn
+      params.tgtCharVocab{end+1} = '<c_s>'; % not learn
       
       % eos
-      srcCharEos = lookup(params.srcCharVocab, '</c_s>');
-      tgtCharEos = lookup(params.tgtCharVocab, '</c_s>');
-      assert(srcCharEos == tgtCharEos);
-      params.charEos = srcCharEos;
-    else
+      params.srcCharVocab{end+1} = '</c_s>';
+      params.tgtCharVocab{end+1} = '</c_s>';
     end
   end
-      
+  
   %% src vocab
   if params.isBi
     fprintf(2, '## Bilingual setting\n');
@@ -97,10 +91,15 @@ function [params] = prepareVocabs(params)
   if params.charShortList
     assert(params.charShortList < params.srcVocabSize);
     assert(params.charShortList < params.tgtVocabSize);
+      
+    params.srcCharSos = lookup(params.srcCharVocab, '<c_s>');
+    params.tgtCharSos = lookup(params.tgtCharVocab, '<c_s>');
+
+    params.srcCharEos = lookup(params.srcCharVocab, '</c_s>');
+    params.tgtCharEos = lookup(params.tgtCharVocab, '</c_s>');
+    
     params.srcCharVocabSize = length(params.srcCharVocab);
     params.tgtCharVocabSize = length(params.tgtCharVocab);
-    %params.srcRareWordMap = zeros(1, params.srcVocabSize);
-    %params.tgtRareWordMap = zeros(1, params.tgtVocabSize);
   end
 end
 

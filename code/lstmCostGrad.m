@@ -38,12 +38,12 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
     % src
     if params.isBi
       [srcCharData] = charForward(model.W_src_char, model.W_emb_src_char, trainData.srcInput, params.srcCharMap, ...
-        params.srcVocabSize, params.charShortList, params, isTest);
+        params.srcVocabSize, params, 0, isTest);
     end
     
     % tgt
     [tgtCharData] = charForward(model.W_tgt_char, model.W_emb_tgt_char, trainData.tgtInput, params.tgtCharMap, ...
-        params.tgtVocabSize, params.charShortList, params, isTest);
+        params.tgtVocabSize, params, 1, isTest);
   else
     srcCharData = [];
     tgtCharData = [];
@@ -98,7 +98,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   end
   % char backprop
   if isChar
-    [grad.W_char_tgt, grad.W_emb_tgt_char, grad.indices_tgt_char] = charBackprop(model.W_tgt_char, tgtCharData, charGrad);
+    [grad.W_tgt_char, grad.W_emb_tgt_char, grad.indices_tgt_char] = charBackprop(model.W_tgt_char, tgtCharData, charGrad);
   end
   
   %% encoder
@@ -113,7 +113,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   
     % char backprop
     if isChar
-      [grad.W_char_src, grad.W_emb_src_char, grad.indices_src_char] = charBackprop(model.W_src_char, srcCharData, charGrad);
+      [grad.W_src_char, grad.W_emb_src_char, grad.indices_src_char] = charBackprop(model.W_src_char, srcCharData, charGrad);
     end
   end
 
@@ -144,13 +144,20 @@ function [grad, params] = initGrad(model, params)
   end
 end
 
-function [charData] = charForward(W_rnn, W_emb, input, charMap, vocabSize, charShortList, params, isTest)  
-  charData.rareFlags = input > charShortList;
+function [charData] = charForward(W_rnn, W_emb, input, charMap, vocabSize, params, isDecoder, isTest)  
+  charData.rareFlags = input > params.charShortList;
   rareWords = unique(input(charData.rareFlags));
   
   charData.params = params;
   charData.params.numLayers = params.charNumLayers;
   charData.params.curBatchSize = length(rareWords);
+  if isDecoder
+    charData.params.charSos = params.tgtCharSos;
+    charData.params.charEos = params.tgtCharEos;
+  else
+    charData.params.charSos = params.srcCharSos;
+    charData.params.charEos = params.srcCharEos;
+  end
   
   [charData.states, charData.batch, charData.mask, charData.maxLen, charData.numSeqs] = char2wordReps(W_rnn, W_emb, ...
     rareWords, charMap, charData.params, isTest);
