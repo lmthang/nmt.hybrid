@@ -43,6 +43,11 @@ function gradCheck(model, params)
     if params.feedInput
       params.dropoutMaskInput = (randMatrix([2*params.lstmSize curBatchSize], params.isGPU, params.dataType)<params.dropout)/params.dropout;
     end
+    
+    if params.charShortList
+      numRareWords = 4;
+      params.dropoutMaskChar = (randMatrix([params.lstmSize numRareWords], params.isGPU, params.dataType)<params.dropout)/params.dropout;
+    end
   end
   
   % analytic grad

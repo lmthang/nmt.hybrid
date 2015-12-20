@@ -377,15 +377,12 @@ function [model] = initLSTM(params)
   
   %% NOTE: convention here, parameters under model struct that starts with W_emb are updated sparsely.
   % W_emb
-  if params.isBi
-    model.W_emb_src = initMatrixRange(params.initRange, [params.lstmSize, params.srcVocabSize], params.isGPU, params.dataType);
-  end
-  model.W_emb_tgt = initMatrixRange(params.initRange, [params.lstmSize, params.tgtVocabSize], params.isGPU, params.dataType);
-  
-  % char
-  if params.charShortList > 0
+  if params.charShortList > 0 % hybrid
     % src
     if params.isBi
+      % word
+      model.W_emb_src = initMatrixRange(params.initRange, [params.lstmSize, params.charShortList], params.isGPU, params.dataType);
+      % char
       model.W_src_char = cell(params.charNumLayers, 1);    
       for ll=1:params.charNumLayers
         model.W_src_char{ll} = initMatrixRange(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
@@ -394,11 +391,20 @@ function [model] = initLSTM(params)
     end
     
     % tgt
+    % word
+    model.W_emb_tgt = initMatrixRange(params.initRange, [params.lstmSize, params.charShortList], params.isGPU, params.dataType);
+    
+    % char
     model.W_tgt_char = cell(params.charNumLayers, 1);    
     for ll=1:params.charNumLayers
       model.W_tgt_char{ll} = initMatrixRange(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
     end
     model.W_emb_tgt_char = initMatrixRange(params.initRange, [params.lstmSize, params.tgtCharVocabSize], params.isGPU, params.dataType);
+  else % word
+    if params.isBi
+      model.W_emb_src = initMatrixRange(params.initRange, [params.lstmSize, params.srcVocabSize], params.isGPU, params.dataType);
+    end
+    model.W_emb_tgt = initMatrixRange(params.initRange, [params.lstmSize, params.tgtVocabSize], params.isGPU, params.dataType);
   end
   
   

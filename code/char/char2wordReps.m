@@ -1,17 +1,17 @@
 function [states, batch, mask, maxLen, numSeqs] = char2wordReps(W_rnn, W_emb, rareWords, charMap, charParams, isTest)
   
   charSeqs = charMap(rareWords);
-  [batch, mask, maxLen, numSeqs] = rightBatch(charSeqs, charParams.charSos, charParams.charEos);
+  [batch, mask, maxLen, numSeqs] = leftPad(charSeqs, charParams.charSos, charParams.charEos);
   
   % TODO: sort & split batches
   rnnFlags = struct('decode', 0, 'test', isTest, 'attn', 0, 'feedInput', 0, 'char', 0);
+
   prevState = createZeroState(charParams);
   [states, ~, ~] = rnnLayerForward(W_rnn, W_emb, prevState, batch, mask, ...
     charParams, rnnFlags, [], [], []);
-  % wordReps = states{end}{end}.h_t;
 end
 
-function [batch, mask, maxLen, numSeqs] = rightBatch(seqs, padSymbol, eos)
+function [batch, mask, maxLen, numSeqs] = leftPad(seqs, padSymbol, eos)
   numSeqs = length(seqs);
   lens = cellfun(@(x) length(x), seqs);
   maxLen = max(lens);
@@ -20,7 +20,6 @@ function [batch, mask, maxLen, numSeqs] = rightBatch(seqs, padSymbol, eos)
   if eos > 0
     maxLen = maxLen + 1;
   end
-  
   
   batch = padSymbol*ones(numSeqs, maxLen);
   for ii=1:numSeqs
