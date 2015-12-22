@@ -85,12 +85,10 @@ function [params] = prepareVocabs(params)
 %   params.tgtVocab{end+1} = '<t_eos>';
 %   params.tgtEos = length(params.tgtVocab); 
 
-  params.tgtVocabSize = length(params.tgtVocab);
-  
   %% char
   if params.charShortList
-    assert(params.charShortList < params.srcVocabSize);
-    assert(params.charShortList < params.tgtVocabSize);
+    % rare token
+    params.tgtRare = params.charShortList + 1;
       
     params.srcCharSos = lookup(params.srcCharVocab, '<c_s>');
     params.tgtCharSos = lookup(params.tgtCharVocab, '<c_s>');
@@ -101,6 +99,8 @@ function [params] = prepareVocabs(params)
     params.srcCharVocabSize = length(params.srcCharVocab);
     params.tgtCharVocabSize = length(params.tgtCharVocab);
   end
+    
+  params.tgtVocabSize = length(params.tgtVocab);
 end
 
 function [id] = lookup(vocab, str)

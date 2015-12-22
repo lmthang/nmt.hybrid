@@ -434,7 +434,11 @@ function [model] = initLSTM(params)
   end
   
   %% softmax input -> predictions
-  model.W_soft = initMatrixRange(params.initRange, [params.tgtVocabSize, params.softmaxSize], params.isGPU, params.dataType);
+  if params.charShortList % hybrid, shortList + <rare>
+    model.W_soft = initMatrixRange(params.initRange, [params.charShortList + 1, params.softmaxSize], params.isGPU, params.dataType);
+  else
+    model.W_soft = initMatrixRange(params.initRange, [params.tgtVocabSize, params.softmaxSize], params.isGPU, params.dataType);
+  end
 end
 
 %% Things to do after each training iteration %%

@@ -72,6 +72,9 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
     params, decRnnFlags, trainData, model, tgtCharData);
   
   %% softmax
+  if params.charShortList % hybrid
+    trainData.tgtOutput(trainData.tgtOutput > params.charShortList) = params.tgtRare;
+  end
   [costs.total, grad.W_soft, dec_top_grads] = softmaxCostGrad(decStates, model.W_soft, trainData.tgtOutput, trainData.tgtMask, ...
     params, isTest);
   costs.word = costs.total;
