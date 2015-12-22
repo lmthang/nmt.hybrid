@@ -61,7 +61,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   
   % char-based models
   addOptional(p,'charShortList', 0, @isnumeric); % list of frequent words after which we will learn compositions from characters
-  addOptional(p,'charPrefix', '', @ischar); % list of characters
+  addOptional(p,'srcCharPrefix', '', @ischar);
+  addOptional(p,'tgtCharPrefix', '', @ischar);
   addOptional(p,'charNumLayers', 1, @isnumeric);
   %addOptional(p,'charMapFile', '', @ischar); % map words into sequences of chars (in integers)
   % trainLSTM('../output/id.shortlist.100/train.10k', '../output/id.shortlist.100/valid.100', '../output/id.shortlist.100/test.100', 'de', 'en', '../output/id.1000/shortlist.100.de.vocab', '../output/id.1000/shortlist.100.en.vocab', '../output/basic', 'isResume', 0, 'charShortList', 100, 'charPrefix', '../output/id.1000/shortlist.100', 'logFreq', 1); 
@@ -179,10 +180,10 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   %% Load vocabs
   % char
   if params.charShortList > 0
-    params.srcCharVocabFile = [params.charPrefix '.' params.srcLang '.char.vocab'];
-    params.srcCharMapFile = [params.charPrefix '.' params.srcLang '.char.map'];
-    params.tgtCharVocabFile = [params.charPrefix '.' params.tgtLang '.char.vocab'];
-    params.tgtCharMapFile = [params.charPrefix '.' params.tgtLang '.char.map'];
+    params.srcCharVocabFile = [params.srcCharPrefix '.char.vocab'];
+    params.srcCharMapFile = [params.srcCharPrefix '.char.map'];
+    params.tgtCharVocabFile = [params.tgtCharPrefix '.char.vocab'];
+    params.tgtCharMapFile = [params.tgtCharPrefix '.char.map'];
   end
   [params] = prepareVocabs(params);
 
