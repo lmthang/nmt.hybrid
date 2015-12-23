@@ -23,11 +23,11 @@ function gradCheck(model, params)
   for ii=1:params.batchSize
     if params.isBi
       srcLen = randi([1, srcTrainMaxLen-1]);
-      srcTrainSents{ii} = randi([1, params.srcVocabSize - 2], 1, srcLen) + 2; % exclude <s> and  </s>
+      srcTrainSents{ii} = randi([1, params.srcVocabSize - 3], 1, srcLen) + 3; % exclude <unk>, <s> and  </s>
     end
 
     tgtLen = randi([1, tgtTrainMaxLen-1]);
-    tgtTrainSents{ii} = randi([1, params.tgtVocabSize - 2], 1, tgtLen) + 2; % exclude <s> and </s>
+    tgtTrainSents{ii} = randi([1, params.tgtVocabSize - 3], 1, tgtLen) + 3; % exclude <unk>, <s> and </s>
   end
 
   % prepare data
@@ -44,8 +44,8 @@ function gradCheck(model, params)
       params.dropoutMaskInput = (randMatrix([2*params.lstmSize curBatchSize], params.isGPU, params.dataType)<params.dropout)/params.dropout;
     end
     
-    if params.charShortList
-      numRareWords = 4;
+    if params.charOpt
+      numRareWords = 4; % yes, we hard core, well ...
       params.dropoutMaskChar = (randMatrix([params.lstmSize numRareWords], params.isGPU, params.dataType)<params.dropout)/params.dropout;
     end
   end
@@ -64,14 +64,14 @@ function gradCheck(model, params)
   grad.W_emb_tgt = full_grad_W_emb_tgt;
   
   % char
-  if params.charShortList
+  if params.charOpt
     full_grad_W_emb_src_char = zeroMatrix(size(model.W_emb_src_char), params.isGPU, params.dataType);
     full_grad_W_emb_src_char(:, grad.indices_src_char) = grad.W_emb_src_char;
     grad.W_emb_src_char = full_grad_W_emb_src_char;
 
-    full_grad_W_emb_tgt_char = zeroMatrix(size(model.W_emb_tgt_char), params.isGPU, params.dataType);
-    full_grad_W_emb_tgt_char(:, grad.indices_tgt_char) = grad.W_emb_tgt_char;
-    grad.W_emb_tgt_char = full_grad_W_emb_tgt_char;
+%     full_grad_W_emb_tgt_char = zeroMatrix(size(model.W_emb_tgt_char), params.isGPU, params.dataType);
+%     full_grad_W_emb_tgt_char(:, grad.indices_tgt_char) = grad.W_emb_tgt_char;
+%     grad.W_emb_tgt_char = full_grad_W_emb_tgt_char;
   end
   
   % empirical grad

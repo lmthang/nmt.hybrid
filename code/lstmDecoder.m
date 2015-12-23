@@ -51,11 +51,17 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
   
   % encoder
   prevStates = cell(numModels, 1);
-  charData = [];
   for mm=1:numModels
-    encRnnFlags = struct('decode', 0, 'test', 1, 'attn', models{mm}.params.attnFunc, 'feedInput', 0, 'char', 0);
+    encRnnFlags = struct('decode', 0, 'test', 1, 'attn', models{mm}.params.attnFunc, 'feedInput', 0, 'char', models{mm}.params.charOpt);
+    
+    % char
+    if models{mm}.params.charOpt
+      [srcCharData] = charLayerForward(models{mm}.W_src_char, models{mm}.W_emb_src_char, modelData{mm}.srcInput, models{mm}.params.srcCharMap, ...
+          models{mm}.params.srcVocabSize, models{mm}.params, 1);
+    end
+    
     [encStates, modelData{mm}, ~] = rnnLayerForward(models{mm}.W_src, models{mm}.W_emb_src, zeroStates{mm}, modelData{mm}.srcInput, ...
-      modelData{mm}.srcMask, models{mm}.params, encRnnFlags, modelData{mm}, models{mm}, charData);
+      modelData{mm}.srcMask, models{mm}.params, encRnnFlags, modelData{mm}, models{mm}, srcCharData);
     prevStates{mm} = encStates{end};
     
     % feed input

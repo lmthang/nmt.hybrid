@@ -94,8 +94,13 @@ allEmbIndices(wordCount+1:end) = [];
 [grad_W_emb, grad_emb_indices] = aggregateMatrix(allEmbGrads, allEmbIndices, params.isGPU, params.dataType);
 
 if rnnFlags.char
-  % rare
-  rareFlags = grad_emb_indices > params.charShortList;
+  assert(rnnFlags.decode == 0);
+%   % rare
+%   if rnnFlags.decode
+%     rareFlags = grad_emb_indices > params.tgtCharShortList;
+%   else
+%   end
+  rareFlags = grad_emb_indices > params.srcCharShortList;
   charGrad.embs = grad_W_emb(:, rareFlags);
   charGrad.indices = grad_emb_indices(rareFlags);
   

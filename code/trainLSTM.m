@@ -60,13 +60,12 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'saveHDF', 0, @isnumeric); % 1: to save in HDF5 format
   
   % char-based models
-  addOptional(p,'charShortList', 0, @isnumeric); % list of frequent words after which we will learn compositions from characters
+  addOptional(p,'charOpt', 0, @isnumeric); % 1: character-based
+  addOptional(p,'srcCharShortList', 0, @isnumeric); % list of frequent words after which we will learn compositions from characters
+  addOptional(p,'tgtCharShortList', 0, @isnumeric); % list of frequent words after which we will learn compositions from characters
   addOptional(p,'srcCharPrefix', '', @ischar);
   addOptional(p,'tgtCharPrefix', '', @ischar);
   addOptional(p,'charNumLayers', 1, @isnumeric);
-  %addOptional(p,'charMapFile', '', @ischar); % map words into sequences of chars (in integers)
-  % trainLSTM('../output/id.shortlist.100/train.10k', '../output/id.shortlist.100/valid.100', '../output/id.shortlist.100/test.100', 'de', 'en', '../output/id.1000/shortlist.100.de.vocab', '../output/id.1000/shortlist.100.en.vocab', '../output/basic', 'isResume', 0, 'charShortList', 100, 'charPrefix', '../output/id.1000/shortlist.100', 'logFreq', 1); 
-  %'../output/id.1000/shortlist.100.de.char.vocab', 'tgtCharVocabFile', '../output/id.1000/shortlist.100.en.char.vocab', 'srcCharMapFile', '../output/id.1000/shortlist.100.de.char.map', 'srcCharMapFile', '../output/id.1000/shortlist.100.en.char.map')
   
   % decoding
   addOptional(p,'decode', 1, @isnumeric); % 1: decode during training
@@ -179,7 +178,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   
   %% Load vocabs
   % char
-  if params.charShortList > 0
+  if params.charOpt
     params.srcCharVocabFile = [params.srcCharPrefix '.char.vocab'];
     params.srcCharMapFile = [params.srcCharPrefix '.char.map'];
     params.tgtCharVocabFile = [params.tgtCharPrefix '.char.vocab'];
@@ -314,11 +313,11 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       model.W_emb_tgt(:, grad.indices_tgt) = model.W_emb_tgt(:, grad.indices_tgt) - scaleLr*grad.W_emb_tgt;
       
       % char
-      if params.charShortList
+      if params.charOpt
         if params.isBi
           model.W_emb_src_char(:, grad.indices_src_char) = model.W_emb_src_char(:, grad.indices_src_char) - scaleLr*grad.W_emb_src_char;  
         end
-        model.W_emb_tgt_char(:, grad.indices_tgt_char) = model.W_emb_tgt_char(:, grad.indices_tgt_char) - scaleLr*grad.W_emb_tgt_char;
+%         model.W_emb_tgt_char(:, grad.indices_tgt_char) = model.W_emb_tgt_char(:, grad.indices_tgt_char) - scaleLr*grad.W_emb_tgt_char;
       end
 
       %% logging, eval, save, decode, fine-tuning, etc.
@@ -378,11 +377,11 @@ function [model] = initLSTM(params)
   
   %% NOTE: convention here, parameters under model struct that starts with W_emb are updated sparsely.
   % W_emb
-  if params.charShortList > 0 % hybrid
+  if params.charOpt % hybrid
     % src
     if params.isBi
       % word
-      model.W_emb_src = initMatrixRange(params.initRange, [params.lstmSize, params.charShortList], params.isGPU, params.dataType);
+      model.W_emb_src = initMatrixRange(params.initRange, [params.lstmSize, params.srcCharShortList], params.isGPU, params.dataType);
       % char
       model.W_src_char = cell(params.charNumLayers, 1);    
       for ll=1:params.charNumLayers
@@ -393,14 +392,14 @@ function [model] = initLSTM(params)
     
     % tgt
     % word
-    model.W_emb_tgt = initMatrixRange(params.initRange, [params.lstmSize, params.charShortList], params.isGPU, params.dataType);
+    model.W_emb_tgt = initMatrixRange(params.initRange, [params.lstmSize, params.tgtCharShortList], params.isGPU, params.dataType);
     
-    % char
-    model.W_tgt_char = cell(params.charNumLayers, 1);    
-    for ll=1:params.charNumLayers
-      model.W_tgt_char{ll} = initMatrixRange(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
-    end
-    model.W_emb_tgt_char = initMatrixRange(params.initRange, [params.lstmSize, params.tgtCharVocabSize], params.isGPU, params.dataType);
+%     % char
+%     model.W_tgt_char = cell(params.charNumLayers, 1);    
+%     for ll=1:params.charNumLayers
+%       model.W_tgt_char{ll} = initMatrixRange(params.initRange, [4*params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
+%     end
+%     model.W_emb_tgt_char = initMatrixRange(params.initRange, [params.lstmSize, params.tgtCharVocabSize], params.isGPU, params.dataType);
   else % word
     if params.isBi
       model.W_emb_src = initMatrixRange(params.initRange, [params.lstmSize, params.srcVocabSize], params.isGPU, params.dataType);
@@ -435,8 +434,8 @@ function [model] = initLSTM(params)
   end
   
   %% softmax input -> predictions
-  if params.charShortList % hybrid, shortList + <rare>
-    model.W_soft = initMatrixRange(params.initRange, [params.charShortList + 1, params.softmaxSize], params.isGPU, params.dataType);
+  if params.charOpt % hybrid, shortList + <rare>
+    model.W_soft = initMatrixRange(params.initRange, [params.tgtCharShortList, params.softmaxSize], params.isGPU, params.dataType);
   else
     model.W_soft = initMatrixRange(params.initRange, [params.tgtVocabSize, params.softmaxSize], params.isGPU, params.dataType);
   end

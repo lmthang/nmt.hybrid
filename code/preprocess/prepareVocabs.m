@@ -15,27 +15,26 @@ function [params] = prepareVocabs(params)
   if params.isGradCheck
     % word
     if params.isBi
-      params.srcVocab = {'<s>', '</s>', 'x', 'y'};
-      % params.srcSos = 1;
+      params.srcVocab = {'<unk>', '<s>', '</s>', 'x', 'y'};
+      % params.srcSos = 2;
     end
-    params.tgtVocab = {'<s>', '</s>', 'a', 'b'};
-    % params.tgtSos = 1;
-    % params.tgtEos = 2;
+    params.tgtVocab = {'<unk>', '<s>', '</s>', 'a', 'b'};
+    % params.tgtSos = 2;
+    % params.tgtEos = 3;
     
     % char
-    if params.charShortList
-      assert(params.charShortList == 4);
+    if params.charOpt
+      assert(params.srcCharShortList == 5);
+      assert(params.tgtCharShortList == 5);
       if params.isBi
-        params.srcVocab = {'<s>', '</s>', 'x', 'y', 'xy', 'xz', 'z', 'xyz'};
+        params.srcVocab = {'<unk>', '<s>', '</s>', 'x', 'y', 'xy', 'xz', 'z', 'xyz'};
         params.srcCharVocab = {'<c_s>', '</c_s>', 'x', 'y', 'z'};
-        params.srcCharMap = {[], [], [], [], [3 4], [3 5], 5, [3 4 5]};
-%         params.srcCharMap = {[], [], [], [], [1 2], [1 3], 3, [1 2 3]};
+        params.srcCharMap = {[], [], [], [], [], [3 4], [3 5], 5, [3 4 5]};
       end
       
-      params.tgtVocab = {'<s>', '</s>', 'a', 'b', 'ab', 'ac', 'c', 'abc'};
+      params.tgtVocab = {'<unk>', '<s>', '</s>', 'a', 'b', 'ab', 'ac', 'c', 'abc'};
       params.tgtCharVocab = {'<c_s>', '</c_s>', 'a', 'b', 'c'};
-      params.tgtCharMap = {[], [], [], [], [3 4], [3 5], 5, [3 4 5]};
-%       params.tgtCharMap = {[], [], [], [], [1 2], [1 3], 3, [1 2 3]};
+      params.tgtCharMap = {[], [], [], [], [], [3 4], [3 5], 5, [3 4 5]};
     end
   else
     % word
@@ -45,7 +44,7 @@ function [params] = prepareVocabs(params)
     [params.tgtVocab] = loadVocab(params.tgtVocabFile);    
     
     % char
-    if params.charShortList
+    if params.charOpt
       params.srcCharVocab = loadVocab(params.srcCharVocabFile);
       params.srcCharMap = loadWord2CharMap(params.srcCharMapFile);
 
@@ -76,6 +75,7 @@ function [params] = prepareVocabs(params)
   end
     
   %% tgt vocab 
+  params.tgtUnk = lookup(params.tgtVocab, '<unk>');
   params.tgtSos = lookup(params.tgtVocab, '<s>');
   params.tgtEos = lookup(params.tgtVocab, '</s>');
   assert(~isempty(params.tgtSos) && ~isempty(params.tgtEos));
@@ -86,10 +86,7 @@ function [params] = prepareVocabs(params)
 %   params.tgtEos = length(params.tgtVocab); 
 
   %% char
-  if params.charShortList
-    % rare token
-    params.tgtRare = params.charShortList + 1;
-      
+  if params.charOpt
     params.srcCharSos = lookup(params.srcCharVocab, '<c_s>');
     params.tgtCharSos = lookup(params.tgtCharVocab, '<c_s>');
 

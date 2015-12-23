@@ -15,7 +15,7 @@ function [lstmState] = lstmUnitForward(W, x_t, h_t_1, c_t_1, params, rnnFlags)
     if ~params.isGradCheck
       dropoutMask = (randMatrix(size(x_t), params.isGPU, params.dataType)<params.dropout)/params.dropout;
     else % for gradient check use the same mask
-      if params.charShortList && rnnFlags.char == 0
+      if params.charOpt && rnnFlags.char == 0 && rnnFlags.decode == 0
         dropoutMask = params.dropoutMaskChar;
       elseif rnnFlags.feedInput
         dropoutMask = params.dropoutMaskInput;
