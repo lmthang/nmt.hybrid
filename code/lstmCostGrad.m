@@ -164,7 +164,8 @@ function [charData] = charForward(W_rnn, W_emb, input, charMap, vocabSize, param
   
   [charData.states, charData.batch, charData.mask, charData.maxLen, charData.numSeqs] = char2wordReps(W_rnn, W_emb, ...
     rareWords, charMap, charData.params, isTest);
-  charData.rareWordMap = sparse(rareWords, 1, 1:length(rareWords), vocabSize, 1);
+  charData.rareWordMap = zeros(vocabSize, 1); %zeroMatrix([vocabSize 1], params.isGPU, params.dataType);
+  charData.rareWordMap(rareWords) = 1:length(rareWords);
   charData.rareWordReps = charData.states{end}{end}.h_t;
 end
 
