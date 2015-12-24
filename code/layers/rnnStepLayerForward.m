@@ -15,6 +15,9 @@ numLayers = length(W_rnn);
 nextState = cell(numLayers, 1);
 
 % mask
+if size(mask, 1) > 1 % make sure it's a row vector
+  mask = mask';
+end
 maskInfo.mask = mask;
 maskInfo.unmaskedIds = find(maskInfo.mask);
 maskInfo.maskedIds = find(~maskInfo.mask);

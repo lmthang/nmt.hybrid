@@ -21,9 +21,6 @@ function [srcVecsSub, h2sInfo] = buildSrcVecs(srcVecsAll, srcPositions, curMask,
   srcPositions(curMask.maskedIds) = [];
   srcLens(curMask.maskedIds) = [];
   unmaskedIds = curMask.unmaskedIds;
-  if size(unmaskedIds, 1) > 1 % make sure it's a row vector
-    unmaskedIds = unmaskedIds';
-  end
   
   % flatten matrices of size batchSize*numPositions (not exactly batch size but close)
   % init. IMPORTANT: don't swap these two lines

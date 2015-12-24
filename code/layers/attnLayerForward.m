@@ -6,6 +6,8 @@ function [attnInfo] = attnLayerForward(h_t, params, model, attnData, maskInfo)
 %
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 %
+  assert(params.attnFunc>0); % we should have enabled attention.
+  
   attnInfo = [];
   if params.attnGlobal % global
     srcHidVecs = attnData.srcHidVecsOrig;
