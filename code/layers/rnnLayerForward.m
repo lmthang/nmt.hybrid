@@ -35,13 +35,9 @@ for tt=1:T % time
     assert(all(ismember(rareIds, find(masks(:, tt)==1))));
     
     % embeddings for rare words
-    inputEmb(:, rareIds) = charData.rareWordReps(:, charData.rareWordMap(input(rareIds, tt)));
-%     if rnnFlags.decode == 0 % encoder
-%       inputEmb(:, rareIds) = charData.rareWordReps(:, params.srcRareWordMap(input(rareIds, tt)));
-%     else % decoder
-%       inputEmb(:, rareIds) = charData.rareWordReps(:, params.tgtRareWordMap(input(rareIds, tt)));
-%     end
-%     inputEmb(:, rareIds) = zeroMatrix([params.lstmSize, length(rareIds)], params.isGPU, params.dataType);
+    if ~isempty(rareIds)
+      inputEmb(:, rareIds) = charData.rareWordReps(:, charData.rareWordMap(input(rareIds, tt)));
+    end
     
     % embeddings for frequent words
     inputEmb(:, freqIds) = W_emb(:, input(freqIds, tt));
