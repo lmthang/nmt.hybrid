@@ -1,4 +1,4 @@
-function [grad_W_rnn, grad_W_emb, emb_indices] = charLayerBackprop(W_rnn, charData, charGrad)
+function [grad_W_rnn, grad_W_emb, emb_indices] = srcCharLayerBackprop(W_rnn, charData, charGrad)
 % Backprop for char layer from word gradients to chars.
 % Input:
 %   W_rnn: recurrent connections of multiple layers, e.g., W_rnn{ll}.

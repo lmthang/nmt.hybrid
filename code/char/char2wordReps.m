@@ -10,27 +10,3 @@ function [states, batch, mask, maxLen, numSeqs] = char2wordReps(W_rnn, W_emb, ra
   [states, ~, ~] = rnnLayerForward(W_rnn, W_emb, prevState, batch, mask, ...
     charParams, rnnFlags, [], [], []);
 end
-
-function [batch, mask, maxLen, numSeqs] = leftPad(seqs, padSymbol, eos)
-  numSeqs = length(seqs);
-  lens = cellfun(@(x) length(x), seqs);
-  maxLen = max(lens);
-  
-  % append eos
-  if eos > 0
-    maxLen = maxLen + 1;
-  end
-  
-  batch = padSymbol*ones(numSeqs, maxLen);
-  for ii=1:numSeqs
-    len = lens(ii);
-    
-    if eos > 0
-      batch(ii, end-len:end-1) = seqs{ii}(1:len);
-      batch(ii, end) = eos;
-    else
-      batch(ii, end-len+1:end) = seqs{ii}(1:len);      
-    end
-  end
-  mask = batch ~= padSymbol;
-end

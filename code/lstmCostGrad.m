@@ -36,11 +36,15 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   if params.charOpt
     % src
     if params.isBi
-      [srcCharData] = charLayerForward(model.W_src_char, model.W_emb_src_char, trainData.srcInput, params.srcCharMap, ...
+      [srcCharData] = srcCharLayerForward(model.W_src_char, model.W_emb_src_char, trainData.srcInput, params.srcCharMap, ...
         params.srcVocabSize, params, isTest);
     end
     
     % tgt
+    if params.charTgtGen
+      trainData.origTgtOutput = trainData.tgtOutput;
+      trainData.origTgtInput = trainData.tgtInput;
+    end
     trainData.tgtOutput(trainData.tgtOutput > params.tgtCharShortList) = params.tgtUnk;
     trainData.tgtInput(trainData.tgtInput > params.tgtCharShortList) = params.tgtUnk;
   else
@@ -69,6 +73,14 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   tgtCharData = [];
   [decStates, ~, attnInfos] = rnnLayerForward(model.W_tgt, model.W_emb_tgt, lastEncState, trainData.tgtInput, trainData.tgtMask, ...
     params, decRnnFlags, trainData, model, tgtCharData);
+  
+  % char
+  if params.charTgtGen
+    [tgtCharData] = tgtCharLayerForward(model.W_tgt_char, model.W_emb_tgt_char, trainData.origTgtInput, decStates, params.tgtCharMap, ...
+          params, isTest);
+  end
+  % TODO: remember in tgtCharLayerBackprop, ignore sos
+  
   
   %% softmax
   [costs.total, grad.W_soft, dec_top_grads] = softmaxCostGrad(decStates, model.W_soft, trainData.tgtOutput, trainData.tgtMask, ...
@@ -112,7 +124,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   
     % char backprop
     if params.charOpt
-      [grad.W_src_char, grad.W_emb_src_char, grad.indices_src_char] = charLayerBackprop(model.W_src_char, srcCharData, charGrad);
+      [grad.W_src_char, grad.W_emb_src_char, grad.indices_src_char] = srcCharLayerBackprop(model.W_src_char, srcCharData, charGrad);
     end
   end
 

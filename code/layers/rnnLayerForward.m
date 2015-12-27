@@ -1,4 +1,4 @@
-function [lstmStates, attnData, attnInfos] = rnnLayerForward(W_rnn, W_emb, prevState, input, masks, params, rnnFlags, attnData, model, charData)
+function [lstmStates, attnData, attnInfos] = rnnLayerForward(W_rnn, W_emb, prevState, input, masks, params, rnnFlags, attnData, model, charData, varargin)
 % Running Multi-layer RNN for one time step.
 % Input:
 %   W_rnn: recurrent connections of multiple layers, e.g., W_rnn{ll}.
@@ -23,6 +23,12 @@ if rnnFlags.attn && rnnFlags.decode == 0 % encoder
   attnData.srcHidVecsOrig = zeroMatrix([params.lstmSize, params.curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);
 end
 
+isInitEmb = 0;
+if params.charTgtGen && length(varargin)==1
+  initEmb = varargin{1};
+  isInitEmb = 1;
+end
+
 for tt=1:T % time
   if rnnFlags.char
     inputEmb = zeroMatrix([params.lstmSize, params.curBatchSize], params.isGPU, params.dataType);
@@ -42,7 +48,11 @@ for tt=1:T % time
     % embeddings for frequent words
     inputEmb(:, freqIds) = W_emb(:, input(freqIds, tt));
   else
-    inputEmb = W_emb(:, input(:, tt));
+    if isInitEmb && tt == 1 % use initEmb
+      inputEmb = initEmb;
+    else
+      inputEmb = W_emb(:, input(:, tt));
+    end
   end
   
   % multi-layer RNN
