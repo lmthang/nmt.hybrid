@@ -1,13 +1,10 @@
-function [grad_W_rnn, grad_W_emb, emb_indices] = srcCharLayerBackprop(W_rnn, charData, charGrad)
+function [grad_W_rnn, grad_W_emb, emb_indices, grad_init_emb] = tgtCharLayerBackprop(W_rnn, charData, topGrads)
 % Backprop for char layer from word gradients to chars.
 % Input:
 %   W_rnn: recurrent connections of multiple layers, e.g., W_rnn{ll}.
 %
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 
-  assert(length(charGrad.indices) == charData.numSeqs);
-  topGrads = cell(charData.maxLen, 1);
-  topGrads{end} = charGrad.embs(:, charData.rareWordMap(charGrad.indices));
   
   % init state
   params = charData.params;
@@ -20,6 +17,7 @@ function [grad_W_rnn, grad_W_emb, emb_indices] = srcCharLayerBackprop(W_rnn, cha
     zeroGrad{ll} = zeroBatch;
   end
   
-  [~, ~, grad_W_rnn, grad_W_emb, emb_indices, ~, ~, ~] = rnnLayerBackprop(W_rnn, charData.states, zeroState, ...
+  [~, ~, grad_W_rnn, grad_W_emb, emb_indices, ~, ~, charGrad] = rnnLayerBackprop(W_rnn, charData.states, zeroState, ...
   topGrads, zeroGrad, zeroGrad, charData.batch, charData.mask, charData.params, charData.rnnFlags, [], [], []);
+  grad_init_emb = charGrad.initEmb;
 end

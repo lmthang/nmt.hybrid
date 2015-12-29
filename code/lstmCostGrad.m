@@ -33,11 +33,14 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   costs = initCosts();
     
   % char
+  srcCharData = [];
   if params.charOpt
     % src
-    if params.isBi
+    if params.charSrcRep
       [srcCharData] = srcCharLayerForward(model.W_src_char, model.W_emb_src_char, trainData.srcInput, params.srcCharMap, ...
         params.srcVocabSize, params, isTest);
+    else
+      trainData.srcInput(trainData.srcInput > params.srcCharShortList) = params.srcUnk;
     end
     
     % tgt
@@ -47,8 +50,6 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
     end
     trainData.tgtOutput(trainData.tgtOutput > params.tgtCharShortList) = params.tgtUnk;
     trainData.tgtInput(trainData.tgtInput > params.tgtCharShortList) = params.tgtUnk;
-  else
-    srcCharData = [];
   end
   
   %%%%%%%%%%%%%%%%%%%%
@@ -57,7 +58,8 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   %% encoder
   lastEncState = zeroState;
   if params.isBi
-    encRnnFlags = struct('decode', 0, 'test', isTest, 'attn', params.attnFunc, 'feedInput', 0, 'char', params.charOpt);
+    encRnnFlags = struct('decode', 0, 'test', isTest, 'attn', params.attnFunc, 'feedInput', 0, 'charSrcRep', params.charSrcRep, ...
+      'charTgtGen', params.charTgtGen, 'initEmb', []);
     [encStates, trainData, ~] = rnnLayerForward(model.W_src, model.W_emb_src, zeroState, trainData.srcInput, trainData.srcMask, ...
       params, encRnnFlags, trainData, model, srcCharData);
     lastEncState = encStates{end};
@@ -69,23 +71,43 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   end
   
   %% decoder
-  decRnnFlags = struct('decode', 1, 'test', isTest, 'attn', params.attnFunc, 'feedInput', params.feedInput, 'char', 0);
-  tgtCharData = [];
-  [decStates, ~, attnInfos] = rnnLayerForward(model.W_tgt, model.W_emb_tgt, lastEncState, trainData.tgtInput, trainData.tgtMask, ...
-    params, decRnnFlags, trainData, model, tgtCharData);
-  
-  % char
-  if params.charTgtGen
-    [tgtCharData] = tgtCharLayerForward(model.W_tgt_char, model.W_emb_tgt_char, trainData.origTgtInput, decStates, params.tgtCharMap, ...
-          params, isTest);
-  end
-  % TODO: remember in tgtCharLayerBackprop, ignore sos
-  
+  decRnnFlags = struct('decode', 1, 'test', isTest, 'attn', params.attnFunc, 'feedInput', params.feedInput, 'charSrcRep', params.charSrcRep, ...
+      'charTgtGen', params.charTgtGen, 'initEmb', []);  
+  [decStates, trainData, attnInfos] = rnnLayerForward(model.W_tgt, model.W_emb_tgt, lastEncState, trainData.tgtInput, trainData.tgtMask, ...
+    params, decRnnFlags, trainData, model, []);
   
   %% softmax
-  [costs.total, grad.W_soft, dec_top_grads] = softmaxCostGrad(decStates, model.W_soft, trainData.tgtOutput, trainData.tgtMask, ...
+  [costs.word, grad.W_soft, dec_top_grads] = softmaxCostGrad(decStates, model.W_soft, trainData.tgtOutput, trainData.tgtMask, ...
     params, isTest);
-  costs.word = costs.total;
+  costs.total = costs.word;
+  
+  
+  %% char
+  if params.charTgtGen
+    % char rnn
+    [tgtCharData] = tgtCharLayerForward(model.W_tgt_char, model.W_emb_tgt_char, trainData.origTgtOutput, trainData.tgtHidVecs, params.tgtCharMap, ...
+          params, isTest);
+        
+    % char softmax
+    charTgtOutput = [tgtCharData.batch(:, 2:end) params.tgtCharEos*ones(tgtCharData.numSeqs, 1)];
+    [costs.char, grad.W_soft_char, topGrads_char] = softmaxCostGrad(tgtCharData.states, model.W_soft_char, charTgtOutput, tgtCharData.mask, ...
+    params, isTest);
+    costs.total = costs.total + costs.char;
+    
+    % TODO: remember in tgtCharLayerBackprop, ignore sos
+    % char back prop
+    [grad.W_tgt_char, grad.W_emb_tgt_char, grad.indices_tgt_char, grad_init_emb] = tgtCharLayerBackprop(model.W_tgt_char, tgtCharData, topGrads_char);
+    
+    % add top grads from tgt char
+    count = 0;
+    assert(length(dec_top_grads) == size(tgtCharData.rareFlags, 2));
+    for tt=1:length(dec_top_grads)
+      rareIndices = find(tgtCharData.rareFlags(:, tt));
+      dec_top_grads{tt}(:, rareIndices) = dec_top_grads{tt}(:, rareIndices) + grad_init_emb(:, count+1:count+length(rareIndices));
+      count = count + length(rareIndices);
+    end
+    assert(count == tgtCharData.numSeqs);
+  end
   
   if isTest==1 % don't compute grad
     return;
@@ -107,10 +129,6 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   if params.attnFunc % copy attention grads 
     [grad] = copyStruct(attnGrad, grad);
   end
-%   % char backprop
-%   if params.charOpt
-%     [grad.W_tgt_char, grad.W_emb_tgt_char, grad.indices_tgt_char] = charLayerBackprop(model.W_tgt_char, tgtCharData, charGrad);
-%   end
   
   %% encoder
   if params.isBi
@@ -123,7 +141,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
     enc_top_grads, dc, dh, trainData.srcInput, trainData.srcMask, params, encRnnFlags, attnInfos, trainData, model);
   
     % char backprop
-    if params.charOpt
+    if params.charSrcRep
       [grad.W_src_char, grad.W_emb_src_char, grad.indices_src_char] = srcCharLayerBackprop(model.W_src_char, srcCharData, charGrad);
     end
   end

@@ -1,5 +1,5 @@
-function [dc, dh, grad_W_rnn, grad_W_emb, grad_emb_indices, attnGrad, grad_srcHidVecs_total, charGrad] = rnnLayerBackprop(W_rnn, rnnStates, initState, ...
-  top_grads, dc, dh, input, masks, params, rnnFlags, attnInfos, trainData, model)
+function [dc, dh, grad_W_rnn, grad_W_emb, grad_emb_indices, attnGrad, grad_srcHidVecs_total, charGrad] = rnnLayerBackprop(W_rnn, rnnStates, ...
+  initState, top_grads, dc, dh, input, masks, params, rnnFlags, attnInfos, trainData, model)
 % Running Multi-layer RNN for one time step.
 % Input:
 %   W_rnn: recurrent connections of multiple layers, e.g., W_rnn{ll}.
@@ -18,12 +18,14 @@ allEmbIndices = zeros(totalWordCount, 1);
 wordCount = 0;
 
 % attention
-if params.attnFunc && rnnFlags.decode
+if rnnFlags.attn && rnnFlags.decode
   grad_srcHidVecs_total = zeroMatrix([params.lstmSize, params.curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);
 else
   grad_srcHidVecs_total = [];
   attnGrad = [];
 end
+
+charGrad = [];
 
 % masks
 [maskInfos] = prepareMask(masks);
@@ -81,25 +83,25 @@ for tt=T:-1:1 % time
     top_grads{tt-1} = top_grads{tt-1} + d_feed_input;
   end
 
-  % emb grad
-  unmaskedIds = maskInfos{tt}.unmaskedIds;
-  numWords = length(unmaskedIds);
-  allEmbIndices(wordCount+1:wordCount+numWords) = input(unmaskedIds, tt);
-  allEmbGrads(:, wordCount+1:wordCount+numWords) = d_emb(1:params.lstmSize, unmaskedIds);
-  wordCount = wordCount + numWords;
+  if tt == 1 && ~isempty(rnnFlags.initEmb) % use init embeddings
+    assert(T>1);
+    assert(isempty(maskInfos{tt}.maskedIds));
+    charGrad.initEmb = d_emb(1:params.lstmSize, :);
+  else
+    % emb grad
+    unmaskedIds = maskInfos{tt}.unmaskedIds;
+    numWords = length(unmaskedIds);
+    allEmbIndices(wordCount+1:wordCount+numWords) = input(unmaskedIds, tt);
+    allEmbGrads(:, wordCount+1:wordCount+numWords) = d_emb(1:params.lstmSize, unmaskedIds);
+    wordCount = wordCount + numWords;
+  end
 end % end for time
 
 allEmbGrads(:, wordCount+1:end) = [];
 allEmbIndices(wordCount+1:end) = [];
 [grad_W_emb, grad_emb_indices] = aggregateMatrix(allEmbGrads, allEmbIndices, params.isGPU, params.dataType);
 
-if rnnFlags.char
-  assert(rnnFlags.decode == 0);
-%   % rare
-%   if rnnFlags.decode
-%     rareFlags = grad_emb_indices > params.tgtCharShortList;
-%   else
-%   end
+if rnnFlags.charSrcRep && rnnFlags.decode == 0 % char src representations
   rareFlags = grad_emb_indices > params.srcCharShortList;
   charGrad.embs = grad_W_emb(:, rareFlags);
   charGrad.indices = grad_emb_indices(rareFlags);
@@ -107,6 +109,4 @@ if rnnFlags.char
   % frequent
   grad_W_emb = grad_W_emb(:, ~rareFlags);
   grad_emb_indices = grad_emb_indices(~rareFlags);
-else
-  charGrad = [];
 end

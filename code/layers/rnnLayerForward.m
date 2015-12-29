@@ -1,4 +1,4 @@
-function [lstmStates, attnData, attnInfos] = rnnLayerForward(W_rnn, W_emb, prevState, input, masks, params, rnnFlags, attnData, model, charData, varargin)
+function [lstmStates, trainData, attnInfos] = rnnLayerForward(W_rnn, W_emb, prevState, input, masks, params, rnnFlags, trainData, model, charData)
 % Running Multi-layer RNN for one time step.
 % Input:
 %   W_rnn: recurrent connections of multiple layers, e.g., W_rnn{ll}.
@@ -16,21 +16,20 @@ function [lstmStates, attnData, attnInfos] = rnnLayerForward(W_rnn, W_emb, prevS
 T = size(input, 2);
 lstmStates = cell(T, 1);
 
-% attention
+% attention, encoder
 attnInfos = cell(T, 1);
-if rnnFlags.attn && rnnFlags.decode == 0 % encoder
-  assert(T <= params.numSrcHidVecs);
-  attnData.srcHidVecsOrig = zeroMatrix([params.lstmSize, params.curBatchSize, params.numSrcHidVecs], params.isGPU, params.dataType);
+if rnnFlags.attn && rnnFlags.decode == 0
+  assert(T == params.numSrcHidVecs);
+  trainData.srcHidVecsOrig = zeroMatrix([params.lstmSize, params.curBatchSize, T], params.isGPU, params.dataType); % params.numSrcHidVecs
 end
 
-isInitEmb = 0;
-if params.charTgtGen && length(varargin)==1
-  initEmb = varargin{1};
-  isInitEmb = 1;
+% char generation, decoder
+if rnnFlags.charTgtGen && rnnFlags.decode == 1
+  trainData.tgtHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, T], params.isGPU, params.dataType);
 end
 
 for tt=1:T % time
-  if rnnFlags.char
+  if rnnFlags.charSrcRep && rnnFlags.decode == 0 % char representation, encoder
     inputEmb = zeroMatrix([params.lstmSize, params.curBatchSize], params.isGPU, params.dataType);
     
     % charData.rareFlags: to know which words are rare
@@ -48,19 +47,24 @@ for tt=1:T % time
     % embeddings for frequent words
     inputEmb(:, freqIds) = W_emb(:, input(freqIds, tt));
   else
-    if isInitEmb && tt == 1 % use initEmb
-      inputEmb = initEmb;
+    if tt == 1 && ~isempty(rnnFlags.initEmb) % use initEmb
+      inputEmb = rnnFlags.initEmb;
     else
       inputEmb = W_emb(:, input(:, tt));
     end
   end
   
   % multi-layer RNN
-  [prevState, attnInfos{tt}] = rnnStepLayerForward(W_rnn, inputEmb, prevState, masks(:, tt), params, rnnFlags, attnData, model);
+  [prevState, attnInfos{tt}] = rnnStepLayerForward(W_rnn, inputEmb, prevState, masks(:, tt), params, rnnFlags, trainData, model);
   
   % encoder, attention
   if rnnFlags.attn && rnnFlags.decode == 0
-    attnData.srcHidVecsOrig(:, :, tt) = prevState{end}.h_t;
+    trainData.srcHidVecsOrig(:, :, tt) = prevState{end}.h_t;
+  end
+  
+  % decoder, char
+  if rnnFlags.charTgtGen && rnnFlags.decode == 1
+    trainData.tgtHidVecs(:, :, tt) = prevState{end}.h_t;
   end
   
   % store all states

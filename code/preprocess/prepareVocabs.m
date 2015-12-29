@@ -65,6 +65,7 @@ function [params] = prepareVocabs(params)
   if params.isBi
     fprintf(2, '## Bilingual setting\n');
     params.srcSos = lookup(params.srcVocab, '<s>');
+    params.srcUnk = lookup(params.srcVocab, '<unk>');
     assert(~isempty(params.srcSos));
 %     params.srcVocab{end+1} = '<s_sos>'; % not learn
 %     params.srcSos = length(params.srcVocab);

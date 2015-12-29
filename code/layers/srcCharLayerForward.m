@@ -21,9 +21,9 @@ function [charData] = srcCharLayerForward(W_rnn, W_emb, input, charMap, vocabSiz
     % TODO: sort & split batches
     [charData.batch, charData.mask, charData.maxLen, charData.numSeqs] = leftPad(charMap(rareWords), params.srcCharSos, params.srcCharEos);
     
-    rnnFlags = struct('decode', 0, 'test', isTest, 'attn', 0, 'feedInput', 0, 'char', 0);
+    charData.rnnFlags = struct('decode', 0, 'test', isTest, 'attn', 0, 'feedInput', 0, 'charSrcRep', 0, 'charTgtGen', 0, 'initEmb', []);
     zeroState = createZeroState(charData.params);
-    [charData.states, ~, ~] = rnnLayerForward(W_rnn, W_emb, zeroState, charData.batch, charData.mask, charData.params, rnnFlags, [], [], []);
+    [charData.states, ~, ~] = rnnLayerForward(W_rnn, W_emb, zeroState, charData.batch, charData.mask, charData.params, charData.rnnFlags, [], [], []);
   
     charData.rareWordMap = zeros(vocabSize, 1);
     charData.rareWordMap(rareWords) = 1:length(rareWords);

@@ -64,14 +64,15 @@ function gradCheck(model, params)
   grad.W_emb_tgt = full_grad_W_emb_tgt;
   
   % char
-  if params.charOpt
+  if params.charSrcRep
     full_grad_W_emb_src_char = zeroMatrix(size(model.W_emb_src_char), params.isGPU, params.dataType);
     full_grad_W_emb_src_char(:, grad.indices_src_char) = grad.W_emb_src_char;
     grad.W_emb_src_char = full_grad_W_emb_src_char;
-
-%     full_grad_W_emb_tgt_char = zeroMatrix(size(model.W_emb_tgt_char), params.isGPU, params.dataType);
-%     full_grad_W_emb_tgt_char(:, grad.indices_tgt_char) = grad.W_emb_tgt_char;
-%     grad.W_emb_tgt_char = full_grad_W_emb_tgt_char;
+  end
+  if params.charTgtGen
+    full_grad_W_emb_tgt_char = zeroMatrix(size(model.W_emb_tgt_char), params.isGPU, params.dataType);
+    full_grad_W_emb_tgt_char(:, grad.indices_tgt_char) = grad.W_emb_tgt_char;
+    grad.W_emb_tgt_char = full_grad_W_emb_tgt_char;
   end
   
   % empirical grad
