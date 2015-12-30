@@ -1,4 +1,7 @@
 function [curCosts] = scaleCosts(curCosts, counts)
-  curCosts.total = curCosts.total/counts.total;
-  curCosts.word = curCosts.word/counts.word;
+  fieldNames = fields(curCosts);
+  for ii=1:length(fieldNames)
+    field = fieldNames{ii}; 
+    curCosts.(field) = curCosts.(field) / counts.(field);
+  end
 end

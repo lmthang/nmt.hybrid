@@ -279,7 +279,10 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       %% core part %%
       %%%%%%%%%%%%%%%
       trainData = trainBatches{batchId};
-      [costs, grad] = lstmCostGrad(model, trainData, params, 0);
+      [costs, grad, numChars] = lstmCostGrad(model, trainData, params, 0);
+      if numChars > 0
+        trainData.numChars = numChars;
+      end
 
       %% handle nan/inf
       if isnan(costs.total) || isinf(costs.total)
@@ -478,8 +481,13 @@ function [params, startTime] = postTrainIter(model, costs, gradNorm, trainData, 
     params.speed = params.totalLog*0.001/timeElapsed;
     
     [params.scaleTrainCosts] = scaleCosts(params.trainCosts, params.trainCounts);
-    logStr = sprintf('%d, %d, %.2fK, %g, %.2f, gN=%.2f, %s', params.epoch, params.iter, params.speed, params.lr, ...
-        params.scaleTrainCosts.total, gradNorm, datestr(now));
+    if params.charTgtGen
+      logStr = sprintf('%d, %d, %.2fK, %g, %.2f (%.2f, %.2f), gN=%.2f, %s', params.epoch, params.iter, params.speed, params.lr, ...
+          params.scaleTrainCosts.total, params.scaleTrainCosts.word, params.scaleTrainCosts.char, gradNorm, datestr(now));
+    else
+      logStr = sprintf('%d, %d, %.2fK, %g, %.2f, gN=%.2f, %s', params.epoch, params.iter, params.speed, params.lr, ...
+          params.scaleTrainCosts.total, gradNorm, datestr(now));
+    end
     
     fprintf(2, '%s\n', logStr);
     fprintf(params.logId, '%s\n', logStr);

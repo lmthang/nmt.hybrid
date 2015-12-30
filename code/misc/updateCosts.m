@@ -1,4 +1,7 @@
 function [curCosts] = updateCosts(curCosts, costs)
-  curCosts.total = curCosts.total + costs.total;
-  curCosts.word = curCosts.word + costs.word;
+  fieldNames = fields(curCosts);
+  for ii=1:length(fieldNames)
+    field = fieldNames{ii}; 
+    curCosts.(field) = curCosts.(field) + costs.(field);
+  end
 end

@@ -1,4 +1,4 @@
-function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
+function [costs, grad, numChars] = lstmCostGrad(model, trainData, params, isTest)
 %%%
 %
 % Compute cost/grad for LSTM. 
@@ -33,16 +33,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   costs = initCosts();
     
   % char
-  srcCharData = [];
   if params.charOpt
-    % src
-    if params.charSrcRep
-      [srcCharData] = srcCharLayerForward(model.W_src_char, model.W_emb_src_char, trainData.srcInput, params.srcCharMap, ...
-        params.srcVocabSize, params, isTest);
-    else
-      trainData.srcInput(trainData.srcInput > params.srcCharShortList) = params.srcUnk;
-    end
-    
     % tgt
     if params.charTgtGen
       trainData.origTgtOutput = trainData.tgtOutput;
@@ -58,16 +49,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   %% encoder
   lastEncState = zeroState;
   if params.isBi
-    encRnnFlags = struct('decode', 0, 'test', isTest, 'attn', params.attnFunc, 'feedInput', 0, 'charSrcRep', params.charSrcRep, ...
-      'charTgtGen', params.charTgtGen, 'initEmb', []);
-    [encStates, trainData, ~] = rnnLayerForward(model.W_src, model.W_emb_src, zeroState, trainData.srcInput, trainData.srcMask, ...
-      params, encRnnFlags, trainData, model, srcCharData);
-    lastEncState = encStates{end};
-    
-    % feed input
-    if params.feedInput
-      lastEncState{end}.softmax_h = zeroBatch;
-    end
+    [encStates, lastEncState, encRnnFlags, trainData, srcCharData] = encoderLayerForward(model, zeroState, trainData, params, isTest);
   end
   
   %% decoder
@@ -83,30 +65,17 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   
   
   %% char
+  numChars = 0;
   if params.charTgtGen
     % char rnn
     [tgtCharData] = tgtCharLayerForward(model.W_tgt_char, model.W_emb_tgt_char, trainData.origTgtOutput, trainData.tgtHidVecs, params.tgtCharMap, ...
           params, isTest);
-        
+    numChars = sum(tgtCharData.mask(:));
     % char softmax
     charTgtOutput = [tgtCharData.batch(:, 2:end) params.tgtCharEos*ones(tgtCharData.numSeqs, 1)];
     [costs.char, grad.W_soft_char, topGrads_char] = softmaxCostGrad(tgtCharData.states, model.W_soft_char, charTgtOutput, tgtCharData.mask, ...
     params, isTest);
     costs.total = costs.total + costs.char;
-    
-    % TODO: remember in tgtCharLayerBackprop, ignore sos
-    % char back prop
-    [grad.W_tgt_char, grad.W_emb_tgt_char, grad.indices_tgt_char, grad_init_emb] = tgtCharLayerBackprop(model.W_tgt_char, tgtCharData, topGrads_char);
-    
-    % add top grads from tgt char
-    count = 0;
-    assert(length(dec_top_grads) == size(tgtCharData.rareFlags, 2));
-    for tt=1:length(dec_top_grads)
-      rareIndices = find(tgtCharData.rareFlags(:, tt));
-      dec_top_grads{tt}(:, rareIndices) = dec_top_grads{tt}(:, rareIndices) + grad_init_emb(:, count+1:count+length(rareIndices));
-      count = count + length(rareIndices);
-    end
-    assert(count == tgtCharData.numSeqs);
   end
   
   if isTest==1 % don't compute grad
@@ -120,6 +89,23 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
   zeroGrad = cell(params.numLayers, 1); 
   for ll=1:params.numLayers
     zeroGrad{ll} = zeroBatch;
+  end
+  
+  %% char
+  if params.charTgtGen
+    % TODO: remember in tgtCharLayerBackprop, ignore sos
+    % char back prop
+    [grad.W_tgt_char, grad.W_emb_tgt_char, grad.indices_tgt_char, grad_init_emb] = tgtCharLayerBackprop(model.W_tgt_char, tgtCharData, topGrads_char);
+    
+    % add top grads from tgt char
+    count = 0;
+    assert(length(dec_top_grads) == size(tgtCharData.rareFlags, 2));
+    for tt=1:length(dec_top_grads)
+      rareIndices = find(tgtCharData.rareFlags(:, tt));
+      dec_top_grads{tt}(:, rareIndices) = dec_top_grads{tt}(:, rareIndices) + grad_init_emb(:, count+1:count+length(rareIndices));
+      count = count + length(rareIndices);
+    end
+    assert(count == tgtCharData.numSeqs);
   end
   
   %% decoder
