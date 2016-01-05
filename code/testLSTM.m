@@ -75,8 +75,8 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
     if (isfield(models{mm}.params,'softmaxFeedInput')) && (~isfield(models{mm}.params,'feedInput'))
       models{mm}.params.feedInput = models{mm}.params.softmaxFeedInput;
     end
-    [models{mm}.params] = backwardCompatible(models{mm}.params, {'charShortList'});
-    
+    [models{mm}.params] = backwardCompatible(models{mm}.params, {'charOpt', 'charSrcRep', 'charTgtGen'});
+        
     % load vocabs
     [models{mm}.params] = prepareVocabs(models{mm}.params);
     
@@ -174,6 +174,7 @@ end
 %        end    
 %      end
 %     end
+
 
 %     % convert local paths to absolute paths
 %     fieldNames = fields(models{mm}.params);

@@ -83,16 +83,17 @@ for tt=T:-1:1 % time
     top_grads{tt-1} = top_grads{tt-1} + d_feed_input;
   end
 
+  assert(size(d_emb, 1) == params.lstmSize);
   if tt == 1 && ~isempty(rnnFlags.initEmb) % use init embeddings
     assert(T>1);
     assert(isempty(maskInfos{tt}.maskedIds));
-    charGrad.initEmb = d_emb(1:params.lstmSize, :);
+    charGrad.initEmb = d_emb; %(1:params.lstmSize, :);
   else
     % emb grad
     unmaskedIds = maskInfos{tt}.unmaskedIds;
     numWords = length(unmaskedIds);
     allEmbIndices(wordCount+1:wordCount+numWords) = input(unmaskedIds, tt);
-    allEmbGrads(:, wordCount+1:wordCount+numWords) = d_emb(1:params.lstmSize, unmaskedIds);
+    allEmbGrads(:, wordCount+1:wordCount+numWords) = d_emb(:, unmaskedIds);
     wordCount = wordCount + numWords;
   end
 end % end for time

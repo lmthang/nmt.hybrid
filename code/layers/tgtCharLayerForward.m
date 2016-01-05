@@ -12,7 +12,8 @@ function [charData] = tgtCharLayerForward(W_rnn, W_emb, input, tgtHidVecs, charM
 
   charData.rareFlags = input > params.tgtCharShortList;
   rareWords = input(charData.rareFlags);
-
+  assert(isequal(size(input), [size(tgtHidVecs, 2), size(tgtHidVecs, 3)]));
+  
   % TODO: might need to make batch size smaller 
   if ~isempty(rareWords)    
     charData.params = params;
@@ -24,8 +25,8 @@ function [charData] = tgtCharLayerForward(W_rnn, W_emb, input, tgtHidVecs, charM
 
     % TODO: sort & split batches
     [charData.batch, charData.mask, charData.maxLen, charData.numSeqs] = rightPad(charMap(rareWords), params.tgtCharEos, params.tgtCharSos);
-    zeroState = createZeroState(charData.params);
+    charData.initState = createZeroState(charData.params);
     charData.rnnFlags = struct('decode', 1, 'test', isTest, 'attn', 0, 'feedInput', 0, 'charSrcRep', 0, 'charTgtGen', 0, 'initEmb', initEmb);
-    [charData.states, ~, ~] = rnnLayerForward(W_rnn, W_emb, zeroState, charData.batch, charData.mask, charData.params, charData.rnnFlags, [], [], []);
+    [charData.states, ~, ~] = rnnLayerForward(W_rnn, W_emb, charData.initState, charData.batch, charData.mask, charData.params, charData.rnnFlags, [], [], []);
   end
 end

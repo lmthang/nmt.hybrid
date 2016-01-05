@@ -9,15 +9,12 @@ function [grad_W_rnn, grad_W_emb, emb_indices, grad_init_emb] = tgtCharLayerBack
   % init state
   params = charData.params;
   zeroBatch = zeroMatrix([params.lstmSize, params.curBatchSize], params.isGPU, params.dataType);
-  zeroState = cell(params.numLayers, 1);
   zeroGrad = cell(params.numLayers, 1);
   for ll=1:params.numLayers % layer
-    zeroState{ll}.h_t = zeroBatch;
-    zeroState{ll}.c_t = zeroBatch;
     zeroGrad{ll} = zeroBatch;
   end
   
-  [~, ~, grad_W_rnn, grad_W_emb, emb_indices, ~, ~, charGrad] = rnnLayerBackprop(W_rnn, charData.states, zeroState, ...
+  [~, ~, grad_W_rnn, grad_W_emb, emb_indices, ~, ~, charGrad] = rnnLayerBackprop(W_rnn, charData.states, charData.initState, ...
   topGrads, zeroGrad, zeroGrad, charData.batch, charData.mask, charData.params, charData.rnnFlags, [], [], []);
   grad_init_emb = charGrad.initEmb;
 end

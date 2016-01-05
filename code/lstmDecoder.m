@@ -110,6 +110,19 @@ originalSentIndices, modelData, firstAlignIdx, data)
   for ii=1:batchSize
     candidates{ii} = cell(stackSize, 1);
   end
+  
+  numModels = length(models);
+  
+  % char
+  if params.charTgtGen
+    assert(stackSize == 1);
+    % store translation states of the best translation over all models
+    transStates = cell(batchSize, 1);
+    for ii=1:batchSize
+      transStates{ii} = cell(numModels, 1);
+    end
+  end
+  
   % align
   if params.align
     alignInfo = cell(batchSize, 1);
@@ -121,7 +134,6 @@ originalSentIndices, modelData, firstAlignIdx, data)
   end
   
   %% first prediction
-  numModels = length(models);
   otherInfo = [];
   % scores, words: beamSize * batchSize
   if params.forceDecoder
@@ -152,16 +164,26 @@ originalSentIndices, modelData, firstAlignIdx, data)
     end
   end
   
-  % replicate
+  
+  %% replicate
   beamStates = cell(numModels, 1);
+  % char
+  if params.charTgtGen
+    beamHistTopStates = cell(numModels, 1); % maxLen);
+  end
   for mm=1:numModels % model    
     beamStates{mm} = cell(models{mm}.params.numLayers, 1);
     for ll=1:models{mm}.params.numLayers % lstmSize * numElements
       beamStates{mm}{ll}.c_t = reshape(repmat(prevStates{mm}{ll}.c_t, beamSize, 1),  models{mm}.params.lstmSize, numElements); 
       beamStates{mm}{ll}.h_t = reshape(repmat(prevStates{mm}{ll}.h_t, beamSize, 1),  models{mm}.params.lstmSize, numElements); 
     end
-    
     beamStates{mm}{end}.softmax_h = reshape(repmat(prevStates{mm}{end}.softmax_h, beamSize, 1),  models{mm}.params.lstmSize, numElements); 
+    
+    % char
+    if params.charTgtGen
+      beamHistTopStates{mm} = zeroMatrix([models{mm}.params.lstmSize, numElements, maxLen], params.isGPU, params.dataType);
+      beamHistTopStates{mm}(:, :, 1) = beamStates{mm}{end}.softmax_h;
+    end
   end
   
 
@@ -281,29 +303,43 @@ originalSentIndices, modelData, firstAlignIdx, data)
       if ~isempty(endIndices) && (sentPos+1)>=minLen % we don't want to start recording very short translations
         numTranslations = length(endIndices);
         eosBeamIndices = floor((rowIndices(endIndices)-1)/beamSize) + 1;
-        translations = beamHistory(1:sentPos, (sentId-1)*beamSize + eosBeamIndices);
-        % align
-        if params.align
-          alignments = alignHistory(1:sentPos, (sentId-1)*beamSize + eosBeamIndices);
-          lastAlignIds = beamAlignIds((sentId-1)*beamSize + eosBeamIndices);
-        end
-
+        histIndices = (sentId-1)*beamSize + eosBeamIndices;
+        
         transScores = allBestScores(endIndices, sentId);
         for ii=1:numTranslations
-          if numDecoded(sentId)<stackSize % haven't collected enough translations
-            numDecoded(sentId) = numDecoded(sentId) + 1;
+          if stackSize == 1 % we only care about the best translations
+            numDecoded(sentId) = 1;
+            if transScores(ii) > candScores(sentId)
+              candScores(sentId) = transScores(ii);
+              
+              candidates{sentId}{1} = [beamHistory(1:sentPos, histIndices(ii)); params.tgtEos];
+              % align
+              if params.align
+                alignInfo{sentId}{1} = [alignHistory(1:sentPos, histIndices(ii)); beamAlignIds(histIndices(ii))];
+              end
 
-            candidates{sentId}{numDecoded(sentId)} = [translations(:, ii); params.tgtEos];
-            candScores(numDecoded(sentId), sentId) = transScores(ii);
-
-            % align
-            if params.align
-              alignInfo{sentId}{numDecoded(sentId)} = [alignments(:, ii); lastAlignIds(ii)];
+              % char
+              if params.charTgtGen
+                for mm=1:numModels
+                  tranStates{sentId}{mm} = beamHistTopStates{mm}(:, histIndices(ii), 1:sentPos);
+                end
+              end
             end
+          else % store multiple translations
+            if numDecoded(sentId)<stackSize % haven't collected enough translations
+              numDecoded(sentId) = numDecoded(sentId) + 1;
+              candScores(numDecoded(sentId), sentId) = transScores(ii);
 
-            if numDecoded(sentId)==stackSize % done for sentId
-              decodeCompleteCount = decodeCompleteCount + 1;
-              break;
+              candidates{sentId}{numDecoded(sentId)} = [beamHistory(1:sentPos, histIndices(ii)); params.tgtEos];
+              % align
+              if params.align
+                alignInfo{sentId}{numDecoded(sentId)} = [alignHistory(1:sentPos, histIndices(ii)); beamAlignIds(histIndices(ii))];
+              end
+              
+              if numDecoded(sentId)==stackSize % done for sentId
+                decodeCompleteCount = decodeCompleteCount + 1;
+                break;
+              end
             end
           end
         end
@@ -313,10 +349,16 @@ originalSentIndices, modelData, firstAlignIdx, data)
     %% update history
     % overwrite previous history
     colIndices = (sentIndices-1)*beamSize + beamIndices;
-    tmp = beamHistory(1:sentPos, colIndices);
-    beamHistory(1:sentPos, :) = tmp; 
+    beamHistory(1:sentPos, :) = beamHistory(1:sentPos, colIndices); 
     beamHistory(sentPos+1, :) = beamWords;
-
+    % char
+    if params.charTgtGen
+      for mm=1:numModels
+        beamHistTopStates{mm}(:, :, 1:sentPos) = beamHistTopStates{mm}(:, colIndices, 1:sentPos);
+        beamHistTopStates{mm}(:, :, sentPos+1) = beamStates{mm}{end}.softmax_h(:, colIndices);
+      end
+    end
+    
     % align
     if params.align
       alignHistory(1:sentPos, :) = alignHistory(1:sentPos, colIndices);
@@ -339,23 +381,50 @@ originalSentIndices, modelData, firstAlignIdx, data)
   end % for sentPos
   
   for sentId=1:batchSize
-    if numDecoded(sentId) == 0 % no translations found, output all we have in the beam
+    if numDecoded(sentId) == 0 % no translations found, use what we have in the beam
       fprintf(2, '  ! Sent %d: no translations end in eos\n', originalSentIndices(sentId));
       for bb = 1:beamSize
         eosIndex = (sentId-1)*beamSize + bb;
-        numDecoded(sentId) = numDecoded(sentId) + 1;
-        candidates{sentId}{numDecoded(sentId)} = [beamHistory(1:maxLen, eosIndex); params.tgtEos]; % append eos at the end
         
-        % align
-        if params.align
-          if params.isReverse
-            alignInfo{sentId}{numDecoded(sentId)} = [alignHistory(1:maxLen, eosIndex); 1];
-          else
-            alignInfo{sentId}{numDecoded(sentId)} = [alignHistory(1:maxLen, eosIndex); modelData{1}.srcLens(sentId)-1];
+        if stackSize == 1 % only cares about the top translation
+          numDecoded(sentId) = 1;
+          if beamScores(eosIndex) > candScores(sentId)
+            candidates{sentId}{1} = [beamHistory(1:maxLen, eosIndex); params.tgtEos]; % append eos at the end
+
+            % align
+            if params.align
+              if params.isReverse
+                alignInfo{sentId}{1} = [alignHistory(1:maxLen, eosIndex); 1];
+              else
+                alignInfo{sentId}{1} = [alignHistory(1:maxLen, eosIndex); modelData{1}.srcLens(sentId)-1];
+              end
+            end
+
+            % char
+            if params.charTgtGen
+              for mm=1:numModels
+                tranStates{sentId}{mm} = beamHistTopStates{mm}(:, eosIndex, 1:maxLen);
+              end
+            end
+              
+            candScores(sentId) = beamScores(eosIndex);
           end
+        else
+          numDecoded(sentId) = numDecoded(sentId) + 1;
+          candidates{sentId}{numDecoded(sentId)} = [beamHistory(1:maxLen, eosIndex); params.tgtEos]; % append eos at the end
+
+          % align
+          if params.align
+            if params.isReverse
+              alignInfo{sentId}{numDecoded(sentId)} = [alignHistory(1:maxLen, eosIndex); 1];
+            else
+              alignInfo{sentId}{numDecoded(sentId)} = [alignHistory(1:maxLen, eosIndex); modelData{1}.srcLens(sentId)-1];
+            end
+          end
+
+          candScores(numDecoded(sentId), sentId) = beamScores(eosIndex);
         end
         
-        candScores(numDecoded(sentId), sentId) = beamScores(eosIndex);
       end
     end
     candidates{sentId}(numDecoded(sentId)+1:end) = [];

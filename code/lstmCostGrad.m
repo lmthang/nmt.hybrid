@@ -70,7 +70,8 @@ function [costs, grad, numChars] = lstmCostGrad(model, trainData, params, isTest
     % char rnn
     [tgtCharData] = tgtCharLayerForward(model.W_tgt_char, model.W_emb_tgt_char, trainData.origTgtOutput, trainData.tgtHidVecs, params.tgtCharMap, ...
           params, isTest);
-    numChars = sum(tgtCharData.mask(:));
+    numChars = tgtCharData.numSeqs;
+    
     % char softmax
     charTgtOutput = [tgtCharData.batch(:, 2:end) params.tgtCharEos*ones(tgtCharData.numSeqs, 1)];
     [costs.char, grad.W_soft_char, topGrads_char] = softmaxCostGrad(tgtCharData.states, model.W_soft_char, charTgtOutput, tgtCharData.mask, ...
@@ -93,9 +94,9 @@ function [costs, grad, numChars] = lstmCostGrad(model, trainData, params, isTest
   
   %% char
   if params.charTgtGen
-    % TODO: remember in tgtCharLayerBackprop, ignore sos
     % char back prop
-    [grad.W_tgt_char, grad.W_emb_tgt_char, grad.indices_tgt_char, grad_init_emb] = tgtCharLayerBackprop(model.W_tgt_char, tgtCharData, topGrads_char);
+    [grad.W_tgt_char, grad.W_emb_tgt_char, grad.indices_tgt_char, grad_init_emb] = tgtCharLayerBackprop(model.W_tgt_char, tgtCharData, ...
+      topGrads_char);
     
     % add top grads from tgt char
     count = 0;

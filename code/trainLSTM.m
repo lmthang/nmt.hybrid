@@ -189,6 +189,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     end
     if params.charOpt == 2 || params.charOpt == 3 % generate target words
       params.charTgtGen = 1;
+      fprintf(2, 'Change stack size from %d to 1\n', params.stackSize);
+      params.stackSize = 1;
     end
   end
   
