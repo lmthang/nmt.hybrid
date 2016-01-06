@@ -70,6 +70,11 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
   % first decoder timestep
   attnInfos = cell(numModels, 1);
   for mm=1:numModels
+    % local monotonic alignment
+    if models{mm}.params.attnLocalMono
+      modelData{mm}.tgtPos = 1;
+    end
+    
     decRnnFlags = struct('decode', 1, 'test', 1, 'attn', models{mm}.params.attnFunc, 'feedInput', models{mm}.params.feedInput);
     [prevStates{mm}, attnInfos{mm}] = rnnStepLayerForward(models{mm}.W_tgt, models{mm}.W_emb_tgt(:, modelData{mm}.tgtInput(:, 1)), ...
       prevStates{mm}, modelData{mm}.tgtMask(:, 1), models{mm}.params, decRnnFlags, modelData{mm}, models{mm});
@@ -219,6 +224,11 @@ originalSentIndices, modelData, firstAlignIdx, data)
     
     %% compute next lstm hidden states
     for mm=1:numModels
+      % local monotonic alignment
+      if models{mm}.params.attnLocalMono
+        modelData{mm}.tgtPos = tgtPos;
+      end
+      
       decRnnFlags = struct('decode', 1, 'test', 1, 'attn', models{mm}.params.attnFunc, 'feedInput', models{mm}.params.feedInput);
       [beamStates{mm}, attnInfos{mm}] = rnnStepLayerForward(models{mm}.W_tgt, models{mm}.W_emb_tgt(:, beamHistory(sentPos, :)), beamStates{mm}, ...
         oneMask, models{mm}.params, decRnnFlags, modelData{mm}, models{mm});
