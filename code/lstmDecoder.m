@@ -299,24 +299,19 @@ originalSentIndices, modelData, firstAlignIdx, data)
       if ~isempty(endIndices) && (sentPos+1)>=minLen % we don't want to start recording very short translations
         numTranslations = length(endIndices);
         eosBeamIndices = floor((rowIndices(endIndices)-1)/beamSize) + 1;
-        translations = beamHistory(1:sentPos, (sentId-1)*beamSize + eosBeamIndices);
-        % align
-        if params.align
-          alignments = alignHistory(1:sentPos, (sentId-1)*beamSize + eosBeamIndices);
-          lastAlignIds = beamAlignIds((sentId-1)*beamSize + eosBeamIndices);
-        end
+        histIndices = (sentId-1)*beamSize + eosBeamIndices;
 
         transScores = allBestScores(endIndices, sentId);
         for ii=1:numTranslations
           if numDecoded(sentId)<stackSize % haven't collected enough translations
             numDecoded(sentId) = numDecoded(sentId) + 1;
 
-            candidates{sentId}{numDecoded(sentId)} = [translations(:, ii); params.tgtEos];
+            candidates{sentId}{numDecoded(sentId)} = [beamHistory(1:sentPos, histIndices(ii)); params.tgtEos];
             candScores(numDecoded(sentId), sentId) = transScores(ii);
 
             % align
             if params.align
-              alignInfo{sentId}{numDecoded(sentId)} = [alignments(:, ii); lastAlignIds(ii)];
+              alignInfo{sentId}{numDecoded(sentId)} = [alignHistory(1:sentPos, histIndices(ii)); beamAlignIds(histIndices(ii))];
             end
 
             if numDecoded(sentId)==stackSize % done for sentId
