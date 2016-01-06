@@ -13,12 +13,20 @@ function [attnInfo] = attnLayerForward(h_t, params, model, attnData, maskInfo)
     srcHidVecs = attnData.srcHidVecsOrig;
     attnInfo.srcMaskedIds = [];
   else % local
-    [mu, attnInfo] = regressPositions(model, h_t, attnData.srcLens, params);
-    srcPositions = floor(mu);
+    % positions
+    if params.attnLocalPred % predictive alignments
+      [mu, attnInfo] = regressPositions(model, h_t, attnData.srcLens, params);
+      srcPositions = floor(mu);
+    else % monotonic alignments
+      srcPositions = attnData.tgtPos*ones(1, params.curBatchSize);
+      flags = srcPositions>(attnData.srcLens-1);
+      srcPositions(flags) = attnData.srcLens(flags)-1;
+    end
     
     % assert
     if params.assert
       assert(isempty(find(srcPositions<1,1)));
+      assert(isempty(find(attnData.tgtLens<=1,1)));
       assert(isempty(find(srcPositions(maskInfo.unmaskedIds)>(attnData.srcLens(maskInfo.unmaskedIds)-1),1)));
     end
       
@@ -55,7 +63,7 @@ function [attnInfo] = attnLayerForward(h_t, params, model, attnData, maskInfo)
   attnInfo.alignWeights = normLayerForward(alignScores, attnInfo.srcMaskedIds);
 
   % local, regression, multiply with distWeights
-  if params.attnGlobal == 0
+  if params.attnLocalPred
     [attnInfo.distWeights, attnInfo.scaleX] = distLayerForward(mu, attnInfo, params); % numAttnPositions*curBatchSize
     attnInfo.preAlignWeights = attnInfo.alignWeights;
     attnInfo.alignWeights =  attnInfo.preAlignWeights.* attnInfo.distWeights; % weighted by distances

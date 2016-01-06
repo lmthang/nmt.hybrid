@@ -153,10 +153,15 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   
   %% attention
   params.align = (params.attnFunc>0); % for the decoder 
+  params.attnGlobal = 0;
+  params.attnLocalMono = 0;
+  params.attnLocalPred = 0;
   if params.attnFunc>0
     assert(params.attnOpt>0);
     params.attnGlobal = (params.attnFunc==1);
-    if params.attnGlobal == 0 % local attention, predictive alignemtns       
+    params.attnLocalMono = (params.attnFunc==2);
+    params.attnLocalPred = (params.attnFunc==4);
+    if params.attnLocalPred % local attention, predictive alignemtns       
       params.distSigma = params.posWin/2.0;
     end
   end
@@ -360,7 +365,7 @@ function [model] = initLSTM(params)
   %% h_t -> softmax input
   if params.attnFunc>0 % attention mechanism
     % local attention, predict positions
-    if params.attnGlobal == 0
+    if params.attnLocalPred
       % transform h_t into h_pos = f(W_pos*h_t)
       model.W_pos = initMatrixRange(params.initRange, [params.softmaxSize, params.lstmSize], params.isGPU, params.dataType);
       

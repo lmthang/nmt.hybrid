@@ -29,7 +29,7 @@ function [grad_ht, attnGrad, grad_srcHidVecs] = attnLayerBackprop(model, grad_so
   [grad_alignWeights, grad_srcHidVecs] = contextLayerBackprop(grad_contextVecs, h2sInfo.alignWeights, srcHidVecs, curMask.unmaskedIds, params);
 
   % local attention, grad_alignWeights -> grad_distWeights, grad_preAlignWeights
-  if params.attnGlobal == 0
+  if params.attnLocalPred
     % IMPORTANT: don't change the order of these lines
     grad_distWeights = grad_alignWeights.*h2sInfo.preAlignWeights;
     grad_alignWeights = grad_alignWeights.*h2sInfo.distWeights; % grad_preAlignWeights
@@ -75,7 +75,7 @@ function [grad_ht, attnGrad, grad_srcHidVecs] = attnLayerBackprop(model, grad_so
   grad_ht = grad_ht + grad_input(params.lstmSize+1:end, :);
   
   % local attention
-  if params.attnGlobal == 0
+  if params.attnLocalPred
     % grad_distWeights -> grad_mu
     [grad_mu] = distLayerBackprop(grad_distWeights, h2sInfo, params);
 

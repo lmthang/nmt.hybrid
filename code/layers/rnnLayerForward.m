@@ -24,6 +24,11 @@ if rnnFlags.attn && rnnFlags.decode == 0 % encoder
 end
 
 for tt=1:T % time
+  % local monotonic alignment
+  if params.attnLocalMono
+    attnData.tgtPos = tt;
+  end
+  
   % multi-layer RNN
   [prevState, attnInfos{tt}] = rnnStepLayerForward(W_rnn, W_emb(:, input(:, tt)), prevState, masks(:, tt), params, rnnFlags, attnData, model);
   
