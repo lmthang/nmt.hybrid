@@ -10,7 +10,7 @@
 %   With help from Hieu Pham.
 %
 %%
-function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, data, params)
+function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, data, params, prevInfo)
   % backward compatibility: not a cell, single model, put into a cell format
   if ~iscell(models)
     tmpModels = cell(1, 1);
@@ -45,24 +45,35 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
     models{mm}.params.srcMaxLen = srcMaxLen;
     [models{mm}.params] = setAttnParams(models{mm}.params);
 
-    [zeroStates{mm}] = createZeroState(models{mm}.params);
-    modelData{mm} = data;    
+    [zeroStates{mm}] = createZeroState(models{mm}.params);  
   end
   
   % encoder
-  prevStates = cell(numModels, 1);
-  for mm=1:numModels
-    encRnnFlags = struct('decode', 0, 'test', 1, 'attn', models{mm}.params.attnFunc, 'feedInput', 0);
-    [encStates, modelData{mm}, ~] = rnnLayerForward(models{mm}.W_src, models{mm}.W_emb_src, zeroStates{mm}, modelData{mm}.srcInput, ...
-      modelData{mm}.srcMask, models{mm}.params, encRnnFlags, modelData{mm}, models{mm});
-    prevStates{mm} = encStates{end};
-    
-    % feed input
-    if models{mm}.params.feedInput
-      prevStates{mm}{end}.softmax_h = zeroMatrix([models{mm}.params.lstmSize, batchSize], params.isGPU, params.dataType);
+  % reuse encoder
+  if params.reuseEncoder && ~isempty(prevInfo) && isequal(data.srcInput, prevInfo.srcInput)
+    prevStates = prevInfo.prevStates;
+    modelData = prevInfo.modelData;
+  else
+    prevStates = cell(numModels, 1);
+    for mm=1:numModels
+      encRnnFlags = struct('decode', 0, 'test', 1, 'attn', models{mm}.params.attnFunc, 'feedInput', 0);
+      [encStates, modelData{mm}, ~] = rnnLayerForward(models{mm}.W_src, models{mm}.W_emb_src, zeroStates{mm}, data.srcInput, ...
+        data.srcMask, models{mm}.params, encRnnFlags, data, models{mm});
+      prevStates{mm} = encStates{end};
+
+      % feed input
+      if models{mm}.params.feedInput
+        prevStates{mm}{end}.softmax_h = zeroMatrix([models{mm}.params.lstmSize, batchSize], params.isGPU, params.dataType);
+      end
     end
   end
-
+  
+  % reuse encoder
+  if params.reuseEncoder
+    otherInfo.prevStates = prevStates;
+    otherInfo.modelData = modelData;
+    otherInfo.srcInput = srcInput;
+  end
 
   %%%%%%%%%%%%
   %% decode %%
@@ -97,8 +108,9 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
   end
   
   sentIndices = data.startId:(data.startId+batchSize-1);
-  [candidates, candScores, alignInfo, otherInfo] = decodeBatch(models, params, prevStates, minLen, maxLen, beamSize, stackSize, batchSize, ...
+  [candidates, candScores, alignInfo, otherInfo.forceDecodeOutputs] = decodeBatch(models, params, prevStates, minLen, maxLen, beamSize, stackSize, batchSize, ...
     sentIndices, modelData, firstAlignIdx, data);
+  
   endTime = clock;
   timeElapsed = etime(endTime, startTime);
   fprintf(2, '  Done, minLen=%d, maxLen=%d, speed %f sents/s, time %.0fs, %s\n', minLen, maxLen, batchSize/timeElapsed, timeElapsed, datestr(now));
@@ -113,7 +125,7 @@ end
 %   - beamSize
 %   - stackSize: maximum number of translations collected for one example
 %%
-function [candidates, candScores, alignInfo, otherInfo] = decodeBatch(models, params, prevStates, minLen, maxLen, beamSize, stackSize, batchSize, ...
+function [candidates, candScores, alignInfo, forceDecodeOutputs] = decodeBatch(models, params, prevStates, minLen, maxLen, beamSize, stackSize, batchSize, ...
 originalSentIndices, modelData, firstAlignIdx, data)
   numElements = batchSize*beamSize;
   
@@ -135,12 +147,12 @@ originalSentIndices, modelData, firstAlignIdx, data)
   
   %% first prediction
   numModels = length(models);
-  otherInfo = [];
+  forceDecodeOutputs = [];
   % scores, words: beamSize * batchSize
   if params.forceDecoder
     [scores, words, otherData] = nextBeamStep(models, prevStates, beamSize, data.tgtOutput(:, 1)); 
-    otherInfo.forceDecodeOutputs = zeroMatrix([maxLen, numElements], params.isGPU, params.dataType); % maxLen * (numElements) 
-    otherInfo.forceDecodeOutputs(1, :) = otherData.maxWords;
+    forceDecodeOutputs = zeroMatrix([maxLen, numElements], params.isGPU, params.dataType); % maxLen * (numElements) 
+    forceDecodeOutputs(1, :) = otherData.maxWords;
   else
     [scores, words] = nextBeamStep(models, prevStates, beamSize);
   end
@@ -247,7 +259,7 @@ originalSentIndices, modelData, firstAlignIdx, data)
     % allBestScores, allBestWords should have size beamSize * (beamSize*batchSize)
     if params.forceDecoder
       [allBestScores, allBestWords, otherData] = nextBeamStep(models, beamStates, beamSize, data.tgtOutput(:, tgtPos));
-      otherInfo.forceDecodeOutputs(tgtPos, :) = otherData.maxWords;
+      forceDecodeOutputs(tgtPos, :) = otherData.maxWords;
     else
       [allBestScores, allBestWords] = nextBeamStep(models, beamStates, beamSize);
     end

@@ -36,6 +36,8 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   
   % force decoding: always feed the correct words (groundtruth)
   addOptional(p,'forceDecoder', 0, @isnumeric); 
+  % useful for rescoring if we have many sentence pairs with the same source
+  addOptional(p,'reuseEncoder', 0, @isnumeric); 
 
   p.KeepUnmatched = true;
   parse(p,modelFiles,beamSize,stackSize,batchSize,outputFile,varargin{:})
@@ -132,6 +134,11 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
     params.beamSize = 1;
   end
   
+  % reuse encoder (supposedly useful for batchSize = 1)
+  if params.reuseEncoder
+    assert(params.batchSize == 1);
+  end
+  
   params.fid = fopen(params.outputFile, 'w');
   params.logId = fopen([outputFile '.log'], 'w'); 
   % align
@@ -151,6 +158,7 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   fprintf(2, '# Decoding %d sents, %s\n', numSents, datestr(now));
   fprintf(params.logId, '# Decoding %d sents, %s\n', numSents, datestr(now));
   startTime = clock;
+  otherInfo = [];
   for batchId = 1 : numBatches
     % prepare batch data
     startId = (batchId-1)*batchSize+1;
@@ -163,7 +171,7 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
     decodeData.startId = startId;
     
     % call lstmDecoder
-    [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, decodeData, params); 
+    [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, decodeData, params, otherInfo); 
     
     % print results
     printDecodeResults(decodeData, candidates, candScores, alignInfo, otherInfo, params, 1);
