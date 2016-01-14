@@ -216,7 +216,17 @@ originalSentIndices, modelData, firstAlignIdx, data)
   end
   
   attnInfos = cell(numModels, 1);
-  for sentPos = 1 : (maxLen-1)
+  
+  % char
+  if params.charTgtGen
+    transStates = cell(numModels, 1);
+    for mm=1:numModels
+      assert(models{mm}.params.charTgtGen == 1);
+      transStates{mm} = zeroMatrix([models{mm}.params.lstmSize, maxLen-1, batchSize], params.isGPU, params.dataType);
+    end
+  end
+  
+  for sentPos=1:(maxLen-1)
     %% Description:
     % At this point, hypotheses of length sentPos are completed.
     % If sentPos<maxLen, this loop will prepare hypotheses of length(sentPos+1) by:
@@ -225,10 +235,6 @@ originalSentIndices, modelData, firstAlignIdx, data)
     %      a complete translations and we will collect. These complete
     %      translations have length (sentPos+1), inclusive of <eos>.
     %   (c) we keep beamSize non-eos nextWords to build hypotheses of length (sentPos+1).
-    % For dependency parsing, we expect R(root) instead of <eos>. 
-    %   When collect translations, only at sentPos==(maxLen-1), we will
-    %   automatically append <eos>. So the final translations have length =
-    %   (maxLen+1), ending in R(root) <eos>.
     tgtPos = sentPos+1;
     
     %% compute next lstm hidden states
@@ -321,7 +327,7 @@ originalSentIndices, modelData, firstAlignIdx, data)
               % char
               if params.charTgtGen
                 for mm=1:numModels
-                  tranStates{sentId}{mm} = beamHistTopStates{mm}(:, histIndices(ii), 1:sentPos);
+                  tranStates{mm}(:, 1:sentPos, sentId) = beamHistTopStates{mm}(:, histIndices(ii), 1:sentPos);
                 end
               end
             end
@@ -389,21 +395,21 @@ originalSentIndices, modelData, firstAlignIdx, data)
         if stackSize == 1 % only cares about the top translation
           numDecoded(sentId) = 1;
           if beamScores(eosIndex) > candScores(sentId)
-            candidates{sentId}{1} = [beamHistory(1:maxLen, eosIndex); params.tgtEos]; % append eos at the end
+            candidates{sentId}{1} = [beamHistory(1:maxLen-1, eosIndex); params.tgtEos]; % append eos at the end
 
             % align
             if params.align
               if params.isReverse
-                alignInfo{sentId}{1} = [alignHistory(1:maxLen, eosIndex); 1];
+                alignInfo{sentId}{1} = [alignHistory(1:maxLen-1, eosIndex); 1];
               else
-                alignInfo{sentId}{1} = [alignHistory(1:maxLen, eosIndex); modelData{1}.srcLens(sentId)-1];
+                alignInfo{sentId}{1} = [alignHistory(1:maxLen-1, eosIndex); modelData{1}.srcLens(sentId)-1];
               end
             end
 
             % char
             if params.charTgtGen
               for mm=1:numModels
-                tranStates{sentId}{mm} = beamHistTopStates{mm}(:, eosIndex, 1:maxLen);
+                tranStates{mm}(:, 1:maxLen-1, sentId) = beamHistTopStates{mm}(:, eosIndex, 1:maxLen-1);
               end
             end
               
@@ -428,6 +434,23 @@ originalSentIndices, modelData, firstAlignIdx, data)
       end
     end
     candidates{sentId}(numDecoded(sentId)+1:end) = [];
+  end
+    
+  % char: now generate words for <unk>
+  if params.charTgtGen % assume all models are char-level models
+    assert(stackSize == 1);
+    assert(numModels == 1); % handle one model for now
+    mm = 1;
+    rareHidStates = zeroMatrix([params.lstmSize, batchSize * maxLen], params.isGPU, params.dataType);
+    numRareWords = 0;
+    for sentId=1:batchSize
+      flags = candidates{sentId}{1} == params.tgtUnk;
+      positions = find(flags);
+      assert(flags(end) == 0);
+      rareHidStates(:, numRareWords+1:numRareWords+length(positions)) = tranStates{mm}(:, positions, sentId);
+      numRareWords = numRareWords + length(positions);
+    end
+    rareHidStates(:, numRareWords+1:end) = [];
   end
 end
 
