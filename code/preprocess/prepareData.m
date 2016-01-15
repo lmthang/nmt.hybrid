@@ -27,8 +27,10 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
       srcLens(srcLens>params.maxSentLen) = params.maxSentLen; 
     end
     srcMaxLen = max(srcLens);
+    srcMinLen = min(srcLens);
   else % mono
     srcMaxLen = 1;
+    srcMinLen = 1;
     srcLens = ones(1, numSents);
   end
   
@@ -80,6 +82,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   end
   
   data.srcMaxLen = srcMaxLen;
+  data.srcMinLen = srcMinLen;
   data.srcLens = srcLens;
   data.tgtLens = tgtLens;
   data.tgtInput = tgtInput;

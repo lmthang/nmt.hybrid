@@ -1,5 +1,4 @@
-%%
-%
+function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, data, params, prevInfo)
 % Decode from an LSTM model.
 %   stackSize: the maximum number of translations we want to get.
 % Output:
@@ -8,9 +7,7 @@
 %
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 %   With help from Hieu Pham.
-%
-%%
-function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, data, params, prevInfo)
+
   % backward compatibility: not a cell, single model, put into a cell format
   if ~iscell(models)
     tmpModels = cell(1, 1);
@@ -27,8 +24,14 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
   params.srcMaxLen = srcMaxLen;
 
   %% init
-  fprintf(2, '# Decoding batch of %d sents, srcMaxLen=%d, %s\n', batchSize, srcMaxLen, datestr(now));
-  fprintf(params.logId, '# Decoding batch of %d sents, srcMaxLen=%d, %s\n', batchSize, srcMaxLen, datestr(now));
+  minLen = floor(data.srcMinLen*params.minLenRatio);
+  if params.forceDecoder
+    maxLen = data.tgtMaxLen;
+  else
+    maxLen = floor(srcMaxLen*params.maxLenRatio);
+  end
+  fprintf(2, '# Decoding batch of %d sents, minLen=%d, maxLen=%d, %s\n', batchSize, minLen, maxLen, datestr(now));
+  fprintf(params.logId, '# Decoding batch of %d sents, minLen=%d, maxLen=%d, %s\n', batchSize, minLen, maxLen, datestr(now));
   
   startTime = clock;
 
@@ -39,7 +42,7 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
   numModels = length(models);
   modelData = cell(numModels, 1);
   zeroStates = cell(numModels, 1);
-  firstAlignIdx = [];
+  % firstAlignIdx = [];
   for mm=1:numModels
     models{mm}.params.curBatchSize = batchSize;
     models{mm}.params.srcMaxLen = srcMaxLen;
@@ -78,6 +81,24 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
   %%%%%%%%%%%%
   %% decode %%
   %%%%%%%%%%%%
+  assert(unique(data.tgtInput(:, 1)) == params.tgtSos);
+  [candidates, candScores, alignInfo, otherInfo.forceDecodeOutputs] = rnnDecoder(models, params, prevStates, minLen, maxLen, beamSize, stackSize, batchSize, ...
+  modelData, data, params.tgtSos);
+
+  endTime = clock;
+  timeElapsed = etime(endTime, startTime);
+  fprintf(2, '  Done, minLen=%d, maxLen=%d, speed %f sents/s, time %.0fs, %s\n', minLen, maxLen, batchSize/timeElapsed, timeElapsed, datestr(now));
+  fprintf(params.logId, '  Done, minLen=%d, maxLen=%d, speed %f sents/s, time %.0fs, %s\n', minLen, maxLen, batchSize/timeElapsed, timeElapsed, datestr(now));
+end
+
+%%
+% Take the initial states, starting symbol, and then decode!
+% This method should be reusable.
+%%
+function [candidates, candScores, alignInfo, forceDecodeOutputs] = rnnDecoder(models, params, prevStates, minLen, maxLen, beamSize, stackSize, batchSize, ...
+  modelData, data, startSos)
+  numModels = length(models);
+  
   % first decoder timestep
   attnInfos = cell(numModels, 1);
   for mm=1:numModels
@@ -87,7 +108,7 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
     end
     
     decRnnFlags = struct('decode', 1, 'test', 1, 'attn', models{mm}.params.attnFunc, 'feedInput', models{mm}.params.feedInput);
-    [prevStates{mm}, attnInfos{mm}] = rnnStepLayerForward(models{mm}.W_tgt, models{mm}.W_emb_tgt(:, modelData{mm}.tgtInput(:, 1)), ...
+    [prevStates{mm}, attnInfos{mm}] = rnnStepLayerForward(models{mm}.W_tgt, models{mm}.W_emb_tgt(:, repmat(startSos, batchSize, 1)), ...
       prevStates{mm}, modelData{mm}.tgtMask(:, 1), models{mm}.params, decRnnFlags, modelData{mm}, models{mm});
   end
  
@@ -95,26 +116,11 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
   if params.align
     [~, firstAlignIdx] = getAlignWeights(attnInfos, data.srcLens, models, params);
   end
-
-  if batchSize==1
-    minLen = floor(srcMaxLen*params.minLenRatio);
-  else
-    minLen = 2;
-  end
-  if params.forceDecoder
-    maxLen = data.tgtMaxLen;
-  else
-    maxLen = floor(srcMaxLen*params.maxLenRatio);
-  end
   
+  % decode the rest
   sentIndices = data.startId:(data.startId+batchSize-1);
-  [candidates, candScores, alignInfo, otherInfo.forceDecodeOutputs] = decodeBatch(models, params, prevStates, minLen, maxLen, beamSize, stackSize, batchSize, ...
+  [candidates, candScores, alignInfo, forceDecodeOutputs] = decodeBatch(models, params, prevStates, minLen, maxLen, beamSize, stackSize, batchSize, ...
     sentIndices, modelData, firstAlignIdx, data);
-  
-  endTime = clock;
-  timeElapsed = etime(endTime, startTime);
-  fprintf(2, '  Done, minLen=%d, maxLen=%d, speed %f sents/s, time %.0fs, %s\n', minLen, maxLen, batchSize/timeElapsed, timeElapsed, datestr(now));
-  fprintf(params.logId, '  Done, minLen=%d, maxLen=%d, speed %f sents/s, time %.0fs, %s\n', minLen, maxLen, batchSize/timeElapsed, timeElapsed, datestr(now));
 end
 
 %%
