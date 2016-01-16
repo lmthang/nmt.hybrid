@@ -10,10 +10,14 @@ function printDecodeResults(decodeData, candidates, candScores, alignInfo, other
     assert(isempty(find(translation>params.tgtVocabSize, 1)));
     
     if isOutput
-      if params.forceDecoder
-        printSent(params.fid, otherInfo.forceDecodeOutputs(1:decodeData.tgtLens(ii)-1, ii), params.tgtVocab, '');
+      if params.charTgtGen
+        printSentChar(params.fid, translation(1:end-1), params.tgtVocab, '', otherInfo.rarePositions{ii}, otherInfo.rareWords{ii}); % remove <t_eos>
       else
-        printSent(params.fid, translation(1:end-1), params.tgtVocab, ''); % remove <t_eos>
+        if params.forceDecoder
+          printSent(params.fid, otherInfo.forceDecodeOutputs(1:decodeData.tgtLens(ii)-1, ii), params.tgtVocab, '');
+        else
+          printSent(params.fid, translation(1:end-1), params.tgtVocab, ''); % remove <t_eos>
+        end
       end
     end
 
@@ -21,6 +25,9 @@ function printDecodeResults(decodeData, candidates, candScores, alignInfo, other
     printSrc(params.logId, decodeData, ii, params, startId+ii-1);
     printRef(params.logId, decodeData, ii, params, startId+ii-1);
     printSent(params.logId, translation, params.tgtVocab, ['  tgt ' num2str(startId+ii-1) ': ']);    
+    if params.charTgtGen
+      printSentChar(params.logId, translation, params.tgtVocab, ['  tgt char' num2str(startId+ii-1) ': '], otherInfo.rarePositions{ii}, otherInfo.rareWords{ii});    
+    end
     % align
     if params.align
       alignment = alignInfo{ii}{bestId};
@@ -38,6 +45,10 @@ function printDecodeResults(decodeData, candidates, candScores, alignInfo, other
     if params.forceDecoder
       printSent(2, otherInfo.forceDecodeOutputs(1:decodeData.tgtLens(ii)-1, ii), params.tgtVocab, ['  fdc ' num2str(startId+ii-1) ': ']);
     end
+    if params.charTgtGen
+      printSentChar(2, translation, params.tgtVocab, ['  tgt char ' num2str(startId+ii-1) ': '], otherInfo.rarePositions{ii}, otherInfo.rareWords{ii});
+    end
+    
     % align
     if params.align
       printAlign(2, translation, decodeData, alignment, params, ii, startId+ii-1, 1);

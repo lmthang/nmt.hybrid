@@ -1,5 +1,4 @@
-%%
-%
+function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, data, params)
 % Decode from an LSTM model.
 %   stackSize: the maximum number of translations we want to get.
 % Output:
@@ -8,9 +7,7 @@
 %
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 %   With help from Hieu Pham.
-%
-%%
-function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, data, params)
+
   % backward compatibility: not a cell, single model, put into a cell format
   if ~iscell(models)
     tmpModels = cell(1, 1);
@@ -27,8 +24,14 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
   params.srcMaxLen = srcMaxLen;
 
   %% init
-  fprintf(2, '# Decoding batch of %d sents, srcMaxLen=%d, %s\n', batchSize, srcMaxLen, datestr(now));
-  fprintf(params.logId, '# Decoding batch of %d sents, srcMaxLen=%d, %s\n', batchSize, srcMaxLen, datestr(now));
+  minLen = floor(data.srcMinLen*params.minLenRatio);
+  if params.forceDecoder
+    maxLen = data.tgtMaxLen;
+  else
+    maxLen = floor(srcMaxLen*params.maxLenRatio);
+  end
+  fprintf(2, '# Decoding batch of %d sents, minLen=%d, maxLen=%d, %s\n', batchSize, minLen, maxLen, datestr(now));
+  fprintf(params.logId, '# Decoding batch of %d sents, minLen=%d, maxLen=%d, %s\n', batchSize, minLen, maxLen, datestr(now));
   
   startTime = clock;
 
@@ -39,7 +42,7 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
   numModels = length(models);
   modelData = cell(numModels, 1);
   zeroStates = cell(numModels, 1);
-  firstAlignIdx = [];
+  % firstAlignIdx = [];
   for mm=1:numModels
     models{mm}.params.curBatchSize = batchSize;
     models{mm}.params.srcMaxLen = srcMaxLen;
@@ -55,42 +58,115 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
     [~, prevStates{mm}, ~, modelData{mm}, ~] = encoderLayerForward(models{mm}, zeroStates{mm}, modelData{mm}, models{mm}.params, 1);
   end
 
-
   %%%%%%%%%%%%
   %% decode %%
   %%%%%%%%%%%%
-  % first decoder timestep
-  attnInfos = cell(numModels, 1);
-  for mm=1:numModels
-    decRnnFlags = struct('decode', 1, 'test', 1, 'attn', models{mm}.params.attnFunc, 'feedInput', models{mm}.params.feedInput);
-    [prevStates{mm}, attnInfos{mm}] = rnnStepLayerForward(models{mm}.W_tgt, models{mm}.W_emb_tgt(:, modelData{mm}.tgtInput(:, 1)), ...
-      prevStates{mm}, modelData{mm}.tgtMask(:, 1), models{mm}.params, decRnnFlags, modelData{mm}, models{mm});
-  end
- 
-  % output alignment
-  if params.align
-    [~, firstAlignIdx] = getAlignWeights(attnInfos, data.srcLens, models, params);
-  end
+  [candidates, candScores, alignInfo, otherInfo] = rnnDecoder(models, params, prevStates, minLen, maxLen, beamSize, stackSize, batchSize, ...
+  modelData, data, params.tgtEos, 0, []);
+  
+  % char: now generate words for <unk>
+  if params.charTgtGen % assume all models are char-level models
+    assert(stackSize == 1);
+    assert(numModels == 1); % handle one model for now
+    
+    % prepare starting states
+    mm = 1;
+    char_initEmb = zeroMatrix([params.lstmSize, batchSize * maxLen], params.isGPU, params.dataType);
+    numRareWords = 0;
+    otherInfo.rarePositions = cell(batchSize, 1);
+    for sentId=1:batchSize
+      flags = candidates{sentId}{1} == params.tgtUnk;
+      positions = find(flags);
+      assert(flags(end) == 0);
+      char_initEmb(:, numRareWords+1:numRareWords+length(positions)) = otherInfo.transStates{mm}(:, positions, sentId);
+      numRareWords = numRareWords + length(positions);
+      otherInfo.rarePositions{sentId} = positions;
+    end
+    char_initEmb(:, numRareWords+1:end) = [];
+    
+    otherInfo.numRareWords = numRareWords;
+    otherInfo.rareWords = cell(batchSize, 1);
+    if numRareWords
+      % char params
+      char_params = params;
+      char_params.numLayers = params.charNumLayers;
+      char_params.curBatchSize = numRareWords;
+      char_params.tgtVocab = params.tgtCharVocab;
 
-  if batchSize==1
-    minLen = floor(srcMaxLen*params.minLenRatio);
-  else
-    minLen = 2;
-  end
-  if params.forceDecoder
-    maxLen = data.tgtMaxLen;
-  else
-    maxLen = floor(srcMaxLen*params.maxLenRatio);
+      % model
+      char_models = cell(numModels, 1);
+      char_models{mm}.W_tgt = models{mm}.W_tgt_char;
+      char_models{mm}.W_emb_tgt = models{mm}.W_emb_tgt_char;
+      char_models{mm}.W_soft = models{mm}.W_soft_char;
+      char_models{mm}.params = char_params;
+
+      % prev states
+      char_minLen = 2;
+      char_maxLen = 20;
+      char_modelData = cell(numModels, 1);
+      char_prevStates = cell(numModels, 1);
+      char_prevStates{mm} = createZeroState(char_params);
+      [char_candidates, ~, ~, ~] = rnnDecoder(char_models, char_params, char_prevStates, char_minLen, ...
+        char_maxLen, beamSize, stackSize, numRareWords, char_modelData, [], params.tgtCharEos, 1, char_initEmb);
+      
+      % get words
+      count = 0;
+      for sentId=1:batchSize
+        numCharWords = length(otherInfo.rarePositions{sentId});
+        otherInfo.rareWords{sentId} = cell(numCharWords, 1);
+        for jj=1:numCharWords
+          otherInfo.rareWords{sentId}{jj} = [params.tgtCharVocab{char_candidates{count+jj}{1}(1:end-1)}];
+        end
+        count = count + numCharWords;
+      end
+    end
   end
   
-  sentIndices = data.startId:(data.startId+batchSize-1);
-  [candidates, candScores, alignInfo, otherInfo] = decodeBatch(models, params, prevStates, minLen, maxLen, beamSize, stackSize, batchSize, ...
-    sentIndices, modelData, firstAlignIdx, data);
   endTime = clock;
   timeElapsed = etime(endTime, startTime);
   fprintf(2, '  Done, minLen=%d, maxLen=%d, speed %f sents/s, time %.0fs, %s\n', minLen, maxLen, batchSize/timeElapsed, timeElapsed, datestr(now));
   fprintf(params.logId, '  Done, minLen=%d, maxLen=%d, speed %f sents/s, time %.0fs, %s\n', minLen, maxLen, batchSize/timeElapsed, timeElapsed, datestr(now));
 end
+
+%%
+% Take the initial states, starting symbol, and then decode!
+% This method should be reusable.
+%%
+function [candidates, candScores, alignInfo, otherInfo] = rnnDecoder(models, params, prevStates, minLen, maxLen, beamSize, stackSize, ...
+  batchSize, modelData, data, tgtEos, isChar, charEmb)
+  numModels = length(models);
+  
+  % first decoder timestep
+  attnInfos = cell(numModels, 1);
+  firstAlignIdx = [];
+  for mm=1:numModels
+    % char
+    if isChar
+      assert(mm==1); % only support one model for now
+      initEmb = charEmb;
+    else
+      initEmb = models{mm}.W_emb_tgt(:, repmat(models{mm}.params.tgtSos, batchSize, 1));
+    end
+    
+    decRnnFlags = struct('decode', 1, 'test', 1, 'attn', models{mm}.params.attnFunc, 'feedInput', models{mm}.params.feedInput);
+    [prevStates{mm}, attnInfos{mm}] = rnnStepLayerForward(models{mm}.W_tgt, initEmb, ...
+      prevStates{mm}, ones(batchSize, 1), models{mm}.params, decRnnFlags, modelData{mm}, models{mm});
+  end
+ 
+  % output alignment
+  if params.align && isChar == 0
+    [~, firstAlignIdx] = getAlignWeights(attnInfos, data.srcLens, models, params);
+  end
+  
+  if isChar
+    sentIndices = 1:batchSize;
+  else
+    sentIndices = data.startId:(data.startId+batchSize-1);
+  end
+  [candidates, candScores, alignInfo, otherInfo] = decodeBatch(models, params, prevStates, minLen, maxLen, beamSize, stackSize, batchSize, ...
+    sentIndices, modelData, firstAlignIdx, data, tgtEos, isChar);
+end
+
 
 %%
 % Beam decoder from an LSTM model, works for multiple sentences
@@ -101,7 +177,7 @@ end
 %   - stackSize: maximum number of translations collected for one example
 %%
 function [candidates, candScores, alignInfo, otherInfo] = decodeBatch(models, params, prevStates, minLen, maxLen, beamSize, stackSize, batchSize, ...
-originalSentIndices, modelData, firstAlignIdx, data)
+originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
   numElements = batchSize*beamSize;
   
   candidates = cell(batchSize, 1);
@@ -112,14 +188,15 @@ originalSentIndices, modelData, firstAlignIdx, data)
   end
   
   numModels = length(models);
+  otherInfo = [];
   
   % char
   if params.charTgtGen
     assert(stackSize == 1);
     % store translation states of the best translation over all models
-    transStates = cell(batchSize, 1);
+    otherInfo.transStates = cell(batchSize, 1);
     for ii=1:batchSize
-      transStates{ii} = cell(numModels, 1);
+      otherInfo.transStates{ii} = cell(numModels, 1);
     end
   end
   
@@ -134,7 +211,6 @@ originalSentIndices, modelData, firstAlignIdx, data)
   end
   
   %% first prediction
-  otherInfo = [];
   % scores, words: beamSize * batchSize
   if params.forceDecoder
     [scores, words, otherData] = nextBeamStep(models, prevStates, beamSize, data.tgtOutput(:, 1)); 
@@ -144,7 +220,7 @@ originalSentIndices, modelData, firstAlignIdx, data)
     [scores, words] = nextBeamStep(models, prevStates, beamSize);
   end
 
-  % TODO: by right, we should filter out words == params.tgtEos, but I
+  % TODO: by right, we should filter out words == tgtEos, but I
   % think for good models, we don't have to worry :)
   
   %% matrix dimension note
@@ -188,18 +264,21 @@ originalSentIndices, modelData, firstAlignIdx, data)
   
 
   oneMask = ones(1, numElements);
-  data.srcLens = reshape(repmat(data.srcLens, beamSize, 1), 1, []);
+  
+  if isChar == 0
+    data.srcLens = reshape(repmat(data.srcLens, beamSize, 1), 1, []);
 
-  % attentional / positional models
-  for mm=1:numModels % model
-    if models{mm}.params.attnFunc
-      models{mm}.params.curBatchSize = numElements;
-    
-      modelData{mm}.curBatchSize = numElements;
-      modelData{mm}.srcLens = reshape(repmat(modelData{mm}.srcLens, beamSize, 1), 1, []);
-      
-      % duplicate srcHidVecs
-      modelData{mm}.srcHidVecsOrig = duplicateSrcHidVecs(modelData{mm}.srcHidVecsOrig, batchSize, beamSize);
+    % attentional / positional models
+    for mm=1:numModels % model
+      if models{mm}.params.attnFunc
+        models{mm}.params.curBatchSize = numElements;
+
+        modelData{mm}.curBatchSize = numElements;
+        modelData{mm}.srcLens = reshape(repmat(modelData{mm}.srcLens, beamSize, 1), 1, []);
+
+        % duplicate srcHidVecs
+        modelData{mm}.srcHidVecsOrig = duplicateSrcHidVecs(modelData{mm}.srcHidVecsOrig, batchSize, beamSize);
+      end
     end
   end
   
@@ -219,10 +298,10 @@ originalSentIndices, modelData, firstAlignIdx, data)
   
   % char
   if params.charTgtGen
-    transStates = cell(numModels, 1);
+    otherInfo.transStates = cell(numModels, 1);
     for mm=1:numModels
       assert(models{mm}.params.charTgtGen == 1);
-      transStates{mm} = zeroMatrix([models{mm}.params.lstmSize, maxLen-1, batchSize], params.isGPU, params.dataType);
+      otherInfo.transStates{mm} = zeroMatrix([models{mm}.params.lstmSize, maxLen-1, batchSize], params.isGPU, params.dataType);
     end
   end
   
@@ -271,7 +350,7 @@ originalSentIndices, modelData, firstAlignIdx, data)
       bestWords = allBestWords(rowIndices, sentId);
       
       % get candidates
-      selectedIndices = find(bestWords~=params.tgtEos, beamSize);
+      selectedIndices = find(bestWords~=tgtEos, beamSize);
       if ~isempty(selectedIndices)
         % update words
         startId = (sentId-1)*beamSize+1;
@@ -293,10 +372,10 @@ originalSentIndices, modelData, firstAlignIdx, data)
         beamScores(startId:endId) = allBestScores(selectedIndices, sentId);
 
         % get words that are eos and ranked before the last hypothesis in the next beam
-        endIndices = find(bestWords(1:selectedIndices(end))==params.tgtEos); 
+        endIndices = find(bestWords(1:selectedIndices(end))==tgtEos); 
       else % special case, happen for beamSize = 1, useful for force decoding
         assert(beamSize == 1);
-        assert(bestWords == params.tgtEos);
+        assert(bestWords == tgtEos);
         if doneFlags(sentId) == 1
           continue;
         else
@@ -318,7 +397,7 @@ originalSentIndices, modelData, firstAlignIdx, data)
             if transScores(ii) > candScores(sentId)
               candScores(sentId) = transScores(ii);
               
-              candidates{sentId}{1} = [beamHistory(1:sentPos, histIndices(ii)); params.tgtEos];
+              candidates{sentId}{1} = [beamHistory(1:sentPos, histIndices(ii)); tgtEos];
               % align
               if params.align
                 alignInfo{sentId}{1} = [alignHistory(1:sentPos, histIndices(ii)); beamAlignIds(histIndices(ii))];
@@ -327,7 +406,7 @@ originalSentIndices, modelData, firstAlignIdx, data)
               % char
               if params.charTgtGen
                 for mm=1:numModels
-                  tranStates{mm}(:, 1:sentPos, sentId) = beamHistTopStates{mm}(:, histIndices(ii), 1:sentPos);
+                  otherInfo.transStates{mm}(:, 1:sentPos, sentId) = beamHistTopStates{mm}(:, histIndices(ii), 1:sentPos);
                 end
               end
             end
@@ -336,7 +415,7 @@ originalSentIndices, modelData, firstAlignIdx, data)
               numDecoded(sentId) = numDecoded(sentId) + 1;
               candScores(numDecoded(sentId), sentId) = transScores(ii);
 
-              candidates{sentId}{numDecoded(sentId)} = [beamHistory(1:sentPos, histIndices(ii)); params.tgtEos];
+              candidates{sentId}{numDecoded(sentId)} = [beamHistory(1:sentPos, histIndices(ii)); tgtEos];
               % align
               if params.align
                 alignInfo{sentId}{numDecoded(sentId)} = [alignHistory(1:sentPos, histIndices(ii)); beamAlignIds(histIndices(ii))];
@@ -388,14 +467,14 @@ originalSentIndices, modelData, firstAlignIdx, data)
   
   for sentId=1:batchSize
     if numDecoded(sentId) == 0 % no translations found, use what we have in the beam
-      fprintf(2, '  ! Sent %d: no translations end in eos\n', originalSentIndices(sentId));
+      fprintf(2, '  ! Sent %d: no translations end in %s\n', originalSentIndices(sentId), params.tgtVocab{tgtEos});
       for bb = 1:beamSize
         eosIndex = (sentId-1)*beamSize + bb;
         
         if stackSize == 1 % only cares about the top translation
           numDecoded(sentId) = 1;
           if beamScores(eosIndex) > candScores(sentId)
-            candidates{sentId}{1} = [beamHistory(1:maxLen-1, eosIndex); params.tgtEos]; % append eos at the end
+            candidates{sentId}{1} = [beamHistory(1:maxLen-1, eosIndex); tgtEos]; % append eos at the end
 
             % align
             if params.align
@@ -409,7 +488,7 @@ originalSentIndices, modelData, firstAlignIdx, data)
             % char
             if params.charTgtGen
               for mm=1:numModels
-                tranStates{mm}(:, 1:maxLen-1, sentId) = beamHistTopStates{mm}(:, eosIndex, 1:maxLen-1);
+                otherInfo.transStates{mm}(:, 1:maxLen-1, sentId) = beamHistTopStates{mm}(:, eosIndex, 1:maxLen-1);
               end
             end
               
@@ -417,7 +496,7 @@ originalSentIndices, modelData, firstAlignIdx, data)
           end
         else
           numDecoded(sentId) = numDecoded(sentId) + 1;
-          candidates{sentId}{numDecoded(sentId)} = [beamHistory(1:maxLen, eosIndex); params.tgtEos]; % append eos at the end
+          candidates{sentId}{numDecoded(sentId)} = [beamHistory(1:maxLen, eosIndex); tgtEos]; % append eos at the end
 
           % align
           if params.align
@@ -434,23 +513,6 @@ originalSentIndices, modelData, firstAlignIdx, data)
       end
     end
     candidates{sentId}(numDecoded(sentId)+1:end) = [];
-  end
-    
-  % char: now generate words for <unk>
-  if params.charTgtGen % assume all models are char-level models
-    assert(stackSize == 1);
-    assert(numModels == 1); % handle one model for now
-    mm = 1;
-    rareHidStates = zeroMatrix([params.lstmSize, batchSize * maxLen], params.isGPU, params.dataType);
-    numRareWords = 0;
-    for sentId=1:batchSize
-      flags = candidates{sentId}{1} == params.tgtUnk;
-      positions = find(flags);
-      assert(flags(end) == 0);
-      rareHidStates(:, numRareWords+1:numRareWords+length(positions)) = tranStates{mm}(:, positions, sentId);
-      numRareWords = numRareWords + length(positions);
-    end
-    rareHidStates(:, numRareWords+1:end) = [];
   end
 end
 
