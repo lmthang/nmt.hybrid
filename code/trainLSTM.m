@@ -61,6 +61,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   
   % char-based models
   addOptional(p,'charOpt', 0, @isnumeric); % 1: character-based source representation only, 2: character-based target generation, 3: combined both 1 and 2.
+  addOptional(p,'charWeight', 1, @isnumeric); % to weight char loss
   addOptional(p,'srcCharShortList', 0, @isnumeric); % list of frequent words after which we will learn compositions from characters
   addOptional(p,'tgtCharShortList', 0, @isnumeric); % list of frequent words after which we will learn compositions from characters
   addOptional(p,'srcCharPrefix', '', @ischar);
@@ -326,7 +327,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       % decoder
       model.W_emb_tgt(:, grad.indices_tgt) = model.W_emb_tgt(:, grad.indices_tgt) - scaleLr*grad.W_emb_tgt;
       
-      % charOpt
+      % char
       if params.charSrcRep
         model.W_emb_src_char(:, grad.indices_src_char) = model.W_emb_src_char(:, grad.indices_src_char) - scaleLr*grad.W_emb_src_char;  
       end

@@ -75,7 +75,15 @@ function [costs, grad, numChars] = lstmCostGrad(model, trainData, params, isTest
     % char softmax
     charTgtOutput = [tgtCharData.batch(:, 2:end) params.tgtCharEos*ones(tgtCharData.numSeqs, 1)];
     [costs.char, grad.W_soft_char, topGrads_char] = softmaxCostGrad(tgtCharData.states, model.W_soft_char, charTgtOutput, tgtCharData.mask, ...
-    params, isTest);
+      params, isTest);
+    
+    % scale char cost / grad
+    costs.char = params.charWeight * costs.char;
+    grad.W_soft_char = params.charWeight * grad.W_soft_char;
+    for tt=1:length(topGrads_char)
+      topGrads_char{tt} = params.charWeight * topGrads_char{tt};
+    end
+    
     costs.total = costs.total + costs.char;
   end
   
