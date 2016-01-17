@@ -5,11 +5,11 @@ function [params] = evalValidTest(model, validData, testData, params)
   [testCosts, numChars] = evalCost(model, testData, params);
   testData.numChars = numChars;
   
-  validCounts = initCosts();
+  validCounts = initCosts(params);
   validCounts = updateCounts(validCounts, validData);
   validCosts = scaleCosts(validCosts, validCounts);
   
-  testCounts = initCosts();
+  testCounts = initCosts(params);
   testCounts = updateCounts(testCounts, testData);
   testCosts = scaleCosts(testCosts, testCounts);
   
@@ -55,7 +55,7 @@ function [evalCosts, totalNumChars] = evalCost(model, data, params) %input, inpu
   numSents = size(data.tgtInput, 1);
   numBatches = floor((numSents-1)/params.batchSize) + 1;
 
-  [evalCosts] = initCosts();
+  evalCosts = initCosts(params);
   trainData.srcMaxLen = data.srcMaxLen;
   trainData.tgtMaxLen = data.tgtMaxLen;
   totalNumChars = 0;

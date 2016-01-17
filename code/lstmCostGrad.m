@@ -15,7 +15,7 @@ function [costs, grad, numChars] = lstmCostGrad(model, trainData, params, isTest
   curBatchSize = size(trainData.tgtInput, 1);
   if params.isBi
     srcMaxLen = trainData.srcMaxLen;
-  else % monolingual
+  else
     srcMaxLen = 1;
   end
   
@@ -26,11 +26,11 @@ function [costs, grad, numChars] = lstmCostGrad(model, trainData, params, isTest
   [grad, params] = initGrad(model, params);
   zeroBatch = zeroMatrix([params.lstmSize, params.curBatchSize], params.isGPU, params.dataType);
   
-  % initState
+  % init states
   [zeroState] = createZeroState(params);
   
   % init costs
-  costs = initCosts();
+  costs = initCosts(params);
     
   % char
   if params.charOpt
@@ -70,18 +70,68 @@ function [costs, grad, numChars] = lstmCostGrad(model, trainData, params, isTest
     % char rnn
     [tgtCharData] = tgtCharLayerForward(model.W_tgt_char, model.W_emb_tgt_char, trainData.origTgtOutput, trainData.tgtHidVecs, params.tgtCharMap, ...
           params, isTest);
-    numChars = tgtCharData.numSeqs;
+    numChars = tgtCharData.numChars;
     
     % char softmax
-    charTgtOutput = [tgtCharData.batch(:, 2:end) params.tgtCharEos*ones(tgtCharData.numSeqs, 1)];
-    [costs.char, grad.W_soft_char, topGrads_char] = softmaxCostGrad(tgtCharData.states, model.W_soft_char, charTgtOutput, tgtCharData.mask, ...
-      params, isTest);
+    costs.char = 0.0;
+    grad_init_emb = zeroMatrix([params.lstmSize, tgtCharData.numRareWords], params.isGPU, params.dataType);
+    grad.W_emb_tgt_char = zeroMatrix([params.lstmSize, tgtCharData.numRareWords*10], params.isGPU, params.dataType);
+    grad.indices_tgt_char = zeros(tgtCharData.numRareWords*10, 1);
+    charCount = 0;
+    rareWordCount = 0;
+    for ii=1:tgtCharData.numBatches
+      batchCharData = tgtCharData.batches{ii};
+      charTgtOutput = [batchCharData.batch(:, 2:end) params.tgtCharEos*ones(batchCharData.numSeqs, 1)];
+      [cost_char, grad_W_soft_char, topGrads_char] = softmaxCostGrad(batchCharData.states, model.W_soft_char, charTgtOutput, batchCharData.mask, ...
+        params, isTest);
     
-    % scale char cost / grad
-    costs.char = params.charWeight * costs.char;
-    grad.W_soft_char = params.charWeight * grad.W_soft_char;
-    for tt=1:length(topGrads_char)
-      topGrads_char{tt} = params.charWeight * topGrads_char{tt};
+      % cost
+      costs.char = costs.char + params.charWeight * cost_char;
+      
+      % backprop
+      if isTest==0
+        % W_soft_char
+        if ii==1
+          grad.W_soft_char = params.charWeight * grad_W_soft_char;
+        else
+          grad.W_soft_char = grad.W_soft_char + params.charWeight * grad_W_soft_char;
+        end
+
+        % topGrads_char
+        for tt=1:length(topGrads_char)
+          topGrads_char{tt} = params.charWeight * topGrads_char{tt};
+        end
+
+        % char back prop
+        [grad_W_tgt_char, grad_W_emb_tgt_char_batch, indices_tgt_char_batch, grad_init_emb_batch] = tgtCharLayerBackprop(...
+          model.W_tgt_char, batchCharData, topGrads_char);
+        % W_tgt_char
+        if ii==1
+          grad.W_tgt_char = grad_W_tgt_char;
+        else
+          for ll=1:length(grad.W_tgt_char)
+            grad.W_tgt_char{ll} = grad.W_tgt_char{ll} + grad_W_tgt_char{ll};
+          end
+        end
+        % char emb
+        numDistinctChars = length(indices_tgt_char_batch);
+        grad.W_emb_tgt_char(:, charCount+1:charCount+numDistinctChars) = grad_W_emb_tgt_char_batch;
+        grad.indices_tgt_char(charCount+1:charCount+numDistinctChars) = indices_tgt_char_batch;
+        charCount = charCount + numDistinctChars;
+        % init emb
+        grad_init_emb(:, rareWordCount+1:rareWordCount+batchCharData.params.curBatchSize) = grad_init_emb_batch;
+        rareWordCount = rareWordCount + batchCharData.params.curBatchSize;
+      end
+    end % for batch
+    
+    % test
+    if isTest==0
+      grad.W_emb_tgt_char(:, charCount+1:end) = [];
+      grad.indices_tgt_char(charCount+1:end) = [];
+      [grad.W_emb_tgt_char, grad.indices_tgt_char] = aggregateMatrix(grad.W_emb_tgt_char, grad.indices_tgt_char, params.isGPU, params.dataType);
+
+      % due to sorting
+      grad_init_emb(:, tgtCharData.sortedIndices) = grad_init_emb;
     end
     
     costs.total = costs.total + costs.char;
@@ -102,19 +152,15 @@ function [costs, grad, numChars] = lstmCostGrad(model, trainData, params, isTest
   
   %% char
   if params.charTgtGen
-    % char back prop
-    [grad.W_tgt_char, grad.W_emb_tgt_char, grad.indices_tgt_char, grad_init_emb] = tgtCharLayerBackprop(model.W_tgt_char, tgtCharData, ...
-      topGrads_char);
-    
     % add top grads from tgt char
-    count = 0;
+    charCount = 0;
     assert(length(dec_top_grads) == size(tgtCharData.rareFlags, 2));
     for tt=1:length(dec_top_grads)
       rareIndices = find(tgtCharData.rareFlags(:, tt));
-      dec_top_grads{tt}(:, rareIndices) = dec_top_grads{tt}(:, rareIndices) + grad_init_emb(:, count+1:count+length(rareIndices));
-      count = count + length(rareIndices);
+      dec_top_grads{tt}(:, rareIndices) = dec_top_grads{tt}(:, rareIndices) + grad_init_emb(:, charCount+1:charCount+length(rareIndices));
+      charCount = charCount + length(rareIndices);
     end
-    assert(count == tgtCharData.numSeqs);
+    assert(charCount == tgtCharData.numRareWords);
   end
   
   %% decoder

@@ -366,8 +366,8 @@ function [params] = initTrainParams(params)
   params.iter = 0;  % number of batches we have processed
   params.epochBatchCount = 0;
   params.finetuneCount = 0;
-  params.trainCounts = initCosts();
-  params.trainCosts = initCosts();
+  params.trainCounts = initCosts(params);
+  params.trainCosts = initCosts(params);
 end
 
 %% Init model parameters

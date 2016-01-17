@@ -1,4 +1,4 @@
-function [batch, mask, maxLen, numSeqs] = rightPad(seqs, padSymbol, varargin)
+function [batch, mask, maxLen, numSeqs] = rightPad(seqs, lens, padSymbol, varargin)
 % Right padding the data so that all sequences have the same length.
 % Optionally, we can append the sos symbol through the third argument.
 % Input:
@@ -12,7 +12,7 @@ function [batch, mask, maxLen, numSeqs] = rightPad(seqs, padSymbol, varargin)
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 
   numSeqs = length(seqs);
-  lens = cellfun(@(x) length(x), seqs);
+  % lens = cellfun(@(x) length(x), seqs);
   maxLen = max(lens);
   
   % append sos
