@@ -204,7 +204,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.modelRecentFile = [outDir '/modelRecent.mat'];
   [model, params] = initLoadModel(params);
   % for backward compatibility  
-  [params] = backwardCompatible(params, {'epochIter', 'saveHDF'});
+  [params] = backwardCompatible(params, {'epochIter', 'saveHDF'}, 0);
+  [params] = backwardCompatible(params, {'charWeight'}, 1.0);
 
   % print
   printParams(1, params);

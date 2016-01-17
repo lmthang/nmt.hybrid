@@ -75,7 +75,7 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
     if (isfield(models{mm}.params,'softmaxFeedInput')) && (~isfield(models{mm}.params,'feedInput'))
       models{mm}.params.feedInput = models{mm}.params.softmaxFeedInput;
     end
-    [models{mm}.params] = backwardCompatible(models{mm}.params, {'charOpt', 'charSrcRep', 'charTgtGen'});
+    [models{mm}.params] = backwardCompatible(models{mm}.params, {'charOpt', 'charSrcRep', 'charTgtGen'}, 0);
         
     % load vocabs
     [models{mm}.params] = prepareVocabs(models{mm}.params);
