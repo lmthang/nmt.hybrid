@@ -1,4 +1,4 @@
-function [batch, mask, maxLen, numSeqs] = leftPad(seqs, padSymbol, varargin)
+function [batch, mask, maxLen, numSeqs] = leftPad(seqs, lens, padSymbol, varargin)
 % Left padding the data so that all sequences have the same length.
 % Optionally, we can append the eos symbol through the third argument.
 % Input:
@@ -12,7 +12,7 @@ function [batch, mask, maxLen, numSeqs] = leftPad(seqs, padSymbol, varargin)
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 
   numSeqs = length(seqs);
-  lens = cellfun(@(x) length(x), seqs);
+  % lens = cellfun(@(x) length(x), seqs);
   maxLen = max(lens);
   
   % append eos

@@ -87,11 +87,6 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   
   % sanity check
   if params.assert
-    % the last src symbol needs to be eos for all sentences
-    if params.isBi
-      assert(length(unique(srcInput(:, srcMaxLen)))==1); 
-    end
-    
-    assert(numWords == sum(tgtLens));
+    assert(data.numWords == sum(tgtLens));
   end
 end

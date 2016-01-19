@@ -20,19 +20,8 @@ function [charData] = srcCharLayerForward(W_rnn, W_emb, input, charMap, vocabSiz
   charSeqs = charMap(rareWords);
   seqLens = cellfun(@(x) length(x), charSeqs);
   
-%   charData.params.curBatchSize = length(rareWords);
-  
   if ~isempty(rareWords)    
-    [charData] = multiBatchCharLayerForward(W_rnn, W_emb, charSeqs, seqLens, charData, params, isTest, 0, []);
-    
-%     % TODO: sort & split batches
-%     [charData.batch, charData.mask, charData.maxLen, charData.numSeqs] = leftPad(charMap(rareWords), params.srcCharSos, params.srcCharEos);
-%     
-%     charData.rnnFlags = struct('decode', 0, 'test', isTest, 'attn', 0, 'feedInput', 0, 'charSrcRep', 0, 'charTgtGen', 0, 'initEmb', []);
-%     zeroState = createZeroState(charData.params);
-%     [charData.states, ~, ~] = rnnLayerForward(W_rnn, W_emb, zeroState, charData.batch, charData.mask, charData.params, charData.rnnFlags, [], [], []);
-%     charData.rareWordReps = charData.states{end}{end}.h_t;
-    
+    [charData] = multiBatchCharLayerForward(W_rnn, W_emb, charSeqs, seqLens, charData, params, isTest, 0, []);    
     charData.rareWordReps = zeroMatrix([params.lstmSize, charData.numRareWords], params.isGPU, params.dataType);
     count = 0;
     for bb=1:charData.numBatches
@@ -46,17 +35,20 @@ function [charData] = srcCharLayerForward(W_rnn, W_emb, input, charMap, vocabSiz
     
     charData.rareWordMap = zeros(vocabSize, 1);
     charData.rareWordMap(rareWords) = 1:length(rareWords);
+    
+    % assert: compare with non-multi batch
+    if params.assert
+      charData1.params = charData.params;
+      charData1.params.curBatchSize = length(rareWords);
+      [charData1.batch, charData1.mask, charData1.maxLen, charData1.numSeqs] = leftPad(charMap(rareWords), seqLens, params.srcCharSos, params.srcCharEos);
+      charData1.rnnFlags = struct('decode', 0, 'test', isTest, 'attn', 0, 'feedInput', 0, 'charSrcRep', 0, 'charTgtGen', 0, 'initEmb', []);
+      zeroState = createZeroState(params);
+      [charData1.states, ~, ~] = rnnLayerForward(W_rnn, W_emb, zeroState, charData1.batch, charData1.mask, charData1.params, charData1.rnnFlags, [], [], []);
+      charData1.rareWordReps = charData1.states{end}{end}.h_t;
+      charData1.rareWordMap = zeros(vocabSize, 1);
+      charData1.rareWordMap(rareWords) = 1:length(rareWords);
+    
+      assert(sum(abs(charData.rareWordReps(:) - charData1.rareWordReps(:))) < 1e-10);
+    end
   end
 end
-
-  
-%   assert(isDecoder == 0);
-%   if isDecoder
-%     charData.params.charSos = params.tgtCharSos;
-%     charData.params.charEos = params.tgtCharEos;
-%     charData.rareFlags = input > params.tgtCharShortList;
-%   else  
-%   end
-
-%     [charData.states, charData.batch, charData.mask, charData.maxLen, charData.numSeqs] = char2wordReps(W_rnn, W_emb, ...
-%       rareWords, charMap, charData.params, isTest);

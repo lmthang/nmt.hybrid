@@ -42,8 +42,14 @@ function [charData] = multiBatchCharLayerForward(W_rnn, W_emb, charSeqs, seqLens
     charData.batches{ii}.rnnFlags = struct('decode', isDecode, 'test', isTest, 'attn', 0, 'feedInput', 0, 'charSrcRep', 0, 'charTgtGen', 0, ...
       'initEmb', initEmb);
 
-    [charData.batches{ii}.batch, charData.batches{ii}.mask, charData.batches{ii}.maxLen, charData.batches{ii}.numSeqs] = rightPad(...
-      charSeqs(startId:endId), seqLens(startId:endId), params.tgtCharEos, params.tgtCharSos);
+    if isDecode
+      [charData.batches{ii}.batch, charData.batches{ii}.mask, charData.batches{ii}.maxLen, charData.batches{ii}.numSeqs] = rightPad(...
+        charSeqs(startId:endId), seqLens(startId:endId), params.tgtCharEos, params.tgtCharSos);
+    else
+      [charData.batches{ii}.batch, charData.batches{ii}.mask, charData.batches{ii}.maxLen, charData.batches{ii}.numSeqs] = leftPad(...
+        charSeqs(startId:endId), seqLens(startId:endId), params.srcCharSos, params.srcCharEos);
+    end
+    
     charData.batches{ii}.initState = createZeroState(charParams);
     [charData.batches{ii}.states, ~, ~] = rnnLayerForward(W_rnn, W_emb, charData.batches{ii}.initState, charData.batches{ii}.batch, ...
       charData.batches{ii}.mask, charParams, charData.batches{ii}.rnnFlags, [], [], []);

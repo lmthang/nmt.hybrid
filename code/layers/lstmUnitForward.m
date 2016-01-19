@@ -66,13 +66,6 @@ function [lstmState] = lstmUnitForward(W, x_t, h_t_1, c_t_1, params, rnnFlags)
     end
   end
   
-  
-  % assert
-  if params.assert
-    assert(computeSum(h_t(:, maskedIds), params.isGPU)==0);
-    assert(computeSum(c_t(:, maskedIds), params.isGPU)==0);
-  end
-  
   lstmState.h_t = h_t;
   lstmState.c_t = c_t;
   if (rnnFlags.test==0) % store intermediate results
