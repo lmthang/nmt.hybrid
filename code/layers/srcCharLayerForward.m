@@ -32,7 +32,6 @@ function [charData] = srcCharLayerForward(W_rnn, W_emb, input, charMap, vocabSiz
     
     % note that this rareWordReps has been sorted, so we need to make it right!
     charData.rareWordReps(:, charData.sortedIndices) = charData.rareWordReps;
-    
     charData.rareWordMap = zeros(vocabSize, 1);
     charData.rareWordMap(rareWords) = 1:length(rareWords);
     
@@ -42,7 +41,7 @@ function [charData] = srcCharLayerForward(W_rnn, W_emb, input, charMap, vocabSiz
       charData1.params.curBatchSize = length(rareWords);
       [charData1.batch, charData1.mask, charData1.maxLen, charData1.numSeqs] = leftPad(charMap(rareWords), seqLens, params.srcCharSos, params.srcCharEos);
       charData1.rnnFlags = struct('decode', 0, 'test', isTest, 'attn', 0, 'feedInput', 0, 'charSrcRep', 0, 'charTgtGen', 0, 'initEmb', []);
-      zeroState = createZeroState(params);
+      zeroState = createZeroState(charData1.params);
       [charData1.states, ~, ~] = rnnLayerForward(W_rnn, W_emb, zeroState, charData1.batch, charData1.mask, charData1.params, charData1.rnnFlags, [], [], []);
       charData1.rareWordReps = charData1.states{end}{end}.h_t;
       charData1.rareWordMap = zeros(vocabSize, 1);

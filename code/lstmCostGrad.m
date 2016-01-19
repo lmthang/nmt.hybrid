@@ -105,6 +105,7 @@ function [costs, grad, numChars] = lstmCostGrad(model, trainData, params, isTest
         % char back prop
         [grad_W_tgt_char, grad_W_emb_tgt_char_batch, indices_tgt_char_batch, grad_init_emb_batch] = tgtCharLayerBackprop(...
           model.W_tgt_char, batchCharData, topGrads_char);
+        
         % W_tgt_char
         if ii==1
           grad.W_tgt_char = grad_W_tgt_char;
@@ -113,11 +114,13 @@ function [costs, grad, numChars] = lstmCostGrad(model, trainData, params, isTest
             grad.W_tgt_char{ll} = grad.W_tgt_char{ll} + grad_W_tgt_char{ll};
           end
         end
+        
         % char emb
         numDistinctChars = length(indices_tgt_char_batch);
         grad.W_emb_tgt_char(:, charCount+1:charCount+numDistinctChars) = grad_W_emb_tgt_char_batch;
         grad.indices_tgt_char(charCount+1:charCount+numDistinctChars) = indices_tgt_char_batch;
         charCount = charCount + numDistinctChars;
+        
         % init emb
         grad_init_emb(:, rareWordCount+1:rareWordCount+batchCharData.params.curBatchSize) = grad_init_emb_batch;
         rareWordCount = rareWordCount + batchCharData.params.curBatchSize;
@@ -133,6 +136,12 @@ function [costs, grad, numChars] = lstmCostGrad(model, trainData, params, isTest
       % due to sorting
       grad_init_emb(:, tgtCharData.sortedIndices) = grad_init_emb;
     end
+    
+    clear topGrads_char;
+    clear grad_W_tgt_char;
+    clear grad_W_emb_tgt_char_batch;
+    clear grad_init_emb_batch;
+    clear indices_tgt_char_batch;
     
     costs.total = costs.total + costs.char;
   end
@@ -161,6 +170,8 @@ function [costs, grad, numChars] = lstmCostGrad(model, trainData, params, isTest
       charCount = charCount + length(rareIndices);
     end
     assert(charCount == tgtCharData.numRareWords);
+    clear tgtCharData;
+    clear grad_init_emb;
   end
   
   %% decoder
