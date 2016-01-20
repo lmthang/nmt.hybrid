@@ -62,6 +62,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   % char-based models
   addOptional(p,'charOpt', 0, @isnumeric); % 1: character-based source representation only, 2: character-based target generation, 3: combined both 1 and 2.
   addOptional(p,'charWeight', 1, @isnumeric); % to weight char loss
+  addOptional(p,'charMaxLen', 20, @isnumeric); % to weight char loss
   addOptional(p,'srcCharShortList', 0, @isnumeric); % list of frequent words after which we will learn compositions from characters
   addOptional(p,'tgtCharShortList', 0, @isnumeric); % list of frequent words after which we will learn compositions from characters
   addOptional(p,'srcCharPrefix', '', @ischar);
@@ -181,6 +182,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.charSrcRep = 0;
   params.charTgtGen = 0;
   if params.charOpt
+    assert(params.charMaxLen > 10);
     params.srcCharVocabFile = [params.srcCharPrefix '.char.vocab'];
     params.srcCharMapFile = [params.srcCharPrefix '.char.map'];
     params.tgtCharVocabFile = [params.tgtCharPrefix '.char.vocab'];

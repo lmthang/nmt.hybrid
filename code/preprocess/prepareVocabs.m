@@ -46,10 +46,10 @@ function [params] = prepareVocabs(params)
     % char
     if params.charOpt
       params.srcCharVocab = loadVocab(params.srcCharVocabFile);
-      params.srcCharMap = loadWord2CharMap(params.srcCharMapFile);
+      params.srcCharMap = loadWord2CharMap(params.srcCharMapFile, params.charMaxLen);
 
       params.tgtCharVocab = loadVocab(params.tgtCharVocabFile);
-      params.tgtCharMap = loadWord2CharMap(params.tgtCharMapFile);
+      params.tgtCharMap = loadWord2CharMap(params.tgtCharMapFile, params.charMaxLen);
       
       % sos
       params.srcCharVocab{end+1} = '<c_s>'; % not learn

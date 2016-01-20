@@ -1,4 +1,4 @@
-function [word2charMap] = loadWord2CharMap(mapFile)
+function [word2charMap] = loadWord2CharMap(mapFile, maxLen)
 %% 
 % Thang Luong @ 2015 <lmthang@stanford.edu>
 % Load word2charMap.
@@ -11,6 +11,10 @@ function [word2charMap] = loadWord2CharMap(mapFile)
   ii = 1;
   while ~feof(fid)
     word2charMap{ii} = sscanf(fgetl(fid), '%d') + 1;
+    if length(word2charMap{ii}) > maxLen
+      word2charMap{ii}(maxLen+1:end) = [];
+    end
+    
     ii = ii + 1;
   end
   word2charMap(ii:end) = [];
