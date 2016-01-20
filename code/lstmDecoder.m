@@ -77,7 +77,7 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
     for sentId=1:batchSize
       flags = candidates{sentId}{1} == params.tgtUnk;
       positions = find(flags);
-      assert(flags(end) == 0);
+      % assert(flags(end) == 0);
       char_initEmb(:, numRareWords+1:numRareWords+length(positions)) = otherInfo.transStates{mm}(:, positions, sentId);
       numRareWords = numRareWords + length(positions);
       otherInfo.rarePositions{sentId} = positions;
