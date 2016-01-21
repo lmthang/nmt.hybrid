@@ -182,7 +182,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.charSrcRep = 0;
   params.charTgtGen = 0;
   if params.charOpt
-    assert(params.charMaxLen > 10);
+    assert(params.charMaxLen > 0);
     params.srcCharVocabFile = [params.srcCharPrefix '.char.vocab'];
     params.srcCharMapFile = [params.srcCharPrefix '.char.map'];
     params.tgtCharVocabFile = [params.tgtCharPrefix '.char.vocab'];

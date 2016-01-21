@@ -144,11 +144,13 @@ function [candidates, candScores, alignInfo, otherInfo] = rnnDecoder(models, par
     if isChar
       assert(mm==1); % only support one model for now
       initEmb = charEmb;
+      isFeedInput = 0;
     else
       initEmb = models{mm}.W_emb_tgt(:, repmat(models{mm}.params.tgtSos, batchSize, 1));
+      isFeedInput = models{mm}.params.feedInput;
     end
     
-    decRnnFlags = struct('decode', 1, 'test', 1, 'attn', models{mm}.params.attnFunc, 'feedInput', models{mm}.params.feedInput);
+    decRnnFlags = struct('decode', 1, 'test', 1, 'attn', models{mm}.params.attnFunc, 'feedInput', isFeedInput);
     [prevStates{mm}, attnInfos{mm}] = rnnStepLayerForward(models{mm}.W_tgt, initEmb, ...
       prevStates{mm}, ones(batchSize, 1), models{mm}.params, decRnnFlags, modelData{mm}, models{mm});
   end
