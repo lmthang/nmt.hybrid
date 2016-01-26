@@ -149,23 +149,22 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
     params.batchId = 1;
     params.maxSentLen = 7;
     params.posWin = 1;
-    params.maxRelDist = 2;
   end
   
   %% attention
-  params.attnGlobal = (params.attnFunc==1); % 1: global attention, 0: local attention
-  params.predictPos = (params.attnFunc==4); % 0: monotonic, 1: predictive alignments
+  params.align = (params.attnFunc>0); % for the decoder 
+  params.attnGlobal = 0;
+  params.attnLocalMono = 0;
+  params.attnLocalPred = 0;
   if params.attnFunc>0
     assert(params.attnOpt>0);
-    
-    if params.attnFunc==4 % local attention, predictive alignemtns       
+    params.attnGlobal = (params.attnFunc==1);
+    params.attnLocalMono = (params.attnFunc==2);
+    params.attnLocalPred = (params.attnFunc==4);
+    if params.attnLocalPred % local attention, predictive alignemtns       
       params.distSigma = params.posWin/2.0;
-    elseif params.attnFunc~=1 && params.attnFunc~=2
-      error('Invalid attnFunc option %d\n', params.attnFunc);
     end
   end
-  params.align = (params.attnFunc>0); % for the decoder 
-  
   
   %% log
   assert(strcmp(outDir, '')==0);
@@ -365,8 +364,8 @@ function [model] = initLSTM(params)
   
   %% h_t -> softmax input
   if params.attnFunc>0 % attention mechanism
-    % predict positions
-    if params.predictPos
+    % local attention, predict positions
+    if params.attnLocalPred
       % transform h_t into h_pos = f(W_pos*h_t)
       model.W_pos = initMatrixRange(params.initRange, [params.softmaxSize, params.lstmSize], params.isGPU, params.dataType);
       

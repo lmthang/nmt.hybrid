@@ -42,7 +42,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   
   %% input / output
   if params.isBi
-    srcInput = params.srcSos*ones(numSents, srcMaxLen);
+    srcInput = params.srcSos*ones(numSents, srcMaxLen-1);
   end
   tgtInput = [params.tgtSos*ones(numSents, 1) params.tgtEos*ones(numSents, tgtMaxLen-1)];
   tgtOutput = params.tgtEos*ones(numSents, tgtMaxLen);
@@ -55,7 +55,6 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
     if params.isBi
       srcLen = srcLens(ii)-1; % exclude eos
       srcInput(ii, srcMaxLen-srcLen:srcMaxLen-1) = srcSents{ii}(1:srcLen);      
-      srcInput(ii, srcMaxLen) = params.srcEos;
     end
     
     % tgt
@@ -78,12 +77,6 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   if params.isBi
     data.srcInput = srcInput;
     data.srcMask = srcMask;
-    
-    data.input = [srcInput(:, 1:end-1) tgtInput]; % tgtInput starts with tgtSos so as to be compatible with mono language models
-    data.inputMask = [srcMask(:, 1:end-1) tgtMask];
-  else
-    data.input = tgtInput;
-    data.inputMask = tgtMask;
   end
   
   data.srcMaxLen = srcMaxLen;
@@ -100,17 +93,8 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
     % the last src symbol needs to be eos for all sentences
     if params.isBi
       assert(length(unique(srcInput(:, srcMaxLen)))==1); 
-      assert(srcInput(1, srcMaxLen)==params.srcEos);
     end
     
     assert(numWords == sum(tgtLens));
   end
 end
-
-%     if params.predictNull
-%       data.numNulls = sum(sum(posOutput==params.nullPosId));
-%     end
-
-%   if params.posModel>0
-%     tgtMaxSentLen = (tgtMaxSentLen-1)*2 + 1;
-%   end

@@ -12,7 +12,7 @@
 % TODO move srcMaxLen out
 % IMPORTANT: we assume the sentences are reversed here
 % srcPositions = srcMaxLen - srcPositions
-function [srcVecsSub, h2sInfo] = buildSrcVecs(srcVecsAll, srcPositions, curMask, srcLens, srcMaxLen, params, h2sInfo) % startAttnIds, endAttnIds, startIds, endIds, indices
+function [srcVecsSub, h2sInfo] = buildSrcVecs(srcVecsAll, srcPositions, curMask, srcLens, srcMaxLen, params, h2sInfo)
   posWin = params.posWin;
   numPositions = 2*posWin+1;
   [lstmSize, batchSize, numSrcHidVecs] = size(srcVecsAll);

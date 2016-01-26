@@ -40,7 +40,7 @@ end
 
 %% Eval
 function [evalCosts] = evalCost(model, data, params) %input, inputMask, tgtOutput, tgtMask, srcMaxLen, tgtMaxLen, params)
-  numSents = size(data.input, 1);
+  numSents = size(data.tgtInput, 1);
   numBatches = floor((numSents-1)/params.batchSize) + 1;
 
   [evalCosts] = initCosts();
@@ -53,11 +53,11 @@ function [evalCosts] = evalCost(model, data, params) %input, inputMask, tgtOutpu
       endId = numSents;
     end
     
-    trainData.input = data.input(startId:endId, :);
-    trainData.inputMask = data.inputMask(startId:endId, :);
     if params.isBi
+      trainData.srcInput = data.srcInput(startId:endId, :);
       trainData.srcMask = data.srcMask(startId:endId, :);
     end
+    trainData.tgtInput = data.tgtInput(startId:endId, :);
     trainData.tgtMask = data.tgtMask(startId:endId, :);
     trainData.tgtOutput = data.tgtOutput(startId:endId, :);
     trainData.srcLens = data.srcLens(startId:endId); 

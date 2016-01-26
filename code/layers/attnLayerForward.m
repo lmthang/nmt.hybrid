@@ -1,43 +1,44 @@
-function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, tgtPos)
-%%%
+function [attnInfo] = attnLayerForward(h_t, params, model, attnData, maskInfo)
 %
 % Attentional Layer: from lstm hidden state to softmax hidden state.
+% Input: 
+%   attnData: require attnData.srcHidVecsOrig and attnData.srcLens
 %
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 %
-%%%
-  h2sInfo = [];
-  curMask = trainData.curMask;
+  assert(params.attnFunc>0); % we should have enabled attention.
+  
+  attnInfo = [];
   if params.attnGlobal % global
-    srcHidVecs = trainData.srcHidVecsOrig;
-    h2sInfo.srcMaskedIds = trainData.srcMaskedIds;
+    srcHidVecs = attnData.srcHidVecsOrig;
+    attnInfo.srcMaskedIds = [];
   else % local
     % positions
-    if params.predictPos % predictive alignments
-      [mu, h2sInfo] = regressPositions(model, h_t, trainData.srcLens, params);
+    if params.attnLocalPred % predictive alignments
+      [mu, attnInfo] = regressPositions(model, h_t, attnData.srcLens, params);
       srcPositions = floor(mu);
     else % monotonic alignments
-      srcPositions = tgtPos*ones(1, trainData.curBatchSize);
-      flags = srcPositions>(trainData.srcLens-1);
-      srcPositions(flags) = trainData.srcLens(flags)-1;
+      srcPositions = attnData.tgtPos*ones(1, params.curBatchSize);
+      flags = srcPositions>(attnData.srcLens-1);
+      srcPositions(flags) = attnData.srcLens(flags)-1;
     end
     
     % assert
     if params.assert
       assert(isempty(find(srcPositions<1,1)));
-      assert(isempty(find(trainData.tgtLens<=1,1)));
-      assert(isempty(find(srcPositions(curMask.unmaskedIds)>(trainData.srcLens(curMask.unmaskedIds)-1),1)));
+      assert(isempty(find(attnData.tgtLens<=1,1)));
+      assert(isempty(find(srcPositions(maskInfo.unmaskedIds)>(attnData.srcLens(maskInfo.unmaskedIds)-1),1)));
     end
       
     % reverse
     if params.isReverse
-      srcPositions = trainData.srcMaxLen - srcPositions;
+      srcPositions = params.srcMaxLen - srcPositions;
     end
 
     % build context vectors
-    [srcHidVecs, h2sInfo] = buildSrcVecs(trainData.srcHidVecs, srcPositions, curMask, trainData.srcLens, trainData.srcMaxLen, params, h2sInfo);
+    [srcHidVecs, attnInfo] = buildSrcVecs(attnData.srcHidVecsOrig, srcPositions, maskInfo, attnData.srcLens, params.srcMaxLen, params, attnInfo);
 
-    h2sInfo.srcMaskedIds = find(h2sInfo.alignMask==0);
+    attnInfo.srcMaskedIds = find(attnInfo.alignMask==0);
   end % end else if attnGlobal
   
   % compute alignScores: numAttnPositions * curBatchSize
@@ -46,46 +47,46 @@ function [softmax_h, h2sInfo] = attnLayerForward(h_t, params, model, trainData, 
     if params.attnOpt==1 % dot product
       [alignScores] = srcCompareLayerForward(srcHidVecs, h_t, params);
     elseif params.attnOpt==2 % general dot product
-      h2sInfo.transform_ht = model.W_a * h_t; % TODO: shift the multiplication to srcHidVecs
-      [alignScores] = srcCompareLayerForward(srcHidVecs, h2sInfo.transform_ht, params);
+      attnInfo.transform_ht = model.W_a * h_t; % TODO: shift the multiplication to srcHidVecs
+      [alignScores] = srcCompareLayerForward(srcHidVecs, attnInfo.transform_ht, params);
     end
   elseif params.attnOpt==3 % Bengio's style
     % f(H_src + W_a*h_t): lstmSize * (curBatchSize * numAttnPositions))
-    h2sInfo.src_ht_hid = reshape(params.nonlinear_f(bsxfun(@plus, srcHidVecs, model.W_a*h_t)), params.lstmSize, []);
+    attnInfo.src_ht_hid = reshape(params.nonlinear_f(bsxfun(@plus, srcHidVecs, model.W_a*h_t)), params.lstmSize, []);
 
     % v_a * src_ht_hid
-    alignScores = linearLayerForward(model.v_a, h2sInfo.src_ht_hid); % 1 * (curBatchSize * numAttnPositions)
+    alignScores = linearLayerForward(model.v_a, attnInfo.src_ht_hid); % 1 * (curBatchSize * numAttnPositions)
     alignScores = reshape(alignScores, params.curBatchSize, params.numAttnPositions)'; % numAttnPositions * curBatchSize
   end  
   
   % normalize -> alignWeights
-  h2sInfo.alignWeights = normLayerForward(alignScores, h2sInfo.srcMaskedIds);
+  attnInfo.alignWeights = normLayerForward(alignScores, attnInfo.srcMaskedIds);
 
-  % attn4: local, regression, multiply with distWeights
-  if params.predictPos
-    [h2sInfo.distWeights, h2sInfo.scaleX] = distLayerForward(mu, h2sInfo, trainData, params); % numAttnPositions*curBatchSize
-    h2sInfo.preAlignWeights = h2sInfo.alignWeights;
-    h2sInfo.alignWeights =  h2sInfo.preAlignWeights.* h2sInfo.distWeights; % weighted by distances
+  % local, regression, multiply with distWeights
+  if params.attnLocalPred
+    [attnInfo.distWeights, attnInfo.scaleX] = distLayerForward(mu, attnInfo, params); % numAttnPositions*curBatchSize
+    attnInfo.preAlignWeights = attnInfo.alignWeights;
+    attnInfo.alignWeights =  attnInfo.preAlignWeights.* attnInfo.distWeights; % weighted by distances
   end
 
   % assert
   if params.assert
-    assert(computeSum(h2sInfo.alignWeights(h2sInfo.srcMaskedIds), params.isGPU)==0);
+    assert(computeSum(attnInfo.alignWeights(attnInfo.srcMaskedIds), params.isGPU)==0);
   end
   
-  h2sInfo.alignWeights(:, curMask.maskedIds) = 0;
+  attnInfo.alignWeights(:, maskInfo.maskedIds) = 0;
   % alignWeights, srcHidVecs -> contextVecs
-  [contextVecs] = contextLayerForward(h2sInfo.alignWeights, srcHidVecs, curMask.unmaskedIds, params);
+  [contextVecs] = contextLayerForward(attnInfo.alignWeights, srcHidVecs, maskInfo.unmaskedIds, params);
 
   % f(W_h*[context_t; h_t])
-  h2sInfo.input = [contextVecs; h_t];
-  h2sInfo.h_t = h_t;
-  softmax_h = hiddenLayerForward(model.W_h, h2sInfo.input, params.nonlinear_f);
-  h2sInfo.softmax_h = softmax_h; % attentional vectors
+  attnInfo.input = [contextVecs; h_t];
+  attnInfo.h_t = h_t;
+  softmax_h = hiddenLayerForward(model.W_h, attnInfo.input, params.nonlinear_f);
+  attnInfo.softmax_h = softmax_h; % attentional vectors
 
   % assert
   if params.assert
-    assert(isequal(size(h2sInfo.alignWeights), [params.numAttnPositions, params.curBatchSize]));
+    assert(isequal(size(attnInfo.alignWeights), [params.numAttnPositions, params.curBatchSize]));
     assert(isequal(size(h_t), size(contextVecs))); % lstmSize * curBatchSize
   end
 end
@@ -97,10 +98,3 @@ function [mu, h2sInfo] = regressPositions(model, h_t, srcLens, params)
   % scales -> srcPositions
   mu = h2sInfo.scales.*(srcLens-1) + 1;
 end
-
-    
-%     h2sInfo.src_ht_hid = params.nonlinear_f(bsxfun(@plus, srcHidVecs, model.W_a*h_t)); % lstmSize * curBatchSize * numAttnPositions
-%     alignScores = squeeze(sum(bsxfun(@times, h2sInfo.src_ht_hid, model.v_a), 1))'; % numAttnPositions * curBatchSize
-%     if params.curBatchSize==1 || params.numAttnPositions==1 % handle special cases that causing squeezing to transpose row/col vectors.
-%       alignScores = alignScores';
-%     end

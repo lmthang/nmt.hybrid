@@ -62,7 +62,7 @@ function printSentAlign(fid, translation, data, alignment, ii, params)
 end
 
 function printAlign(fid, translation, data, alignment, params, ii, sentId, printWords)
-  mask = data.inputMask(ii,1:data.srcMaxLen-1);
+  mask = data.srcMask(ii, :);
   srcLen = data.srcLens(ii);
 
   if params.isReverse
@@ -71,7 +71,7 @@ function printAlign(fid, translation, data, alignment, params, ii, sentId, print
   
   tgtLen = length(translation);
   if printWords
-    src = data.input(ii,mask);
+    src = data.srcInput(ii,mask);
     if params.isReverse
       src = src(end:-1:1);
     end
@@ -96,8 +96,8 @@ end
 
 
 function printSrc(fid, data, ii, params, sentId)
-  mask = data.inputMask(ii,1:data.srcMaxLen-1);
-  src = data.input(ii,mask);
+  mask = data.srcMask(ii,:);
+  src = data.srcInput(ii,mask);
   printSent(fid, src, params.srcVocab, ['  src ' num2str(sentId) ': ']);
   
   if params.isReverse
@@ -106,7 +106,7 @@ function printSrc(fid, data, ii, params, sentId)
 end
 
 function printRef(fid, data, ii, params, sentId)
-  mask = data.inputMask(ii, data.srcMaxLen:end);
+  mask = data.tgtMask(ii, :);
   ref = data.tgtOutput(ii,mask);
   printSent(fid, ref, params.tgtVocab, ['  ref ' num2str(sentId) ': ']);
 end

@@ -23,11 +23,11 @@ function gradCheck(model, params)
   for ii=1:params.batchSize
     if params.isBi
       srcLen = randi([1, srcTrainMaxLen-1]);
-      srcTrainSents{ii} = randi([1, params.srcVocabSize-2], 1, srcLen); % exclude <s_eos> and  <s_sos>
+      srcTrainSents{ii} = randi([1, params.srcVocabSize-2], 1, srcLen) + 2; % exclude <s> and  </s>
     end
 
     tgtLen = randi([1, tgtTrainMaxLen-1]);
-    tgtTrainSents{ii} = randi([1, params.tgtVocabSize-2], 1, tgtLen); % exclude <t_sos> and <t_eos>
+    tgtTrainSents{ii} = randi([1, params.tgtVocabSize-2], 1, tgtLen) + 2; % exclude <s> and </s>
   end
 
   % prepare data
@@ -36,7 +36,7 @@ function gradCheck(model, params)
     
   % for gradient check purpose
   if params.dropout<1 % use the same dropout mask
-    curBatchSize = size(trainData.input, 1);
+    curBatchSize = size(trainData.tgtInput, 1);
     params.dropoutMask = (randMatrix([params.lstmSize curBatchSize], params.isGPU, params.dataType)<params.dropout)/params.dropout;
     
     if params.feedInput
@@ -108,25 +108,3 @@ function gradCheck(model, params)
   
   fprintf(2, '# Num params=%d, abs_diff=%g\n', numParams, total_abs_diff);
 end
-
-% params.posModel==2 || 
-
-%% class-based softmax %%
-%   % W_soft_inclass
-%   if params.numClasses>0
-%     full_grad_W_soft_inclass = zeroMatrix(size(model.W_soft_inclass), params.isGPU, params.dataType);
-%     if params.isGPU
-%       full_grad_W_soft_inclass(:, :, grad.classIndices) = gather(grad.W_soft_inclass);
-%     else
-%       full_grad_W_soft_inclass(:, :, grad.classIndices) = grad.W_soft_inclass;
-%     end
-%     grad.W_soft_inclass = full_grad_W_soft_inclass;
-%   end
-
-%% Unused
-%   if params.separateEmb==1
-%   else
-%     full_grad_W_emb = zeroMatrix(size(model.W_emb), params.isGPU, params.dataType);
-%     full_grad_W_emb(:, grad.indices) = grad.W_emb;
-%     grad.W_emb = full_grad_W_emb;
-%   end
