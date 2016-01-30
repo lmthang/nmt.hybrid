@@ -7,12 +7,32 @@ function [grad_W_rnn, grad_W_emb, emb_indices] = srcCharLayerBackprop(W_rnn, cha
 
   assert(length(charGrad.indices) == charData.numRareWords);
   
-  
-  params = charData.batches{1}.params;
+  params = charData.params;
   if params.assert
     assert(isequal(sort(charData.rareWordMap(charGrad.indices))', 1:charData.numRareWords));
   end
-  curBatchSize = params.curBatchSize;
+  
+%   topGrads = cell(charData.maxLen, 1);
+%   topGrads{end} = charGrad.embs(:, charData.rareWordMap(charGrad.indices));
+% 
+%   % init state
+%   zeroBatch = zeroMatrix([params.lstmSize, params.curBatchSize], params.isGPU, params.dataType);
+%   zeroState = cell(params.numLayers, 1);
+%   zeroGrad = cell(params.numLayers, 1);
+%   for ll=1:params.numLayers % layer
+%     zeroState{ll}.h_t = zeroBatch;
+%     zeroState{ll}.c_t = zeroBatch;
+%     zeroGrad{ll} = zeroBatch;
+%   end
+%   
+%   [~, ~, grad_W_rnn, grad_W_emb, emb_indices, ~, ~, ~] = rnnLayerBackprop(W_rnn, charData.states, zeroState, ...
+%   topGrads, zeroGrad, zeroGrad, charData.batch, charData.mask, charData.params, charData.rnnFlags, [], [], []);
+
+  [grad_W_rnn, grad_W_emb, emb_indices] = srcCharMultiBatchBackprop(W_rnn, charData, charGrad);    
+end
+
+function [grad_W_rnn, grad_W_emb, emb_indices] = srcCharMultiBatchBackprop(W_rnn, charData, charGrad)
+  params = charData.batches{1}.params;
   zeroBatch = zeroMatrix([params.lstmSize, params.curBatchSize], params.isGPU, params.dataType);
   zeroState = cell(params.numLayers, 1);
   zeroGrad = cell(params.numLayers, 1);
@@ -21,9 +41,7 @@ function [grad_W_rnn, grad_W_emb, emb_indices] = srcCharLayerBackprop(W_rnn, cha
     zeroState{ll}.c_t = zeroBatch;
     zeroGrad{ll} = zeroBatch;
   end
-  
-%   topGrads = cell(charData.maxLen, 1);
-%   topGrads{end} = charGrad.embs(:, charData.rareWordMap(charGrad.indices));
+  curBatchSize = params.curBatchSize;
 
   topGrads_emb = charGrad.embs(:, charData.rareWordMap(charGrad.indices));
   topGrads_emb = topGrads_emb(:, charData.sortedIndices); % since we sorted the sequences before
@@ -73,18 +91,13 @@ function [grad_W_rnn, grad_W_emb, emb_indices] = srcCharLayerBackprop(W_rnn, cha
   grad_W_emb(:, charCount+1:end) = [];
   emb_indices(charCount+1:end) = [];
   [grad_W_emb, emb_indices] = aggregateMatrix(grad_W_emb, emb_indices, params.isGPU, params.dataType);
-      
-%   % init state
-%   params = charData.params;
-%   zeroBatch = zeroMatrix([params.lstmSize, params.curBatchSize], params.isGPU, params.dataType);
-%   zeroState = cell(params.numLayers, 1);
-%   zeroGrad = cell(params.numLayers, 1);
-%   for ll=1:params.numLayers % layer
-%     zeroState{ll}.h_t = zeroBatch;
-%     zeroState{ll}.c_t = zeroBatch;
-%     zeroGrad{ll} = zeroBatch;
-%   end
-%   
-%   [~, ~, grad_W_rnn, grad_W_emb, emb_indices, ~, ~, ~] = rnnLayerBackprop(W_rnn, charData.states, zeroState, ...
-%   topGrads, zeroGrad, zeroGrad, charData.batch, charData.mask, charData.params, charData.rnnFlags, [], [], []);
 end
+
+%   if params.assert % multi batch
+%     [grad_W_rnn1, grad_W_emb1, emb_indices1] = srcCharMultiBatchBackprop(W_rnn, charData1, charGrad);
+%     for ll=1:length(grad_W_rnn)
+%       assert(sum(abs(grad_W_rnn{ll}(:) - grad_W_rnn1{ll}(:))) < 1e-10);
+%     end
+%     assert(sum(abs(grad_W_emb(:) - grad_W_emb1(:))) < 1e-10);
+%     assert(isequal(emb_indices, emb_indices1));
+%   end
