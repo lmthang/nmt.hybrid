@@ -212,7 +212,7 @@ originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
   end
   
   % align
-  if params.align
+  if params.align && isChar == 0
     alignInfo = cell(batchSize, 1);
     for ii=1:batchSize
       alignInfo{ii} = cell(stackSize, 1);
@@ -420,7 +420,7 @@ originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
               
               candidates{sentId}{1} = [beamHistory(1:sentPos, histIndices(ii)); tgtEos];
               % align
-              if params.align
+              if params.align && isChar == 0
                 alignInfo{sentId}{1} = [alignHistory(1:sentPos, histIndices(ii)); beamAlignIds(histIndices(ii))];
               end
 
@@ -438,7 +438,7 @@ originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
 
               candidates{sentId}{numDecoded(sentId)} = [beamHistory(1:sentPos, histIndices(ii)); tgtEos];
               % align
-              if params.align
+              if params.align && isChar == 0
                 alignInfo{sentId}{numDecoded(sentId)} = [alignHistory(1:sentPos, histIndices(ii)); beamAlignIds(histIndices(ii))];
               end
               
@@ -466,7 +466,7 @@ originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
     end
     
     % align
-    if params.align
+    if params.align && isChar == 0
       alignHistory(1:sentPos, :) = alignHistory(1:sentPos, colIndices);
       alignHistory(sentPos+1, :) = beamAlignIds;
     end
@@ -498,7 +498,7 @@ originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
             candidates{sentId}{1} = [beamHistory(1:maxLen-1, eosIndex); tgtEos]; % append eos at the end
 
             % align
-            if params.align
+            if params.align && isChar == 0
               if params.isReverse
                 alignInfo{sentId}{1} = [alignHistory(1:maxLen-1, eosIndex); 1];
               else
@@ -520,7 +520,7 @@ originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
           candidates{sentId}{numDecoded(sentId)} = [beamHistory(1:maxLen, eosIndex); tgtEos]; % append eos at the end
 
           % align
-          if params.align
+          if params.align && isChar == 0
             if params.isReverse
               alignInfo{sentId}{numDecoded(sentId)} = [alignHistory(1:maxLen, eosIndex); 1];
             else

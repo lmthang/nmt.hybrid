@@ -132,7 +132,12 @@ function [costs, grad, numChars] = lstmCostGrad(model, trainData, params, isTest
   
     % char backprop
     if params.charSrcRep
-      [grad.W_src_char, grad.W_emb_src_char, grad.indices_src_char] = srcCharLayerBackprop(model.W_src_char, srcCharData, srcCharGrad);
+      if srcCharData.numRareWords > 0
+        [grad.W_src_char, grad.W_emb_src_char, grad.indices_src_char] = srcCharLayerBackprop(model.W_src_char, srcCharData, srcCharGrad);
+      else
+        grad.W_emb_src_char = []; 
+        grad.indices_src_char = [];
+      end
     end
   end
 
