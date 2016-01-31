@@ -321,7 +321,17 @@ originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
     
     %% compute next lstm hidden states
     for mm=1:numModels
-      decRnnFlags = struct('decode', 1, 'test', 1, 'attn', models{mm}.params.attnFunc, 'feedInput', models{mm}.params.feedInput);
+      % char
+      if isChar
+        assert(mm==1); % only support one model for now
+        isFeedInput = 0;
+        attnFunc = 0;
+      else
+        isFeedInput = models{mm}.params.feedInput;
+        attnFunc = models{mm}.params.attnFunc;
+      end
+      
+      decRnnFlags = struct('decode', 1, 'test', 1, 'attn', attnFunc, 'feedInput', isFeedInput);
       [beamStates{mm}, attnInfos{mm}] = rnnStepLayerForward(models{mm}.W_tgt, models{mm}.W_emb_tgt(:, beamHistory(sentPos, :)), beamStates{mm}, ...
         oneMask, models{mm}.params, decRnnFlags, modelData{mm}, models{mm});
     end
