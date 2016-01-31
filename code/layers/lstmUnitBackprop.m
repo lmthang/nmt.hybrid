@@ -66,6 +66,9 @@ function [dc, dh, d_input, d_W_rnn] = lstmUnitBackprop(W, lstm, c_t_1, dc, dh, m
   d_W_rnn = d_ifoa*lstm.input';
 
   % dx, dh
+  if params.debug
+    fprintf(2, '# lstmUnitBackprop: W [%s], d_ifoa [%s]\n', num2str(size(W)), num2str(size(d_ifoa)));
+  end
   d_input = W'*d_ifoa;
  
   % dropout

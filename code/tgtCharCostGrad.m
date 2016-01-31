@@ -30,9 +30,10 @@ function [totalCharCost, charGrad, numChars, rareFlags, numRareWords] = tgtCharC
   % accumulated at the end
   
   % tmp vars
-  % TODO: source of memory leak
-  grad_W_emb_char_total = zeroMatrix([params.lstmSize, numRareWords*10], params.isGPU, params.dataType);
-  indices_char_total = zeros(numRareWords*10, 1);
+  % preallocation: when printing out logs, we often use less than <
+  % numRareWords columns.
+  grad_W_emb_char_total = zeroMatrix([params.lstmSize, numRareWords*2], params.isGPU, params.dataType);
+  indices_char_total = zeros(numRareWords*2, 1);
   charCount = 0;
   rareWordCount = 0;
   
@@ -117,6 +118,11 @@ function [totalCharCost, charGrad, numChars, rareFlags, numRareWords] = tgtCharC
           zeroGrad = cell(charParams.numLayers, 1);
           for ll=1:charParams.numLayers % layer
             zeroGrad{ll} = zeroBatch;
+          end
+          
+          if params.debug
+            charBatch
+            charMask
           end
         end
         [~, ~, grad_W_rnn_char, grad_W_emb_char, indices_char, ~, ~, charRnnGrad] = rnnLayerBackprop(W_rnn, charStates, charInitState, ...
