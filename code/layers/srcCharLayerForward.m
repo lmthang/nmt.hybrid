@@ -1,4 +1,4 @@
-function [charData] = srcCharLayerForward(W_rnn, W_emb, input, charMap, vocabSize, params, isTest)  % , isDecoder
+function [charData] = srcCharLayerForward(W_rnn, W_emb, input, charMap, vocabSize, params, isTest)
 % Running char layer forward to compute word representations
 % Input:
 %   W_rnn: recurrent connections of multiple layers, e.g., W_rnn{ll}.

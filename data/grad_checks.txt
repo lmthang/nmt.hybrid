@@ -23,6 +23,7 @@ For product information, visit www.mathworks.com.
 # attnFunc = 0
 # attnOpt = 0
 # batchSize = 10
+# charMaxLen = 20
 # charNumLayers = 1
 # charOpt = 0
 # charWeight = 1
@@ -235,7 +236,7 @@ For product information, visit www.mathworks.com.
   0.002656	  0.002656	diff=1.97791e-08
   local_diff=4.24209e-07
 # Num params=110, abs_diff=6.70758e-06
-Elapsed time is 0.957318 seconds.
+Elapsed time is 1.020908 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2)
 [?1h=
@@ -259,6 +260,7 @@ For product information, visit www.mathworks.com.
 # attnFunc = 0
 # attnOpt = 0
 # batchSize = 10
+# charMaxLen = 20
 # charNumLayers = 1
 # charOpt = 0
 # charWeight = 1
@@ -539,7 +541,7 @@ For product information, visit www.mathworks.com.
  -0.000051	 -0.000051	diff=3.27591e-11
   local_diff=2.05347e-10
 # Num params=174, abs_diff=6.23289e-07
-Elapsed time is 1.642861 seconds.
+Elapsed time is 1.588229 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8)
 [?1h=
@@ -563,6 +565,7 @@ For product information, visit www.mathworks.com.
 # attnFunc = 0
 # attnOpt = 0
 # batchSize = 10
+# charMaxLen = 20
 # charNumLayers = 1
 # charOpt = 0
 # charWeight = 1
@@ -843,7 +846,7 @@ For product information, visit www.mathworks.com.
  -0.000122	 -0.000122	diff=4.54174e-11
   local_diff=2.90612e-10
 # Num params=174, abs_diff=4.86327e-07
-Elapsed time is 1.773805 seconds.
+Elapsed time is 1.676458 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1)
 [?1h=
@@ -867,6 +870,7 @@ For product information, visit www.mathworks.com.
 # attnFunc = 1
 # attnOpt = 1
 # batchSize = 10
+# charMaxLen = 20
 # charNumLayers = 1
 # charOpt = 0
 # charWeight = 1
@@ -1157,7 +1161,7 @@ For product information, visit www.mathworks.com.
  -0.000012	 -0.000012	diff=1.74813e-12
   local_diff=1.49214e-11
 # Num params=182, abs_diff=1.10322e-08
-Elapsed time is 2.622024 seconds.
+Elapsed time is 2.489295 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 1)
 [?1h=
@@ -1181,6 +1185,7 @@ For product information, visit www.mathworks.com.
 # attnFunc = 4
 # attnOpt = 1
 # batchSize = 10
+# charMaxLen = 20
 # charNumLayers = 1
 # charOpt = 0
 # charWeight = 1
@@ -1482,7 +1487,7 @@ For product information, visit www.mathworks.com.
  -0.000022	 -0.000022	diff=8.17765e-14
   local_diff=3.75127e-12
 # Num params=188, abs_diff=1.82177e-07
-Elapsed time is 4.498803 seconds.
+Elapsed time is 3.653989 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 2)
 [?1h=
@@ -1506,6 +1511,7 @@ For product information, visit www.mathworks.com.
 # attnFunc = 1
 # attnOpt = 2
 # batchSize = 10
+# charMaxLen = 20
 # charNumLayers = 1
 # charOpt = 0
 # charWeight = 1
@@ -1802,7 +1808,7 @@ For product information, visit www.mathworks.com.
  -0.000001	 -0.000001	diff=8.03285e-13
   local_diff=5.2527e-12
 # Num params=186, abs_diff=5.26211e-08
-Elapsed time is 2.827880 seconds.
+Elapsed time is 2.542096 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 3)
 [?1h=
@@ -1826,6 +1832,7 @@ For product information, visit www.mathworks.com.
 # attnFunc = 1
 # attnOpt = 3
 # batchSize = 10
+# charMaxLen = 20
 # charNumLayers = 1
 # charOpt = 0
 # charWeight = 1
@@ -2126,7 +2133,7 @@ For product information, visit www.mathworks.com.
  -0.000048	 -0.000048	diff=1.22723e-12
   local_diff=1.06581e-11
 # Num params=188, abs_diff=9.66095e-08
-Elapsed time is 2.866148 seconds.
+Elapsed time is 2.712996 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 1, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 1)
 [?1h=
@@ -2150,6 +2157,7 @@ For product information, visit www.mathworks.com.
 # attnFunc = 1
 # attnOpt = 1
 # batchSize = 10
+# charMaxLen = 20
 # charNumLayers = 1
 # charOpt = 1
 # charWeight = 1
@@ -2496,7 +2504,7 @@ For product information, visit www.mathworks.com.
  -0.000003	 -0.000003	diff=2.20074e-12
   local_diff=1.56319e-11
 # Num params=224, abs_diff=4.58948e-08
-Elapsed time is 4.389986 seconds.
+Elapsed time is 3.687596 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 2, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 1)
 [?1h=
@@ -2521,6 +2529,7 @@ Change stack size from 100 to 1
 # attnFunc = 1
 # attnOpt = 1
 # batchSize = 10
+# charMaxLen = 20
 # charNumLayers = 1
 # charOpt = 2
 # charWeight = 1
@@ -2879,7 +2888,7 @@ Change stack size from 100 to 1
   0.001931	  0.001931	diff=3.75729e-09
   local_diff=2.59547e-08
 # Num params=234, abs_diff=4.76689e-05
-Elapsed time is 4.593167 seconds.
+Elapsed time is 4.502027 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 1)
 [?1h=
@@ -2904,6 +2913,7 @@ Change stack size from 100 to 1
 # attnFunc = 1
 # attnOpt = 1
 # batchSize = 10
+# charMaxLen = 20
 # charNumLayers = 1
 # charOpt = 3
 # charWeight = 1
@@ -3308,7 +3318,7 @@ Change stack size from 100 to 1
   0.001322	  0.001322	diff=3.44025e-08
   local_diff=5.73979e-07
 # Num params=276, abs_diff=3.83446e-05
-Elapsed time is 6.542721 seconds.
+Elapsed time is 6.114419 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3)
 [?1h=
@@ -3333,6 +3343,7 @@ Change stack size from 100 to 1
 # attnFunc = 1
 # attnOpt = 1
 # batchSize = 10
+# charMaxLen = 20
 # charNumLayers = 3
 # charOpt = 3
 # charWeight = 1
@@ -3873,7 +3884,7 @@ Change stack size from 100 to 1
   0.000001	  0.000001	diff=7.64063e-13
   local_diff=9.04788e-12
 # Num params=404, abs_diff=1.63877e-08
-Elapsed time is 11.841540 seconds.
+Elapsed time is 10.754628 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 1, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'dropout', 0.8)
 [?1h=
@@ -3897,6 +3908,7 @@ For product information, visit www.mathworks.com.
 # attnFunc = 1
 # attnOpt = 1
 # batchSize = 10
+# charMaxLen = 20
 # charNumLayers = 3
 # charOpt = 1
 # charWeight = 1
@@ -4311,7 +4323,7 @@ For product information, visit www.mathworks.com.
  -0.000008	 -0.000008	diff=8.22836e-13
   local_diff=5.13691e-12
 # Num params=288, abs_diff=5.49789e-08
-Elapsed time is 5.279402 seconds.
+Elapsed time is 5.151393 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'charWeight', 10)
 [?1h=
@@ -4336,6 +4348,7 @@ Change stack size from 100 to 1
 # attnFunc = 1
 # attnOpt = 1
 # batchSize = 10
+# charMaxLen = 20
 # charNumLayers = 3
 # charOpt = 3
 # charWeight = 10
@@ -4876,7 +4889,7 @@ Change stack size from 100 to 1
   0.000007	  0.000007	diff=1.95629e-12
   local_diff=6.19421e-11
 # Num params=404, abs_diff=3.43275e-08
-Elapsed time is 10.929345 seconds.
+Elapsed time is 10.937558 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1)
 [?1h=
@@ -4900,6 +4913,7 @@ For product information, visit www.mathworks.com.
 # attnFunc = 0
 # attnOpt = 0
 # batchSize = 10
+# charMaxLen = 20
 # charNumLayers = 1
 # charOpt = 0
 # charWeight = 1
@@ -5112,7 +5126,7 @@ For product information, visit www.mathworks.com.
  -0.000270	 -0.000270	diff=1.26002e-08
   local_diff=0.000150356
 # Num params=110, abs_diff=2.47345
-Elapsed time is 0.802533 seconds.
+Elapsed time is 0.883662 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2)
 [?1h=
@@ -5136,6 +5150,7 @@ For product information, visit www.mathworks.com.
 # attnFunc = 0
 # attnOpt = 0
 # batchSize = 10
+# charMaxLen = 20
 # charNumLayers = 1
 # charOpt = 0
 # charWeight = 1
@@ -5416,7 +5431,7 @@ For product information, visit www.mathworks.com.
   0.489267	  0.488492	diff=0.000774967
   local_diff=0.0033617
 # Num params=174, abs_diff=2.88947
-Elapsed time is 1.759483 seconds.
+Elapsed time is 1.734766 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8)
 [?1h=
@@ -5440,6 +5455,7 @@ For product information, visit www.mathworks.com.
 # attnFunc = 0
 # attnOpt = 0
 # batchSize = 10
+# charMaxLen = 20
 # charNumLayers = 1
 # charOpt = 0
 # charWeight = 1
@@ -5720,7 +5736,7 @@ For product information, visit www.mathworks.com.
   0.328336	  0.327891	diff=0.000444995
   local_diff=0.00276278
 # Num params=174, abs_diff=2.61686
-Elapsed time is 1.721319 seconds.
+Elapsed time is 1.712015 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1)
 [?1h=
@@ -5744,6 +5760,7 @@ For product information, visit www.mathworks.com.
 # attnFunc = 1
 # attnOpt = 1
 # batchSize = 10
+# charMaxLen = 20
 # charNumLayers = 1
 # charOpt = 0
 # charWeight = 1
@@ -6034,7 +6051,7 @@ For product information, visit www.mathworks.com.
  -2.109547	 -2.109716	diff=0.000168959
   local_diff=0.0254708
 # Num params=182, abs_diff=5.14398
-Elapsed time is 2.510214 seconds.
+Elapsed time is 2.412511 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 1)
 [?1h=
@@ -6058,6 +6075,7 @@ For product information, visit www.mathworks.com.
 # attnFunc = 4
 # attnOpt = 1
 # batchSize = 10
+# charMaxLen = 20
 # charNumLayers = 1
 # charOpt = 0
 # charWeight = 1
@@ -6359,7 +6377,7 @@ For product information, visit www.mathworks.com.
   1.200331	  1.200287	diff=4.3288e-05
   local_diff=0.00941474
 # Num params=188, abs_diff=7.51685
-Elapsed time is 3.275509 seconds.
+Elapsed time is 3.474734 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 2)
 [?1h=
@@ -6383,6 +6401,7 @@ For product information, visit www.mathworks.com.
 # attnFunc = 1
 # attnOpt = 2
 # batchSize = 10
+# charMaxLen = 20
 # charNumLayers = 1
 # charOpt = 0
 # charWeight = 1
@@ -6679,7 +6698,7 @@ For product information, visit www.mathworks.com.
   0.812158	  0.806674	diff=0.00548365
   local_diff=0.0226665
 # Num params=186, abs_diff=750.463
-Elapsed time is 2.493137 seconds.
+Elapsed time is 2.536442 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 3)
 [?1h=
@@ -6703,6 +6722,7 @@ For product information, visit www.mathworks.com.
 # attnFunc = 1
 # attnOpt = 3
 # batchSize = 10
+# charMaxLen = 20
 # charNumLayers = 1
 # charOpt = 0
 # charWeight = 1
@@ -7003,7 +7023,7 @@ For product information, visit www.mathworks.com.
   1.200331	  1.200287	diff=4.3288e-05
   local_diff=0.00941474
 # Num params=188, abs_diff=7.51685
-Elapsed time is 2.640318 seconds.
+Elapsed time is 2.566525 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'initRange', 10, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 1, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 1)
 [?1h=
@@ -7027,6 +7047,7 @@ For product information, visit www.mathworks.com.
 # attnFunc = 1
 # attnOpt = 1
 # batchSize = 10
+# charMaxLen = 20
 # charNumLayers = 1
 # charOpt = 1
 # charWeight = 1
@@ -7373,7 +7394,7 @@ For product information, visit www.mathworks.com.
   6.596487	  6.596257	diff=0.000230693
   local_diff=0.0402024
 # Num params=224, abs_diff=460.693
-Elapsed time is 3.681702 seconds.
+Elapsed time is 3.534538 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'initRange', 10, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 2, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 1)
 [?1h=
@@ -7398,6 +7419,7 @@ Change stack size from 100 to 1
 # attnFunc = 1
 # attnOpt = 1
 # batchSize = 10
+# charMaxLen = 20
 # charNumLayers = 1
 # charOpt = 2
 # charWeight = 1
@@ -7756,7 +7778,7 @@ Change stack size from 100 to 1
  -0.934870	 -0.937765	diff=0.00289468
   local_diff=0.00699201
 # Num params=234, abs_diff=295.1
-Elapsed time is 4.529971 seconds.
+Elapsed time is 4.477483 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'initRange', 10, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 1)
 [?1h=
@@ -7781,6 +7803,7 @@ Change stack size from 100 to 1
 # attnFunc = 1
 # attnOpt = 1
 # batchSize = 10
+# charMaxLen = 20
 # charNumLayers = 1
 # charOpt = 3
 # charWeight = 1
@@ -8185,7 +8208,7 @@ Change stack size from 100 to 1
   0.132861	  0.132809	diff=5.27725e-05
   local_diff=0.00137275
 # Num params=276, abs_diff=255.039
-Elapsed time is 6.291803 seconds.
+Elapsed time is 7.238553 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'initRange', 10, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3)
 [?1h=
@@ -8210,6 +8233,7 @@ Change stack size from 100 to 1
 # attnFunc = 1
 # attnOpt = 1
 # batchSize = 10
+# charMaxLen = 20
 # charNumLayers = 3
 # charOpt = 3
 # charWeight = 1
@@ -8750,7 +8774,7 @@ Change stack size from 100 to 1
  -0.318980	 -0.319377	diff=0.000396933
   local_diff=0.00768303
 # Num params=404, abs_diff=1947.67
-Elapsed time is 11.012021 seconds.
+Elapsed time is 11.809552 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'initRange', 10, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 1, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'dropout', 0.8)
 [?1h=
@@ -8774,6 +8798,7 @@ For product information, visit www.mathworks.com.
 # attnFunc = 1
 # attnOpt = 1
 # batchSize = 10
+# charMaxLen = 20
 # charNumLayers = 3
 # charOpt = 1
 # charWeight = 1
@@ -9188,7 +9213,7 @@ For product information, visit www.mathworks.com.
  -9.897691	 -9.912341	diff=0.0146504
   local_diff=0.0543022
 # Num params=288, abs_diff=7.33559
-Elapsed time is 5.044869 seconds.
+Elapsed time is 5.607669 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'initRange', 10, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'charWeight', 10)
 [?1h=
@@ -9213,6 +9238,7 @@ Change stack size from 100 to 1
 # attnFunc = 1
 # attnOpt = 1
 # batchSize = 10
+# charMaxLen = 20
 # charNumLayers = 3
 # charOpt = 3
 # charWeight = 10
@@ -9753,5 +9779,5 @@ Change stack size from 100 to 1
  -3.189799	 -3.193768	diff=0.00396933
   local_diff=0.0768303
 # Num params=404, abs_diff=9715.82
-Elapsed time is 10.715867 seconds.
+Elapsed time is 10.901282 seconds.
 [?1l>

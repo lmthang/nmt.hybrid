@@ -42,7 +42,6 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
   numModels = length(models);
   modelData = cell(numModels, 1);
   zeroStates = cell(numModels, 1);
-  % firstAlignIdx = [];
   for mm=1:numModels
     models{mm}.params.curBatchSize = batchSize;
     models{mm}.params.srcMaxLen = srcMaxLen;
@@ -145,12 +144,14 @@ function [candidates, candScores, alignInfo, otherInfo] = rnnDecoder(models, par
       assert(mm==1); % only support one model for now
       initEmb = charEmb;
       isFeedInput = 0;
+      attnFunc = 0;
     else
       initEmb = models{mm}.W_emb_tgt(:, repmat(models{mm}.params.tgtSos, batchSize, 1));
       isFeedInput = models{mm}.params.feedInput;
+      attnFunc = models{mm}.params.attnFunc;
     end
     
-    decRnnFlags = struct('decode', 1, 'test', 1, 'attn', models{mm}.params.attnFunc, 'feedInput', isFeedInput);
+    decRnnFlags = struct('decode', 1, 'test', 1, 'attn', attnFunc, 'feedInput', isFeedInput);
     [prevStates{mm}, attnInfos{mm}] = rnnStepLayerForward(models{mm}.W_tgt, initEmb, ...
       prevStates{mm}, ones(batchSize, 1), models{mm}.params, decRnnFlags, modelData{mm}, models{mm});
   end
@@ -235,7 +236,7 @@ originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
   beamScores = scores(:)'; % 1 * numElements
   beamHistory = zeroMatrix([maxLen, numElements], params.isGPU, params.dataType); % maxLen * (numElements) 
   beamHistory(1, :) = words(:); % words for sent 1 go together, then sent 2, ...
-  if params.align
+  if params.align && isChar == 0
     alignHistory = zeroMatrix([maxLen, numElements], params.isGPU, params.dataType); % maxLen * (numElements) 
     for ii=1:batchSize
       alignHistory(1,(ii-1)*beamSize+1:ii*beamSize) = firstAlignIdx(ii);
@@ -288,7 +289,7 @@ originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
   beamWords = zeroMatrix([1, numElements], params.isGPU, params.dataType);
   beamIndices = zeroMatrix([1, numElements], params.isGPU, params.dataType);
   % align
-  if params.align
+  if params.align && isChar == 0
     beamAlignIds = zeroMatrix([1, numElements], params.isGPU, params.dataType);
   end
 
@@ -326,7 +327,7 @@ originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
     end
 
     %% output alignment
-    if params.align
+    if params.align && isChar == 0
       [~, alignIdx] = getAlignWeights(attnInfos, data.srcLens, models, params);
 
       % we want to mimic the structure of allBestWords
@@ -361,7 +362,7 @@ originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
         beamWords(startId:endId) = sentWords;
 
         % align
-        if params.align
+        if params.align && isChar == 0
           bestAlignIds = alignIdx(rowIndices, sentId);
           beamAlignIds(startId:endId) = bestAlignIds(selectedIndices);
         end

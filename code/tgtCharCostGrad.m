@@ -1,0 +1,152 @@
+function [totalCharCost, charGrad, numChars, rareFlags, numRareWords] = tgtCharCostGrad(W_soft_char, W_rnn, W_emb, input, tgtHidVecs, charMap, params, isTest)
+% Running char layer forward to prepare for target word generation later.
+% Input:
+%   W_rnn: recurrent connections of multiple layers, e.g., W_rnn{ll}.
+%   input: indices for the current batch
+%   isTest: 1 -- don't store intermediate results in each state
+%   isDecoder: 0 -- encoder, 1 -- decoder
+% Output:
+%   charData
+%
+% Thang Luong @ 2015, <lmthang@stanford.edu>
+
+  rareFlags = input > params.tgtCharShortList;
+  rareWords = input(rareFlags);
+  numRareWords = length(rareWords);
+  charSeqs = charMap(rareWords);
+  seqLens = cellfun(@(x) length(x), charSeqs);
+  
+  % return vars
+  numChars = sum(seqLens) + numRareWords; % we also predict tgt eos, so add numRareWords
+  totalCharCost = 0;
+  charGrad.W_soft = 0;
+  charGrad.W_tgt = cell(params.charNumLayers, 1);
+  charGrad.initEmb = zeroMatrix([params.lstmSize, numRareWords], params.isGPU, params.dataType);
+  % there are also charGrad.W_emb_tgt_char, charGrad.indices_tgt_char
+  % accumulated at the end
+  
+  % tmp vars
+  grad_W_emb_char_total = zeroMatrix([params.lstmSize, numRareWords*10], params.isGPU, params.dataType);
+  indices_char_total = zeros(numRareWords*10, 1);
+  charCount = 0;
+  rareWordCount = 0;
+  
+  if numRareWords > 0
+    charParams = params;
+    charParams.numLayers = params.charNumLayers;
+  
+    % tgtHidVecs
+    assert(isequal(size(input), [size(tgtHidVecs, 2), size(tgtHidVecs, 3)]));
+    tgtHidVecs = reshape(tgtHidVecs, params.lstmSize, []);
+    tgtHidIndices = find(rareFlags(:));
+
+    % sort if the number of rare words is large
+    if numRareWords > params.batchSize
+      [seqLens, sortedIndices] = sort(seqLens);
+      charSeqs = charSeqs(sortedIndices);
+      tgtHidIndices = tgtHidIndices(sortedIndices);
+    end
+
+    % split into batches
+    numBatches = floor((numRareWords - 1) / params.batchSize) + 1;
+    prevBatchSize = -1;
+    for ii=1:numBatches
+      startId = (ii-1)*params.batchSize + 1;
+      endId = ii*params.batchSize;
+      if endId > numRareWords
+        endId = numRareWords;
+      end
+      curBatchSize = endId - startId + 1;
+      
+      % update setting with respect to new mini-batch size
+      if curBatchSize ~= prevBatchSize
+        charParams.curBatchSize = curBatchSize;
+        charInitState = createZeroState(charParams);
+      end
+      charRnnFlags = struct('decode', 1, 'test', isTest, 'attn', 0, 'feedInput', 0, 'charSrcRep', 0, 'charTgtGen', 0, ...
+        'initEmb', tgtHidVecs(:, tgtHidIndices(startId:endId)));
+      
+      % prepare data
+      [charBatch, charMask, ~, ~] = rightPad(charSeqs(startId:endId), seqLens(startId:endId), params.tgtCharEos, params.tgtCharSos);
+
+      %% forward %%
+      [charStates, ~, ~] = rnnLayerForward(W_rnn, W_emb, charInitState, charBatch, charMask, charParams, charRnnFlags, [], [], []);
+      
+      %% softmax
+      charTgtOutput = [charBatch(:, 2:end) params.tgtCharEos*ones(charParams.curBatchSize, 1)];
+      [cost_char, grad_W_soft_char, topGrads_char] = softmaxCostGrad(charStates, W_soft_char, charTgtOutput, charMask, params, isTest);
+      
+      % cost
+      totalCharCost = totalCharCost + params.charWeight * cost_char;
+      
+      %% backprop %%
+      % we will scale by charWeight at the very end %
+      if isTest==0
+        % W_soft
+        if ii==1
+          charGrad.W_soft = grad_W_soft_char;
+        else
+          charGrad.W_soft = charGrad.W_soft + grad_W_soft_char;
+        end
+
+        %% char rnn back prop
+        % init state
+        if curBatchSize ~= prevBatchSize
+          zeroBatch = zeroMatrix([charParams.lstmSize, charParams.curBatchSize], charParams.isGPU, charParams.dataType);
+          zeroGrad = cell(charParams.numLayers, 1);
+          for ll=1:charParams.numLayers % layer
+            zeroGrad{ll} = zeroBatch;
+          end
+        end
+        [~, ~, grad_W_rnn_char, grad_W_emb_char, indices_char, ~, ~, charRnnGrad] = rnnLayerBackprop(W_rnn, charStates, charInitState, ...
+        topGrads_char, zeroGrad, zeroGrad, charBatch, charMask, charParams, charRnnFlags, [], [], []);
+        initEmb_batch = charRnnGrad.initEmb;
+        
+        % W_tgt
+        if ii==1
+          charGrad.W_tgt = grad_W_rnn_char;
+        else
+          for ll=1:charParams.numLayers
+            charGrad.W_tgt{ll} = charGrad.W_tgt{ll} + grad_W_rnn_char{ll};
+          end
+        end
+        
+        % char emb
+        numDistinctChars = length(indices_char);
+        grad_W_emb_char_total(:, charCount+1:charCount+numDistinctChars) = grad_W_emb_char;
+        indices_char_total(charCount+1:charCount+numDistinctChars) = indices_char;
+        charCount = charCount + numDistinctChars;
+        
+        % init emb
+        charGrad.initEmb(:, rareWordCount+1:rareWordCount+curBatchSize) = initEmb_batch;
+        rareWordCount = rareWordCount + curBatchSize;
+        
+        prevBatchSize = curBatchSize;
+      end % end isTest
+    end % end for numBatches
+    
+    %% final accumulation %%
+    if isTest==0
+      assert(rareWordCount == numRareWords);
+      
+      grad_W_emb_char_total(:, charCount+1:end) = [];
+      indices_char_total(charCount+1:end) = [];
+      [charGrad.W_emb_tgt_char, charGrad.indices_tgt_char] = aggregateMatrix(grad_W_emb_char_total, indices_char_total, params.isGPU, params.dataType);
+
+      % due to sorting
+      if numRareWords > params.batchSize
+        charGrad.initEmb(:, sortedIndices) = charGrad.initEmb;
+      end
+      
+      %% scale by charWeight
+      if params.charWeight ~= 1
+        charGrad.W_soft = params.charWeight * charGrad.W_soft;
+        for ll=1:charParams.numLayers
+          charGrad.W_tgt{ll} = params.charWeight * charGrad.W_tgt{ll};
+        end
+        charGrad.W_emb_tgt_char = params.charWeight * charGrad.W_emb_tgt_char;
+        charGrad.initEmb = params.charWeight * charGrad.initEmb;
+      end
+    end
+  end % end if numRareWords
+end
