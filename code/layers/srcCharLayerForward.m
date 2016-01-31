@@ -28,7 +28,7 @@ function [charData] = srcCharLayerForward(W_rnn, W_emb, input, charMap, vocabSiz
       fprintf(2, '# srcCharLayerForward before, %s: %d words, maxLen %d\n', gpuInfo(params.gpu), charData.numRareWords, charData.maxLen);
     end
     
-    charData.rnnFlags = struct('decode', 0, 'test', isTest, 'attn', 0, 'feedInput', 0, 'charSrcRep', 0, 'charTgtGen', 0, 'initEmb', []);
+    charData.rnnFlags = struct('decode', 0, 'test', isTest, 'attn', 0, 'feedInput', 0, 'charSrcRep', 0, 'charTgtGen', 0);
     zeroState = createZeroState(charData.params);
     [charData.states, ~, ~] = rnnLayerForward(W_rnn, W_emb, zeroState, charData.batch, charData.mask, charData.params, charData.rnnFlags, [], [], []);
     charData.rareWordReps = charData.states{end}{end}.h_t;

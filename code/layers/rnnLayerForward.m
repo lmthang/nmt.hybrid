@@ -47,11 +47,7 @@ for tt=1:T % time
     % embeddings for frequent words
     inputEmb(:, freqIds) = W_emb(:, input(freqIds, tt));
   else
-    if tt == 1 && ~isempty(rnnFlags.initEmb) % use initEmb
-      inputEmb = rnnFlags.initEmb;
-    else
-      inputEmb = W_emb(:, input(:, tt));
-    end
+    inputEmb = W_emb(:, input(:, tt));
   end
   
   % multi-layer RNN

@@ -71,10 +71,16 @@ function [totalCharCost, charGrad, numChars, rareFlags, numRareWords] = tgtCharC
       % update setting with respect to new mini-batch size
       if curBatchSize ~= prevBatchSize
         charParams.curBatchSize = curBatchSize;
-        charInitState = createZeroState(charParams);
+        % charInitState = createZeroState(charParams);
+        zeroBatch = zeroMatrix([params.lstmSize, curBatchSize], params.isGPU, params.dataType);
+        charInitState = cell(params.numLayers, 1);
+        for ll=1:params.numLayers % layer
+          % feed hidden state from word-level RNN
+          charInitState{ll}.h_t = tgtHidVecs(:, tgtHidIndices(startId:endId));
+          charInitState{ll}.c_t = zeroBatch;
+        end
       end
-      charRnnFlags = struct('decode', 1, 'test', isTest, 'attn', 0, 'feedInput', 0, 'charSrcRep', 0, 'charTgtGen', 0, ...
-        'initEmb', tgtHidVecs(:, tgtHidIndices(startId:endId)));
+      charRnnFlags = struct('decode', 1, 'test', isTest, 'attn', 0, 'feedInput', 0, 'charSrcRep', 0, 'charTgtGen', 0);
       
       % prepare data
       [charBatch, charMask, maxLen, ~] = rightPad(charSeqs(startId:endId), seqLens(startId:endId), params.tgtCharEos, params.tgtCharSos);
@@ -114,7 +120,6 @@ function [totalCharCost, charGrad, numChars, rareFlags, numRareWords] = tgtCharC
         %% char rnn back prop
         % init state
         if curBatchSize ~= prevBatchSize
-          zeroBatch = zeroMatrix([charParams.lstmSize, charParams.curBatchSize], charParams.isGPU, charParams.dataType);
           zeroGrad = cell(charParams.numLayers, 1);
           for ll=1:charParams.numLayers % layer
             zeroGrad{ll} = zeroBatch;
@@ -125,9 +130,16 @@ function [totalCharCost, charGrad, numChars, rareFlags, numRareWords] = tgtCharC
             charMask
           end
         end
-        [~, ~, grad_W_rnn_char, grad_W_emb_char, indices_char, ~, ~, charRnnGrad] = rnnLayerBackprop(W_rnn, charStates, charInitState, ...
+        [~, dh_char, grad_W_rnn_char, grad_W_emb_char, indices_char, ~, ~, ~] = rnnLayerBackprop(W_rnn, charStates, charInitState, ...
         topGrads_char, zeroGrad, zeroGrad, charBatch, charMask, charParams, charRnnFlags, [], [], []);
-        initEmb_batch = charRnnGrad.initEmb;
+        % initEmb_batch = charRnnGrad.initEmb;
+        for ll=1:charParams.numLayers
+          if ll == 1
+            initEmb_batch = dh_char{ll};
+          else
+            initEmb_batch = initEmb_batch + dh_char{ll};
+          end
+        end
         
         % W_tgt
         if ii==1
