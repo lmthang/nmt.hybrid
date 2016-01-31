@@ -64,7 +64,7 @@ function [costs, grad, numChars] = lstmCostGrad(model, trainData, params, isTest
   costs.total = costs.word;
   
   
-  %% char
+  %% tgt char foward / backprop %%
   numChars = 0;
   if params.charTgtGen
     [costs.char, charGrad, numChars, tgtCharRareFlags, tgtNumRareWords] = tgtCharCostGrad(model.W_soft_char, model.W_tgt_char, model.W_emb_tgt_char, ...
