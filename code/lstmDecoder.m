@@ -108,7 +108,11 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
       zeroBatch = zeroMatrix([params.lstmSize, charParams.curBatchSize], params.isGPU, params.dataType);
       char_prevStates{mm} = cell(charParams.numLayers, 1);
       for ll=1:charParams.numLayers % layer
-        char_prevStates{mm}{ll}.h_t = char_initEmb;
+        if ll == 1
+          char_prevStates{mm}{ll}.h_t = char_initEmb;
+        else
+          char_prevStates{mm}{ll}.h_t = zeroBatch;
+        end
         char_prevStates{mm}{ll}.c_t = zeroBatch;
       end
       [char_candidates, ~, ~, ~] = rnnDecoder(char_models, charParams, char_prevStates, char_minLen, ...

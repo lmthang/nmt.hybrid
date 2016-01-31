@@ -76,7 +76,11 @@ function [totalCharCost, charGrad, numChars, rareFlags, numRareWords] = tgtCharC
         charInitState = cell(charParams.numLayers, 1);
         for ll=1:charParams.numLayers % layer
           % feed hidden state from word-level RNN
-          charInitState{ll}.h_t = tgtHidVecs(:, tgtHidIndices(startId:endId));
+          if ll == 1
+            charInitState{ll}.h_t = tgtHidVecs(:, tgtHidIndices(startId:endId));
+          else
+            charInitState{ll}.h_t = zeroBatch;
+          end
           charInitState{ll}.c_t = zeroBatch;
         end
       end
@@ -131,14 +135,7 @@ function [totalCharCost, charGrad, numChars, rareFlags, numRareWords] = tgtCharC
         end
         [~, dh_char, grad_W_rnn_char, grad_W_emb_char, indices_char, ~, ~, ~] = rnnLayerBackprop(W_rnn, charStates, charInitState, ...
         topGrads_char, zeroGrad, zeroGrad, charBatch, charMask, charParams, charRnnFlags, [], [], []);
-        % initEmb_batch = charRnnGrad.initEmb;
-        for ll=1:charParams.numLayers
-          if ll == 1
-            initEmb_batch = dh_char{ll};
-          else
-            initEmb_batch = initEmb_batch + dh_char{ll};
-          end
-        end
+        initEmb_batch = dh_char{1};
         
         % W_tgt
         if ii==1
