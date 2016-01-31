@@ -75,6 +75,7 @@ def process_files(in_file, out_dir):
   eval_pattern = re.compile('# eval (.+), train')
   err_pattern = re.compile('(JOB \d+ CANCELLED AT .+)')
   save_pattern = re.compile('save model test perplexity ')
+  progress_pattern = re.compile('gN=.+?,\s+(.+)')
   results = []
   for file_name in inf:
     file_name = clean_line(file_name)
@@ -106,6 +107,7 @@ def process_files(in_file, out_dir):
       stderr_file = os.path.expanduser(file_name + '.stderr')
     err_stat = ''
     status = 'training'
+    latest_time = ''
     if os.path.exists(stderr_file):
       stderr_inf = codecs.open(stderr_file, 'r', 'utf-8')
       for line in stderr_inf: 
@@ -114,11 +116,14 @@ def process_files(in_file, out_dir):
           err_stat = m.group(1)
         if re.search('Done training', line):
           status = 'done'
+        m = re.search(progress_pattern, line)
+        if m != None:
+          latest_time = m.group(1)
       stderr_inf.close()
     eval_stat = status + ' ' + eval_stat
     
     results.append(eval_stat)
-    sys.stderr.write('%s %s %s\n' % (eval_stat, file_name, err_stat))
+    sys.stderr.write('%s %s %s %s\n' % (eval_stat, latest_time, file_name, err_stat))
   
   sys.stderr.write('%s\n' % '\n'.join(results))
   inf.close()
