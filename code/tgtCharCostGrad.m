@@ -72,9 +72,9 @@ function [totalCharCost, charGrad, numChars, rareFlags, numRareWords] = tgtCharC
       if curBatchSize ~= prevBatchSize
         charParams.curBatchSize = curBatchSize;
         % charInitState = createZeroState(charParams);
-        zeroBatch = zeroMatrix([params.lstmSize, curBatchSize], params.isGPU, params.dataType);
-        charInitState = cell(params.numLayers, 1);
-        for ll=1:params.numLayers % layer
+        zeroBatch = zeroMatrix([charParams.lstmSize, charParams.curBatchSize], params.isGPU, params.dataType);
+        charInitState = cell(charParams.numLayers, 1);
+        for ll=1:charParams.numLayers % layer
           % feed hidden state from word-level RNN
           charInitState{ll}.h_t = tgtHidVecs(:, tgtHidIndices(startId:endId));
           charInitState{ll}.c_t = zeroBatch;

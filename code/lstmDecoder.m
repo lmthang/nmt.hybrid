@@ -61,7 +61,7 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
   %% decode %%
   %%%%%%%%%%%%
   [candidates, candScores, alignInfo, otherInfo] = rnnDecoder(models, params, prevStates, minLen, maxLen, beamSize, stackSize, batchSize, ...
-  modelData, data, params.tgtEos, 0, []);
+  modelData, data, params.tgtEos, 0);
   
   % char: now generate words for <unk>
   if params.charTgtGen % assume all models are char-level models
@@ -87,26 +87,32 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
     otherInfo.rareWords = cell(batchSize, 1);
     if numRareWords
       % char params
-      char_params = params;
-      char_params.numLayers = params.charNumLayers;
-      char_params.curBatchSize = numRareWords;
-      char_params.tgtVocab = params.tgtCharVocab;
+      charParams = params;
+      charParams.numLayers = params.charNumLayers;
+      charParams.curBatchSize = numRareWords;
+      charParams.tgtVocab = params.tgtCharVocab;
 
       % model
       char_models = cell(numModels, 1);
       char_models{mm}.W_tgt = models{mm}.W_tgt_char;
       char_models{mm}.W_emb_tgt = models{mm}.W_emb_tgt_char;
       char_models{mm}.W_soft = models{mm}.W_soft_char;
-      char_models{mm}.params = char_params;
+      char_models{mm}.params = charParams;
 
       % prev states
       char_minLen = 2;
       char_maxLen = 20;
       char_modelData = cell(numModels, 1);
       char_prevStates = cell(numModels, 1);
-      char_prevStates{mm} = createZeroState(char_params);
-      [char_candidates, ~, ~, ~] = rnnDecoder(char_models, char_params, char_prevStates, char_minLen, ...
-        char_maxLen, beamSize, stackSize, numRareWords, char_modelData, [], params.tgtCharEos, 1, char_initEmb);
+      %char_prevStates{mm} = createZeroState(char_params);
+      zeroBatch = zeroMatrix([params.lstmSize, charParams.curBatchSize], params.isGPU, params.dataType);
+      char_prevStates{mm} = cell(charParams.numLayers, 1);
+      for ll=1:charParams.numLayers % layer
+        char_prevStates{mm}{ll}.h_t = char_initEmb;
+        char_prevStates{mm}{ll}.c_t = zeroBatch;
+      end
+      [char_candidates, ~, ~, ~] = rnnDecoder(char_models, charParams, char_prevStates, char_minLen, ...
+        char_maxLen, beamSize, stackSize, numRareWords, char_modelData, [], params.tgtCharEos, 1);
       
       % get words
       count = 0;
@@ -132,7 +138,7 @@ end
 % This method should be reusable.
 %%
 function [candidates, candScores, alignInfo, otherInfo] = rnnDecoder(models, params, prevStates, minLen, maxLen, beamSize, stackSize, ...
-  batchSize, modelData, data, tgtEos, isChar, charEmb)
+  batchSize, modelData, data, tgtEos, isChar)
   numModels = length(models);
   
   % first decoder timestep
@@ -142,15 +148,13 @@ function [candidates, candScores, alignInfo, otherInfo] = rnnDecoder(models, par
     % char
     if isChar
       assert(mm==1); % only support one model for now
-      initEmb = charEmb;
       isFeedInput = 0;
       attnFunc = 0;
     else
-      initEmb = models{mm}.W_emb_tgt(:, repmat(models{mm}.params.tgtSos, batchSize, 1));
       isFeedInput = models{mm}.params.feedInput;
       attnFunc = models{mm}.params.attnFunc;
     end
-    
+    initEmb = models{mm}.W_emb_tgt(:, repmat(models{mm}.params.tgtSos, batchSize, 1));
     decRnnFlags = struct('decode', 1, 'test', 1, 'attn', attnFunc, 'feedInput', isFeedInput);
     [prevStates{mm}, attnInfos{mm}] = rnnStepLayerForward(models{mm}.W_tgt, initEmb, ...
       prevStates{mm}, ones(batchSize, 1), models{mm}.params, decRnnFlags, modelData{mm}, models{mm});
