@@ -67,34 +67,34 @@ function [costs, grad, numChars] = lstmCostGrad(model, trainData, params, isTest
   %% tgt char foward / backprop %%
   numChars = 0;
   if params.charTgtGen
-    [costs.char, charGrad, numChars, tgtCharRareFlags, tgtNumRareWords] = tgtCharCostGrad(model.W_soft_char, model.W_tgt_char, model.W_emb_tgt_char, ...
+    [costs.char, tgtCharGrad, numChars, tgtCharRareFlags, tgtNumRareWords] = tgtCharCostGrad(model.W_soft_char, model.W_tgt_char, model.W_emb_tgt_char, ...
       trainData.origTgtOutput, trainData.tgtHidVecs, params.tgtCharMap, params, isTest);
     costs.total = costs.total + costs.char;
     
     if isTest==0
       % W_soft_char
-      grad.W_soft_char = grad.W_soft_char + charGrad.W_soft;
+      grad.W_soft_char = grad.W_soft_char + tgtCharGrad.W_soft;
 
       % W_tgt_char
       for ll=1:params.charNumLayers
-        grad.W_tgt_char{ll} = grad.W_tgt_char{ll} + charGrad.W_tgt{ll};
+        grad.W_tgt_char{ll} = grad.W_tgt_char{ll} + tgtCharGrad.W_tgt{ll};
       end
 
-      grad.W_emb_tgt_char = charGrad.W_emb_tgt_char;
-      grad.indices_tgt_char = charGrad.indices_tgt_char;
+      grad.W_emb_tgt_char = tgtCharGrad.W_emb_tgt_char;
+      grad.indices_tgt_char = tgtCharGrad.indices_tgt_char;
       
       % add top grads from tgt char
       rareCount = 0;
       assert(length(dec_top_grads) == size(tgtCharRareFlags, 2));
       for tt=1:length(dec_top_grads)
         rareIndices = find(tgtCharRareFlags(:, tt));
-        dec_top_grads{tt}(:, rareIndices) = dec_top_grads{tt}(:, rareIndices) + charGrad.initEmb(:, rareCount+1:rareCount+length(rareIndices));
+        dec_top_grads{tt}(:, rareIndices) = dec_top_grads{tt}(:, rareIndices) + tgtCharGrad.initEmb(:, rareCount+1:rareCount+length(rareIndices));
         rareCount = rareCount + length(rareIndices);
       end
       assert(rareCount == tgtNumRareWords);
-      clear charGrad;
+      clear tgtCharGrad;
       if params.debug
-        fprintf(2, '# after clearing charGrad, %s\n', gpuInfo(params.gpu));
+        fprintf(2, '# after clearing tgtCharGrad, %s\n', gpuInfo(params.gpu));
       end
     end
   end
@@ -127,12 +127,12 @@ function [costs, grad, numChars] = lstmCostGrad(model, trainData, params, isTest
       enc_top_grads{tt} = grad.srcHidVecs(:,:,tt);
     end
     
-    [~, ~, grad.W_src, grad.W_emb_src, grad.indices_src, ~, ~, charGrad] = rnnLayerBackprop(model.W_src, encStates, zeroState, ...
+    [~, ~, grad.W_src, grad.W_emb_src, grad.indices_src, ~, ~, srcCharGrad] = rnnLayerBackprop(model.W_src, encStates, zeroState, ...
     enc_top_grads, dc, dh, trainData.srcInput, trainData.srcMask, params, encRnnFlags, attnInfos, trainData, model);
   
     % char backprop
     if params.charSrcRep
-      [grad.W_src_char, grad.W_emb_src_char, grad.indices_src_char] = srcCharLayerBackprop(model.W_src_char, srcCharData, charGrad);
+      [grad.W_src_char, grad.W_emb_src_char, grad.indices_src_char] = srcCharLayerBackprop(model.W_src_char, srcCharData, srcCharGrad);
     end
   end
 
