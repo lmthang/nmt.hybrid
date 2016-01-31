@@ -126,8 +126,7 @@ function [totalCharCost, charGrad, numChars, rareFlags, numRareWords] = tgtCharC
           end
           
           if params.debug
-            charBatch
-            charMask
+            fprintf(2, '    last batch, %s, charBatch [%s], sum charMask %d\n', gpuInfo(params.gpu), num2str(size(charBatch)), sum(charMask(:)));
           end
         end
         [~, dh_char, grad_W_rnn_char, grad_W_emb_char, indices_char, ~, ~, ~] = rnnLayerBackprop(W_rnn, charStates, charInitState, ...
