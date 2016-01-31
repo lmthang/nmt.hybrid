@@ -139,12 +139,13 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   
   % check GPUs
   params.isGPU = 0;
+  params.gpu = 0;
   if params.gpuDevice
     n = gpuDeviceCount;  
     if n>0 % GPU exists
       fprintf(2, '# %d GPUs exist. So, we will use GPUs.\n', n);
       params.isGPU = 1;
-      gpuDevice(params.gpuDevice)
+      params.gpu = gpuDevice(params.gpuDevice)
     else
       params.dataType = 'double';
     end

@@ -16,6 +16,10 @@ function [totalCharCost, charGrad, numChars, rareFlags, numRareWords] = tgtCharC
   charSeqs = charMap(rareWords);
   seqLens = cellfun(@(x) length(x), charSeqs);
   
+  if params.debug
+    fprintf(2, '# tgtCharCostGrad, %s: %d words\n', gpuInfo(params.gpu), numRareWords);
+  end
+  
   % return vars
   numChars = sum(seqLens) + numRareWords; % we also predict tgt eos, so add numRareWords
   totalCharCost = 0;
@@ -26,10 +30,15 @@ function [totalCharCost, charGrad, numChars, rareFlags, numRareWords] = tgtCharC
   % accumulated at the end
   
   % tmp vars
+  % TODO: source of memory leak
   grad_W_emb_char_total = zeroMatrix([params.lstmSize, numRareWords*10], params.isGPU, params.dataType);
   indices_char_total = zeros(numRareWords*10, 1);
   charCount = 0;
   rareWordCount = 0;
+  
+  if params.debug
+    fprintf(2, '  after init, %s\n', gpuInfo(params.gpu));
+  end
   
   if numRareWords > 0
     charParams = params;
@@ -67,14 +76,26 @@ function [totalCharCost, charGrad, numChars, rareFlags, numRareWords] = tgtCharC
         'initEmb', tgtHidVecs(:, tgtHidIndices(startId:endId)));
       
       % prepare data
-      [charBatch, charMask, ~, ~] = rightPad(charSeqs(startId:endId), seqLens(startId:endId), params.tgtCharEos, params.tgtCharSos);
+      [charBatch, charMask, maxLen, ~] = rightPad(charSeqs(startId:endId), seqLens(startId:endId), params.tgtCharEos, params.tgtCharSos);
 
+      if params.debug
+        fprintf(2, '  batch %d, %s: curBatchSize %d, maxLen %d\n', ii, gpuInfo(params.gpu), curBatchSize, maxLen);
+      end
+      
       %% forward %%
       [charStates, ~, ~] = rnnLayerForward(W_rnn, W_emb, charInitState, charBatch, charMask, charParams, charRnnFlags, [], [], []);
       
+      if params.debug
+        fprintf(2, '    after forward, %s\n', gpuInfo(params.gpu));
+      end
+  
       %% softmax
       charTgtOutput = [charBatch(:, 2:end) params.tgtCharEos*ones(charParams.curBatchSize, 1)];
       [cost_char, grad_W_soft_char, topGrads_char] = softmaxCostGrad(charStates, W_soft_char, charTgtOutput, charMask, params, isTest);
+      
+      if params.debug
+        fprintf(2, '    after softmax, %s\n', gpuInfo(params.gpu));
+      end
       
       % cost
       totalCharCost = totalCharCost + params.charWeight * cost_char;
@@ -122,6 +143,10 @@ function [totalCharCost, charGrad, numChars, rareFlags, numRareWords] = tgtCharC
         rareWordCount = rareWordCount + curBatchSize;
         
         prevBatchSize = curBatchSize;
+        
+        if params.debug
+          fprintf(2, '    after backprop, %s\n', gpuInfo(params.gpu));
+        end
       end % end isTest
     end % end for numBatches
     
@@ -146,6 +171,10 @@ function [totalCharCost, charGrad, numChars, rareFlags, numRareWords] = tgtCharC
         end
         charGrad.W_emb_tgt_char = params.charWeight * charGrad.W_emb_tgt_char;
         charGrad.initEmb = params.charWeight * charGrad.initEmb;
+      end
+      
+      if params.debug
+        fprintf(2, '  end tgtCharCostGrad, %s, charCount %d\n', gpuInfo(params.gpu), charCount);
       end
     end
   end % end if numRareWords

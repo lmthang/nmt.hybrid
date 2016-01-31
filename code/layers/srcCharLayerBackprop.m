@@ -12,6 +12,10 @@ function [grad_W_rnn, grad_W_emb, emb_indices] = srcCharLayerBackprop(W_rnn, cha
     assert(isequal(sort(charData.rareWordMap(charGrad.indices))', 1:charData.numRareWords));
   end
   
+  if params.debug
+    fprintf(2, '# srcCharLayerBackprop before, %s\n', gpuInfo(params.gpu));
+  end
+  
   topGrads = cell(charData.maxLen, 1);
   topGrads{end} = charGrad.embs(:, charData.rareWordMap(charGrad.indices));
 
@@ -28,6 +32,10 @@ function [grad_W_rnn, grad_W_emb, emb_indices] = srcCharLayerBackprop(W_rnn, cha
   [~, ~, grad_W_rnn, grad_W_emb, emb_indices, ~, ~, ~] = rnnLayerBackprop(W_rnn, charData.states, zeroState, ...
   topGrads, zeroGrad, zeroGrad, charData.batch, charData.mask, charData.params, charData.rnnFlags, [], [], []);
 
+  if params.debug
+    fprintf(2, '  after, %s\n', gpuInfo(params.gpu));
+  end
+  
   % [grad_W_rnn, grad_W_emb, emb_indices] = srcCharMultiBatchBackprop(W_rnn, charData, charGrad);    
 end
 

@@ -93,6 +93,9 @@ function [costs, grad, numChars] = lstmCostGrad(model, trainData, params, isTest
       end
       assert(rareCount == tgtNumRareWords);
       clear charGrad;
+      if params.debug
+        fprintf(2, '# after clearing charGrad, %s\n', gpuInfo(params.gpu));
+      end
     end
   end
   

@@ -23,12 +23,21 @@ function [charData] = srcCharLayerForward(W_rnn, W_emb, input, charMap, vocabSiz
   if ~isempty(rareWords)    
     charData.params.curBatchSize = length(rareWords);
     [charData.batch, charData.mask, charData.maxLen, charData.numSeqs] = leftPad(charMap(rareWords), seqLens, params.srcCharSos, params.srcCharEos);
+    
+    if params.debug
+      fprintf(2, '# srcCharLayerForward before, %s: %d words, maxLen %d\n', gpuInfo(params.gpu), charData.numRareWords, charData.maxLen);
+    end
+    
     charData.rnnFlags = struct('decode', 0, 'test', isTest, 'attn', 0, 'feedInput', 0, 'charSrcRep', 0, 'charTgtGen', 0, 'initEmb', []);
     zeroState = createZeroState(charData.params);
     [charData.states, ~, ~] = rnnLayerForward(W_rnn, W_emb, zeroState, charData.batch, charData.mask, charData.params, charData.rnnFlags, [], [], []);
     charData.rareWordReps = charData.states{end}{end}.h_t;
     charData.rareWordMap = zeros(vocabSize, 1);
     charData.rareWordMap(rareWords) = 1:length(rareWords);
+    
+    if params.debug
+      fprintf(2, '  after, %s\n', gpuInfo(params.gpu));
+    end
     
 %     [charData] = srcCharMultiBatchForward(W_rnn, W_emb, charSeqs, seqLens, charData, params, isTest, vocabSize, rareWords);
 %     
