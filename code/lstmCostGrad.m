@@ -74,12 +74,10 @@ function [costs, grad, numChars] = lstmCostGrad(model, trainData, params, isTest
     if isTest==0
       if tgtNumRareWords>0
         % W_soft_char
-        grad.W_soft_char = grad.W_soft_char + tgtCharGrad.W_soft;
+        grad.W_soft_char = tgtCharGrad.W_soft;
 
         % W_tgt_char
-        for ll=1:params.charNumLayers
-          grad.W_tgt_char{ll} = grad.W_tgt_char{ll} + tgtCharGrad.W_tgt{ll};
-        end
+        grad.W_tgt_char = tgtCharGrad.W_tgt{ll};
 
         grad.W_emb_tgt_char = tgtCharGrad.W_emb_tgt_char;
         grad.indices_tgt_char = tgtCharGrad.indices_tgt_char;
@@ -137,7 +135,11 @@ function [costs, grad, numChars] = lstmCostGrad(model, trainData, params, isTest
   
     % char backprop
     if params.charSrcRep
-      [grad.W_src_char, grad.W_emb_src_char, grad.indices_src_char] = srcCharLayerBackprop(model.W_src_char, srcCharData, srcCharGrad);
+      if srcCharData.numRareWords > 0
+        [grad.W_src_char, grad.W_emb_src_char, grad.indices_src_char] = srcCharLayerBackprop(model.W_src_char, srcCharData, srcCharGrad);
+      else
+        grad.indices_src_char = [];
+      end
     end
   end
 
