@@ -17,31 +17,33 @@ function [params] = evalValidTest(model, validData, testData, params)
   endTime = clock;
   timeElapsed = etime(endTime, startTime);
   
-  params.curTestPerpTotal = exp(testCosts.total);
-  params.curTestPerpWord = exp(testCosts.word);
-  [params.scaleTrainCosts] = scaleCosts(params.trainCosts, params.trainCounts);
+  avgTrainCosts = scaleCosts(params.trainCosts, params.trainCounts);
+  params.testPplWord = exp(testCosts.word);
   if params.charTgtGen
-    params.curTestPerpChar = exp(testCosts.char);
-    logStr = sprintf('# eval %.2f (%.2f, %.2f), %d, %d, %.2fK, %.2f (%.2f, %.2f), train=%.2f (%.2f, %.2f), valid=%.2f (%.2f, %.2f), test=%.2f (%.2f, %.2f),%s, time=%.2fs', ...
-      params.curTestPerpTotal, params.curTestPerpWord, params.curTestPerpChar, ...
+    params.testPplChar = exp(testCosts.char/params.charWeight);
+    logStr = sprintf('# eval (%.2f, %.2f), %d, %d, %.2fK, %.2f (%.2f, %.2f), train=(%.2f, %.2f), valid=(%.2f, %.2f), test=(%.2f, %.2f),%s, time=%.2fs', ...
+      params.testPplWord, params.testPplChar, ...
       params.epoch, params.iter, params.speed, params.lr, ...
-      params.scaleTrainCosts.total, params.scaleTrainCosts.word, params.scaleTrainCosts.char, ...
-      validCosts.total, validCosts.word, validCosts.char, testCosts.total, testCosts.word, testCosts.char, modelStr, timeElapsed);
+      avgTrainCosts.word, avgTrainCosts.char, ...
+      validCosts.word, validCosts.char, testCosts.word, testCosts.char, modelStr, timeElapsed);
   else
-    logStr = sprintf('# eval %.2f, %d, %d, %.2fK, %.2f, train=%.2f, valid=%.2f, test=%.2f,%s, time=%.2fs', params.curTestPerpWord, ...
+    logStr = sprintf('# eval (%.2f), %d, %d, %.2fK, %.2f, train=(%.2f), valid=(%.2f), test=(%.2f),%s, time=%.2fs', params.testPplWord, ...
       params.epoch, params.iter, params.speed, params.lr, ...
-      params.scaleTrainCosts.total, validCosts.total, testCosts.total, modelStr, timeElapsed);
+      avgTrainCosts.word, validCosts.word, testCosts.word, modelStr, timeElapsed);
   end
   fprintf(2, '%s\n', logStr);
   fprintf(params.logId, '%s\n', logStr);
-      
-  if validCosts.total < params.bestCostValid
-    params.bestCostValid = validCosts.total;
-    params.costTest = testCosts.total;
-    params.testPerplexity = params.curTestPerpWord;
-
-    fprintf(2, '  save model test perplexity %.2f to %s\n', params.testPerplexity, params.modelFile);
-    fprintf(params.logId, '  save model test perplexity %.2f to %s\n', params.testPerplexity, params.modelFile);
+  
+  params.curValidCost = validCosts.word;
+  if params.charOpt
+    params.curValidCost = params.curValidCost + validCosts.char;
+  end
+  
+  if params.curValidCost < params.bestCostValid
+    params.bestCostValid = params.curValidCost;
+    
+    fprintf(2, '  save model best valid cost %.2f to %s\n', params.curValidCost, params.modelFile);
+    fprintf(params.logId, '  save model best valid cost %.2f to %s\n', params.curValidCost, params.modelFile);
     save(params.modelFile, 'model', 'params');
     
     if params.saveHDF
@@ -51,7 +53,7 @@ function [params] = evalValidTest(model, validData, testData, params)
 end
 
 %% Eval
-function [evalCosts, totalNumChars] = evalCost(model, data, params) %input, inputMask, tgtOutput, tgtMask, srcMaxLen, tgtMaxLen, params)
+function [evalCosts, totalNumChars] = evalCost(model, data, params)
   numSents = size(data.tgtInput, 1);
   numBatches = floor((numSents-1)/params.batchSize) + 1;
 
@@ -77,8 +79,8 @@ function [evalCosts, totalNumChars] = evalCost(model, data, params) %input, inpu
     trainData.tgtLens = data.tgtLens(startId:endId); 
     
     % eval
-    [costs, ~, numChars] = lstmCostGrad(model, trainData, params, 1);
-    totalNumChars = totalNumChars + numChars;
+    [costs, ~, charInfo] = lstmCostGrad(model, trainData, params, 1);
+    totalNumChars = totalNumChars + charInfo.numChars;
     [evalCosts] = updateCosts(evalCosts, costs);
   end
 end

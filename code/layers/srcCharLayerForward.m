@@ -13,9 +13,9 @@ function [charData] = srcCharLayerForward(W_rnn, W_emb, input, charMap, vocabSiz
   charData.params = params;
   charData.params.numLayers = params.charNumLayers;
 
+  % find rare words
   charData.rareFlags = input > params.srcCharShortList;
   rareWords = unique(input(charData.rareFlags));
-  
   charData.numRareWords = length(rareWords);
   charSeqs = charMap(rareWords);
   seqLens = cellfun(@(x) length(x), charSeqs);

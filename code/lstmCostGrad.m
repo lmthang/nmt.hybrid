@@ -1,4 +1,4 @@
-function [costs, grad, numChars] = lstmCostGrad(model, trainData, params, isTest)
+function [costs, grad, charInfo] = lstmCostGrad(model, trainData, params, isTest)
 %%%
 %
 % Compute cost/grad for LSTM. 
@@ -65,12 +65,11 @@ function [costs, grad, numChars] = lstmCostGrad(model, trainData, params, isTest
   
   
   %% tgt char foward / backprop %%
-  numChars = 0;
+  charInfo.numChars = 0;
   if params.charTgtGen
-    [costs.char, tgtCharGrad, numChars, tgtCharRareFlags, tgtNumRareWords] = tgtCharCostGrad(model.W_soft_char, model.W_tgt_char, model.W_emb_tgt_char, ...
+    [costs.char, tgtCharGrad, charInfo.numChars, tgtCharRareFlags, tgtNumRareWords] = tgtCharCostGrad(model.W_soft_char, model.W_tgt_char, model.W_emb_tgt_char, ...
       trainData.origTgtOutput, trainData.tgtHidVecs, params.tgtCharMap, params, isTest);
     costs.total = costs.total + costs.char;
-    
     if isTest==0
       if tgtNumRareWords>0
         grad.W_soft_char = tgtCharGrad.W_soft;
