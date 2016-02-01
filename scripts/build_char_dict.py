@@ -31,7 +31,7 @@ def process_command_line():
   # positional arguments
   parser.add_argument('in_file', metavar='in_file', type=str, help='input file') 
   parser.add_argument('out_prefix', metavar='out_prefix', type=str, help='output file') 
-  parser.add_argument('short_list', metavar='short_list', type=int, help='number of shortlisted words') 
+  parser.add_argument('char_size', metavar='char_size', type=int, help='number of char vocab size') 
 
   # optional arguments
   parser.add_argument('-o', '--option', dest='opt', type=int, default=0, help='option (default=0)')
@@ -54,54 +54,68 @@ def clean_line(line):
   line = re.sub('(^\s+|\s$)', '', line);
   return line
 
-def process_files(in_file, out_prefix, short_list):
+def process_files(in_file, out_prefix, char_size):
   """
   Read data from in_file, and output to out_prefix
   """
 
-  sys.stderr.write('# in_file = %s, out_prefix = %s, short_list = %d\n' % (in_file, out_prefix, short_list))
+  sys.stderr.write('# in_file = %s, out_prefix = %s, char_size = %d\n' % (in_file, out_prefix, char_size))
+
   # input
   sys.stderr.write('# Input from %s.\n' % (in_file))
   inf = codecs.open(in_file, 'r', 'utf-8')
 
-  line_id = 0
-  sys.stderr.write('# Processing file %s ...\n' % (in_file))
-  vocab = []
-  char_dict = {}
-  char_map = {}
-  num_chars = 0
-  chars = []
-  for line in inf:
-    word = clean_line(line)
-    vocab.append(word)
-   
-    # only extract chars for those short-listed words
-    if line_id < short_list:
-      for char in word:
-        if char not in char_dict:
-          char_dict[char] = 0
-          char_map[char] = num_chars
-          num_chars += 1
-          chars.append(char)
-
-    line_id = line_id + 1
-    if (line_id % 10000 == 0):
-      sys.stderr.write(' (%d) ' % line_id)
-
-  inf.close()
-  
   # output
   check_dir(out_prefix)
   dict_out_file = out_prefix + '.char.dict'
   map_out_file = out_prefix + '.char.map'
   filtered_out_file = out_prefix + '.vocab'
-  char_vocab_out_file = out_prefix + '.char.vocab'
   sys.stderr.write('Output to %s, %s, %s\n' % (dict_out_file, map_out_file, filtered_out_file))
   dict_ouf = codecs.open(dict_out_file, 'w', 'utf-8')
   map_ouf = codecs.open(map_out_file, 'w', 'utf-8')
   filtered_ouf = codecs.open(filtered_out_file, 'w', 'utf-8')
-  char_ouf = codecs.open(char_vocab_out_file, 'w', 'utf-8')
 
+
+  line_id = 0
+  sys.stderr.write('# Processing file %s ...\n' % (in_file))
+  vocab = []
+  char_counts = {} # count how many times a character appears in words
+  for line in inf:
+    word = clean_line(line)
+    vocab.append(word)
+    for char in word:
+      if char not in char_counts:
+        char_counts[char] = 0
+      char_counts[char] += 1
+  
+    line_id = line_id + 1
+    if (line_id % 10000 == 0):
+      sys.stderr.write(' (%dK) ' % (line_id/1000))
+  inf.close()
+  sys.stderr.write('Done! Num words = %d, num chars = %d\n' % (line_id, len(char_counts)))
+ 
+  # select the top chars
+  char_vocab_out_file = out_prefix + '.char.vocab'
+  char_vocab_full_out_file = out_prefix + '.char.vocab.full'
+  sys.stderr.write('# Selecting the top %d chars, output to %s, %s\n' % (char_size, char_vocab_out_file, char_vocab_full_out_file))
+  top_chars = sorted(char_counts.iteritems(), key=lambda x: x[1], reverse=True)
+  char_ouf = codecs.open(char_vocab_out_file, 'w', 'utf-8')
+  char_full_ouf = codecs.open(char_vocab_full_out_file, 'w', 'utf-8')
+  char_dict = {}
+  char_map = {}
+  chars = []
+  num_chars = 0
+  for (char, count) in top_chars:
+    if num_chars < char_size or char == '<' or char == '>' or char == '/': # the check of <, /, > is for <unk>, <s>, </s>
+      char_ouf.write('%s\n' % (char))
+      char_dict[char] = 0
+      char_map[char] = num_chars
+      chars.append(char)
+      num_chars += 1
+    char_full_ouf.write('%s %d\n' % (char, count))
+
+  # filter vocab
+  sys.stderr.write('# Filtering word vocab ...\n')
   filtered_vocab_size = 0
   for word in vocab:
     char_indices = []
@@ -122,10 +136,7 @@ def process_files(in_file, out_prefix, short_list):
   for (k, v) in sorted(char_dict.items(), key=lambda x: x[1], reverse=True):
     dict_ouf.write('%s %d\n' % (k, v))
  
-  for char in chars:
-    char_ouf.write('%s\n' % char)
-
-  sys.stderr.write('Done! Num words = %d, num chars = %d, filtered_vocab_size = %d\n' % (line_id, num_chars, filtered_vocab_size))
+  sys.stderr.write('Done! Num words %d, num chars %d, filtered_vocab_size = %d\n' % (line_id, len(char_counts), filtered_vocab_size))
     
   dict_ouf.close()
   map_ouf.close()
@@ -134,5 +145,5 @@ def process_files(in_file, out_prefix, short_list):
 
 if __name__ == '__main__':
   args = process_command_line()
-  process_files(args.in_file, args.out_prefix, args.short_list)
+  process_files(args.in_file, args.out_prefix, args.char_size)
 
