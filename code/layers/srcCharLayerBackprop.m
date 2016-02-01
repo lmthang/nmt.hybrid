@@ -5,6 +5,13 @@ function [grad_W_rnn, grad_W_emb, emb_indices] = srcCharLayerBackprop(W_rnn, cha
 %
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 
+  if charData.numRareWords == 0
+    grad_W_rnn = []; 
+    grad_W_emb = [];
+    emb_indices = [];
+    return;
+  end
+  
   assert(length(charGrad.indices) == charData.numRareWords);
   
   params = charData.params;

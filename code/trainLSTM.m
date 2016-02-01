@@ -332,10 +332,10 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       model.W_emb_tgt(:, grad.indices_tgt) = model.W_emb_tgt(:, grad.indices_tgt) - scaleLr*grad.W_emb_tgt;
       
       % char
-      if params.charSrcRep
+      if params.charSrcRep && ~isempty(grad.indices_src_char)
         model.W_emb_src_char(:, grad.indices_src_char) = model.W_emb_src_char(:, grad.indices_src_char) - scaleLr*grad.W_emb_src_char;  
       end
-      if params.charTgtGen
+      if params.charTgtGen && ~isempty(grad.indices_tgt_char)
         model.W_emb_tgt_char(:, grad.indices_tgt_char) = model.W_emb_tgt_char(:, grad.indices_tgt_char) - scaleLr*grad.W_emb_tgt_char;
       end
 

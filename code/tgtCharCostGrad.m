@@ -28,6 +28,9 @@ function [totalCharCost, charGrad, numChars, rareFlags, numRareWords] = tgtCharC
   charGrad.initEmb = zeroMatrix([params.lstmSize, numRareWords], params.isGPU, params.dataType);
   % there are also charGrad.W_emb_tgt_char, charGrad.indices_tgt_char
   % accumulated at the end
+  if numRareWords == 0
+    return;
+  end
   
   % tmp vars
   % preallocation: when printing out logs, we often use less than <
