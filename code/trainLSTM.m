@@ -286,9 +286,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       %% core part %%
       %%%%%%%%%%%%%%%
       trainData = trainBatches{batchId};
-      [costs, grad, numChars] = lstmCostGrad(model, trainData, params, 0);
-      if numChars > 0
-        trainData.numChars = numChars;
+      [costs, grad, charInfo] = lstmCostGrad(model, trainData, params, 0);
+      if charInfo.numChars > 0
+        trainData.numChars = charInfo.numChars;
       end
 
       %% handle nan/inf
@@ -363,14 +363,28 @@ function [params] = initTrainParams(params)
   params.lr = params.learningRate;
   params.epoch = 1;
   params.bestCostValid = 1e5;
-  params.testPerplexity = 1e5;
-  params.curTestPerpWord = 1e5;
-  params.startIter = 0;
-  params.iter = 0;  % number of batches we have processed
   params.epochBatchCount = 0;
   params.finetuneCount = 0;
   params.trainCounts = initCosts(params);
   params.trainCosts = initCosts(params);
+  params.startIter = 0;
+  params.iter = 0;
+end
+
+function [params] = copyTrainParams(params, oldParams)
+  params.lr = oldParams.lr;
+  params.epoch = oldParams.epoch;
+  params.bestCostValid = oldParams.bestCostValid;
+  params.epochBatchCount = oldParams.epochBatchCount;
+  params.finetuneCount = oldParams.finetuneCount;
+  params.trainCounts = oldParams.trainCounts;
+  params.trainCosts = oldParams.trainCosts;
+  params.startIter = oldParams.iter;
+  if params.epoch > 1
+    params.iter = (params.epoch-1)*params.epochBatchCount;
+  else
+    params.iter = 0;
+  end
 end
 
 %% Init model parameters
@@ -467,10 +481,9 @@ end
 function [params, startTime] = postTrainIter(model, costs, gradNorm, trainData, validData, testData, params, startTime, srcTrainSents, tgtTrainSents)
   %% log info
   params.trainCounts = updateCounts(params.trainCounts, trainData);
+  params.trainCosts = updateCosts(params.trainCosts, costs);
+  
   params.totalLog = params.totalLog + trainData.numWords; % to compute speed
-  
-  [params.trainCosts] = updateCosts(params.trainCosts, costs);
-  
   if mod(params.iter, params.logFreq) == 0
     % profile
     if params.isProfile
@@ -487,13 +500,13 @@ function [params, startTime] = postTrainIter(model, costs, gradNorm, trainData, 
     timeElapsed = etime(endTime, startTime);
     params.speed = params.totalLog*0.001/timeElapsed;
     
-    [params.scaleTrainCosts] = scaleCosts(params.trainCosts, params.trainCounts);
+    avgTrainCosts = scaleCosts(params.trainCosts, params.trainCounts);
     if params.charTgtGen
-      logStr = sprintf('%d, %d, %.2fK, %g, %.2f (%.2f, %.2f), gN=%.2f, %s', params.epoch, params.iter, params.speed, params.lr, ...
-          params.scaleTrainCosts.total, params.scaleTrainCosts.word, params.scaleTrainCosts.char, gradNorm, datestr(now));
+      logStr = sprintf('%d, %d, %.2fK, %g, (%.2f, %.2f), gN=%.2f, %s', params.epoch, params.iter, params.speed, params.lr, ...
+          avgTrainCosts.word, avgTrainCosts.char, gradNorm, datestr(now));
     else
-      logStr = sprintf('%d, %d, %.2fK, %g, %.2f, gN=%.2f, %s', params.epoch, params.iter, params.speed, params.lr, ...
-          params.scaleTrainCosts.total, gradNorm, datestr(now));
+      logStr = sprintf('%d, %d, %.2fK, %g, (%.2f), gN=%.2f, %s', params.epoch, params.iter, params.speed, params.lr, ...
+          avgTrainCosts.word, gradNorm, datestr(now));
     end
     
     fprintf(2, '%s\n', logStr);
@@ -588,8 +601,8 @@ function [params] = evalSaveDecode(model, validData, testData, params, srcTrainS
   [params] = evalValidTest(model, validData, testData, params);
 
   % save
-  fprintf(2, '  save model cur test perplexity %.2f to %s\n', params.curTestPerpWord, params.modelRecentFile);
-  fprintf(params.logId, '  save model cur test perplexity %.2f to %s\n', params.curTestPerpWord, params.modelRecentFile);
+  fprintf(2, '  save model valid cost %.2f to %s\n', params.curValidCost, params.modelRecentFile);
+  fprintf(params.logId, '  save model valid cost %.2f to %s\n', params.curValidCost, params.modelRecentFile);
   save(params.modelRecentFile, 'model', 'params');
   if params.saveHDF
     saveHDF5([params.modelRecentFile '.h5'], model, params);
@@ -690,31 +703,9 @@ function [model, params, oldParams, loaded] = loadModel(modelFile, params, isFre
   % params
   oldParams = savedData.params;
   if isFreshTrain
-    [params] = initTrainParams(params);
+    params = initTrainParams(params);
   else
-    params.lr = oldParams.lr;
-    params.epoch = oldParams.epoch;
-    params.epochBatchCount = oldParams.epochBatchCount;
-    params.bestCostValid = oldParams.bestCostValid;
-    params.testPerplexity = oldParams.testPerplexity;
-    params.trainCounts = oldParams.trainCounts;
-    params.trainCosts = oldParams.trainCosts;
-    if isfield(oldParams, 'finetuneCount')
-      params.finetuneCount = oldParams.finetuneCount;
-    else
-      if params.epoch > params.finetuneEpoch && params.epochBatchCount>0 % try to determine finetuneCount, we should rarely need this
-        params.finetuneCount = floor(params.epochFraction*params.epochBatchCount);
-      else
-        params.finetuneCount = 0;
-      end
-    end
-
-    params.startIter = oldParams.iter;
-    if params.epoch > 1
-      params.iter = (params.epoch-1)*params.epochBatchCount;
-    else
-      params.iter = 0;  % number of batches we have processed
-    end
+    params = copyTrainParams(params, oldParams);
   end
   
   % model
@@ -722,8 +713,8 @@ function [model, params, oldParams, loaded] = loadModel(modelFile, params, isFre
   model
   clear savedData;
 
-  fprintf(2, '  loaded! lr=%g, epoch=%d, iter=%d, bestCostValid=%g, testPerplexity=%g, model: %s\n', params.lr, params.epoch, params.startIter, params.bestCostValid, params.testPerplexity, wInfo(model));
-  fprintf(params.logId, '  loaded! lr=%g, epoch=%d, iter=%d, bestCostValid=%g, testPerplexity=%g, model: %s\n', params.lr, params.epoch, params.startIter, params.bestCostValid, params.testPerplexity, wInfo(model));
+  fprintf(2, '  loaded! lr=%g, epoch=%d, iter=%d, bestCostValid=%g, model: %s\n', params.lr, params.epoch, params.startIter, params.bestCostValid, wInfo(model));
+  fprintf(params.logId, '  loaded! lr=%g, epoch=%d, iter=%d, bestCostValid=%g, model: %s\n', params.lr, params.epoch, params.startIter, wInfo(model));
 end
 
 function [model, params] = initLoadModel(params)
