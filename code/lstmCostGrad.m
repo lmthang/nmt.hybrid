@@ -73,12 +73,8 @@ function [costs, grad, numChars] = lstmCostGrad(model, trainData, params, isTest
     
     if isTest==0
       if tgtNumRareWords>0
-        % W_soft_char
         grad.W_soft_char = tgtCharGrad.W_soft;
-
-        % W_tgt_char
-        grad.W_tgt_char = tgtCharGrad.W_tgt{ll};
-
+        grad.W_tgt_char = tgtCharGrad.W_tgt;
         grad.W_emb_tgt_char = tgtCharGrad.W_emb_tgt_char;
         grad.indices_tgt_char = tgtCharGrad.indices_tgt_char;
 
