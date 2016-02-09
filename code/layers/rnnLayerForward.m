@@ -60,7 +60,7 @@ for tt=1:T % time
   
   % decoder, char
   if rnnFlags.charTgtGen && rnnFlags.decode == 1
-    trainData.tgtHidVecs(:, :, tt) = prevState{end}.h_t;
+    trainData.tgtHidVecs(:, :, tt) = prevState{end}.softmax_h; % the very top hidden state before prediction (note for attention)
   end
   
   % store all states

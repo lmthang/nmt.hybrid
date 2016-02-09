@@ -557,7 +557,6 @@ function [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents,
   if ~isfield(params, 'costTrain') || ~isfield(params, 'speed')
     endTime = clock;
     timeElapsed = etime(endTime, startTime);
-    params.costTrain = params.trainCosts.total/params.trainCounts.total;
     params.speed = params.totalLog*0.001/timeElapsed;
     params.totalLog = 0;
     startTime = clock;

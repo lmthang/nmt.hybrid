@@ -319,7 +319,7 @@ originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
   for sentPos=1:(maxLen-1)
     %% Description:
     % At this point, hypotheses of length sentPos are completed.
-    % If sentPos<maxLen, this loop will prepare hypotheses of length(sentPos+1) by:
+    % This loop will prepare hypotheses of length(sentPos+1) by:
     %   (a) first, finding out what the top beamSize^2 nextWords are.
     %   (b) among these nextWords, those which are equal to <eos>, will signal
     %      a complete translations and we will collect. These complete
