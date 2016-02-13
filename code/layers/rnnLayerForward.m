@@ -60,7 +60,11 @@ for tt=1:T % time
   
   % decoder, char
   if rnnFlags.charTgtGen && rnnFlags.decode == 1
-    trainData.tgtHidVecs(:, :, tt) = prevState{end}.softmax_h; % the very top hidden state before prediction (note for attention)
+    if params.charFeedOpt == 1 && params.attnOpt
+      trainData.tgtHidVecs(:, :, tt) = hiddenLayerForward(model.W_h_char, attnInfos{tt}.input, params.nonlinear_f); % a separate transformer!
+    else
+      trainData.tgtHidVecs(:, :, tt) = prevState{end}.softmax_h; % the very top hidden state before prediction (note for attention)
+    end
   end
   
   % store all states

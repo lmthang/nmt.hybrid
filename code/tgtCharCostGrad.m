@@ -71,45 +71,33 @@ function [totalCharCost, charGrad, numChars, rareFlags, numRareWords] = tgtCharC
       end
       curBatchSize = endId - startId + 1;
       
-      % update setting with respect to new mini-batch size
+      % init: update setting with respect to new mini-batch size only
       if curBatchSize ~= prevBatchSize
         charParams.curBatchSize = curBatchSize;
-        % charInitState = createZeroState(charParams);
         zeroBatch = zeroMatrix([charParams.lstmSize, charParams.curBatchSize], params.isGPU, params.dataType);
         charInitState = cell(charParams.numLayers, 1);
         for ll=1:charParams.numLayers % layer
-          % feed hidden state from word-level RNN
-          if ll == 1
-            charInitState{ll}.h_t = tgtHidVecs(:, tgtHidIndices(startId:endId));
-          else
-            charInitState{ll}.h_t = zeroBatch;
-          end
+          charInitState{ll}.h_t = zeroBatch;
           charInitState{ll}.c_t = zeroBatch;
         end
       end
-      charRnnFlags = struct('decode', 1, 'test', isTest, 'attn', 0, 'feedInput', 0, 'charSrcRep', 0, 'charTgtGen', 0);
+      
+      % feed hidden state from word-level RNN
+      charInitState{1}.h_t = tgtHidVecs(:, tgtHidIndices(startId:endId)); % IMPORTANT: don't put this in the above if!
       
       % prepare data
       [charBatch, charMask, maxLen, ~] = rightPad(charSeqs(startId:endId), seqLens(startId:endId), params.tgtCharEos, params.tgtCharSos);
-
       if params.debug
         fprintf(2, '  batch %d, %s: curBatchSize %d, maxLen %d\n', ii, gpuInfo(params.gpu), curBatchSize, maxLen);
       end
       
       %% forward %%
+      charRnnFlags = struct('decode', 1, 'test', isTest, 'attn', 0, 'feedInput', 0, 'charSrcRep', 0, 'charTgtGen', 0);
       [charStates, ~, ~] = rnnLayerForward(W_rnn, W_emb, charInitState, charBatch, charMask, charParams, charRnnFlags, [], [], []);
-      
-      if params.debug
-        fprintf(2, '    after forward, %s\n', gpuInfo(params.gpu));
-      end
   
       %% softmax
       charTgtOutput = [charBatch(:, 2:end) params.tgtCharEos*ones(charParams.curBatchSize, 1)];
       [cost_char, grad_W_soft_char, topGrads_char] = softmaxCostGrad(charStates, W_soft_char, charTgtOutput, charMask, params, isTest);
-      
-      if params.debug
-        fprintf(2, '    after softmax, %s\n', gpuInfo(params.gpu));
-      end
       
       % cost
       totalCharCost = totalCharCost + params.charWeight * cost_char;
@@ -131,14 +119,9 @@ function [totalCharCost, charGrad, numChars, rareFlags, numRareWords] = tgtCharC
           for ll=1:charParams.numLayers % layer
             zeroGrad{ll} = zeroBatch;
           end
-          
-          if params.debug
-            fprintf(2, '    last batch, %s, charBatch [%s], sum charMask %d\n', gpuInfo(params.gpu), num2str(size(charBatch)), sum(charMask(:)));
-          end
         end
         [~, dh_char, grad_W_rnn_char, grad_W_emb_char, indices_char, ~, ~, ~] = rnnLayerBackprop(W_rnn, charStates, charInitState, ...
         topGrads_char, zeroGrad, zeroGrad, charBatch, charMask, charParams, charRnnFlags, [], [], []);
-        initEmb_batch = dh_char{1};
         
         % W_tgt
         if ii==1
@@ -156,14 +139,10 @@ function [totalCharCost, charGrad, numChars, rareFlags, numRareWords] = tgtCharC
         charCount = charCount + numDistinctChars;
         
         % init emb
-        charGrad.initEmb(:, rareWordCount+1:rareWordCount+curBatchSize) = initEmb_batch;
+        charGrad.initEmb(:, rareWordCount+1:rareWordCount+curBatchSize) = dh_char{1};
         rareWordCount = rareWordCount + curBatchSize;
         
         prevBatchSize = curBatchSize;
-        
-        if params.debug
-          fprintf(2, '    after backprop, %s\n', gpuInfo(params.gpu));
-        end
       end % end isTest
     end % end for numBatches
     

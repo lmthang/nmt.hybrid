@@ -61,6 +61,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   
   % char-based models
   addOptional(p,'charOpt', 0, @isnumeric); % 1: character-based source representation only, 2: character-based target generation, 3: combined both 1 and 2.
+  addOptional(p,'charFeedOpt', 0, @isnumeric); % 0: use the same top softmax_h, 1: use a separate component to produce h_char
   addOptional(p,'charWeight', 1, @isnumeric); % to weight char loss
   addOptional(p,'charMaxLen', 20, @isnumeric); % to weight char loss
   addOptional(p,'srcCharShortList', 0, @isnumeric); % list of frequent words after which we will learn compositions from characters
@@ -463,6 +464,11 @@ function [model] = initLSTM(params)
     
     % attn_t = H_src * a_t % h_attn_t = f(W_h * [attn_t; h_t])
     model.W_h = initMatrixRange(params.initRange, [params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
+  end
+  
+  if params.charFeedOpt == 1
+    % h_attn_char = f(W_h_char * [attn_t; h_t])
+    model.W_h_char = initMatrixRange(params.initRange, [params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
   end
   
   %% softmax input -> predictions

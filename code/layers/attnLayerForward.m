@@ -71,8 +71,7 @@ function [attnInfo] = attnLayerForward(h_t, params, model, attnData, maskInfo)
   % f(W_h*[context_t; h_t])
   attnInfo.input = [contextVecs; h_t];
   attnInfo.h_t = h_t;
-  softmax_h = hiddenLayerForward(model.W_h, attnInfo.input, params.nonlinear_f);
-  attnInfo.softmax_h = softmax_h; % attentional vectors
+  attnInfo.softmax_h = hiddenLayerForward(model.W_h, attnInfo.input, params.nonlinear_f);
 
   % assert
   if params.assert
