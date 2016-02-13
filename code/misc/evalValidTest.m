@@ -35,7 +35,7 @@ function [params] = evalValidTest(model, validData, testData, params)
   fprintf(params.logId, '%s\n', logStr);
   
   params.curValidCost = validCosts.word;
-  if params.charOpt
+  if params.charOpt > 1
     params.curValidCost = params.curValidCost + validCosts.char;
   end
   
