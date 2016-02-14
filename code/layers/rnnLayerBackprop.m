@@ -33,14 +33,15 @@ srcCharGrad = [];
 if ~isempty(tgtCharGrad)
   rareCountRemain = tgtCharGrad.numRareWords;
 end
-rareAttnEmb = [];
+rareAttnInputGrad_char = [];
 rareIndices = [];
 for tt=T:-1:1 % time
   % attention
   if rnnFlags.attn && rnnFlags.decode
     % char
     % TODO
-    if ~isempty(tgtCharGrad.initAttnInput)
+    
+    if rnnFlags.charTgtGen && ~isempty(tgtCharGrad.initAttnInput)
       rareIndices = find(tgtCharGrad.rareFlags(:, tt));
       rareAttnInputGrad_char = tgtCharGrad.initAttnInput(:, rareCountRemain-length(rareIndices)+1:rareCountRemain);
       rareCountRemain = rareCountRemain - length(rareIndices);

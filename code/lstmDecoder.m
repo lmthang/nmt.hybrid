@@ -76,7 +76,6 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
     for sentId=1:batchSize
       flags = candidates{sentId}{1} == params.tgtUnk;
       positions = find(flags);
-      % assert(flags(end) == 0);
       char_initEmb(:, numRareWords+1:numRareWords+length(positions)) = otherInfo.transStates{mm}(:, positions, sentId);
       numRareWords = numRareWords + length(positions);
       otherInfo.rarePositions{sentId} = positions;
@@ -104,7 +103,6 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
       char_maxLen = 20;
       char_modelData = cell(numModels, 1);
       char_prevStates = cell(numModels, 1);
-      %char_prevStates{mm} = createZeroState(char_params);
       zeroBatch = zeroMatrix([params.lstmSize, charParams.curBatchSize], params.isGPU, params.dataType);
       char_prevStates{mm} = cell(charParams.numLayers, 1);
       for ll=1:charParams.numLayers % layer
@@ -174,7 +172,7 @@ function [candidates, candScores, alignInfo, otherInfo] = rnnDecoder(models, par
   else
     sentIndices = data.startId:(data.startId+batchSize-1);
   end
-  [candidates, candScores, alignInfo, otherInfo] = decodeBatch(models, params, prevStates, minLen, maxLen, beamSize, stackSize, batchSize, ...
+  [candidates, candScores, alignInfo, otherInfo] = decodeBatch(models, params, prevStates, attnInfos, minLen, maxLen, beamSize, stackSize, batchSize, ...
     sentIndices, modelData, firstAlignIdx, data, tgtEos, isChar);
 end
 
@@ -187,7 +185,7 @@ end
 %   - beamSize
 %   - stackSize: maximum number of translations collected for one example
 %%
-function [candidates, candScores, alignInfo, otherInfo] = decodeBatch(models, params, prevStates, minLen, maxLen, beamSize, stackSize, batchSize, ...
+function [candidates, candScores, alignInfo, otherInfo] = decodeBatch(models, params, prevStates, attnInfos, minLen, maxLen, beamSize, stackSize, batchSize, ...
 originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
   numElements = batchSize*beamSize;
   
@@ -200,16 +198,6 @@ originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
   
   numModels = length(models);
   otherInfo = [];
-  
-  % char
-  if params.charTgtGen
-    assert(stackSize == 1);
-    % store translation states of the best translation over all models
-    otherInfo.transStates = cell(batchSize, 1);
-    for ii=1:batchSize
-      otherInfo.transStates{ii} = cell(numModels, 1);
-    end
-  end
   
   % align
   if params.align && isChar == 0
@@ -253,27 +241,35 @@ originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
   
   
   %% replicate
-  beamStates = cell(numModels, 1);
-  % char
-  if params.charTgtGen
-    beamHistTopStates = cell(numModels, 1); % maxLen);
-  end
-  for mm=1:numModels % model    
+  beamStates = cell(numModels, 1);  
+  for mm=1:numModels % model
     beamStates{mm} = cell(models{mm}.params.numLayers, 1);
     for ll=1:models{mm}.params.numLayers % lstmSize * numElements
       beamStates{mm}{ll}.c_t = reshape(repmat(prevStates{mm}{ll}.c_t, beamSize, 1),  models{mm}.params.lstmSize, numElements); 
       beamStates{mm}{ll}.h_t = reshape(repmat(prevStates{mm}{ll}.h_t, beamSize, 1),  models{mm}.params.lstmSize, numElements); 
     end
     beamStates{mm}{end}.softmax_h = reshape(repmat(prevStates{mm}{end}.softmax_h, beamSize, 1),  models{mm}.params.lstmSize, numElements); 
-    
-    % char
-    if params.charTgtGen
+  end
+  
+  %% char
+  if params.charTgtGen && isChar == 0
+    assert(stackSize == 1);
+    beamHistTopStates = cell(numModels, 1); % maxLen);
+    otherInfo.transStates = cell(numModels, 1);
+    for mm=1:numModels
+      assert(models{mm}.params.charTgtGen == 1);
+      otherInfo.transStates{mm} = zeroMatrix([models{mm}.params.lstmSize, maxLen-1, numElements], params.isGPU, params.dataType);
+      
       beamHistTopStates{mm} = zeroMatrix([models{mm}.params.lstmSize, numElements, maxLen], params.isGPU, params.dataType);
-      beamHistTopStates{mm}(:, :, 1) = beamStates{mm}{end}.softmax_h;
+      if models{mm}.params.charFeedOpt
+        tgtWordStates = hiddenLayerForward(models{mm}.W_h_char, attnInfos{mm}.input, params.nonlinear_f); 
+        beamHistTopStates{mm}(:, :, 1) = reshape(repmat(tgtWordStates, beamSize, 1),  models{mm}.params.lstmSize, numElements); 
+      else
+        beamHistTopStates{mm}(:, :, 1) = beamStates{mm}{end}.softmax_h;
+      end
     end
   end
   
-
   oneMask = ones(1, numElements);
   
   if isChar == 0
@@ -306,16 +302,6 @@ originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
   end
   
   attnInfos = cell(numModels, 1);
-  
-  % char
-  if params.charTgtGen
-    otherInfo.transStates = cell(numModels, 1);
-    for mm=1:numModels
-      assert(models{mm}.params.charTgtGen == 1);
-      otherInfo.transStates{mm} = zeroMatrix([models{mm}.params.lstmSize, maxLen-1, batchSize], params.isGPU, params.dataType);
-    end
-  end
-  
   for sentPos=1:(maxLen-1)
     %% Description:
     % At this point, hypotheses of length sentPos are completed.
@@ -425,8 +411,8 @@ originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
               end
 
               % char
-              if params.charTgtGen
-                for mm=1:numModels
+              if params.charTgtGen && isChar == 0
+                for mm=1:numModels % copy from existing states
                   otherInfo.transStates{mm}(:, 1:sentPos, sentId) = beamHistTopStates{mm}(:, histIndices(ii), 1:sentPos);
                 end
               end
@@ -458,10 +444,14 @@ originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
     beamHistory(1:sentPos, :) = beamHistory(1:sentPos, colIndices); 
     beamHistory(sentPos+1, :) = beamWords;
     % char
-    if params.charTgtGen
+    if params.charTgtGen && isChar == 0
       for mm=1:numModels
         beamHistTopStates{mm}(:, :, 1:sentPos) = beamHistTopStates{mm}(:, colIndices, 1:sentPos);
-        beamHistTopStates{mm}(:, :, sentPos+1) = beamStates{mm}{end}.softmax_h(:, colIndices);
+        if models{mm}.params.charFeedOpt
+          beamHistTopStates{mm}(:, :, sentPos+1) = hiddenLayerForward(models{mm}.W_h_char, attnInfos{mm}.input, params.nonlinear_f); 
+        else
+          beamHistTopStates{mm}(:, :, sentPos+1) = beamStates{mm}{end}.softmax_h(:, colIndices);
+        end
       end
     end
     
@@ -507,7 +497,7 @@ originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
             end
 
             % char
-            if params.charTgtGen
+            if params.charTgtGen && isChar == 0
               for mm=1:numModels
                 otherInfo.transStates{mm}(:, 1:maxLen-1, sentId) = beamHistTopStates{mm}(:, eosIndex, 1:maxLen-1);
               end

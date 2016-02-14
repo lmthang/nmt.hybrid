@@ -99,6 +99,8 @@ function [costs, grad, charInfo] = lstmCostGrad(model, trainData, params, isTest
         fprintf(2, '# after clearing tgtCharGrad, %s\n', gpuInfo(params.gpu));
       end
     end
+  else
+    tgtCharGrad = [];
   end
   
   if isTest==1 % don't compute grad

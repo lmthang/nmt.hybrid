@@ -466,7 +466,7 @@ function [model] = initLSTM(params)
     model.W_h = initMatrixRange(params.initRange, [params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
   end
   
-  if params.charFeedOpt == 1
+  if params.charFeedOpt == 1 && params.charOpt > 1
     % h_attn_char = f(W_h_char * [attn_t; h_t])
     model.W_h_char = initMatrixRange(params.initRange, [params.lstmSize, 2*params.lstmSize], params.isGPU, params.dataType);
   end
