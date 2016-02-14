@@ -33,5 +33,5 @@ function [grad_W_rnn, grad_W_emb, emb_indices] = srcCharLayerBackprop(W_rnn, cha
   end
   
   [~, ~, grad_W_rnn, grad_W_emb, emb_indices, ~, ~, ~] = rnnLayerBackprop(W_rnn, charData.states, zeroState, ...
-  topGrads, zeroGrad, zeroGrad, charData.batch, charData.mask, charData.params, charData.rnnFlags, [], [], []); 
+  topGrads, zeroGrad, zeroGrad, charData.batch, charData.mask, charData.params, charData.rnnFlags, [], [], [], []); 
 end

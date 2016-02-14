@@ -67,30 +67,34 @@ function [costs, grad, charInfo] = lstmCostGrad(model, trainData, params, isTest
   %% tgt char foward / backprop %%
   charInfo.numChars = 0;
   if params.charTgtGen
-    [costs.char, tgtCharGrad, charInfo.numChars, tgtCharRareFlags, tgtNumRareWords] = tgtCharCostGrad(model.W_soft_char, model.W_tgt_char, model.W_emb_tgt_char, ...
-      trainData.origTgtOutput, trainData.tgtHidVecs, params.tgtCharMap, params, isTest);
+    [costs.char, tgtCharGrad, charInfo.numChars] = tgtCharCostGrad(decStates, attnInfos, model, trainData.origTgtOutput, params.tgtCharMap, params, isTest);
     costs.total = costs.total + costs.char;
     if isTest==0
-      if tgtNumRareWords>0
+      if tgtCharGrad.numRareWords>0
         grad.W_soft_char = tgtCharGrad.W_soft;
         grad.W_tgt_char = tgtCharGrad.W_tgt;
         grad.W_emb_tgt_char = tgtCharGrad.W_emb_tgt_char;
         grad.indices_tgt_char = tgtCharGrad.indices_tgt_char;
-
-        % add top grads from tgt char
-        rareCount = 0;
-        assert(length(dec_top_grads) == size(tgtCharRareFlags, 2));
-        for tt=1:length(dec_top_grads)
-          rareIndices = find(tgtCharRareFlags(:, tt));
-          dec_top_grads{tt}(:, rareIndices) = dec_top_grads{tt}(:, rareIndices) + tgtCharGrad.initEmb(:, rareCount+1:rareCount+length(rareIndices));
-          rareCount = rareCount + length(rareIndices);
+        
+        if params.charFeedOpt
+          assert(params.attnFunc>0);
+          grad.W_h_char = tgtCharGrad.W_h_char;
+        else
+          % add top grads from tgt char
+          rareCount = 0;
+          decLen = length(dec_top_grads);
+          for tt=1:decLen
+            rareIndices = find(tgtCharGrad.rareFlags(:, tt));
+            dec_top_grads{tt}(:, rareIndices) = dec_top_grads{tt}(:, rareIndices) + tgtCharGrad.initEmb(:, rareCount+1:rareCount+length(rareIndices));
+            rareCount = rareCount + length(rareIndices);
+          end
+          assert(rareCount == tgtCharGrad.numRareWords);
         end
-        assert(rareCount == tgtNumRareWords);
       else
         grad.indices_tgt_char = [];
       end
       
-      clear tgtCharGrad;
+      % clear tgtCharGrad;
       if params.debug
         fprintf(2, '# after clearing tgtCharGrad, %s\n', gpuInfo(params.gpu));
       end
@@ -113,7 +117,7 @@ function [costs, grad, charInfo] = lstmCostGrad(model, trainData, params, isTest
   %% decoder
   [dc, dh, grad.W_tgt, grad.W_emb_tgt, grad.indices_tgt, attnGrad, grad.srcHidVecs, ~] = rnnLayerBackprop(model.W_tgt, ...
     decStates, lastEncState, dec_top_grads, zeroGrad, zeroGrad, trainData.tgtInput, trainData.tgtMask, params, decRnnFlags, ...
-    attnInfos, trainData, model);
+    attnInfos, trainData, model, tgtCharGrad);
   if params.attnFunc % copy attention grads 
     [grad] = copyStruct(attnGrad, grad);
   end
@@ -126,7 +130,7 @@ function [costs, grad, charInfo] = lstmCostGrad(model, trainData, params, isTest
     end
     
     [~, ~, grad.W_src, grad.W_emb_src, grad.indices_src, ~, ~, srcCharGrad] = rnnLayerBackprop(model.W_src, encStates, zeroState, ...
-    enc_top_grads, dc, dh, trainData.srcInput, trainData.srcMask, params, encRnnFlags, attnInfos, trainData, model);
+    enc_top_grads, dc, dh, trainData.srcInput, trainData.srcMask, params, encRnnFlags, attnInfos, trainData, model, []);
   
     % char backprop
     if params.charSrcRep

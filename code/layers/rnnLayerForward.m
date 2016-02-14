@@ -23,11 +23,6 @@ if rnnFlags.attn && rnnFlags.decode == 0
   trainData.srcHidVecsOrig = zeroMatrix([params.lstmSize, params.curBatchSize, T], params.isGPU, params.dataType); % params.numSrcHidVecs
 end
 
-% char generation, decoder
-if rnnFlags.charTgtGen && rnnFlags.decode == 1
-  trainData.tgtHidVecs = zeroMatrix([params.lstmSize, params.curBatchSize, T], params.isGPU, params.dataType);
-end
-
 for tt=1:T % time
   if rnnFlags.charSrcRep && rnnFlags.decode == 0 % char representation, encoder
     inputEmb = zeroMatrix([params.lstmSize, params.curBatchSize], params.isGPU, params.dataType);
@@ -56,15 +51,6 @@ for tt=1:T % time
   % encoder, attention
   if rnnFlags.attn && rnnFlags.decode == 0
     trainData.srcHidVecsOrig(:, :, tt) = prevState{end}.h_t;
-  end
-  
-  % decoder, char
-  if rnnFlags.charTgtGen && rnnFlags.decode == 1
-    if params.charFeedOpt == 1 && params.attnOpt
-      trainData.tgtHidVecs(:, :, tt) = hiddenLayerForward(model.W_h_char, attnInfos{tt}.input, params.nonlinear_f); % a separate transformer!
-    else
-      trainData.tgtHidVecs(:, :, tt) = prevState{end}.softmax_h; % the very top hidden state before prediction (note for attention)
-    end
   end
   
   % store all states

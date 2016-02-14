@@ -1,5 +1,5 @@
 function [dc, dh, grad_W_rnn, grad_W_emb, grad_emb_indices, attnGrad, grad_srcHidVecs_total, srcCharGrad] = rnnLayerBackprop(W_rnn, rnnStates, ...
-  initState, top_grads, dc, dh, input, masks, params, rnnFlags, attnInfos, trainData, model)
+  initState, top_grads, dc, dh, input, masks, params, rnnFlags, attnInfos, trainData, model, tgtCharGrad)
 % Running Multi-layer RNN for one time step.
 % Input:
 %   W_rnn: recurrent connections of multiple layers, e.g., W_rnn{ll}.
@@ -30,12 +30,26 @@ srcCharGrad = [];
 % masks
 [maskInfos] = prepareMask(masks);
 
+if ~isempty(tgtCharGrad)
+  rareCountRemain = tgtCharGrad.numRareWords;
+end
+rareAttnEmb = [];
+rareIndices = [];
 for tt=T:-1:1 % time
   % attention
   if rnnFlags.attn && rnnFlags.decode
+    % char
+    % TODO
+    if ~isempty(tgtCharGrad.initAttnInput)
+      rareIndices = find(tgtCharGrad.rareFlags(:, tt));
+      rareAttnInputGrad_char = tgtCharGrad.initAttnInput(:, rareCountRemain-length(rareIndices)+1:rareCountRemain);
+      rareCountRemain = rareCountRemain - length(rareIndices);
+    end
+    
     % attention: softmax_h -> h_t
     h2sInfo = attnInfos{tt};
-    [cur_top_grad, attnStepGrad, grad_srcHidVecs] = attnLayerBackprop(model, top_grads{tt}, trainData, h2sInfo, params, maskInfos{tt});
+    [cur_top_grad, attnStepGrad, grad_srcHidVecs] = attnLayerBackprop(model, top_grads{tt}, trainData, h2sInfo, params, maskInfos{tt}, ...
+      rareAttnInputGrad_char, rareIndices);
     fields = fieldnames(attnStepGrad);
     for ii=1:length(fields)
       field = fields{ii};
