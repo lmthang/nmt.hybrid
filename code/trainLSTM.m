@@ -113,6 +113,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.stackSize = 100;
   params.unkPenalty = 0;
   params.forceDecoder = 0;
+  params.prefixDecoder = 0;
   params.reuseEncoder = 0;
   
   % params assertions
@@ -533,8 +534,8 @@ function decodeSent(srcSent, tgtSent, model, params)
   params.preeosId = -1;
   [decodeData] = prepareData(srcSent, tgtSent, 1, params);
   decodeData.startId = 1;
-  [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(model, decodeData, params, []);
-  printDecodeResults(decodeData, candidates, candScores, alignInfo, otherInfo, params, 0);
+  [candidates, candScores, alignInfo] = lstmDecoder(model, decodeData, params, []);
+  printDecodeResults(decodeData, candidates, candScores, alignInfo, params, 0, []);
 end
 
 function [trainBatches, numTrainSents, numBatches, srcTrainSents, tgtTrainSents] = loadTrainBatches(params)
