@@ -1,4 +1,4 @@
-function printDecodeResults(decodeData, candidates, candScores, alignInfo, otherInfo, params, isOutput)
+function printDecodeResults(decodeData, candidates, candScores, alignInfo, params, isOutput, prefixSent)
   batchSize = size(candScores, 2);
   startId = decodeData.startId;
   
@@ -10,17 +10,16 @@ function printDecodeResults(decodeData, candidates, candScores, alignInfo, other
     assert(isempty(find(translation>params.tgtVocabSize, 1)));
     
     if isOutput
-      if params.forceDecoder
-        printSent(params.fid, otherInfo.forceDecodeOutputs(1:decodeData.tgtLens(ii)-1, ii), params.tgtVocab, '');
-      else
-        printSent(params.fid, translation(1:end-1), params.tgtVocab, ''); % remove <t_eos>
-      end
+      printSent(params.fid, translation(1:end-1), params.tgtVocab, ''); % remove <t_eos>
     end
 
     % log
     printSrc(params.logId, decodeData, ii, params, startId+ii-1);
     printRef(params.logId, decodeData, ii, params, startId+ii-1);
-    printSent(params.logId, translation, params.tgtVocab, ['  tgt ' num2str(startId+ii-1) ': ']);    
+    printSent(params.logId, translation, params.tgtVocab, ['  tgt ' num2str(startId+ii-1) ': ']);
+    if params.prefixDecoder
+      printSent(params.logId, prefixSent, params.tgtVocab, ['  pre ' num2str(startId+ii-1) ': ']);
+    end
     % align
     if params.align
       alignment = alignInfo{ii}{bestId};
@@ -35,8 +34,8 @@ function printDecodeResults(decodeData, candidates, candScores, alignInfo, other
     printSrc(2, decodeData, ii, params, startId+ii-1);
     printRef(2, decodeData, ii, params, startId+ii-1);
     printSent(2, translation, params.tgtVocab, ['  tgt ' num2str(startId+ii-1) ': ']);
-    if params.forceDecoder
-      printSent(2, otherInfo.forceDecodeOutputs(1:decodeData.tgtLens(ii)-1, ii), params.tgtVocab, ['  fdc ' num2str(startId+ii-1) ': ']);
+    if params.prefixDecoder
+      printSent(2, prefixSent, params.tgtVocab, ['  pre ' num2str(startId+ii-1) ': ']);
     end
     % align
     if params.align

@@ -15,6 +15,7 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
     tmpModels{1}.params = params;
     models = tmpModels;
   end
+  otherInfo = [];
   
   beamSize = params.beamSize;
   stackSize = params.stackSize;
@@ -75,14 +76,14 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
   if params.reuseEncoder
     otherInfo.prevStates = prevStates;
     otherInfo.modelData = modelData;
-    otherInfo.srcInput = srcInput;
+    otherInfo.srcInput = data.srcInput;
   end
 
   %%%%%%%%%%%%
   %% decode %%
   %%%%%%%%%%%%
   assert(unique(data.tgtInput(:, 1)) == params.tgtSos);
-  [candidates, candScores, alignInfo, otherInfo.forceDecodeOutputs] = rnnDecoder(models, params, prevStates, minLen, maxLen, beamSize, stackSize, batchSize, ...
+  [candidates, candScores, alignInfo] = rnnDecoder(models, params, prevStates, minLen, maxLen, beamSize, stackSize, batchSize, ...
   modelData, data, params.tgtSos);
 
   endTime = clock;
@@ -95,7 +96,7 @@ end
 % Take the initial states, starting symbol, and then decode!
 % This method should be reusable.
 %%
-function [candidates, candScores, alignInfo, forceDecodeOutputs] = rnnDecoder(models, params, prevStates, minLen, maxLen, beamSize, stackSize, batchSize, ...
+function [candidates, candScores, alignInfo] = rnnDecoder(models, params, prevStates, minLen, maxLen, beamSize, stackSize, batchSize, ...
   modelData, data, startSos)
   numModels = length(models);
   
@@ -119,7 +120,7 @@ function [candidates, candScores, alignInfo, forceDecodeOutputs] = rnnDecoder(mo
   
   % decode the rest
   sentIndices = data.startId:(data.startId+batchSize-1);
-  [candidates, candScores, alignInfo, forceDecodeOutputs] = decodeBatch(models, params, prevStates, minLen, maxLen, beamSize, stackSize, batchSize, ...
+  [candidates, candScores, alignInfo] = decodeBatch(models, params, prevStates, minLen, maxLen, beamSize, stackSize, batchSize, ...
     sentIndices, modelData, firstAlignIdx, data);
 end
 
@@ -131,7 +132,7 @@ end
 %   - beamSize
 %   - stackSize: maximum number of translations collected for one example
 %%
-function [candidates, candScores, alignInfo, forceDecodeOutputs] = decodeBatch(models, params, prevStates, minLen, maxLen, beamSize, stackSize, batchSize, ...
+function [candidates, candScores, alignInfo] = decodeBatch(models, params, prevStates, minLen, maxLen, beamSize, stackSize, batchSize, ...
 originalSentIndices, modelData, firstAlignIdx, data)
   numElements = batchSize*beamSize;
   
@@ -153,12 +154,14 @@ originalSentIndices, modelData, firstAlignIdx, data)
   
   %% first prediction
   numModels = length(models);
-  forceDecodeOutputs = [];
   % scores, words: beamSize * batchSize
-  if params.forceDecoder
-    [scores, words, otherData] = nextBeamStep(models, prevStates, beamSize, data.tgtOutput(:, 1)); 
-    forceDecodeOutputs = zeroMatrix([maxLen, numElements], params.isGPU, params.dataType); % maxLen * (numElements) 
-    forceDecodeOutputs(1, :) = otherData.maxWords;
+  if (params.prefixDecoder || params.forceDecoder) && data.prefixLen>=1
+    [scores, words] = nextBeamStep(models, prevStates, beamSize, data.prefixSent(1)); 
+    
+    % these checks are necessary to ensure the init beam code below is correct
+    assert(batchSize == 1);
+    assert(length(words)==1);
+    assert(length(firstAlignIdx)==1);
   else
     [scores, words] = nextBeamStep(models, prevStates, beamSize);
   end
@@ -263,9 +266,19 @@ originalSentIndices, modelData, firstAlignIdx, data)
     
     %% predict the next word
     % allBestScores, allBestWords should have size beamSize * (beamSize*batchSize)
-    if params.forceDecoder
-      [allBestScores, allBestWords, otherData] = nextBeamStep(models, beamStates, beamSize, data.tgtOutput(:, tgtPos));
-      forceDecodeOutputs(tgtPos, :) = otherData.maxWords;
+    if (params.prefixDecoder || params.forceDecoder) && data.prefixLen>=tgtPos
+      if params.forceDecoder
+        [allBestScores, allBestWords] = nextBeamStep(models, beamStates, beamSize, data.prefixSent(tgtPos));
+        assert(length(allBestWords) == 1);
+        assert(length(allBestScores) == 1);
+      else
+        % TODO: remove all repmat here, since all hypotheses are the same at this point.
+        [allBestScores, allBestWords] = nextBeamStep(models, beamStates, beamSize, repmat(data.prefixSent(tgtPos), 1, beamSize));
+        assert(size(allBestWords, 1) == 1);
+        assert(size(allBestScores, 1) == 1);
+        allBestScores = repmat(allBestScores, beamSize, 1);
+        allBestWords = repmat(allBestWords, beamSize, 1);
+      end
     else
       [allBestScores, allBestWords] = nextBeamStep(models, beamStates, beamSize);
     end
@@ -410,7 +423,7 @@ end
 %%
 % return bestLogProbs, bestWords of sizes beamSize * curBatchSize
 %%
-function [bestLogProbs, bestWords, otherData] = nextBeamStep(models, lastDecStates, beamSize, varargin)
+function [bestLogProbs, bestWords] = nextBeamStep(models, lastDecStates, beamSize, varargin)
   softmax_input = models{1}.W_soft*lastDecStates{1}{end}.softmax_h;
   if length(models)>1 % aggregate predictions from multiple models
     for ii=2:length(models)
@@ -422,15 +435,12 @@ function [bestLogProbs, bestWords, otherData] = nextBeamStep(models, lastDecStat
   
   % sort
   if length(varargin)==1 % force decoder
-    correctWords = reshape(varargin{1}, 1, []);
-    bestWords = correctWords;
-    bestLogProbs = logProbs(sub2ind(size(logProbs), correctWords, 1:size(logProbs, 2)));
-    [~, otherData.maxWords] = max(logProbs, [], 1);
+    bestWords = reshape(varargin{1}, 1, []);
+    bestLogProbs = logProbs(sub2ind(size(logProbs), bestWords, 1:size(logProbs, 2)));
   else
     [sortedLogProbs, sortedWords] = sort(logProbs, 'descend');
     bestWords = sortedWords(1:beamSize, :);
     bestLogProbs = sortedLogProbs(1:beamSize, :);
-    otherData = [];
   end
 end
 

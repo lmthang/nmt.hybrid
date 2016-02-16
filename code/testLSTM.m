@@ -38,13 +38,15 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   addOptional(p,'forceDecoder', 0, @isnumeric); 
   % useful for rescoring if we have many sentence pairs with the same source
   addOptional(p,'reuseEncoder', 0, @isnumeric); 
-
+  % prefix decoding
+  addOptional(p,'prefixFile', '', @ischar); % force the begining part to be equal to a prefix
+  % print decoding scores, require stackSize = 1
+  addOptional(p,'printScore', 0, @isnumeric);
+  
   p.KeepUnmatched = true;
   parse(p,modelFiles,beamSize,stackSize,batchSize,outputFile,varargin{:})
   decodeParams = p.Results;
-  if decodeParams.batchSize==-1 % decode sents one by one
-    decodeParams.batchSize = 1;
-  end
+  assert(decodeParams.batchSize>0);
   
   % GPU settings
   decodeParams.isGPU = 0;
@@ -128,12 +130,6 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   
   params = models{1}.params;
   
-  % force decode
-  if decodeParams.forceDecoder
-    params.stackSize = 1;
-    params.beamSize = 1;
-  end
-  
   % reuse encoder (supposedly useful for batchSize = 1)
   if params.reuseEncoder
     assert(params.batchSize == 1);
@@ -149,6 +145,33 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   
   % load test data  
   [srcSents, tgtSents, numSents]  = loadBiData(params, params.testPrefix, params.srcVocab, params.tgtVocab, -1, params.hasTgt);
+  
+  % force decode
+  if decodeParams.forceDecoder
+    fprintf(2, '# Force decoding\n');
+    assert(params.batchSize == 1);
+    assert(params.stackSize == 1);
+  end
+  
+  % prefix decode
+  if strcmp(params.prefixFile, '') == 0
+    params.prefixDecoder = 1;
+    assert(params.batchSize == 1);
+    assert(params.stackSize == 1);
+    
+    fprintf(2, '# Prefix decoding\n');
+    [prefixSents, ~] = loadMonoData(params.prefixFile, -1, params.baseIndex, params.tgtVocab, 'prefix');
+    assert(length(prefixSents) == numSents);
+  else
+    params.prefixDecoder = 0;
+  end
+  
+  % print score
+  if params.printScore
+    assert(params.stackSize == 1);
+    params.scoreFid = fopen([params.outputFile '.score'], 'w');
+  end
+  
   
   %%%%%%%%%%%%
   %% decode %%
@@ -170,11 +193,27 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
     [decodeData] = prepareData(srcSents(startId:endId), tgtSents(startId:endId), 1, params);
     decodeData.startId = startId;
     
+    % prefix decoder
+    if params.prefixDecoder || params.forceDecoder
+      assert(startId == endId);
+      if params.prefixDecoder
+        decodeData.prefixSent = prefixSents{startId};
+      else % like prefix decoder, prefixSent = tgtOutput
+        decodeData.prefixSent = decodeData.tgtOutput(1, :);
+      end
+      decodeData.prefixLen = length(decodeData.prefixSent);
+    else
+      decodeData.prefixSent = [];
+    end
+    
     % call lstmDecoder
     [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, decodeData, params, otherInfo); 
     
     % print results
-    printDecodeResults(decodeData, candidates, candScores, alignInfo, otherInfo, params, 1);
+    printDecodeResults(decodeData, candidates, candScores, alignInfo, params, 1, decodeData.prefixSent);
+    if params.printScore
+      fprintf(params.scoreFid, '%f\n', candScores); 
+    end
   end
 
   endTime = clock;
