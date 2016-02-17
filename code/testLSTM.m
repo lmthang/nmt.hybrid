@@ -33,7 +33,8 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   addOptional(p,'maxLenRatio', 1.5, @isnumeric); % decodeLen <= maxLenRatio * srcMaxLen
   addOptional(p,'testPrefix', '', @ischar); % to specify a different file for decoding
   addOptional(p,'hasTgt', 1, @isnumeric); % 0 -- no ref translations (groundtruth)
-  
+  addOptional(p,'continueId', 0, @isnumeric); % > 0: start decoding from this continueId (base 1) sent and append the results
+    
   % force decoding: always feed the correct words (groundtruth)
   addOptional(p,'forceDecoder', 0, @isnumeric); 
   % useful for rescoring if we have many sentence pairs with the same source
@@ -135,12 +136,25 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
     assert(params.batchSize == 1);
   end
   
-  params.fid = fopen(params.outputFile, 'w');
-  params.logId = fopen([outputFile '.log'], 'w'); 
+  
+  if params.continueId > 0 % appending
+    fileOpt = 'a';
+  else
+    fileOpt = 'w';
+  end
+  
+  params.fid = fopen(params.outputFile, fileOpt);
+  params.logId = fopen([outputFile '.log'], fileOpt); 
   % align
   if params.align
-    params.alignId = fopen([params.outputFile '.align'], 'w');
+    params.alignId = fopen([params.outputFile '.align'], fileOpt);
   end
+  % print score
+  if params.printScore
+    assert(params.stackSize == 1);
+    params.scoreFid = fopen([params.outputFile '.score'], fileOpt);
+  end
+  
   printParams(2, params);
   
   % load test data  
@@ -166,11 +180,7 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
     params.prefixDecoder = 0;
   end
   
-  % print score
-  if params.printScore
-    assert(params.stackSize == 1);
-    params.scoreFid = fopen([params.outputFile '.score'], 'w');
-  end
+
   
   
   %%%%%%%%%%%%
@@ -185,11 +195,17 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   for batchId = 1 : numBatches
     % prepare batch data
     startId = (batchId-1)*batchSize+1;
-    endId = batchId*batchSize;
-    
+    endId = batchId*batchSize;  
     if endId > numSents
       endId = numSents;
     end
+    
+    % continue training
+    if params.continueId > startId
+      continue;
+    end    
+    
+    % prepare data
     [decodeData] = prepareData(srcSents(startId:endId), tgtSents(startId:endId), 1, params);
     decodeData.startId = startId;
     
