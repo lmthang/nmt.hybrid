@@ -317,7 +317,6 @@ originalSentIndices, modelData, firstAlignIdx, data)
         endIndices = find(bestWords(1:selectedIndices(end))==params.tgtEos); 
       else % special case, happen for beamSize = 1, useful for force decoding
         assert(beamSize == 1);
-        assert(bestWords == params.tgtEos);
         if doneFlags(sentId) == 1
           continue;
         else
