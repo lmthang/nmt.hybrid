@@ -4,7 +4,7 @@ function [encStates, lastEncState, encRnnFlags, trainData, srcCharData] = encode
   if params.charOpt
     % src
     if params.charSrcRep
-      [srcCharData] = srcCharLayerForward(model.W_src_char, model.W_emb_src_char, trainData.srcInput, params.srcCharMap, ...
+      [srcCharData] = srcCharLayerForward(model.W_src_char, model.W_emb_src_char, trainData.srcInput, trainData.srcMask, params.srcCharMap, ...
         params.srcVocabSize, params, isTest);
     else
       trainData.srcInput(trainData.srcInput > params.srcCharShortList) = params.srcUnk;

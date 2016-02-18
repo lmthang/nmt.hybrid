@@ -1,4 +1,4 @@
-function [charData] = srcCharLayerForward(W_rnn, W_emb, input, charMap, vocabSize, params, isTest)
+function [charData] = srcCharLayerForward(W_rnn, W_emb, input, mask, charMap, vocabSize, params, isTest)
 % Running char layer forward to compute word representations
 % Input:
 %   W_rnn: recurrent connections of multiple layers, e.g., W_rnn{ll}.
@@ -15,20 +15,40 @@ function [charData] = srcCharLayerForward(W_rnn, W_emb, input, charMap, vocabSiz
 
   % find rare words
   charData.rareFlags = input > params.srcCharShortList;
-  rareWords = unique(input(charData.rareFlags));
-  charData.numRareWords = length(rareWords);
-  charSeqs = charMap(rareWords);
+  charData.rareWords = unique(input(charData.rareFlags));
+  
+  % sample from frequent words
+  if params.charSrcSample > 0
+    % select by types
+    freqWords = unique(input(~charData.rareFlags & mask));
+    numSelect = floor(length(freqWords)*params.charSrcSample);
+    perm = randperm(length(freqWords));
+    selectFreqWords = freqWords(perm(1:numSelect));
+    
+    % assert
+    if params.assert
+      assert(isempty(intersect(charData.rareWords, selectFreqWords)) == 1);
+      assert(ismember(params.srcSos, selectFreqWords) == 0);
+    end
+    
+    % update rare words and flags
+    charData.rareWords = union(charData.rareWords, selectFreqWords);
+    charData.rareFlags = ismember(input, charData.rareWords);
+  end
+  
+  charData.numRareWords = length(charData.rareWords);
+  charSeqs = charMap(charData.rareWords);
   seqLens = cellfun(@(x) length(x), charSeqs);
   
-  if ~isempty(rareWords)    
-    charData.params.curBatchSize = length(rareWords);
-    [charData.batch, charData.mask, charData.maxLen, charData.numSeqs] = leftPad(charMap(rareWords), seqLens, params.srcCharSos, params.srcCharEos);
+  if charData.numRareWords > 0
+    charData.params.curBatchSize = charData.numRareWords;
+    [charData.batch, charData.mask, charData.maxLen, charData.numSeqs] = leftPad(charMap(charData.rareWords), seqLens, params.srcCharSos, params.srcCharEos);
     
     charData.rnnFlags = struct('decode', 0, 'test', isTest, 'attn', 0, 'feedInput', 0, 'charSrcRep', 0, 'charTgtGen', 0);
     zeroState = createZeroState(charData.params);
     [charData.states, ~, ~] = rnnLayerForward(W_rnn, W_emb, zeroState, charData.batch, charData.mask, charData.params, charData.rnnFlags, [], [], []);
     charData.rareWordReps = charData.states{end}{end}.h_t;
     charData.rareWordMap = zeros(vocabSize, 1);
-    charData.rareWordMap(rareWords) = 1:length(rareWords);
+    charData.rareWordMap(charData.rareWords) = 1:charData.numRareWords;
   end
 end

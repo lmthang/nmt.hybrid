@@ -37,7 +37,7 @@ function [costs, grad, charInfo] = lstmCostGrad(model, trainData, params, isTest
     % tgt
     if params.charTgtGen
       trainData.origTgtOutput = trainData.tgtOutput;
-      trainData.origTgtInput = trainData.tgtInput;
+      % trainData.origTgtInput = trainData.tgtInput;
     end
     trainData.tgtOutput(trainData.tgtOutput > params.tgtCharShortList) = params.tgtUnk;
     trainData.tgtInput(trainData.tgtInput > params.tgtCharShortList) = params.tgtUnk;
@@ -67,7 +67,7 @@ function [costs, grad, charInfo] = lstmCostGrad(model, trainData, params, isTest
   %% tgt char foward / backprop %%
   charInfo.numChars = 0;
   if params.charTgtGen
-    [costs.char, tgtCharGrad, charInfo.numChars] = tgtCharCostGrad(decStates, attnInfos, model, trainData.origTgtOutput, params.tgtCharMap, params, isTest);
+    [costs.char, tgtCharGrad, charInfo.numChars] = tgtCharCostGrad(decStates, attnInfos, model, trainData.origTgtOutput, trainData.tgtMask, params.tgtCharMap, params, isTest);
     costs.total = costs.total + costs.char;
     if isTest==0
       if tgtCharGrad.numRareWords>0
@@ -117,7 +117,7 @@ function [costs, grad, charInfo] = lstmCostGrad(model, trainData, params, isTest
   end
   
   %% decoder
-  [dc, dh, grad.W_tgt, grad.W_emb_tgt, grad.indices_tgt, attnGrad, grad.srcHidVecs, ~] = rnnLayerBackprop(model.W_tgt, ...
+  [dc, dh, grad.W_tgt, grad.W_emb_tgt, grad.indices_tgt, attnGrad, grad.srcHidVecs] = rnnLayerBackprop(model.W_tgt, ...
     decStates, lastEncState, dec_top_grads, zeroGrad, zeroGrad, trainData.tgtInput, trainData.tgtMask, params, decRnnFlags, ...
     attnInfos, trainData, model, tgtCharGrad);
   if params.attnFunc % copy attention grads 
@@ -131,12 +131,26 @@ function [costs, grad, charInfo] = lstmCostGrad(model, trainData, params, isTest
       enc_top_grads{tt} = grad.srcHidVecs(:,:,tt);
     end
     
-    [~, ~, grad.W_src, grad.W_emb_src, grad.indices_src, ~, ~, srcCharGrad] = rnnLayerBackprop(model.W_src, encStates, zeroState, ...
+    [~, ~, grad.W_src, grad.W_emb_src, grad.indices_src, ~, ~] = rnnLayerBackprop(model.W_src, encStates, zeroState, ...
     enc_top_grads, dc, dh, trainData.srcInput, trainData.srcMask, params, encRnnFlags, attnInfos, trainData, model, []);
   
     % char backprop
     if params.charSrcRep
       if srcCharData.numRareWords > 0
+        if params.charSrcSample > 0 % also include frequent words
+          rareFlags = ismember(grad.indices_src, srcCharData.rareWords);
+        else
+          rareFlags = grad.indices_src > params.srcCharShortList;
+        end
+        
+        % rare
+        srcCharGrad.embs = grad.W_emb_src(:, rareFlags);
+        srcCharGrad.indices = grad.indices_src(rareFlags);
+
+        % frequent
+        grad.W_emb_src = grad.W_emb_src(:, ~rareFlags);
+        grad.indices_src = grad.indices_src(~rareFlags);
+        
         [grad.W_src_char, grad.W_emb_src_char, grad.indices_src_char] = srcCharLayerBackprop(model.W_src_char, srcCharData, srcCharGrad);
       else
         grad.indices_src_char = [];
