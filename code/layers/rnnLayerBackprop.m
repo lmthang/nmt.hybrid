@@ -41,7 +41,7 @@ for tt=T:-1:1 % time
     % char
     % TODO
     
-    if rnnFlags.charTgtGen && ~isempty(tgtCharGrad.initAttnInput)
+    if rnnFlags.charTgtGen && tgtCharGrad.numRareWords>0 && ~isempty(tgtCharGrad.initAttnInput)
       rareIndices = find(tgtCharGrad.rareFlags(:, tt));
       rareAttnInputGrad_char = tgtCharGrad.initAttnInput(:, rareCountRemain-length(rareIndices)+1:rareCountRemain);
       rareCountRemain = rareCountRemain - length(rareIndices);

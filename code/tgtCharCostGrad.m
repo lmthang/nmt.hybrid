@@ -15,6 +15,8 @@ function [totalCharCost, charGrad, numChars] = tgtCharCostGrad(decStates, attnIn
   numRareWords = length(rareWords);
   charSeqs = charMap(rareWords);
   seqLens = cellfun(@(x) length(x), charSeqs);
+  charGrad.rareFlags = rareFlags;
+  charGrad.numRareWords = numRareWords;
   
   if params.debug
     fprintf(2, '# tgtCharCostGrad, %s: %d words\n', gpuInfo(params.gpu), numRareWords);
@@ -205,7 +207,4 @@ function [totalCharCost, charGrad, numChars] = tgtCharCostGrad(decStates, attnIn
       end
     end
   end % end if numRareWords
-  
-  charGrad.rareFlags = rareFlags;
-  charGrad.numRareWords = numRareWords;
 end
