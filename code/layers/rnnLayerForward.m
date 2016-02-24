@@ -32,7 +32,10 @@ for tt=1:T % time
     % rareWordMap: to find out indices in rareWordReps
     rareIds = find(charData.rareFlags(:, tt));
     freqIds = find(~charData.rareFlags(:, tt));
-    assert(all(ismember(rareIds, find(masks(:, tt)==1))));
+    
+    if params.assert
+      assert(all(ismember(rareIds, find(masks(:, tt)==1))));
+    end
     
     % embeddings for rare words
     if ~isempty(rareIds)

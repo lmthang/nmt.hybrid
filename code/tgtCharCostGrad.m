@@ -1,4 +1,4 @@
-function [totalCharCost, charGrad, numChars] = tgtCharCostGrad(decStates, attnInfos, model, input, charMap, params, isTest)
+function [totalCharCost, charGrad, numChars] = tgtCharCostGrad(decStates, attnInfos, model, input, mask, charMap, params, isTest)
 % Running char layer forward to prepare for target word generation later.
 % Input:
 %   W_rnn: recurrent connections of multiple layers, e.g., W_rnn{ll}.
@@ -11,6 +11,21 @@ function [totalCharCost, charGrad, numChars] = tgtCharCostGrad(decStates, attnIn
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 
   rareFlags = input > params.tgtCharShortList;
+  
+  if params.charTgtSample > 0
+    % select by tokens
+    freqIndices = find(~rareFlags(:) & mask (:));
+    perm = randperm(length(freqIndices));
+    numSelect = floor(length(freqIndices)*params.charTgtSample);
+    selectFreqIndices = freqIndices(perm(1:numSelect));
+    
+    if params.assert
+      assert(isempty(find(rareFlags(selectFreqIndices), 1)));
+    end
+    
+    rareFlags(selectFreqIndices) = 1;
+  end
+  
   rareWords = input(rareFlags);
   numRareWords = length(rareWords);
   charSeqs = charMap(rareWords);
@@ -146,7 +161,7 @@ function [totalCharCost, charGrad, numChars] = tgtCharCostGrad(decStates, attnIn
             zeroGrad{ll} = zeroBatch;
           end
         end
-        [~, dh_char, grad_W_rnn_char, grad_W_emb_char, indices_char, ~, ~, ~] = rnnLayerBackprop(model.W_tgt_char, charStates, charInitState, ...
+        [~, dh_char, grad_W_rnn_char, grad_W_emb_char, indices_char, ~, ~] = rnnLayerBackprop(model.W_tgt_char, charStates, charInitState, ...
         topGrads, zeroGrad, zeroGrad, charBatch, charMask, charParams, charRnnFlags, [], [], [], []);
         
         % W_tgt

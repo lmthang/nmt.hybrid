@@ -1,4 +1,4 @@
-function [dc, dh, grad_W_rnn, grad_W_emb, grad_emb_indices, attnGrad, grad_srcHidVecs_total, srcCharGrad] = rnnLayerBackprop(W_rnn, rnnStates, ...
+function [dc, dh, grad_W_rnn, grad_W_emb, grad_emb_indices, attnGrad, grad_srcHidVecs_total] = rnnLayerBackprop(W_rnn, rnnStates, ...
   initState, top_grads, dc, dh, input, masks, params, rnnFlags, attnInfos, trainData, model, tgtCharGrad)
 % Running Multi-layer RNN for one time step.
 % Input:
@@ -24,8 +24,6 @@ else
   grad_srcHidVecs_total = [];
   attnGrad = [];
 end
-
-srcCharGrad = [];
 
 % masks
 [maskInfos] = prepareMask(masks);
@@ -111,13 +109,3 @@ end % end for time
 allEmbGrads(:, wordCount+1:end) = [];
 allEmbIndices(wordCount+1:end) = [];
 [grad_W_emb, grad_emb_indices] = aggregateMatrix(allEmbGrads, allEmbIndices, params.isGPU, params.dataType);
-
-if rnnFlags.charSrcRep && rnnFlags.decode == 0 % char src representations
-  rareFlags = grad_emb_indices > params.srcCharShortList;
-  srcCharGrad.embs = grad_W_emb(:, rareFlags);
-  srcCharGrad.indices = grad_emb_indices(rareFlags);
-  
-  % frequent
-  grad_W_emb = grad_W_emb(:, ~rareFlags);
-  grad_emb_indices = grad_emb_indices(~rareFlags);
-end

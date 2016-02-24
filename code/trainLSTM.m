@@ -69,6 +69,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'srcCharPrefix', '', @ischar);
   addOptional(p,'tgtCharPrefix', '', @ischar);
   addOptional(p,'charNumLayers', 1, @isnumeric);
+  addOptional(p,'charSrcSample', 0, @isnumeric); % [0, 1]: sample frequent words to try to build from chars
+  addOptional(p,'charTgtSample', 0, @isnumeric); % [0, 1]: sample frequent words to try to build from chars
   
   % decoding
   addOptional(p,'decode', 1, @isnumeric); % 1: decode during training
@@ -197,6 +199,8 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       fprintf(2, 'Change stack size from %d to 1\n', params.stackSize);
       params.stackSize = 1;
     end
+    assert(params.charSrcSample>=0 && params.charSrcSample<=1);
+    assert(params.charTgtSample>=0 && params.charTgtSample<=1);
   end
   
   %% Load vocabs
@@ -208,7 +212,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.modelRecentFile = [outDir '/modelRecent.mat'];
   [model, params] = initLoadModel(params);
   % for backward compatibility  
-  [params] = backwardCompatible(params, {'epochIter', 'saveHDF'}, 0);
+  [params] = backwardCompatible(params, {'epochIter', 'saveHDF', 'charSrcSample', 'charTgtSample'}, 0);
   [params] = backwardCompatible(params, {'charWeight'}, 1.0);
 
   % print
