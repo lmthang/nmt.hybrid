@@ -84,6 +84,7 @@ function [data] = prepareData(srcSents, tgtSents, isTest, params, varargin)
   data.tgtInput = tgtInput;
   data.tgtOutput = tgtOutput;
   data.tgtMaxLen = tgtMaxLen;
+  data.numSents = numSents;
   
   % sanity check
   if params.assert

@@ -292,10 +292,16 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
       %%%%%%%%%%%%%%%
       trainData = trainBatches{batchId};
       [costs, grad, charInfo] = lstmCostGrad(model, trainData, params, 0);
+      params.trainNumSents = params.trainNumSents + trainData.numSents;
       if charInfo.numChars > 0
         trainData.numChars = charInfo.numChars;
       end
-
+      if params.charOpt > 0
+        params.trainNumSrcUnkTypes = params.trainNumSrcUnkTypes + charInfo.trainNumSrcUnkTypes;
+        params.trainNumSrcUnkTokens = params.trainNumSrcUnkTokens + charInfo.trainNumSrcUnkTokens;
+        params.trainNumTgtUnkTokens = params.trainNumTgtUnkTokens + charInfo.trainNumTgtUnkTokens;
+      end
+      
       %% handle nan/inf
       if isnan(costs.total) || isinf(costs.total)
         if params.isClip==1
@@ -374,16 +380,30 @@ function [params] = initTrainParams(params)
   params.trainCosts = initCosts(params);
   params.startIter = 0;
   params.iter = 0;
+  
+  params.trainNumSents = 0;
+  if params.charOpt > 0
+    params.trainNumSrcUnkTokens = 0;
+    params.trainNumSrcUnkTypes = 0;
+    params.trainNumTgtUnkTokens = 0;
+  end
+end
+
+
+function [params] = copyFields(oldParams, params, fieldNames)
+  for ii=1:length(fieldNames)
+    field = fieldNames{ii};
+    if isfield(oldParams, field)
+      params.field = oldParams.field;
+    end
+  end
 end
 
 function [params] = copyTrainParams(params, oldParams)
-  params.lr = oldParams.lr;
-  params.epoch = oldParams.epoch;
-  params.bestCostValid = oldParams.bestCostValid;
-  params.epochBatchCount = oldParams.epochBatchCount;
-  params.finetuneCount = oldParams.finetuneCount;
-  params.trainCounts = oldParams.trainCounts;
-  params.trainCosts = oldParams.trainCosts;
+  oldParams = backwardCompatible(oldParams, {'trainNumSents', 'trainNumSrcUnkTokens', 'trainNumSrcUnkTypes', 'trainNumTgtUnkTokens'}, 0);
+  params = copyFields(oldParams, params, {'lr', 'epoch', 'bestCostValid', 'epochBatchCount', 'finetuneCount', ...
+    'finetuneCount', 'trainCounts', 'trainCosts', 'trainNumSents', 'trainNumSrcUnkTokens', 'trainNumSrcUnkTypes', 'trainNumTgtUnkTokens'});
+  
   params.startIter = oldParams.iter;
   if params.epoch > 1
     params.iter = (params.epoch-1)*params.epochBatchCount;
@@ -511,6 +531,7 @@ function [params, startTime] = postTrainIter(model, costs, gradNorm, trainData, 
     params.speed = params.totalLog*0.001/timeElapsed;
     
     avgTrainCosts = scaleCosts(params.trainCosts, params.trainCounts);
+
     if params.charTgtGen
       logStr = sprintf('%d, %d, %.2fK, %g, (%.2f, %.2f), gN=%.2f, %s', params.epoch, params.iter, params.speed, params.lr, ...
           avgTrainCosts.word, avgTrainCosts.char, gradNorm, datestr(now));

@@ -52,6 +52,13 @@ function [costs, grad, charInfo] = lstmCostGrad(model, trainData, params, isTest
   lastEncState = zeroState;
   if params.isBi
     [encStates, lastEncState, encRnnFlags, trainData, srcCharData] = encoderLayerForward(model, zeroState, trainData, params, isTest);
+    
+    charInfo.trainNumSrcUnkTypes = 0;
+    charInfo.trainNumSrcUnkTokens = 0;
+    if params.charSrcRep
+      charInfo.trainNumSrcUnkTypes = srcCharData.numRareWords;
+      charInfo.trainNumSrcUnkTokens = sum(srcCharData.rareFlags(:));
+    end
   end
   
   %% decoder
@@ -68,9 +75,11 @@ function [costs, grad, charInfo] = lstmCostGrad(model, trainData, params, isTest
   
   %% tgt char foward / backprop %%
   charInfo.numChars = 0;
+  charInfo.trainNumTgtUnkTokens = 0;
   if params.charTgtGen
     [costs.char, tgtCharGrad, charInfo.numChars] = tgtCharCostGrad(decStates, attnInfos, model, origTgtOutput, trainData.tgtMask, params.tgtCharMap, params, isTest);
     costs.total = costs.total + costs.char;
+    charInfo.trainNumTgtUnkTokens = tgtCharGrad.numRareWords;
     if isTest==0
       if tgtCharGrad.numRareWords>0
         grad.W_soft_char = tgtCharGrad.W_soft;
