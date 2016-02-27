@@ -394,7 +394,7 @@ function [params] = copyFields(oldParams, params, fieldNames)
   for ii=1:length(fieldNames)
     field = fieldNames{ii};
     if isfield(oldParams, field)
-      params.field = oldParams.field;
+      params.(field) = oldParams.(field);
     end
   end
 end
