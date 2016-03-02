@@ -11,10 +11,13 @@ function [totalCharCost, charGrad, numChars] = tgtCharCostGrad(decStates, attnIn
 % Thang Luong @ 2015, <lmthang@stanford.edu>
 
   rareFlags = input > params.tgtCharShortList;
+  if params.assert
+    assert(params.tgtUnk <= params.tgtCharShortList);
+  end
   
   if params.charTgtSample > 0
-    % select by tokens
-    freqIndices = find(~rareFlags(:) & mask (:));
+    % select by tokens: not masked and not unk
+    freqIndices = find(~rareFlags & mask & (input ~= params.tgtUnk));
     perm = randperm(length(freqIndices));
     numSelect = floor(length(freqIndices)*params.charTgtSample);
     selectFreqIndices = freqIndices(perm(1:numSelect));
@@ -27,6 +30,10 @@ function [totalCharCost, charGrad, numChars] = tgtCharCostGrad(decStates, attnIn
   end
   
   rareWords = input(rareFlags);
+  if params.assert
+    assert(isempty(find(rareWords == params.tgtUnk, 1)));
+  end
+  
   numRareWords = length(rareWords);
   charSeqs = charMap(rareWords);
   seqLens = cellfun(@(x) length(x), charSeqs);

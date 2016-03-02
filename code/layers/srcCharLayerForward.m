@@ -19,8 +19,8 @@ function [charData] = srcCharLayerForward(W_rnn, W_emb, input, mask, charMap, vo
   
   % sample from frequent words
   if params.charSrcSample > 0
-    % select by types
-    freqWords = unique(input(~charData.rareFlags & mask));
+    % select by types: not masked and not unk
+    freqWords = unique(input(~charData.rareFlags & mask & (input ~= params.srcUnk)));
     numSelect = floor(length(freqWords)*params.charSrcSample);
     perm = randperm(length(freqWords));
     selectFreqWords = freqWords(perm(1:numSelect));
@@ -34,6 +34,10 @@ function [charData] = srcCharLayerForward(W_rnn, W_emb, input, mask, charMap, vo
     % update rare words and flags
     charData.rareWords = union(charData.rareWords, selectFreqWords);
     charData.rareFlags = ismember(input, charData.rareWords);
+    
+    if params.assert
+      assert(isempty(find(charData.rareWords == params.srcUnk, 1)));
+    end
   end
   
   charData.numRareWords = length(charData.rareWords);
