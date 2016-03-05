@@ -61,30 +61,42 @@ function [params] = prepareVocabs(params)
     end
   end
   
-  %% src vocab
-  if params.isBi
-    fprintf(2, '## Bilingual setting\n');
-    params.srcSos = lookup(params.srcVocab, '<s>');
-    params.srcUnk = lookup(params.srcVocab, '<unk>');
-    assert(~isempty(params.srcSos));
-%     params.srcVocab{end+1} = '<s_sos>'; % not learn
-%     params.srcSos = length(params.srcVocab);
-    
-    params.srcVocabSize = length(params.srcVocab);
+  isOldVocab = 0;
+  if isOldVocab % NOTE: only turn this on to decode old word-based models
+    %% src vocab
+    if params.isBi
+      fprintf(2, '## Bilingual setting\n');
+      params.srcVocab{end+1} = '<s_sos>'; % not learn
+      params.srcSos = length(params.srcVocab);
+      params.srcVocabSize = length(params.srcVocab);
+    else
+      fprintf(2, '## Monolingual setting\n');
+    end
+
+    %% tgt vocab 
+    params.tgtVocab{end+1} = '<t_sos>';
+    params.tgtSos = length(params.tgtVocab);
+    params.tgtVocab{end+1} = '<t_eos>';
+    params.tgtEos = length(params.tgtVocab); 
   else
-    fprintf(2, '## Monolingual setting\n');
+    %% src vocab
+    if params.isBi
+      fprintf(2, '## Bilingual setting\n');
+      params.srcSos = lookup(params.srcVocab, '<s>');
+      params.srcUnk = lookup(params.srcVocab, '<unk>');
+      assert(~isempty(params.srcSos));
+
+      params.srcVocabSize = length(params.srcVocab);
+    else
+      fprintf(2, '## Monolingual setting\n');
+    end
+
+    %% tgt vocab 
+    params.tgtUnk = lookup(params.tgtVocab, '<unk>');
+    params.tgtSos = lookup(params.tgtVocab, '<s>');
+    params.tgtEos = lookup(params.tgtVocab, '</s>');
+    assert(~isempty(params.tgtSos) && ~isempty(params.tgtEos)); 
   end
-    
-  %% tgt vocab 
-  params.tgtUnk = lookup(params.tgtVocab, '<unk>');
-  params.tgtSos = lookup(params.tgtVocab, '<s>');
-  params.tgtEos = lookup(params.tgtVocab, '</s>');
-  assert(~isempty(params.tgtSos) && ~isempty(params.tgtEos));
-  
-%   params.tgtVocab{end+1} = '<t_sos>';
-%   params.tgtSos = length(params.tgtVocab);
-%   params.tgtVocab{end+1} = '<t_eos>';
-%   params.tgtEos = length(params.tgtVocab); 
 
   %% char
   if params.charOpt
