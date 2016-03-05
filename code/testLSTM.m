@@ -34,6 +34,7 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   addOptional(p,'testPrefix', '', @ischar); % to specify a different file for decoding
   addOptional(p,'hasTgt', 1, @isnumeric); % 0 -- no ref translations (groundtruth)
   addOptional(p,'continueId', 0, @isnumeric); % > 0: start decoding from this continueId (base 1) sent and append the results
+  addOptional(p,'computePpl', 0, @isnumeric); % 1 -- compute ppl of each participating model over the test set
     
   % force decoding: always feed the correct words (groundtruth)
   addOptional(p,'forceDecoder', 0, @isnumeric); 
@@ -160,6 +161,14 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   % load test data  
   [srcSents, tgtSents, numSents]  = loadBiData(params, params.testPrefix, params.srcVocab, params.tgtVocab, -1, params.hasTgt);
   
+  % compute perplexities
+  if decodeParams.computePpl
+    [testData] = prepareData(srcSents, tgtSents, 1, params);
+    for mm=1:numModels
+      evalValidTestSimple(models{mm}, testData, models{mm}.params);
+    end
+  end
+
   % force decode
   if decodeParams.forceDecoder
     fprintf(2, '# Force decoding\n');
@@ -241,7 +250,17 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   fclose(params.logId);
 end
 
-
+function [perp] = evalValidTestSimple(model, testData, params)
+  fprintf(2, '  evaluating ...');
+%   perp = 0;
+  [testCosts] = evalCost(model, testData, params); % run on the test data
+  testCounts = initCosts();
+  testCounts = updateCounts(testCounts, testData);
+  testCosts = scaleCosts(testCosts, testCounts);
+  perp = exp(testCosts.word);
+  fprintf(2, '  perp=%f\n', perp);
+end
+  
 
 %     % convert local paths to absolute paths
 %     fieldNames = fields(models{mm}.params);
