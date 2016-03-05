@@ -114,7 +114,7 @@ def process_files(align_file, src_file, tgt_file, ref_file, dict_file, out_file,
 
   # load dict
   is_dict = 0
-  if dict_file != '':
+  if dict_file != '' and os.path.exists(dict_file):
     dict_map = load_dict(dict_file)
     is_dict = 1
 
