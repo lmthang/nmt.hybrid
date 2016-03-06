@@ -195,6 +195,9 @@ function [] = computeRerankScores(modelFiles, outputFile,varargin)
       fprintf(params.scoreFid, '%g\n', params.scoreFid);
     end
     
+    if mod(batchId, 100) == 0
+      fprintf(2, '# Batch %d\n', batchId);
+    end
     % printDecodeResults(decodeData, {tgtSents(startId)}, -testCosts.word, [], params, 1, []);
   end
 

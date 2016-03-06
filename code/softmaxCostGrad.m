@@ -17,7 +17,7 @@ T = size(output, 2);
 grad_softmax_all = cell(T, 1);
 totalCost = 0;
 grad_W_soft_total = 0;
-indLosses = zeros(T, 1);
+indLosses = zeroMatrix([T, 1], params.isGPU, params.dataType);
 for tt=1:T % time
   softmax_h = lstmStates{tt}{end}.softmax_h;
 
