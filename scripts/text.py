@@ -28,7 +28,7 @@ def get_vocab(corpus_file, vocab_file, freq, vocab_size, unk='<unk>'):
     (words, vocab_map, vocab_size) = load_vocab(vocab_file)
   else:
     (words, vocab_map, freq_map, vocab_size, num_train_words) = load_vocab_from_corpus(corpus_file, freq, vocab_size, unk)
-    write_vocab(vocab_file, words)
+    write_vocab(vocab_file, words, freq_map)
 
   return (words, vocab_map, vocab_size)
 
@@ -75,7 +75,7 @@ def to_id(tokens, vocab_map, offset=0, unk='<unk>'):
 def to_text(indices, words, offset=0):
   return [words[int(index)-offset] for index in indices]
   
-def write_vocab(out_file, words):
+def write_vocab(out_file, words, freq_map):
   f = codecs.open(out_file, 'w', 'utf-8')
   sys.stderr.write('# Output vocab to %s ...\n' % out_file)
   vocab_size = 0
@@ -85,6 +85,19 @@ def write_vocab(out_file, words):
     vocab_size += 1
   f.close()
   sys.stderr.write('  num words = %d\n' % vocab_size)
+
+  # output sorted vocab
+  out_file += '.sorted'
+  f = codecs.open(out_file, 'w', 'utf-8')
+  sys.stderr.write('# Output sorted vocab to %s ...\n' % out_file)
+  vocab_size = 0
+  sorted_vocab = sorted(freq_map.iteritems(), key=lambda x: x[1], reverse=True)
+  for (word, count) in sorted_vocab:
+    f.write('%s %d\n' % (word, count))
+    vocab_size += 1
+  f.close()
+  sys.stderr.write('  num words = %d\n' % vocab_size)
+
 
 def load_dict(in_file):
   sys.stderr.write('# Loading dict file %s ...\n' % in_file) 
@@ -134,10 +147,20 @@ def load_vocab_from_corpus(in_file, freq, max_vocab_size, unk='<unk>'):
   f = codecs.open(in_file, 'r', 'utf-8')
   sys.stderr.write('# Loading vocab from %s ... ' % in_file)
   
-  words = []
-  vocab_map = {}
-  freq_map = {}
-  vocab_size = 0
+  if freq>0 or max_vocab_size>0:
+    words = []
+    vocab_map = {}
+    freq_map = {}
+    vocab_size = 0
+  else:
+    sos='<s>'
+    eos='</s>'
+    unk='<unk>'
+    words = [unk, sos, eos]
+    vocab_map = {unk:0, sos:1, eos:2}
+    freq_map = {unk:0, sos:0, eos:0}
+    vocab_size = 3
+
   num_train_words = 0
   num_lines = 0 
   for line in f:
