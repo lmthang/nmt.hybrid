@@ -326,7 +326,7 @@ originalSentIndices, modelData, firstAlignIdx, data)
       end
       
       %% store translations
-      if ~isempty(endIndices) && (sentPos+1)>=minLen % we don't want to start recording very short translations
+      if ~isempty(endIndices) && tgtPos>minLen % we don't want to start recording very short translations
         numTranslations = length(endIndices);
         eosBeamIndices = floor((rowIndices(endIndices)-1)/beamSize) + 1;
         histIndices = (sentId-1)*beamSize + eosBeamIndices;
@@ -360,6 +360,15 @@ originalSentIndices, modelData, firstAlignIdx, data)
     beamHistory(1:sentPos, :) = tmp; 
     beamHistory(sentPos+1, :) = beamWords;
 
+    
+    if params.debug
+      assert(batchSize == 1);
+      fprintf(2, '# Tgt pos %d\n', tgtPos);
+      for ii=1:beamSize
+        printSent(2, beamHistory(1:sentPos+1, ii), params.tgtVocab, [' ' num2str(beamScores(ii)) '  beam ' num2str(ii) ': ']);
+      end
+    end
+    
     % align
     if params.align
       alignHistory(1:sentPos, :) = alignHistory(1:sentPos, colIndices);

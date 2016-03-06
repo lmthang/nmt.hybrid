@@ -55,7 +55,7 @@ function [costs, grad] = lstmCostGrad(model, trainData, params, isTest)
     params, decRnnFlags, trainData, model);
   
   %% softmax
-  [costs.total, grad.W_soft, dec_top_grads] = softmaxCostGrad(decStates, model.W_soft, trainData.tgtOutput, trainData.tgtMask, ...
+  [costs.total, grad.W_soft, dec_top_grads, costs.indLosses] = softmaxCostGrad(decStates, model.W_soft, trainData.tgtOutput, trainData.tgtMask, ...
     params, isTest);
   costs.word = costs.total;
   
