@@ -31,7 +31,7 @@ function [] = computeRerankScores(modelFiles, outputFile,varargin)
   % useful for rescoring if we have many sentence pairs with the same source
   addOptional(p,'reuseEncoder', 0, @isnumeric); 
   % print decoding scores, require stackSize = 1
-  addOptional(p,'printScore', 0, @isnumeric);
+  addOptional(p,'printScore', 1, @isnumeric);
   
   p.KeepUnmatched = true;
   parse(p,modelFiles,outputFile,varargin{:})
@@ -133,7 +133,6 @@ function [] = computeRerankScores(modelFiles, outputFile,varargin)
   end
   % print score
   if params.printScore
-    assert(params.stackSize == 1);
     params.scoreFid = fopen([params.outputFile '.score'], fileOpt);
   end
   
@@ -166,6 +165,8 @@ function [] = computeRerankScores(modelFiles, outputFile,varargin)
   startTime = clock;
   
   assert(length(models) == 1);
+  totalScore = 0;
+  totalPredict = 0;
   for batchId = 1 : numBatches
     % prepare batch data
     startId = (batchId-1)*batchSize+1;
@@ -184,22 +185,32 @@ function [] = computeRerankScores(modelFiles, outputFile,varargin)
     decodeData.startId = startId;
     
     testCosts = lstmCostGrad(models{1}, decodeData, params, 1);
-    % [testCosts] = evalCost(models{1}, decodeData, params); % run on the test data
+    totalScore = totalScore + testCosts.word;
+    totalPredict = totalPredict + length(testCosts.indLosses);
     
-    printSent(2, decodeData.srcInput, params.srcVocab, ['  src ' startId ': ']);
-    printSent(2, decodeData.tgtOutput, params.tgtVocab, ['  tgt ' startId ': ']);
-    fprintf(2, 'score %g, ind scores [%s]\n', -testCosts.word, num2str(-testCosts.indLosses'));
+    if params.printScore
+      printSent(2, decodeData.srcInput, params.srcVocab, ['  src ' startId ': ']);
+      printSent(2, decodeData.tgtOutput, params.tgtVocab, ['  tgt ' startId ': ']);
+      fprintf(2, 'score %g, ind scores [%s]\n', -testCosts.word, num2str(-testCosts.indLosses'));
+      fprintf(params.scoreFid, '%g\n', params.scoreFid);
+    end
     
     % printDecodeResults(decodeData, {tgtSents(startId)}, -testCosts.word, [], params, 1, []);
   end
 
   endTime = clock;
   timeElapsed = etime(endTime, startTime);
-  fprintf(2, '# Complete decoding %d sents, time %.0fs, %s\n', numSents, timeElapsed, datestr(now));
-  fprintf(params.logId, '# Complete decoding %d sents, time %.0fs, %s\n', numSents, timeElapsed, datestr(now));
+  fprintf(2, '# Complete reranking %d sents, num predict %d, ppl %g, time %.0fs, %s\n', numSents, totalPredict, ...
+    exp(totalScore/totalPredict), timeElapsed, datestr(now));
+  fprintf(params.logId, '# Complete reranking %d sents, num predict %d, ppl %g, time %.0fs, %s\n', numSents, totalPredict, ...
+    exp(totalScore/totalPredict), timeElapsed, datestr(now));
   
   fclose(params.fid);
   fclose(params.logId);
+  
+  if params.printScore
+    fclose(params.scoreFid);
+  end
 end
 
 function [perp] = evalValidTestSimple(model, testData, params)

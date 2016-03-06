@@ -248,6 +248,9 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   
   fclose(params.fid);
   fclose(params.logId);
+  if params.printScore
+    fclose(params.scoreFid);
+  end
 end
 
 function [perp] = evalValidTestSimple(model, testData, params)
