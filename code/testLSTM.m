@@ -131,6 +131,10 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   end
   
   params.fid = fopen(params.outputFile, 'w');
+  if params.charTgtGen
+    params.charFid = fopen([params.outputFile '.char'], 'w');
+  end
+  
   params.logId = fopen([outputFile '.log'], 'w'); 
   % align
   if params.align
@@ -173,6 +177,9 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   fprintf(params.logId, '# Complete decoding %d sents, time %.0fs, %s\n', numSents, timeElapsed, datestr(now));
   
   fclose(params.fid);
+  if params.charTgtGen
+    fclose(params.charFid);
+  end
   fclose(params.logId);
 end
 
