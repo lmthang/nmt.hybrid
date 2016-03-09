@@ -148,7 +148,7 @@ function [costs, grad, charInfo] = lstmCostGrad(model, trainData, params, isTest
     % char backprop
     if params.charSrcRep
       if srcCharData.numRareWords > 0
-        if params.charSrcSample > 0 % also include frequent words
+        if isTest==0 && params.charSrcSample > 0 % also include frequent words
           rareFlags = ismember(grad.indices_src, srcCharData.rareWords);
         else
           rareFlags = grad.indices_src > params.srcCharShortList;

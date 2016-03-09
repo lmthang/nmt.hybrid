@@ -18,7 +18,7 @@ function [charData] = srcCharLayerForward(W_rnn, W_emb, input, mask, charMap, vo
   charData.rareWords = unique(input(charData.rareFlags));
   
   % sample from frequent words
-  if params.charSrcSample > 0
+  if isTest == 0 && params.charSrcSample > 0
     % select by types: not masked and not unk
     freqWords = unique(input(~charData.rareFlags & mask & (input ~= params.srcUnk)));
     numSelect = floor(length(freqWords)*params.charSrcSample);
