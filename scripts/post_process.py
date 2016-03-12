@@ -28,13 +28,13 @@ def process_command_line():
   parser.add_argument('align_file', metavar='align_file', type=str, help='align file') 
   parser.add_argument('dict_file', metavar='dict_file', type=str, help='dict file') 
   parser.add_argument('ref_file', metavar='ref_file', type=str, help='ref file') 
-  parser.add_argument('out_file', metavar='out_file', type=str, help='output file') 
 
   # optional arguments
   parser.add_argument('-s', '--src_sgm', dest='src_sgm', type=str, default='', help='src file in SGM format to compute NIST BLEU score with mteval-v13a.pl')
   parser.add_argument('-t', '--tgt_sgm', dest='tgt_sgm', type=str, default='', help='tgt file in SGM format to compute NIST BLEU score with mteval-v13a.pl')
   parser.add_argument('-l', '--lang', dest='lang', type=str, default='', help='tgt lang, e.g., de, en, etc., to be used with mteval-v13a.pl')
   parser.add_argument('--reverse_alignment', dest='is_reverse_alignment', action='store_true', help='reverse alignment (tgtId-srcId) instead of srcId-tgtId')
+  parser.add_argument('-c', '--char', dest='char_opt', type=int, default=0, help='0: word-based, 1: hybrid (default=0)')
   
   args = parser.parse_args()
   return args
@@ -52,11 +52,16 @@ def execute(cmd):
 
 def load_dict(dict_file):
   inf = codecs.open(dict_file, 'r', 'utf-8')
+  sys.stderr.write('# Loading dict file %s\n' % dict_file)
   line_id = 0
   dict_map = {}
   prob_map = {}
   for line in inf:
     tokens = re.split('\s+', line.strip())
+    if len(tokens) != 3:
+      sys.stderr.write('# Skip line: %s' % line)
+      continue
+
     src_word = tokens[0]
     tgt_word = tokens[1]
     prob = float(tokens[2])
@@ -92,20 +97,22 @@ def bleu(script_dir, trans_file, ref_file):
   sys.stderr.write('# BLEU: %s\n' % cmd)
   os.system(cmd)
 
-def process_files(align_file, src_file, tgt_file, ref_file, dict_file, out_file, src_sgm, tgt_sgm, lang, is_reverse_alignment):
-  """
-  """
-  tgt_inf = codecs.open(tgt_file, 'r', 'utf-8')
-
+def post_process(align_file, src_file, tgt_file, ref_file, dict_file, is_reverse_alignment):
   is_src = 0
   if src_file != '':
     is_src = 1
     src_inf = codecs.open(src_file, 'r', 'utf-8')
+  tgt_inf = codecs.open(tgt_file, 'r', 'utf-8')
 
   is_align = 0
   if align_file != '':
     is_align = 1
     align_inf = codecs.open(align_file, 'r', 'utf-8')
+    # post_file
+    post_file = tgt_file + '.post'
+    post_ouf = codecs.open(post_file, 'w', 'utf-8')
+  else:
+    post_file = ''
 
   is_ref = 0
   if ref_file != '':
@@ -118,13 +125,9 @@ def process_files(align_file, src_file, tgt_file, ref_file, dict_file, out_file,
     dict_map = load_dict(dict_file)
     is_dict = 1
 
-  # out_file
-  if out_file == '':
-    out_file = tgt_file + '.post'
-  ouf = codecs.open(out_file, 'w', 'utf-8')
-
-  new_tgt_file = tgt_file + '.new'
-  new_tgt_ouf = codecs.open(new_tgt_file, 'w', 'utf-8')
+  # pre_file
+  pre_file = tgt_file + '.pre'
+  pre_ouf = codecs.open(pre_file, 'w', 'utf-8')
 
   # post process
   unk = '<unk>'
@@ -173,21 +176,20 @@ def process_files(align_file, src_file, tgt_file, ref_file, dict_file, out_file,
               if debug:
                 debug_str = debug_str + "iden: " + src_token + " -> " + tgt_token + '\n'
 
-        #if tgt_token != '##AT##-##AT##':
         new_tgt_tokens.append(tgt_token)
 
-      out_line = ' '.join(new_tgt_tokens)
-    else:
-      out_line = tgt_line
+      post_line = ' '.join(new_tgt_tokens)
 
-    # post process
-    if re.search('##AT##-##AT##', out_line):
-      out_line = re.sub(' ##AT##-##AT## ', '-', out_line)
-      tgt_line = re.sub(' ##AT##-##AT## ', '-', tgt_line)
-      if is_align == 0:
-        debug_count = 1
-    ouf.write('%s\n' % out_line)
-    new_tgt_ouf.write('%s\n' % tgt_line)
+    # escape ##AT##-##AT## en-de pair (for historical reason)
+    #if re.search('##AT##-##AT##', tgt_line):
+    tgt_line = re.sub(' ##AT##-##AT## ', '-', tgt_line)
+    if is_align == 0:
+      debug_count = 1
+    pre_ouf.write('%s\n' % tgt_line)
+    
+    if is_align:
+      post_line = re.sub(' ##AT##-##AT## ', '-', post_line)
+      post_ouf.write('%s\n' % post_line)
 
     # debug info
     if debug == 1 and debug_count>0:
@@ -196,7 +198,9 @@ def process_files(align_file, src_file, tgt_file, ref_file, dict_file, out_file,
         sys.stderr.write('src: %s\n' % (src_line))
       sys.stderr.write('tgt: %s\n' % (tgt_line))
       sys.stderr.write('%s' % (debug_str))
-      sys.stderr.write('out: %s\n' % (out_line))
+
+      if is_align:
+        sys.stderr.write('out: %s\n' % (post_line))
       if is_ref:
         sys.stderr.write('ref: %s\n' % ref_line)
       debug = 0
@@ -208,21 +212,31 @@ def process_files(align_file, src_file, tgt_file, ref_file, dict_file, out_file,
   if is_align:
     align_inf.close()
   tgt_inf.close()
-  ouf.close()
-  new_tgt_ouf.close()
+  post_ouf.close()
+  pre_ouf.close()
   sys.stderr.write('# num sents = %d, unk count=%d, dictionary_count=%d, identity_count=%d\n' % (line_id, unk_count, dictionary_count, identity_count))
+  return (pre_file, post_file)
+
+def process_files(align_file, src_file, tgt_file, ref_file, dict_file, src_sgm, tgt_sgm, lang, is_reverse_alignment, char_opt):
+  """
+  """
+  if char_opt == 0: # word-based
+    (pre_file, post_file) = post_process(align_file, src_file, tgt_file, ref_file, dict_file, is_reverse_alignment)
+  elif char_opt == 1: # hybrid
+    pre_file = tgt_file
+    post_file = tgt_file + '.char'
+  sys.stderr.write('# pre_file %s\n# post_file %s\n' % (pre_file, post_file))
 
   # evaluating 
-  if is_ref:
+  if ref_file != '':
     script_dir = os.path.dirname(sys.argv[0])
-    bleu(script_dir, new_tgt_file, ref_file)
+    bleu(script_dir, pre_file, ref_file)
    
-    if is_align:
-      bleu(script_dir, out_file, ref_file)
+    if post_file != '':
+      bleu(script_dir, post_file, ref_file)
       if src_sgm != '' and tgt_sgm != '' and lang != '': # compute NIST BLEU score
-        nist_bleu(script_dir, out_file, src_sgm, tgt_sgm, lang)
-
+        nist_bleu(script_dir, post_file, src_sgm, tgt_sgm, lang)
 
 if __name__ == '__main__':
   args = process_command_line()
-  process_files(args.align_file, args.src_file, args.tgt_file, args.ref_file, args.dict_file, args.out_file, args.src_sgm, args.tgt_sgm, args.lang, args.is_reverse_alignment)
+  process_files(args.align_file, args.src_file, args.tgt_file, args.ref_file, args.dict_file, args.src_sgm, args.tgt_sgm, args.lang, args.is_reverse_alignment, args.char_opt)
