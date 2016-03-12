@@ -1,4 +1,4 @@
-function transferModel(modelFile, newSrcVocabFile, newTgtVocabFile, outModelFile)
+function transferModel(modelFile, srcVocabFile_new, tgtVocabFile_new, outModelFile)
   addpath(genpath(sprintf('%s/../..', pwd)));
   
   % load current data
@@ -8,8 +8,8 @@ function transferModel(modelFile, newSrcVocabFile, newTgtVocabFile, outModelFile
   params = savedData.params;
   
   % load vocabs
-  [srcVocab_new] = loadVocab(newSrcVocabFile);
-  [tgtVocab_new] = loadVocab(newTgtVocabFile);
+  [srcVocab_new] = loadVocab(srcVocabFile_new);
+  [tgtVocab_new] = loadVocab(tgtVocabFile_new);
   
   % prepare new src model
   fprintf(2, '# Transfering src\n');
@@ -22,7 +22,10 @@ function transferModel(modelFile, newSrcVocabFile, newTgtVocabFile, outModelFile
   W_emb_src_new(:, flags) = model.W_emb_src(:, indices);
   model.W_emb_src = W_emb_src_new;
   params.srcVocab = srcVocab_new;
-  fprintf(2, '# src short list %d, num overlap %d\n', params.srcCharShortList, sum(flags));
+  params.srcVocabFile = srcVocabFile_new;
+  fprintf(2, '# src short list %d, num overlap %d\n, new words:', params.srcCharShortList, sum(flags));
+  fprintf(2, ' %s', srcVocabShortList_new{~flags});
+  fprintf(2, '\n');
   
   % prepare new tgt model
   fprintf(2, '# Transfering tgt\n');
@@ -35,7 +38,10 @@ function transferModel(modelFile, newSrcVocabFile, newTgtVocabFile, outModelFile
   W_emb_tgt_new(:, flags) = model.W_emb_tgt(:, indices);
   model.W_emb_tgt = W_emb_tgt_new;
   params.tgtVocab = tgtVocab_new;
-  fprintf(2, '# tgt short list %d, num overlap %d\n', params.tgtCharShortList, sum(flags));
+  params.tgtVocabFile = tgtVocabFile_new;
+  fprintf(2, '  tgt short list %d, num overlap %d\n  new words:', params.tgtCharShortList, sum(flags));
+  fprintf(2, ' %s', tgtVocabShortList_new{~flags});
+  fprintf(2, '\n');
   
   % save model
   save(outModelFile, 'model', 'params');
