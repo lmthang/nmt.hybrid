@@ -5,9 +5,9 @@ function transferModel(modelFile, srcVocabFile_new, tgtVocabFile_new, outModelFi
   p = inputParser;
   % required
   addRequired(p,'modelFile',@ischar);
-  addRequired(p,'srcVocabFile_new',@isnumeric);
-  addRequired(p,'tgtVocabFile_new',@isnumeric);
-  addRequired(p,'outModelFile',@isnumeric);
+  addRequired(p,'srcVocabFile_new',@ischar);
+  addRequired(p,'tgtVocabFile_new',@ischar);
+  addRequired(p,'outModelFile',@ischar);
     
   % optional
   addOptional(p,'gpuDevice', 0, @isnumeric); % choose the gpuDevice to use: 0 -- no GPU 
