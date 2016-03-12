@@ -56,13 +56,14 @@ function transferModel(modelFile, srcVocabFile_new, tgtVocabFile_new, srcCharPre
   
   % tgt word
   fprintf(2, '# Transfering tgt word\n');
-  [model.W_emb_tgt, params.tgtVocab, ~, params.tgtVocabFile] = transferMatrix(model.W_emb_tgt, params.tgtVocab, params.tgtCharShortList, ...
+  [model.W_emb_tgt, ~, ~, ~] = transferMatrix(model.W_emb_tgt, params.tgtVocab, params.tgtCharShortList, ...
     tgtVocabFile_new, params, 1, 0);
   
   % tgt word soft
   fprintf(2, '# Transfering tgt word soft\n');
-  [model.W_soft, ~, ~, ~] = transferMatrix(model.W_soft, params.tgtVocab, params.tgtCharShortList, ...
+  [model.W_soft, params.tgtVocab, ~, params.tgtVocabFile] = transferMatrix(model.W_soft, params.tgtVocab, params.tgtCharShortList, ...
     tgtVocabFile_new, params, 0, 0);
+  % IMPORTANT: only update tgtVocab in the last call
   
   % src char
   fprintf(2, '# Transfering src char\n');
@@ -73,15 +74,16 @@ function transferModel(modelFile, srcVocabFile_new, tgtVocabFile_new, srcCharPre
   
   % tgt char
   fprintf(2, '# Transfering tgt char\n');
-  [model.W_emb_tgt_char, params.tgtCharVocab, params.tgtCharVocabSize, params.tgtCharVocabFile] = transferMatrix(model.W_emb_tgt_char, params.tgtCharVocab, ...
+  [model.W_emb_tgt_char, ~, ~, ~] = transferMatrix(model.W_emb_tgt_char, params.tgtCharVocab, ...
     params.tgtCharVocabSize, [tgtCharPrefix_new '.char.vocab'], params, 1, 1);
   params.tgtCharMapFile = [tgtCharPrefix_new '.char.map'];
   params.tgtCharMap = loadWord2CharMap(params.tgtCharMapFile, params.charMaxLen);
   
   % tgt char soft
   fprintf(2, '# Transfering tgt char soft\n');
-  [model.W_soft_char, ~, ~, ~] = transferMatrix(model.W_soft_char, params.tgtCharVocab, ...
+  [model.W_soft_char, params.tgtCharVocab, params.tgtCharVocabSize, params.tgtCharVocabFile] = transferMatrix(model.W_soft_char, params.tgtCharVocab, ...
     params.tgtCharVocabSize, [tgtCharPrefix_new '.char.vocab'], params, 0, 1);
+  % IMPORTANT: only update tgtCharVocab in the last call
   
   % save model
   save(outModelFile, 'model', 'params');
