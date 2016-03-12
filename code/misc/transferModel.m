@@ -1,6 +1,44 @@
-function transferModel(modelFile, srcVocabFile_new, tgtVocabFile_new, outModelFile)
+function transferModel(modelFile, srcVocabFile_new, tgtVocabFile_new, outModelFile, varargin)
   addpath(genpath(sprintf('%s/../..', pwd)));
   
+  %% Argument Parser
+  p = inputParser;
+  % required
+  addRequired(p,'modelFile',@ischar);
+  addRequired(p,'srcVocabFile_new',@isnumeric);
+  addRequired(p,'tgtVocabFile_new',@isnumeric);
+  addRequired(p,'outModelFile',@isnumeric);
+    
+  % optional
+  addOptional(p,'gpuDevice', 0, @isnumeric); % choose the gpuDevice to use: 0 -- no GPU 
+  
+  p.KeepUnmatched = true;
+  parse(p, modelFile, srcVocabFile_new, tgtVocabFile_new, outModelFile, varargin{:})
+  transferParams = p.Results;
+  
+  % GPU settings
+  transferParams.isGPU = 0;
+  if transferParams.gpuDevice
+    n = gpuDeviceCount;  
+    if n>0 % GPU exists
+      fprintf(2, '# %d GPUs exist. So, we will use GPUs.\n', n);
+      transferParams.isGPU = 1;
+      gpuDevice(transferParams.gpuDevice)
+      transferParams.dataType = 'single';
+    else
+      transferParams.dataType = 'double';
+    end
+  else
+    transferParams.dataType = 'double';
+  end
+  printParams(2, transferParams);
+  
+  modelFile = transferParams.modelFile;
+  srcVocabFile_new = transferParams.srcVocabFile_new;
+  tgtVocabFile_new = transferParams.tgtVocabFile_new;
+  outModelFile = transferParams.outModelFile;
+  
+  %% Transfer
   % load current data
   fprintf(2, '# Loading %s\n', modelFile);
   savedData = load(modelFile);
