@@ -51,24 +51,24 @@ function transferModel(modelFile, srcVocabFile_new, tgtVocabFile_new, srcCharPre
   
   % src word
   fprintf(2, '# Transfering src word\n');
-  [model.W_emb_src, params.srcVocab, params.srcVocabFile] = transferEmb(model.W_emb_src, params.srcVocab, params.srcCharShortList, ...
+  [model.W_emb_src, params.srcVocab, ~, params.srcVocabFile] = transferEmb(model.W_emb_src, params.srcVocab, params.srcCharShortList, ...
     srcVocabFile_new, params, 0);
   
   % tgt word
   fprintf(2, '# Transfering tgt word\n');
-  [model.W_emb_tgt, params.tgtVocab, params.tgtVocabFile] = transferEmb(model.W_emb_tgt, params.tgtVocab, params.tgtCharShortList, ...
+  [model.W_emb_tgt, params.tgtVocab, ~, params.tgtVocabFile] = transferEmb(model.W_emb_tgt, params.tgtVocab, params.tgtCharShortList, ...
     tgtVocabFile_new, params, 0);
   
   % src char
   fprintf(2, '# Transfering src char\n');
-  [model.W_emb_src_char, params.srcCharVocab, params.srcCharVocabFile] = transferEmb(model.W_emb_src_char, params.srcCharVocab, ...
+  [model.W_emb_src_char, params.srcCharVocab, params.srcCharVocabSize, params.srcCharVocabFile] = transferEmb(model.W_emb_src_char, params.srcCharVocab, ...
     params.srcCharVocabSize, [srcCharPrefix_new '.char.vocab'], params, 1);
   params.srcCharMapFile = [srcCharPrefix_new '.char.map'];
   params.srcCharMap = loadWord2CharMap(params.srcCharMapFile, params.charMaxLen);
   
   % tgt char
   fprintf(2, '# Transfering tgt char\n');
-  [model.W_emb_tgt_char, params.tgtCharVocab, params.tgtCharVocabFile] = transferEmb(model.W_emb_tgt_char, params.tgtCharVocab, ...
+  [model.W_emb_tgt_char, params.tgtCharVocab, params.tgtCharVocabSize, params.tgtCharVocabFile] = transferEmb(model.W_emb_tgt_char, params.tgtCharVocab, ...
     params.tgtCharVocabSize, [tgtCharPrefix_new '.char.vocab'], params, 1);
   params.tgtCharMapFile = [tgtCharPrefix_new '.char.map'];
   params.tgtCharMap = loadWord2CharMap(params.tgtCharMapFile, params.charMaxLen);
@@ -78,29 +78,31 @@ function transferModel(modelFile, srcVocabFile_new, tgtVocabFile_new, srcCharPre
 end
 
 
-function [W_emb_new, vocab_new, vocabFile_new] = transferEmb(W_emb, vocab, shortList, vocabFile_new, params, isChar)
+function [W_emb_new, vocab_new, vocabSize_new, vocabFile_new] = transferEmb(W_emb, vocab, shortList, vocabFile_new, params, isChar)
   fprintf(2, '  W_emb [%s], original vocab size %d, short list %d\n', num2str(size(W_emb)), length(vocab), shortList);
   [vocab_new] = loadVocab(vocabFile_new);
-  if isChar
+  if isChar % for chars, we learn for the entire char vocab, so shortList is NOT used
     vocab_new{end+1} = '<c_s>'; % not learn
     vocab_new{end+1} = '</c_s>';
+    W_emb_new = initMatrixRange(params.initRange, [params.lstmSize, length(vocab_new)], params.isGPU, params.dataType);
+    learnedVocab_new = vocab_new;
+    vocabMap = cell2map(vocab);
+  else % for words, we only learn embeddings for a small shortlist
+    assert(shortList < length(vocab));
+    W_emb_new = initMatrixRange(params.initRange, [params.lstmSize, shortList], params.isGPU, params.dataType);
+    learnedVocab_new = vocab_new(1:shortList);
+    vocabMap = cell2map(vocab(1:shortList));
   end
+  vocabSize_new = length(vocab_new);
   
-  if shortList < length(vocab)
-    vocabShortList_new = vocab_new(1:shortList);
-  else
-    vocabShortList_new = vocab_new;
-  end
-  W_emb_new = initMatrixRange(params.initRange, [params.lstmSize, length(vocabShortList_new)], params.isGPU, params.dataType);
   
   % mapping
-  vocabMap = cell2map(vocab(1:shortList));
-  flags = isKey(vocabMap, vocabShortList_new);
-  indices = values(vocabMap, vocabShortList_new(flags));
+  flags = isKey(vocabMap, learnedVocab_new);
+  indices = values(vocabMap, learnedVocab_new(flags));
   indices = [indices{:}];
   W_emb_new(:, flags) = W_emb(:, indices);
   
-  fprintf(2, '  num overlap %d\n  new words:', sum(flags));
-  fprintf(2, ' %s', vocabShortList_new{~flags});
+  fprintf(2, '  vocabSize_new %d, num overlap %d\n  new words:', vocabSize_new, sum(flags));
+  fprintf(2, ' %s', learnedVocab_new{~flags});
   fprintf(2, '\n');
 end
