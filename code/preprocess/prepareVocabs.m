@@ -50,14 +50,6 @@ function [params] = prepareVocabs(params)
 
       params.tgtCharVocab = loadVocab(params.tgtCharVocabFile);
       params.tgtCharMap = loadWord2CharMap(params.tgtCharMapFile, params.charMaxLen);
-      
-      % sos
-      params.srcCharVocab{end+1} = '<c_s>'; % not learn
-      params.tgtCharVocab{end+1} = '<c_s>'; % not learn
-      
-      % eos
-      params.srcCharVocab{end+1} = '</c_s>';
-      params.tgtCharVocab{end+1} = '</c_s>';
     end
   end
   
@@ -100,11 +92,33 @@ function [params] = prepareVocabs(params)
 
   %% char
   if params.charOpt
+    % sos
     params.srcCharSos = lookup(params.srcCharVocab, '<c_s>');
+    if isempty(params.srcCharSos)
+      params.srcCharVocab{end+1} = '<c_s>'; % not learn
+      params.srcCharSos = length(params.srcCharVocab);
+      fprintf(2, '  adding <c_s> %d to src char vocab\n', params.srcCharSos);
+    end
     params.tgtCharSos = lookup(params.tgtCharVocab, '<c_s>');
-
+    if isempty(params.tgtCharSos)
+      params.tgtCharVocab{end+1} = '<c_s>'; % not learn
+      params.tgtCharSos = length(params.tgtCharVocab);
+      fprintf(2, '  adding <c_s> %d to tgt char vocab\n', params.tgtCharSos);
+    end
+    
+    % eos
     params.srcCharEos = lookup(params.srcCharVocab, '</c_s>');
+    if isempty(params.srcCharEos)
+      params.srcCharVocab{end+1} = '</c_s>';
+      params.srcCharEos = length(params.srcCharVocab);
+      fprintf(2, '  adding </c_s> %d to src char vocab\n', params.srcCharEos);
+    end
     params.tgtCharEos = lookup(params.tgtCharVocab, '</c_s>');
+    if isempty(params.tgtCharEos)
+      params.tgtCharVocab{end+1} = '</c_s>';
+      params.tgtCharEos = length(params.tgtCharVocab);
+      fprintf(2, '  adding </c_s> %d to tgt char vocab\n', params.tgtCharEos);
+    end
     
     params.srcCharVocabSize = length(params.srcCharVocab);
     params.tgtCharVocabSize = length(params.tgtCharVocab);
