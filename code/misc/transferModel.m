@@ -61,7 +61,7 @@ function transferModel(modelFile, srcVocabFile_new, tgtVocabFile_new, outModelFi
   model.W_emb_src = W_emb_src_new;
   params.srcVocab = srcVocab_new;
   params.srcVocabFile = srcVocabFile_new;
-  fprintf(2, '# src short list %d, num overlap %d\n, new words:', params.srcCharShortList, sum(flags));
+  fprintf(2, '  src short list %d, num overlap %d\n  new words:', params.srcCharShortList, sum(flags));
   fprintf(2, ' %s', srcVocabShortList_new{~flags});
   fprintf(2, '\n');
   
