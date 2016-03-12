@@ -13,6 +13,8 @@ import os
 import argparse # option parsing
 import re # regular expression
 import codecs
+reload(sys)
+sys.setdefaultencoding('utf-8')
 
 ### Global variables ###
 
@@ -69,12 +71,12 @@ def process_files(in_file, out_prefix, char_size):
   check_dir(out_prefix)
 
   dict_out_file = out_prefix + '.char.dict'
-  dict_ouf = codecs.open(dict_out_file, 'w', 'utf-8')
   filtered_out_file = out_prefix + '.vocab'
-  filtered_ouf = codecs.open(filtered_out_file, 'w', 'utf-8')
   map_out_file = out_prefix + '.char.map'
-  map_ouf = codecs.open(map_out_file, 'w', 'utf-8')
   char_vocab_out_file = out_prefix + '.char.vocab'
+  dict_ouf = codecs.open(dict_out_file, 'w', 'utf-8')
+  filtered_ouf = codecs.open(filtered_out_file, 'w', 'utf-8')
+  map_ouf = codecs.open(map_out_file, 'w', 'utf-8')
   char_ouf = codecs.open(char_vocab_out_file, 'w', 'utf-8')
   
   sys.stderr.write('Output to %s, %s, %s, %s\n' % (dict_out_file, filtered_out_file, map_out_file, char_vocab_out_file))
@@ -112,11 +114,13 @@ def process_files(in_file, out_prefix, char_size):
           char_map[char] = num_chars
           char_ouf.write('%s\n' % (char))
           num_chars += 1
-      char_indices.append(str(char_map[char]))
+
+      if not is_skip: 
+        char_indices.append(str(char_map[char]))
     
     # handle word
     if is_skip:
-      sys.stderr.write('  skip %s\n' % word)
+      sys.stderr.write('  skip word %d, %s\n' % (line_id, word))
     else:
       filtered_vocab_size += 1 
       vocab.append(word)
@@ -127,7 +131,7 @@ def process_files(in_file, out_prefix, char_size):
     if (line_id % 10000 == 0):
       sys.stderr.write(' (%dK) ' % (line_id/1000))
   inf.close()
-  sys.stderr.write('Done! Num words %d, num chars %d, select %d chars, filtered_vocab_size = %d, %.2f\%\n' % (line_id, len(char_dict), char_size, filtered_vocab_size, filtered_vocab_size * 100 / line_id))
+  sys.stderr.write('Done! Num words %d, num chars %d, select %d chars, filtered_vocab_size = %d, %.2f%%\n' % (line_id, len(char_dict), char_size, filtered_vocab_size, filtered_vocab_size * 100.0 / line_id))
   map_ouf.close()
   filtered_ouf.close()
   char_ouf.close()

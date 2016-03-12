@@ -217,6 +217,30 @@ def post_process(align_file, src_file, tgt_file, ref_file, dict_file, is_reverse
   sys.stderr.write('# num sents = %d, unk count=%d, dictionary_count=%d, identity_count=%d\n' % (line_id, unk_count, dictionary_count, identity_count))
   return (pre_file, post_file)
 
+def escape(line):
+  """ de-escape special chars """
+  line = re.sub('&', '&amp;', line)   # escape escape
+  line = re.sub('\|', '&#124;', line)  # factor separator
+  line = re.sub('<', '&lt;', line)    # xml
+  line = re.sub('>', '&gt;', line)    # xml
+  line = re.sub('\'', '&apos;', line)  # xml
+  line = re.sub('\"', '&quot;', line)  # xml
+  line = re.sub('\[', '&#91;', line)   # syntax non-terminal
+  line = re.sub('\]', '&#93;', line)   # syntax non-terminal
+  return line
+
+def escape_file(in_file, out_file):
+  inf = codecs.open(in_file, 'r', 'utf-8')
+  ouf = codecs.open(out_file, 'w', 'utf-8')
+  for line in inf:
+    in_line = line.strip()
+    out_line = escape(in_line)
+    ouf.write('%s\n' % out_line)
+    if in_line != out_line:
+      sys.stderr.write('%s -> %s\n' % (in_line, out_line))
+  inf.close()
+  ouf.close()
+
 def process_files(align_file, src_file, tgt_file, ref_file, dict_file, src_sgm, tgt_sgm, lang, is_reverse_alignment, char_opt):
   """
   """
@@ -224,7 +248,8 @@ def process_files(align_file, src_file, tgt_file, ref_file, dict_file, src_sgm, 
     (pre_file, post_file) = post_process(align_file, src_file, tgt_file, ref_file, dict_file, is_reverse_alignment)
   elif char_opt == 1: # hybrid
     pre_file = tgt_file
-    post_file = tgt_file + '.char'
+    post_file = tgt_file + '.char.post'
+    escape_file(tgt_file + '.char', post_file)
   sys.stderr.write('# pre_file %s\n# post_file %s\n' % (pre_file, post_file))
 
   # evaluating 
