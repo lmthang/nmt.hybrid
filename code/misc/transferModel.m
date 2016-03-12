@@ -79,6 +79,7 @@ end
 
 
 function [W_emb_new, vocab_new, vocabFile_new] = transferEmb(W_emb, vocab, shortList, vocabFile_new, params)
+  fprintf(2, '  W_emb [%s], original vocab size %d, short list %d\n', num2str(size(W_emb)), length(vocab), shortList);
   [vocab_new] = loadVocab(vocabFile_new);
   vocabMap = cell2map(vocab(1:shortList));
   W_emb_new = initMatrixRange(params.initRange, [params.lstmSize, shortList], params.isGPU, params.dataType);
@@ -88,7 +89,7 @@ function [W_emb_new, vocab_new, vocabFile_new] = transferEmb(W_emb, vocab, short
   indices = [indices{:}];
   W_emb_new(:, flags) = W_emb(:, indices);
   
-  fprintf(2, '  short list %d, num overlap %d\n  new words:', shortList, sum(flags));
+  fprintf(2, '  num overlap %d\n  new words:', sum(flags));
   fprintf(2, ' %s', vocabShortList_new{~flags});
   fprintf(2, '\n');
 end
