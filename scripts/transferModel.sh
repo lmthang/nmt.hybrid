@@ -17,7 +17,7 @@ tgtVocabFile=$3
 srcCharPrefix=$4
 tgtCharPrefix=$5
 outputFile=$6
-basicOpt="'$modelFile','$srcVocabFile','$tgtVocabFile','srcCharPrefix','tgtCharPrefix','$outputFile'"
+basicOpt="'$modelFile','$srcVocabFile','$tgtVocabFile','$srcCharPrefix','$tgtCharPrefix','$outputFile'"
 if [ $# -eq 7 ]; then
   matlabCommand="transferModel($basicOpt,${7})"
 else
