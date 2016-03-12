@@ -15,7 +15,7 @@ tgtVocabSize=$3
 outputFile=$4
 basicOpt="'$modelFile','$srcVocabFile','$tgtVocabSize','$outputFile'"
 if [ $# -eq 5 ]; then
-  matlabCommand="transferModel($basicOpt,${6})"
+  matlabCommand="transferModel($basicOpt,${5})"
 else
   matlabCommand="transferModel($basicOpt)"
 fi
