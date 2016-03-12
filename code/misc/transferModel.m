@@ -67,21 +67,21 @@ function transferModel(modelFile, srcVocabFile_new, tgtVocabFile_new, srcCharPre
   % src char
   fprintf(2, '# Transfering src char\n');
   [model.W_emb_src_char, params.srcCharVocab, params.srcCharVocabSize, params.srcCharVocabFile] = transferMatrix(model.W_emb_src_char, params.srcCharVocab, ...
-    params.srcCharVocabSize, [srcCharPrefix_new '.char.vocab'], params, 1);
+    params.srcCharVocabSize, [srcCharPrefix_new '.char.vocab'], params, 1, 1);
   params.srcCharMapFile = [srcCharPrefix_new '.char.map'];
   params.srcCharMap = loadWord2CharMap(params.srcCharMapFile, params.charMaxLen);
   
   % tgt char
   fprintf(2, '# Transfering tgt char\n');
   [model.W_emb_tgt_char, params.tgtCharVocab, params.tgtCharVocabSize, params.tgtCharVocabFile] = transferMatrix(model.W_emb_tgt_char, params.tgtCharVocab, ...
-    params.tgtCharVocabSize, [tgtCharPrefix_new '.char.vocab'], params, 1);
+    params.tgtCharVocabSize, [tgtCharPrefix_new '.char.vocab'], params, 1, 1);
   params.tgtCharMapFile = [tgtCharPrefix_new '.char.map'];
   params.tgtCharMap = loadWord2CharMap(params.tgtCharMapFile, params.charMaxLen);
   
   % tgt char soft
   fprintf(2, '# Transfering tgt char soft\n');
   [model.W_soft_char, ~, ~, ~] = transferMatrix(model.W_soft_char, params.tgtCharVocab, ...
-    params.tgtCharVocabSize, [tgtCharPrefix_new '.char.vocab'], params, 1);
+    params.tgtCharVocabSize, [tgtCharPrefix_new '.char.vocab'], params, 0, 1);
   
   % save model
   save(outModelFile, 'model', 'params');
