@@ -52,24 +52,24 @@ function transferModel(modelFile, srcVocabFile_new, tgtVocabFile_new, srcCharPre
   % src word
   fprintf(2, '# Transfering src word\n');
   [model.W_emb_src, params.srcVocab, params.srcVocabFile] = transferEmb(model.W_emb_src, params.srcVocab, params.srcCharShortList, ...
-    srcVocabFile_new, params);
+    srcVocabFile_new, params, 0);
   
   % tgt word
   fprintf(2, '# Transfering tgt word\n');
   [model.W_emb_tgt, params.tgtVocab, params.tgtVocabFile] = transferEmb(model.W_emb_tgt, params.tgtVocab, params.tgtCharShortList, ...
-    tgtVocabFile_new, params);
+    tgtVocabFile_new, params, 0);
   
   % src char
   fprintf(2, '# Transfering src char\n');
   [model.W_emb_src_char, params.srcCharVocab, params.srcCharVocabFile] = transferEmb(model.W_emb_src_char, params.srcCharVocab, ...
-    params.srcCharVocabSize, [srcCharPrefix_new '.char.vocab'], params);
+    params.srcCharVocabSize, [srcCharPrefix_new '.char.vocab'], params, 1);
   params.srcCharMapFile = [srcCharPrefix_new '.char.map'];
   params.srcCharMap = loadWord2CharMap(params.srcCharMapFile, params.charMaxLen);
   
   % tgt char
   fprintf(2, '# Transfering tgt char\n');
   [model.W_emb_tgt_char, params.tgtCharVocab, params.tgtCharVocabFile] = transferEmb(model.W_emb_tgt_char, params.tgtCharVocab, ...
-    params.tgtCharVocabSize, [tgtCharPrefix_new '.char.vocab'], params);
+    params.tgtCharVocabSize, [tgtCharPrefix_new '.char.vocab'], params, 1);
   params.tgtCharMapFile = [tgtCharPrefix_new '.char.map'];
   params.tgtCharMap = loadWord2CharMap(params.tgtCharMapFile, params.charMaxLen);
   
@@ -78,12 +78,23 @@ function transferModel(modelFile, srcVocabFile_new, tgtVocabFile_new, srcCharPre
 end
 
 
-function [W_emb_new, vocab_new, vocabFile_new] = transferEmb(W_emb, vocab, shortList, vocabFile_new, params)
+function [W_emb_new, vocab_new, vocabFile_new] = transferEmb(W_emb, vocab, shortList, vocabFile_new, params, isChar)
   fprintf(2, '  W_emb [%s], original vocab size %d, short list %d\n', num2str(size(W_emb)), length(vocab), shortList);
   [vocab_new] = loadVocab(vocabFile_new);
+  if isChar
+    vocab_new{end+1} = '<c_s>'; % not learn
+    vocab_new{end+1} = '</c_s>';
+  end
+  
+  if shortList < length(vocab)
+    vocabShortList_new = vocab_new(1:shortList);
+  else
+    vocabShortList_new = vocab_new;
+  end
+  W_emb_new = initMatrixRange(params.initRange, [params.lstmSize, length(vocabShortList_new)], params.isGPU, params.dataType);
+  
+  % mapping
   vocabMap = cell2map(vocab(1:shortList));
-  W_emb_new = initMatrixRange(params.initRange, [params.lstmSize, shortList], params.isGPU, params.dataType);
-  vocabShortList_new = vocab_new(1:shortList);
   flags = isKey(vocabMap, vocabShortList_new);
   indices = values(vocabMap, vocabShortList_new(flags));
   indices = [indices{:}];
@@ -93,32 +104,3 @@ function [W_emb_new, vocab_new, vocabFile_new] = transferEmb(W_emb, vocab, short
   fprintf(2, ' %s', vocabShortList_new{~flags});
   fprintf(2, '\n');
 end
-
-%   srcVocabMap = cell2map(params.srcVocab(1:params.srcCharShortList));
-%   W_emb_src_new = initMatrixRange(params.initRange, [params.lstmSize, params.srcCharShortList], params.isGPU, params.dataType);
-%   srcVocabShortList_new = srcVocab_new(1:params.srcCharShortList);
-%   flags = isKey(srcVocabMap, srcVocabShortList_new);
-%   indices = values(srcVocabMap, srcVocabShortList_new(flags));
-%   indices = [indices{:}];
-%   W_emb_src_new(:, flags) = model.W_emb_src(:, indices);
-%   model.W_emb_src = W_emb_src_new;
-%   params.srcVocab = srcVocab_new;
-%   params.srcVocabFile = srcVocabFile_new;
-%   fprintf(2, '  src short list %d, num overlap %d\n  new words:', params.srcCharShortList, sum(flags));
-%   fprintf(2, ' %s', srcVocabShortList_new{~flags});
-%   fprintf(2, '\n');
-
-%   tgtVocabMap = cell2map(params.tgtVocab(1:params.tgtCharShortList));
-%   W_emb_tgt_new = initMatrixRange(params.initRange, [params.lstmSize, params.tgtCharShortList], params.isGPU, params.dataType);
-%   tgtVocabShortList_new = tgtVocab_new(1:params.tgtCharShortList);
-%   flags = isKey(tgtVocabMap, tgtVocabShortList_new);
-%   indices = values(tgtVocabMap, tgtVocabShortList_new(flags));
-%   indices = [indices{:}];
-%   W_emb_tgt_new(:, flags) = model.W_emb_tgt(:, indices);
-%   model.W_emb_tgt = W_emb_tgt_new;
-%   params.tgtVocab = tgtVocab_new;
-%   params.tgtVocabFile = tgtVocabFile_new;
-%   fprintf(2, '  tgt short list %d, num overlap %d\n  new words:', params.tgtCharShortList, sum(flags));
-%   fprintf(2, ' %s', tgtVocabShortList_new{~flags});
-%   fprintf(2, '\n');
-  
