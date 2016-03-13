@@ -91,6 +91,8 @@ function transferModel(modelFile, srcVocabFile_new, tgtVocabFile_new, srcCharPre
   
   % save model
   save(outModelFile, 'model', 'params');
+  model
+  fprintf(2, '# Done saving to %s\n', outModelFile);
 end
 
 
