@@ -10,14 +10,13 @@ function printDecodeResults(decodeData, candidates, candScores, alignInfo, other
     assert(isempty(find(translation>params.tgtVocabSize, 1)));
     
     if isOutput
-      if params.charTgtGen
-        printSentChar(params.fid, translation(1:end-1), params.tgtVocab, '', otherInfo.rarePositions{ii}, otherInfo.rareWords{ii}); % remove <t_eos>
+      if params.forceDecoder
+        printSent(params.fid, otherInfo.forceDecodeOutputs(1:decodeData.tgtLens(ii)-1, ii), params.tgtVocab, '');
       else
-        if params.forceDecoder
-          printSent(params.fid, otherInfo.forceDecodeOutputs(1:decodeData.tgtLens(ii)-1, ii), params.tgtVocab, '');
-        else
-          printSent(params.fid, translation(1:end-1), params.tgtVocab, ''); % remove <t_eos>
-        end
+        printSent(params.fid, translation(1:end-1), params.tgtVocab, ''); % remove <t_eos>
+      end
+      if params.charTgtGen
+        printSentChar(params.charFid, translation(1:end-1), params.tgtVocab, '', otherInfo.rarePositions{ii}, otherInfo.rareWords{ii}); % remove <t_eos>
       end
     end
 

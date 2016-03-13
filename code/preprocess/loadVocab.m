@@ -5,7 +5,7 @@ function [vocab, freqs] = loadVocab(vocabFile)
 %%
 
   fid = fopen(vocabFile,'r');
-  fprintf(1, '# Loading vocab from file %s ...\n', vocabFile);
+  fprintf(2, '# Loading vocab from file %s ...\n', vocabFile);
   fileLines = textscan(fid, '%s', 'delimiter', '\n');
   fclose(fid);
   fileLines=fileLines{1};
@@ -39,4 +39,5 @@ function [vocab, freqs] = loadVocab(vocabFile)
     vocab{ii} = word;
     freqs(ii) = freq;
   end
+  fprintf(2, '  num words %d\n', length(vocab));
 end

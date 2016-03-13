@@ -15,7 +15,7 @@ function [totalCharCost, charGrad, numChars] = tgtCharCostGrad(decStates, attnIn
     assert(params.tgtUnk <= params.tgtCharShortList);
   end
   
-  if params.charTgtSample > 0
+  if isTest == 0 && params.charTgtSample > 0
     % select by tokens: not masked and not unk
     freqIndices = find(~rareFlags & mask & (input ~= params.tgtUnk));
     perm = randperm(length(freqIndices));
