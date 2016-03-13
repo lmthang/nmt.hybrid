@@ -72,7 +72,7 @@ def process_files(in_file, out_dir):
   line_id = 0
   sys.stderr.write('# Processing file %s ...\n' % (in_file))
   eval_pattern = re.compile('# eval (.+), train')
-  err_pattern = re.compile('(JOB \d+ CANCELLED AT .+)')
+  err_pattern = re.compile('(JOB .+ CANCELLED AT .+)')
   old_save_pattern = re.compile('save model test perplexity ')
   save_pattern = re.compile('save model best valid cost ')
   progress_pattern = re.compile('gN=.+?,\s+(.+)')
