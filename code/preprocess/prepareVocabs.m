@@ -119,6 +119,11 @@ function [params] = prepareVocabs(params)
       params.tgtCharEos = length(params.tgtCharVocab);
       fprintf(2, '  adding </c_s> %d to tgt char vocab\n', params.tgtCharEos);
     end
+    fprintf(2, '  tgtCharEos=%d\n  srcCharVocab:', params.tgtCharEos);
+    fprintf(2, ' %s', params.srcCharVocab{:});
+    fprintf(2, '\n  tgtCharVocab:');
+    fprintf(2, ' %s', params.tgtCharVocab{:});
+    fprintf(2, '\n');
     
     params.srcCharVocabSize = length(params.srcCharVocab);
     params.tgtCharVocabSize = length(params.tgtCharVocab);

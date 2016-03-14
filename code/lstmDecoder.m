@@ -30,8 +30,8 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
   else
     maxLen = floor(srcMaxLen*params.maxLenRatio);
   end
-  fprintf(2, '# Decoding batch of %d sents, minLen=%d, maxLen=%d, %s\n', batchSize, minLen, maxLen, datestr(now));
-  fprintf(params.logId, '# Decoding batch of %d sents, minLen=%d, maxLen=%d, %s\n', batchSize, minLen, maxLen, datestr(now));
+  fprintf(2, '# Decoding batch of %d sents, minLen=%d, maxLen=%d, tgtEos=%d, %s\n', batchSize, minLen, maxLen, params.tgtEos, datestr(now));
+  fprintf(params.logId, '# Decoding batch of %d sents, minLen=%d, maxLen=%d, tgtEos=%d, %s\n', batchSize, minLen, maxLen, params.tgtEos, datestr(now));
   
   startTime = clock;
 
@@ -104,6 +104,9 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
       % prev states
       char_minLen = 2;
       char_maxLen = 20;
+      fprintf(2, '  # Decoding char , minLen=%d, maxLen=%d, charEos=%d, %s\n', char_minLen, char_maxLen, params.tgtCharEos, datestr(now));
+      fprintf(params.logId, '  # Decoding char , minLen=%d, maxLen=%d, charEos=%d, %s\n', char_minLen, char_maxLen, params.tgtCharEos, datestr(now));
+      
       char_modelData = cell(numModels, 1);
       char_prevStates = cell(numModels, 1);
       zeroBatch = zeroMatrix([params.lstmSize, charParams.curBatchSize], params.isGPU, params.dataType);

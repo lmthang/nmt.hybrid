@@ -69,6 +69,7 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
     modelFile = tokens{mm};
     [savedData] = load(modelFile);
     models{mm} = savedData.model;
+    models{mm}
     models{mm}.params = savedData.params;  
 
     % backward compatible
