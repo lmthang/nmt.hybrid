@@ -126,6 +126,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.stackSize = 100;
   params.unkPenalty = 0;
   params.forceDecoder = 0;
+  params.unkDiscount = 0;
   
   % params assertions
   if params.attnFunc==4

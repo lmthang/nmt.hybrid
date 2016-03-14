@@ -49,6 +49,9 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
 
     [zeroStates{mm}] = createZeroState(models{mm}.params);
     modelData{mm} = data;    
+    
+    % compatible
+    [models{mm}.params] = backwardCompatible(models{mm}.params, {'unkDiscount'}, 0);
   end
   
   % encoder
