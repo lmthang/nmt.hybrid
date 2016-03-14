@@ -474,7 +474,7 @@ originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
   
   for sentId=1:batchSize
     if numDecoded(sentId) == 0 % no translations found, use what we have in the beam
-      fprintf(2, '  ! Sent %d: no translations end in %s\n', originalSentIndices(sentId), params.tgtVocab{tgtEos});
+      fprintf(2, '  ! Sent %d: no translations end in %s, appending.\n', originalSentIndices(sentId), params.tgtVocab{tgtEos});
       for bb = 1:beamSize
         eosIndex = (sentId-1)*beamSize + bb;
         
@@ -485,6 +485,9 @@ originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
           
           candidates{sentId}{numDecoded(sentId)} = [beamHistory(1:maxLen, eosIndex); tgtEos]; % append eos at the end
           candScores(numDecoded(sentId), sentId) = beamScores(eosIndex);
+          fprintf('  %.2f, num decoded %d:', candScores(numDecoded(sentId), sentId), numDecoded(sentId));
+          fprintf(' %s', candidates{sentId}{numDecoded(sentId)});
+          fprintf('\n');
           
           % align
           if params.align && isChar == 0
