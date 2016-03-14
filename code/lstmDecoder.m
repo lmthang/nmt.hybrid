@@ -218,11 +218,12 @@ originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
   %% first prediction
   % scores, words: beamSize * batchSize
   if params.forceDecoder
-    [scores, words, otherData] = nextBeamStep(models, prevStates, beamSize, 0, data.tgtOutput(:, 1)); 
+    assert(isChar == 0);
+    [scores, words, otherData] = nextBeamStep(models, prevStates, beamSize, 0, isChar, params.tgtUnk, params.unkDiscount, data.tgtOutput(:, 1)); 
     otherInfo.forceDecodeOutputs = zeroMatrix([maxLen, numElements], params.isGPU, params.dataType); % maxLen * (numElements) 
     otherInfo.forceDecodeOutputs(1, :) = otherData.maxWords;
   else
-    [scores, words] = nextBeamStep(models, prevStates, beamSize, tgtEos);
+    [scores, words] = nextBeamStep(models, prevStates, beamSize, tgtEos, isChar, params.tgtUnk, params.unkDiscount);
   end
 
   % TODO: by right, we should filter out words == tgtEos, but I
@@ -352,10 +353,11 @@ originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
     %% predict the next word
     % allBestScores, allBestWords should have size beamSize * (beamSize*batchSize)
     if params.forceDecoder
-      [allBestScores, allBestWords, otherData] = nextBeamStep(models, beamStates, beamSize, 0, data.tgtOutput(:, tgtPos));
+      assert(isChar == 0);
+      [allBestScores, allBestWords, otherData] = nextBeamStep(models, beamStates, beamSize, 0, isChar, params.tgtUnk, params.unkDiscount, data.tgtOutput(:, tgtPos));
       otherInfo.forceDecodeOutputs(tgtPos, :) = otherData.maxWords;
     else
-      [allBestScores, allBestWords] = nextBeamStep(models, beamStates, beamSize, 0);
+      [allBestScores, allBestWords] = nextBeamStep(models, beamStates, beamSize, 0, isChar, params.tgtUnk, params.unkDiscount);
     end
 
     % allBestWords, allBestScores should have size: (beamSize*beamSize) * batchSize
@@ -465,10 +467,6 @@ originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
       end
       beamStates{mm}{end}.softmax_h = beamStates{mm}{end}.softmax_h(:, colIndices);
     end
-    
-%     if decodeCompleteCount==batchSize % done decoding the entire batch
-%       break;
-%     end
   end % for sentPos
   
   for sentId=1:batchSize
@@ -524,7 +522,7 @@ end
 %%
 % return bestLogProbs, bestWords of sizes beamSize * curBatchSize
 %%
-function [bestLogProbs, bestWords, otherData] = nextBeamStep(models, lastDecStates, beamSize, ignoreSymbol, varargin)
+function [bestLogProbs, bestWords, otherData] = nextBeamStep(models, lastDecStates, beamSize, ignoreSymbol, isChar, tgtUnk, unkDiscount, varargin)
   softmax_input = models{1}.W_soft*lastDecStates{1}{end}.softmax_h;
   if length(models)>1 % aggregate predictions from multiple models
     for ii=2:length(models)
@@ -555,6 +553,11 @@ function [bestLogProbs, bestWords, otherData] = nextBeamStep(models, lastDecStat
         bestWords(indices) = sortedWords(beamSize+1, cols);
         bestLogProbs(indices) = sortedLogProbs(beamSize+1, cols);
       end
+    end
+    
+    if isChar==0 && unkDiscount>0
+      flags = bestWords == tgtUnk; 
+      bestLogProbs(flags) = bestLogProbs(flags) - unkDiscount;
     end
   end
 end

@@ -34,6 +34,7 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   addOptional(p,'testPrefix', '', @ischar); % to specify a different file for decoding
   addOptional(p,'hasTgt', 1, @isnumeric); % 0 -- no ref translations (groundtruth)
   addOptional(p,'continueId', 0, @isnumeric); % > 0: start decoding from this continueId (base 1) sent and append the results
+  addOptional(p,'unkDiscount', 0, @isnumeric); % > 0: to prevent long unk sequences
   
   % force decoding: always feed the correct words (groundtruth)
   addOptional(p,'forceDecoder', 0, @isnumeric); 
