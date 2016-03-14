@@ -33,6 +33,7 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   addOptional(p,'maxLenRatio', 1.5, @isnumeric); % decodeLen <= maxLenRatio * srcMaxLen
   addOptional(p,'testPrefix', '', @ischar); % to specify a different file for decoding
   addOptional(p,'hasTgt', 1, @isnumeric); % 0 -- no ref translations (groundtruth)
+  addOptional(p,'continueId', 0, @isnumeric); % > 0: start decoding from this continueId (base 1) sent and append the results
   
   % force decoding: always feed the correct words (groundtruth)
   addOptional(p,'forceDecoder', 0, @isnumeric); 
@@ -131,15 +132,21 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
     params.beamSize = 1;
   end
   
-  params.fid = fopen(params.outputFile, 'w');
-  if params.charTgtGen
-    params.charFid = fopen([params.outputFile '.char'], 'w');
+  if params.continueId > 0 % appending
+    fileOpt = 'a';
+  else
+    fileOpt = 'w';
   end
   
-  params.logId = fopen([outputFile '.log'], 'w'); 
+  params.fid = fopen(params.outputFile, fileOpt);
+  if params.charTgtGen
+    params.charFid = fopen([params.outputFile '.char'], fileOpt);
+  end
+  
+  params.logId = fopen([outputFile '.log'], fileOpt); 
   % align
   if params.align
-    params.alignId = fopen([params.outputFile '.align'], 'w');
+    params.alignId = fopen([params.outputFile '.align'], fileOpt);
   end
   printParams(2, params);
   
@@ -158,10 +165,15 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
     % prepare batch data
     startId = (batchId-1)*batchSize+1;
     endId = batchId*batchSize;
-    
     if endId > numSents
       endId = numSents;
     end
+    
+    % continue training
+    if params.continueId > startId
+      continue;
+    end
+    
     [decodeData] = prepareData(srcSents(startId:endId), tgtSents(startId:endId), 1, params);
     decodeData.startId = startId;
     

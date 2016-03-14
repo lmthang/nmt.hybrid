@@ -218,11 +218,11 @@ originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
   %% first prediction
   % scores, words: beamSize * batchSize
   if params.forceDecoder
-    [scores, words, otherData] = nextBeamStep(models, prevStates, beamSize, data.tgtOutput(:, 1)); 
+    [scores, words, otherData] = nextBeamStep(models, prevStates, beamSize, 0, data.tgtOutput(:, 1)); 
     otherInfo.forceDecodeOutputs = zeroMatrix([maxLen, numElements], params.isGPU, params.dataType); % maxLen * (numElements) 
     otherInfo.forceDecodeOutputs(1, :) = otherData.maxWords;
   else
-    [scores, words] = nextBeamStep(models, prevStates, beamSize);
+    [scores, words] = nextBeamStep(models, prevStates, beamSize, tgtEos);
   end
 
   % TODO: by right, we should filter out words == tgtEos, but I
@@ -352,10 +352,10 @@ originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
     %% predict the next word
     % allBestScores, allBestWords should have size beamSize * (beamSize*batchSize)
     if params.forceDecoder
-      [allBestScores, allBestWords, otherData] = nextBeamStep(models, beamStates, beamSize, data.tgtOutput(:, tgtPos));
+      [allBestScores, allBestWords, otherData] = nextBeamStep(models, beamStates, beamSize, 0, data.tgtOutput(:, tgtPos));
       otherInfo.forceDecodeOutputs(tgtPos, :) = otherData.maxWords;
     else
-      [allBestScores, allBestWords] = nextBeamStep(models, beamStates, beamSize);
+      [allBestScores, allBestWords] = nextBeamStep(models, beamStates, beamSize, 0);
     end
 
     % allBestWords, allBestScores should have size: (beamSize*beamSize) * batchSize
@@ -524,7 +524,7 @@ end
 %%
 % return bestLogProbs, bestWords of sizes beamSize * curBatchSize
 %%
-function [bestLogProbs, bestWords, otherData] = nextBeamStep(models, lastDecStates, beamSize, varargin)
+function [bestLogProbs, bestWords, otherData] = nextBeamStep(models, lastDecStates, beamSize, ignoreSymbol, varargin)
   softmax_input = models{1}.W_soft*lastDecStates{1}{end}.softmax_h;
   if length(models)>1 % aggregate predictions from multiple models
     for ii=2:length(models)
@@ -545,6 +545,17 @@ function [bestLogProbs, bestWords, otherData] = nextBeamStep(models, lastDecStat
     bestWords = sortedWords(1:beamSize, :);
     bestLogProbs = sortedLogProbs(1:beamSize, :);
     otherData = [];
+    
+    if ignoreSymbol>0
+      flags = bestWords == ignoreSymbol; 
+      cols = find(any(flags)); % mark which column has the ignoreSymbol
+      if ~isempty(cols)
+        indices = find(flags);
+        assert(length(indices) == length(cols)); % each col has a single ignoreSymbol
+        bestWords(indices) = sortedWords(beamSize+1, cols);
+        bestLogProbs(indices) = sortedLogProbs(beamSize+1, cols);
+      end
+    end
   end
 end
 
