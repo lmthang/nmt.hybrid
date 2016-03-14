@@ -16,9 +16,6 @@ function printDecodeResults(decodeData, candidates, candScores, alignInfo, other
         printSent(params.fid, translation(1:end-1), params.tgtVocab, ''); % remove <t_eos>
       end
       if params.charTgtGen
-        % check that no words are </c_s>
-        assert(isempty(find(strcmp(otherInfo.rareWords{ii}, params.tgtCharVocab{params.tgtCharEos}), 1)));
-        
         printSentChar(params.charFid, translation(1:end-1), params.tgtVocab, '', otherInfo.rarePositions{ii}, otherInfo.rareWords{ii}); % remove <t_eos>
       end
     end
@@ -49,6 +46,9 @@ function printDecodeResults(decodeData, candidates, candScores, alignInfo, other
     end
     if params.charTgtGen
       printSentChar(2, translation, params.tgtVocab, ['  tgt char ' num2str(startId+ii-1) ': '], otherInfo.rarePositions{ii}, otherInfo.rareWords{ii});
+      
+      % check that no words are </c_s>
+      assert(isempty(find(strcmp(otherInfo.rareWords{ii}, params.tgtCharVocab{params.tgtCharEos}), 1)));
     end
     
     % align
