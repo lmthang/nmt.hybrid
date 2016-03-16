@@ -11,7 +11,7 @@ function [attnInfo] = attnLayerForward(h_t, params, model, attnData, maskInfo)
   attnInfo = [];
   if params.attnGlobal % global
     srcHidVecs = attnData.srcHidVecsOrig;
-    attnInfo.srcMaskedIds = [];
+    attnInfo.srcMaskedIds = find(attnData.srcMask(:, 1:params.numSrcHidVecs)'==0); % numSrcHidVecs * curBatchSize
   else % local
     % positions
     if params.attnLocalPred % predictive alignments
