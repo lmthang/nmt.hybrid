@@ -11,6 +11,10 @@ function [alignWeights, alignIndices] = getAlignWeights(attnInfos, srcLens, mode
 
   % average alignment weights
   for mm=1:numModels
+    if models{mm}.params.attnFunc==0 % non-attention
+      continue;
+    end
+
     if models{mm}.params.attnGlobal==0 % local
       [startIds, endIds, startAttnIds, endAttnIds] = computeAttnBound(attnInfos{mm}.srcPositions, models{mm}.params);
     end

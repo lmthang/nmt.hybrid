@@ -87,16 +87,16 @@ def write_vocab(out_file, words, freq_map):
   sys.stderr.write('  num words = %d\n' % vocab_size)
 
   # output sorted vocab
-  out_file += '.sorted'
-  f = codecs.open(out_file, 'w', 'utf-8')
-  sys.stderr.write('# Output sorted vocab to %s ...\n' % out_file)
-  vocab_size = 0
-  sorted_vocab = sorted(freq_map.iteritems(), key=lambda x: x[1], reverse=True)
-  for (word, count) in sorted_vocab:
-    f.write('%s %d\n' % (word, count))
-    vocab_size += 1
-  f.close()
-  sys.stderr.write('  num words = %d\n' % vocab_size)
+  #out_file += '.sorted'
+  #f = codecs.open(out_file, 'w', 'utf-8')
+  #sys.stderr.write('# Output sorted vocab to %s ...\n' % out_file)
+  #vocab_size = 0
+  #sorted_vocab = sorted(freq_map.iteritems(), key=lambda x: x[1], reverse=True)
+  #for (word, count) in sorted_vocab:
+  #  f.write('%s %d\n' % (word, count))
+  #  vocab_size += 1
+  #f.close()
+  #sys.stderr.write('  num words = %d\n' % vocab_size)
 
 
 def load_dict(in_file):
@@ -147,19 +147,21 @@ def load_vocab_from_corpus(in_file, freq, max_vocab_size, unk='<unk>'):
   f = codecs.open(in_file, 'r', 'utf-8')
   sys.stderr.write('# Loading vocab from %s ... ' % in_file)
   
-  if freq>0 or max_vocab_size>0:
-    words = []
-    vocab_map = {}
-    freq_map = {}
-    vocab_size = 0
-  else:
-    sos='<s>'
-    eos='</s>'
-    unk='<unk>'
-    words = [unk, sos, eos]
-    vocab_map = {unk:0, sos:1, eos:2}
-    freq_map = {unk:0, sos:0, eos:0}
-    vocab_size = 3
+  words = []
+  vocab_map = {}
+  freq_map = {}
+  vocab_size = 0
+  if freq == -1 and max_vocab_size == -1:
+    max_vocab_size = 10000000
+    sys.stderr.write('  change max_vocab_size from -1 to %d\n' % max_vocab_size)
+  #else:
+  #  sos='<s>'
+  #  eos='</s>'
+  #  unk='<unk>'
+  #  words = [unk, sos, eos]
+  #  vocab_map = {unk:0, sos:1, eos:2}
+  #  freq_map = {unk:0, sos:0, eos:0}
+  #  vocab_size = 3
 
   num_train_words = 0
   num_lines = 0 
@@ -179,9 +181,9 @@ def load_vocab_from_corpus(in_file, freq, max_vocab_size, unk='<unk>'):
       sys.stderr.write(' (%d) ' % num_lines)
   f.close()
   sys.stderr.write('\n  vocab_size=%d, num_train_words=%d, num_lines=%d\n' % (vocab_size, num_train_words, num_lines))
- 
-  if freq>0 or max_vocab_size>0:
-    (words, vocab_map, freq_map, vocab_size) = update_vocab(words, vocab_map, freq_map, freq, max_vocab_size, unk=unk)
+
+  # sort, update vocabs e.g., add unk, eos, sos
+  (words, vocab_map, freq_map, vocab_size) = update_vocab(words, vocab_map, freq_map, freq, max_vocab_size, unk=unk)
   return (words, vocab_map, freq_map, vocab_size, num_train_words)
 
 def update_vocab(words, vocab_map, freq_map, freq, max_vocab_size, sos='<s>', eos='</s>', unk='<unk>'):

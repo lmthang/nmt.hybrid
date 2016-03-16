@@ -33,7 +33,7 @@ def process_command_line():
 
   # optional arguments
   parser.add_argument('--vocab_file', dest='vocab_file', type=str, default='', help='vocab file (default=\'\')')
-  parser.add_argument('--freq', dest='freq', type=int, default=-1, help='freq cutoff (default=-1, i.e., no cutoff)')
+  parser.add_argument('--freq', dest='freq', type=int, default=-1, help='freq cutoff, keep words if >= (default=-1, i.e., no cutoff)')
   parser.add_argument('--size', dest='size', type=int, default=-1, help='vocab size cutoff (default=-1, i.e., no cutoff)')
   
   args = parser.parse_args()
