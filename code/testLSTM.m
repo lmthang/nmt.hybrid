@@ -34,6 +34,7 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
   addOptional(p,'testPrefix', '', @ischar); % to specify a different file for decoding
   addOptional(p,'hasTgt', 1, @isnumeric); % 0 -- no ref translations (groundtruth)
   addOptional(p,'continueId', 0, @isnumeric); % > 0: start decoding from this continueId (base 1) sent and append the results
+  addOptional(p,'stopId', 0, @isnumeric); % > 0: stop decoding after finishing this stopId (base 1) sent
   addOptional(p,'computePpl', 0, @isnumeric); % 1 -- compute ppl of each participating model over the test set
     
   % force decoding: always feed the correct words (groundtruth)
@@ -238,6 +239,10 @@ function [] = testLSTM(modelFiles, beamSize, stackSize, batchSize, outputFile,va
     printDecodeResults(decodeData, candidates, candScores, alignInfo, params, 1, decodeData.prefixSent);
     if params.printScore
       fprintf(params.scoreFid, '%f\n', candScores); 
+    end
+    
+    if startId == params.stopId % done
+      break;
     end
   end
 
