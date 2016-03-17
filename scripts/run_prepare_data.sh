@@ -49,12 +49,11 @@ execute_check $outDir "mkdir -p $outDir"
 # vocab
 if [ "$vocabFile" = "" ]; then
   basePrefix=`basename $trainFile`
+    vocabFile="$outDir/$basePrefix.vocab"
 
   if [ $freq -eq 0 ]; then
-    vocabFile="$outDir/$basePrefix.vocab.$vocabSize"
     vocabStr="--size $vocabSize"
   else
-    vocabFile="$outDir/$basePrefix.vocab.f$freq"
     vocabStr="--freq $freq"
   fi
   echo "vocabStr=$vocabStr"

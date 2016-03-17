@@ -52,11 +52,15 @@ def execute(cmd):
 
 def load_dict(dict_file):
   inf = codecs.open(dict_file, 'r', 'utf-8')
+  sys.stderr.write('# Loading dict file %s\n' % dict_file)
   line_id = 0
   dict_map = {}
   prob_map = {}
   for line in inf:
     tokens = re.split('\s+', line.strip())
+    if len(tokens) != 3:
+      sys.stderr.write('# Skip line: %s' % line)
+      continue
     src_word = tokens[0]
     tgt_word = tokens[1]
     prob = float(tokens[2])
