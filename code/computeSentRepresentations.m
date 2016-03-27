@@ -86,7 +86,6 @@ function [] = computeSentRepresentations(modelFile, outputFile,varargin)
   fprintf(params.logId, '# Encoding %d sents, %s\n', numSents, datestr(now));
   startTime = clock;
   
-  totalScore = 0;
   totalPredict = 0;
   encoderInfo = [];
   for batchId = 1 : numBatches
@@ -127,9 +126,9 @@ function [] = computeSentRepresentations(modelFile, outputFile,varargin)
   endTime = clock;
   timeElapsed = etime(endTime, startTime);
   fprintf(2, '# Complete encoding %d sents, num predict %d, ppl %g, time %.0fs, %s\n', numSents, totalPredict, ...
-    exp(totalScore/totalPredict), timeElapsed, datestr(now));
+    timeElapsed, datestr(now));
   fprintf(params.logId, '# Complete encoding %d sents, num predict %d, ppl %g, time %.0fs, %s\n', numSents, totalPredict, ...
-    exp(totalScore/totalPredict), timeElapsed, datestr(now));
+    timeElapsed, datestr(now));
   
   fclose(params.fid);
   fclose(params.logId);
