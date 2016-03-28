@@ -21,9 +21,11 @@ function [batch, mask, maxLen, numSeqs] = leftPad(seqs, lens, padSymbol, varargi
     
     if length(varargin) == 2 % specify maxLen
       maxLen = varargin{2};
+      if maxLen <= 0
+        maxLen = max(lens) + 1;
+      end
     else
-      maxLen = max(lens);
-      maxLen = maxLen + 1;
+      maxLen = max(lens) + 1;
     end
   end
   

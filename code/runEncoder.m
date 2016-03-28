@@ -36,7 +36,8 @@ function [prevStates, modelData, models] = runEncoder(models, data, params, enco
   else
     prevStates = cell(numModels, 1);
     for mm=1:numModels
-      encRnnFlags = struct('decode', 0, 'test', 1, 'attn', models{mm}.params.attnFunc, 'feedInput', 0);
+      encRnnFlags = struct('decode', 0, 'test', 1, 'attn', models{mm}.params.attnFunc, 'feedInput', 0, 'charSrcRep', 0, ...
+    'charTgtGen', 0, 'initEmb', []);
       [encStates, modelData{mm}, ~] = rnnLayerForward(models{mm}.W_src, models{mm}.W_emb_src, zeroStates{mm}, data.srcInput, ...
         data.srcMask, models{mm}.params, encRnnFlags, data, models{mm});
       prevStates{mm} = encStates{end};

@@ -55,6 +55,7 @@ function [] = computeSentRepresentations(modelFile, inFile, outputFile, varargin
   
   %% load model
   [model] = loadDecodeModel(decodeParams.modelFile, decodeParams);
+  model.params.attnFunc = 0;
   params = model.params;
   
   if params.char
@@ -88,7 +89,7 @@ function [] = computeSentRepresentations(modelFile, inFile, outputFile, varargin
   params.prefixDecoder = 0;
   
   % load test data  
-  [sents, numSents] = loadMonoData(params.inFile, -1, 0, srcVocab, 'src');
+  [sents, numSents] = loadMonoData(params.inFile, -1, 0, params.srcVocab, 'src');
   
   %%%%%%%%%%%%
   %% encode %%
@@ -116,9 +117,9 @@ function [] = computeSentRepresentations(modelFile, inFile, outputFile, varargin
     
     % prepare data
     if params.char
-      [data] = prepareMonoData(sents(startId:endId), sos, eos, -1, 1);
+      [data] = prepareMonoData(sents(startId:endId), params.srcCharSos, params.srcCharEos, -1, 1);
     else
-      [data] = prepareMonoData(sents(startId:endId), sos, eos, -1, 1);
+      [data] = prepareMonoData(sents(startId:endId), params.srcSos, -1, -1, 1);
     end
     
     data.startId = startId;
@@ -143,9 +144,9 @@ function [] = computeSentRepresentations(modelFile, inFile, outputFile, varargin
 
   endTime = clock;
   timeElapsed = etime(endTime, startTime);
-  fprintf(2, '# Complete encoding %d sents, num predict %d, ppl %g, time %.0fs, %s\n', numSents, totalPredict, ...
+  fprintf(2, '# Complete encoding %d sents, num predict %d, time %.0fs, %s\n', numSents, totalPredict, ...
     timeElapsed, datestr(now));
-  fprintf(params.logId, '# Complete encoding %d sents, num predict %d, ppl %g, time %.0fs, %s\n', numSents, totalPredict, ...
+  fprintf(params.logId, '# Complete encoding %d sents, num predict %d, time %.0fs, %s\n', numSents, totalPredict, ...
     timeElapsed, datestr(now));
   
   fclose(params.fid);
