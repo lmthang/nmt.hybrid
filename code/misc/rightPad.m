@@ -13,13 +13,20 @@ function [batch, mask, maxLen, numSeqs] = rightPad(seqs, lens, padSymbol, vararg
 
   numSeqs = length(seqs);
   % lens = cellfun(@(x) length(x), seqs);
-  maxLen = max(lens);
   
   % append sos
   sos = 0;
   if ~isempty(varargin)
     sos = varargin{1};
-    maxLen = maxLen + 1;
+    
+    if length(varargin) == 2 % specify maxLen
+      maxLen = varargin{2};
+      if maxLen <= 0
+        maxLen = max(lens) + 1;
+      end
+    else
+      maxLen = max(lens) + 1;
+    end
   end
   
   batch = padSymbol*ones(numSeqs, maxLen);

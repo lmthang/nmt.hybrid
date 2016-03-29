@@ -299,6 +299,14 @@ originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
 
         % duplicate srcHidVecs
         modelData{mm}.srcHidVecsOrig = duplicateSrcHidVecs(modelData{mm}.srcHidVecsOrig, batchSize, beamSize);
+        
+        %% replicate srcMask
+        % first transpose to srcMaxLen * batchSize
+        % replicate (srcMaxLen*beamSize)*batchSize
+        % reshape maxLen*(beamSize*batchSize)
+        % then transpose back to (beamSize*batchSize)*maxLen
+        srcMaxLen = size(modelData{mm}.srcMask, 2);
+        modelData{mm}.srcMask = reshape(repmat(modelData{mm}.srcMask', beamSize, 1), srcMaxLen, beamSize*batchSize)'; 
       end
     end
   end
