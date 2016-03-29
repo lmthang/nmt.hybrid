@@ -8,8 +8,7 @@ function [] = computeRerankScores(modelFiles, outputFile,varargin)
 %   outputFile: output translation file.
 %   varargin: other optional arguments.
 %
-% Thang Luong @ 2015, <lmthang@stanford.edu>
-% Hieu Pham @ 2015, <hyhieu@cs.stanford.edu>
+% Thang Luong @ 2016, <lmthang@stanford.edu>
 
   addpath(genpath(sprintf('%s/..', pwd)));
 
@@ -59,39 +58,7 @@ function [] = computeRerankScores(modelFiles, outputFile,varargin)
   numModels = length(tokens);
   models = cell(numModels, 1);
   for mm=1:numModels
-    modelFile = tokens{mm};
-    [savedData] = load(modelFile);
-    models{mm} = savedData.model;
-    models{mm}.params = savedData.params;  
-
-    % backward compatible
-%     if (isfield(models{mm}.params,'softmaxFeedInput')) && (~isfield(models{mm}.params,'feedInput'))
-%       models{mm}.params.feedInput = models{mm}.params.softmaxFeedInput;
-%     end
-    models{mm}.params.attnGlobal = (models{mm}.params.attnFunc==1);
-    models{mm}.params.attnLocalMono = (models{mm}.params.attnFunc==2);
-    models{mm}.params.attnLocalPred = (models{mm}.params.attnFunc==4);
-    % [models{mm}.params] = backwardCompatible(models{mm}.params, {'', ''});
-    
-    % convert absolute paths to local paths
-    fieldNames = fields(models{mm}.params);
-    for ii=1:length(fieldNames)
-     field = fieldNames{ii};
-     if ischar(models{mm}.params.(field))
-       if strfind(models{mm}.params.(field), '/afs/ir/users/l/m/lmthang') ==1
-         models{mm}.params.(field) = strrep(models{mm}.params.(field), '/afs/ir/users/l/m/lmthang', '~');
-       end
-       if strfind(models{mm}.params.(field), '/afs/cs.stanford.edu/u/lmthang') ==1
-         models{mm}.params.(field) = strrep(models{mm}.params.(field), '/afs/cs.stanford.edu/u/lmthang', '~');
-       end
-       if strfind(models{mm}.params.(field), '/home/lmthang') ==1
-         models{mm}.params.(field) = strrep(models{mm}.params.(field), '/home/lmthang', '~');
-       end    
-     end
-    end
-
-    % load vocabs
-    %[models{mm}.params] = prepareVocabs(models{mm}.params);
+    [models{mm}] = loadDecodeModel(tokens{mm}, decodeParams);
     
     % make sure all models have the same vocab, and the number of layers
     if mm>1 
@@ -103,20 +70,7 @@ function [] = computeRerankScores(modelFiles, outputFile,varargin)
       end
       models{mm}.params = rmfield(models{mm}.params, {'srcVocab', 'tgtVocab'});
     end
-    
-    % copy fields
-    fieldNames = fields(decodeParams);
-    for ii=1:length(fieldNames)
-      field = fieldNames{ii};
-      if strcmp(field, 'testPrefix')==1 && strcmp(decodeParams.(field), '')==1 % skip empty testPrefix
-        continue;
-      elseif strcmp(field, 'testPrefix')==1
-        fprintf(2, '# Decode a different test file %s\n', decodeParams.(field));
-      end
-      models{mm}.params.(field) = decodeParams.(field);
-    end
   end
-  
   params = models{1}.params;
   
   if params.continueId > 0 % appending

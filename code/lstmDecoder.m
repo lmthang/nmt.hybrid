@@ -1,4 +1,4 @@
-function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, data, params, prevInfo)
+function [candidates, candScores, alignInfo, encoderInfo] = lstmDecoder(models, data, params, prevInfo)
 % Decode from an LSTM model.
 %   stackSize: the maximum number of translations we want to get.
 % Output:
@@ -15,76 +15,42 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
     tmpModels{1}.params = params;
     models = tmpModels;
   end
-  otherInfo = [];
   
   beamSize = params.beamSize;
   stackSize = params.stackSize;
-  batchSize = size(data.srcInput, 1);
+  startTime = clock;
   
-  srcMaxLen = data.srcMaxLen;
-  params.srcMaxLen = srcMaxLen;
-
+  %%%%%%%%%%%%
+  %% encode %%
+  %%%%%%%%%%%%
+  [prevStates, modelData, models] = runEncoder(models, data, params, prevInfo);
+  
+  % reuse encoder
+  if params.reuseEncoder
+    encoderInfo.prevStates = prevStates;
+    encoderInfo.modelData = modelData;
+    encoderInfo.srcInput = data.srcInput;
+  else
+    encoderInfo = [];
+  end
+  
+  %%%%%%%%%%%%
+  %% decode %%
+  %%%%%%%%%%%%  
   %% init
   minLen = floor(data.srcMinLen*params.minLenRatio);
   if params.forceDecoder
     maxLen = data.tgtMaxLen;
   else
-    maxLen = floor(srcMaxLen*params.maxLenRatio);
+    maxLen = floor(data.srcMaxLen*params.maxLenRatio);
   end
+  batchSize = size(data.srcInput, 1);
   fprintf(2, '# Decoding batch of %d sents, minLen=%d, maxLen=%d, %s\n', batchSize, minLen, maxLen, datestr(now));
   fprintf(params.logId, '# Decoding batch of %d sents, minLen=%d, maxLen=%d, %s\n', batchSize, minLen, maxLen, datestr(now));
   
-  startTime = clock;
-
-  %%%%%%%%%%%%
-  %% encode %%
-  %%%%%%%%%%%%
-  %% multiple models
-  numModels = length(models);
-  modelData = cell(numModels, 1);
-  zeroStates = cell(numModels, 1);
-  % firstAlignIdx = [];
-  for mm=1:numModels
-    models{mm}.params.curBatchSize = batchSize;
-    models{mm}.params.srcMaxLen = srcMaxLen;
-    [models{mm}.params] = setAttnParams(models{mm}.params);
-
-    [zeroStates{mm}] = createZeroState(models{mm}.params);  
-  end
-  
-  % encoder
-  % reuse encoder
-  if params.reuseEncoder && ~isempty(prevInfo) && isequal(data.srcInput, prevInfo.srcInput)
-    prevStates = prevInfo.prevStates;
-    modelData = prevInfo.modelData;
-  else
-    prevStates = cell(numModels, 1);
-    for mm=1:numModels
-      encRnnFlags = struct('decode', 0, 'test', 1, 'attn', models{mm}.params.attnFunc, 'feedInput', 0);
-      [encStates, modelData{mm}, ~] = rnnLayerForward(models{mm}.W_src, models{mm}.W_emb_src, zeroStates{mm}, data.srcInput, ...
-        data.srcMask, models{mm}.params, encRnnFlags, data, models{mm});
-      prevStates{mm} = encStates{end};
-
-      % feed input
-      if models{mm}.params.feedInput
-        prevStates{mm}{end}.softmax_h = zeroMatrix([models{mm}.params.lstmSize, batchSize], params.isGPU, params.dataType);
-      end
-    end
-  end
-  
-  % reuse encoder
-  if params.reuseEncoder
-    otherInfo.prevStates = prevStates;
-    otherInfo.modelData = modelData;
-    otherInfo.srcInput = data.srcInput;
-  end
-
-  %%%%%%%%%%%%
-  %% decode %%
-  %%%%%%%%%%%%
   assert(unique(data.tgtInput(:, 1)) == params.tgtSos);
   [candidates, candScores, alignInfo] = rnnDecoder(models, params, prevStates, minLen, maxLen, beamSize, stackSize, batchSize, ...
-  modelData, data, params.tgtSos);
+    modelData, data, params.tgtSos);
 
   endTime = clock;
   timeElapsed = etime(endTime, startTime);
@@ -214,6 +180,14 @@ originalSentIndices, modelData, firstAlignIdx, data)
       
       % duplicate srcHidVecs
       modelData{mm}.srcHidVecsOrig = duplicateSrcHidVecs(modelData{mm}.srcHidVecsOrig, batchSize, beamSize);
+      
+      %% replicate srcMask
+      % first transpose to srcMaxLen * batchSize
+      % replicate (srcMaxLen*beamSize)*batchSize
+      % reshape maxLen*(beamSize*batchSize)
+      % then transpose back to (beamSize*batchSize)*maxLen
+      srcMaxLen = size(modelData{mm}.srcMask, 2);
+      modelData{mm}.srcMask = reshape(repmat(modelData{mm}.srcMask', beamSize, 1), srcMaxLen, beamSize*batchSize)'; 
     end
   end
   
