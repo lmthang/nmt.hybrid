@@ -76,14 +76,24 @@ def process_files(in_file, out_file, vocab_file, freq, size):
   sys.stderr.write('# Processing file %s ...\n' % (in_file))
   inf = codecs.open(in_file, 'r', 'utf-8')
   ouf = codecs.open(out_file, 'w', 'utf-8')
+  token_count = 0
+  unk_count = 0
   for line in inf:
-    indices = [str(vocab_map[token]) if token in vocab_map else unk_id for token in re.split('\s+', line.strip())]
+    indices = []
+    for token in re.split('\s+', line.strip()):
+      token_count += 1
+      if token in vocab_map:
+        indices.append(str(vocab_map[token]))
+      else:
+        indices.append(unk_id)
+        unk_count += 1
+
     ouf.write('%s\n' % ' '.join(indices))
     line_id = line_id + 1
     if (line_id % 10000 == 0):
       sys.stderr.write(' (%d) ' % line_id)
 
-  sys.stderr.write('Done! Num lines = %d\n' % line_id)
+  sys.stderr.write('Done! Num lines = %d, num tokens = %d, num unks = %d, coverage = %.2f%% \n' % (line_id, token_count, unk_count, (token_count-unk_count)*100.0/token_count))
 
   inf.close()
   ouf.close()
