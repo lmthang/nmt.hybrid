@@ -34,7 +34,7 @@ def process_command_line():
   parser.add_argument('-t', '--tgt_sgm', dest='tgt_sgm', type=str, default='', help='tgt file in SGM format to compute NIST BLEU score with mteval-v13a.pl')
   parser.add_argument('-l', '--lang', dest='lang', type=str, default='', help='tgt lang, e.g., de, en, etc., to be used with mteval-v13a.pl')
   parser.add_argument('--reverse_alignment', dest='is_reverse_alignment', action='store_true', help='reverse alignment (tgtId-srcId) instead of srcId-tgtId')
-  parser.add_argument('-c', '--char', dest='char_opt', type=int, default=0, help='0: word-based, 1: hybrid (default=0)')
+  parser.add_argument('-c', '--char', dest='char_opt', type=int, default=0, help='0: word-based, 1: hybrid, 2: char-based (default=0)')
   
   args = parser.parse_args()
   return args
@@ -95,6 +95,11 @@ def nist_bleu(script_dir, trans_file, src_sgm, tgt_sgm, lang):
 def bleu(script_dir, trans_file, ref_file):
   cmd = script_dir + '/wmt/multi-bleu.perl ' + ref_file + ' < ' + trans_file
   sys.stderr.write('# BLEU: %s\n' % cmd)
+  os.system(cmd)
+
+def chr_f(script_dir, trans_file, ref_file):
+  cmd = script_dir + '/chrF.py --ref ' + ref_file + ' --hyp ' + trans_file
+  sys.stderr.write('# 6-gram chrF3: %s\n' % cmd)
   os.system(cmd)
 
 def post_process(align_file, src_file, tgt_file, ref_file, dict_file, is_reverse_alignment):
@@ -230,14 +235,33 @@ def escape(line):
   return line
 
 def escape_file(in_file, out_file):
+  sys.stderr.write('# Escape file %s -> %s\n' % (in_file, out_file))
   inf = codecs.open(in_file, 'r', 'utf-8')
   ouf = codecs.open(out_file, 'w', 'utf-8')
   for line in inf:
     in_line = line.strip()
     out_line = escape(in_line)
     ouf.write('%s\n' % out_line)
-    if in_line != out_line:
-      sys.stderr.write('%s -> %s\n' % (in_line, out_line))
+    #if in_line != out_line:
+    #  sys.stderr.write('%s -> %s\n' % (in_line, out_line))
+  inf.close()
+  ouf.close()
+
+def process_char_file(in_file, out_file):
+  inf = codecs.open(in_file, 'r', 'utf-8')
+  ouf = codecs.open(out_file, 'w', 'utf-8')
+  for line in inf:
+    in_line = line.strip()
+    chars = []
+    for char in in_line.split():
+      if char == '#B#':
+        chars.append(' ')
+      else:
+        chars.append(char)
+    out_line = escape(''.join(chars))
+    ouf.write('%s\n' % out_line)
+    #if in_line != out_line:
+    #  sys.stderr.write('%s -> %s\n' % (in_line, out_line))
   inf.close()
   ouf.close()
 
@@ -248,20 +272,26 @@ def process_files(align_file, src_file, tgt_file, ref_file, dict_file, src_sgm, 
     (pre_file, post_file) = post_process(align_file, src_file, tgt_file, ref_file, dict_file, is_reverse_alignment)
   elif char_opt == 1: # hybrid
     pre_file = tgt_file
-    post_file = tgt_file + '.char.post'
+    post_file = tgt_file + '.hybrid.post'
     escape_file(tgt_file + '.char', post_file)
+  elif char_opt == 2: # char
+    pre_file = ''
+    post_file = tgt_file + '.char.post'
+    process_char_file(tgt_file, post_file)
   sys.stderr.write('# pre_file %s\n# post_file %s\n' % (pre_file, post_file))
 
   # evaluating 
   if ref_file != '':
     script_dir = os.path.dirname(sys.argv[0])
-    bleu(script_dir, pre_file, ref_file)
+    if pre_file != '':
+      bleu(script_dir, pre_file, ref_file)
    
     if post_file != '':
+      if char_opt == 1 or char_opt == 2:
+        chr_f(script_dir, post_file, ref_file)
       bleu(script_dir, post_file, ref_file)
       if src_sgm != '' and tgt_sgm != '' and lang != '': # compute NIST BLEU score
         nist_bleu(script_dir, post_file, src_sgm, tgt_sgm, lang)
-
 if __name__ == '__main__':
   args = process_command_line()
   process_files(args.align_file, args.src_file, args.tgt_file, args.ref_file, args.dict_file, args.src_sgm, args.tgt_sgm, args.lang, args.is_reverse_alignment, args.char_opt)
