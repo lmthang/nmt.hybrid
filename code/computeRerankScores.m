@@ -170,15 +170,19 @@ function [] = computeRerankScores(modelFiles, outputFile,varargin)
   end
 end
 
-function [perp] = evalValidTestSimple(model, testData, params)
+function evalValidTestSimple(model, testData, params)
   fprintf(2, '  evaluating ...');
 %   perp = 0;
   [testCosts] = evalCost(model, testData, params); % run on the test data
-  testCounts = initCosts();
+  testCounts = initCosts(params);
   testCounts = updateCounts(testCounts, testData);
   testCosts = scaleCosts(testCosts, testCounts);
-  perp = exp(testCosts.word);
-  fprintf(2, '  perp=%f\n', perp);
+  
+  if params.charOpt>1
+    fprintf(2, '  word perp=%f, char perp=%f\n', exp(testCosts.word), exp(testCosts.char));
+  else
+    fprintf(2, '  perp=%f\n', exp(testCosts.word));
+  end
 end
   
 
