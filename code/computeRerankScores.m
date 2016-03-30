@@ -121,6 +121,8 @@ function [] = computeRerankScores(modelFiles, outputFile,varargin)
   assert(length(models) == 1);
   totalScore = 0;
   totalPredict = 0;
+  totalScore_char = 0;
+  totalPredict_char = 0;
   for batchId = 1 : numBatches
     % prepare batch data
     startId = (batchId-1)*batchSize+1;
@@ -141,11 +143,20 @@ function [] = computeRerankScores(modelFiles, outputFile,varargin)
     testCosts = lstmCostGrad(models{1}, decodeData, params, 1);
     totalScore = totalScore + testCosts.word;
     totalPredict = totalPredict + length(testCosts.indLosses);
+    if params.charOpt > 1
+      totalScore_char = totalScore_char + testCosts.char;
+      totalPredict_char = totalPredict_char + length(testCosts.indLosses_char);
+    end
     
     if params.printScore
       printSent(2, decodeData.srcInput, params.srcVocab, ['  src ' startId ': ']);
       printSent(2, decodeData.tgtOutput, params.tgtVocab, ['  tgt ' startId ': ']);
-      fprintf(2, 'score %g, ind scores [%s]\n', -testCosts.word, num2str(-testCosts.indLosses'));
+      if params.charOpt > 1
+        fprintf(2, 'score %g, ind scores [%s]\n  ind scores char [%s]\n', -testCosts.word, num2str(-testCosts.indLosses'), ...
+          num2str(-testCosts.indLosses_char'));
+      else
+        fprintf(2, 'score %g, ind scores [%s]\n', -testCosts.word, num2str(-testCosts.indLosses'));
+      end
       fprintf(params.scoreFid, '%g\n', params.scoreFid);
     end
     
@@ -157,10 +168,17 @@ function [] = computeRerankScores(modelFiles, outputFile,varargin)
 
   endTime = clock;
   timeElapsed = etime(endTime, startTime);
-  fprintf(2, '# Complete reranking %d sents, num predict %d, ppl %g, time %.0fs, %s\n', numSents, totalPredict, ...
-    exp(totalScore/totalPredict), timeElapsed, datestr(now));
-  fprintf(params.logId, '# Complete reranking %d sents, num predict %d, ppl %g, time %.0fs, %s\n', numSents, totalPredict, ...
-    exp(totalScore/totalPredict), timeElapsed, datestr(now));
+  if params.charOpt > 1
+    fprintf(2, '# Complete reranking %d sents, num predict %d, ppl %g, num predict char %d, ppl char %g, time %.0fs, %s\n', numSents, ...
+      totalPredict, exp(totalScore/totalPredict), totalPredict_char, exp(totalScore_char/totalPredict_char), timeElapsed, datestr(now));
+    fprintf(params.logId, '# Complete reranking %d sents, num predict %d, ppl %g, num predict char %d, ppl char %g, time %.0fs, %s\n', numSents, ...
+      totalPredict, exp(totalScore/totalPredict), totalPredict_char, exp(totalScore_char/totalPredict_char), timeElapsed, datestr(now));
+  else
+    fprintf(2, '# Complete reranking %d sents, num predict %d, ppl %g, time %.0fs, %s\n', numSents, totalPredict, ...
+      exp(totalScore/totalPredict), timeElapsed, datestr(now));
+    fprintf(params.logId, '# Complete reranking %d sents, num predict %d, ppl %g, time %.0fs, %s\n', numSents, totalPredict, ...
+      exp(totalScore/totalPredict), timeElapsed, datestr(now));
+  end
   
   fclose(params.fid);
   fclose(params.logId);

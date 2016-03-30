@@ -1,4 +1,4 @@
-function [totalCost, grad_W_soft_total, grad_softmax_all] = softmaxCostGrad(lstmStates, W_soft, output, masks, params, isTest)
+function [totalCost, grad_W_soft_total, grad_softmax_all, indLosses] = softmaxCostGrad(lstmStates, W_soft, output, masks, params, isTest)
 %%%
 %
 % Compute softmax cost/grad for LSTM. 
@@ -17,13 +17,14 @@ T = size(output, 2);
 grad_softmax_all = cell(T, 1);
 totalCost = 0;
 grad_W_soft_total = 0;
+indLosses = zeroMatrix([T, 1], params.isGPU, params.dataType);
 for tt=1:T % time
   softmax_h = lstmStates{tt}{end}.softmax_h;
 
   % softmax_h -> loss
   predWords = output(:, tt)';
-  [cost, probs, scores, scoreIndices] = softmaxLayerForward(W_soft, softmax_h, predWords, maskInfos{tt});
-  totalCost = totalCost + cost;
+  [indLosses(tt), probs, scores, scoreIndices] = softmaxLayerForward(W_soft, softmax_h, predWords, maskInfos{tt});
+  totalCost = totalCost + indLosses(tt);
 
   % backprop: loss -> softmax_h
   if isTest==0

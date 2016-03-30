@@ -1,4 +1,4 @@
-function [totalCharCost, charGrad, numChars] = tgtCharCostGrad(decStates, attnInfos, model, input, mask, charMap, params, isTest)
+function [totalCharCost, charGrad, numChars, indLosses] = tgtCharCostGrad(decStates, attnInfos, model, input, mask, charMap, params, isTest)
 % Running char layer forward to prepare for target word generation later.
 % Input:
 %   W_rnn: recurrent connections of multiple layers, e.g., W_rnn{ll}.
@@ -68,6 +68,7 @@ function [totalCharCost, charGrad, numChars] = tgtCharCostGrad(decStates, attnIn
     fprintf(2, '  after init, %s\n', gpuInfo(params.gpu));
   end
   
+  indLosses = zeroMatrix([numChars, 1], params.isGPU, params.dataType);
   if numRareWords > 0
     charParams = params;
     charParams.numLayers = params.charNumLayers;
@@ -111,6 +112,7 @@ function [totalCharCost, charGrad, numChars] = tgtCharCostGrad(decStates, attnIn
     numBatches = floor((numRareWords - 1) / params.batchSize) + 1;
     prevBatchSize = -1;
     rareWordCount = 0;
+    charLossCount = 0;
     for ii=1:numBatches
       startId = (ii-1)*params.batchSize + 1;
       endId = ii*params.batchSize;
@@ -145,7 +147,9 @@ function [totalCharCost, charGrad, numChars] = tgtCharCostGrad(decStates, attnIn
   
       %% softmax
       charTgtOutput = [charBatch(:, 2:end) params.tgtCharEos*ones(charParams.curBatchSize, 1)];
-      [cost_char, grad_W_soft_char, topGrads] = softmaxCostGrad(charStates, model.W_soft_char, charTgtOutput, charMask, params, isTest);
+      [cost_char, grad_W_soft_char, topGrads, indLosses_batch] = softmaxCostGrad(charStates, model.W_soft_char, charTgtOutput, charMask, params, isTest);
+      indLosses(charLossCount+1:charLossCount+length(indLosses_batch)) = indLosses_batch;
+      charLossCount = charLossCount + length(indLosses_batch);
       
       % cost
       totalCharCost = totalCharCost + params.charWeight * cost_char;
@@ -193,6 +197,7 @@ function [totalCharCost, charGrad, numChars] = tgtCharCostGrad(decStates, attnIn
         prevBatchSize = curBatchSize;
       end % end isTest
     end % end for numBatches
+    assert(charLossCount == numChars);
     
     %% final accumulation %%
     if isTest==0
