@@ -1,0 +1,67 @@
+Specification of Gaussian Model struct
+
+$ History $
+    - Version 1.0, Created by Dahua Lin, on Apr 23rd, 2006
+    - Version 2.0, Created by Dahua Lin, on Aug 23rd, 2006
+
+In sltoolbox, a Gaussian distribution model is represented by a struct.
+Depending on different configurations, the struct contains different
+fields.
+
+For all types of Gaussian models, the following fields must exist:
+    - dim:      the dimension of sample space (d)
+    - nmodels:  the number of models (k)
+    - means:    the array of all mean values (d x k)
+
+In addition, they will have a field named either 'vars' or 'covs', based on
+different settings of the variances(covariance).
+
+They have six different forms:
+For each form, we use the notation [<variance form>|<whether is shared>] 
+to represent its key properties in variance.
+
+1. Gaussian model(s) with a variance shared by all components and all models 
+   ['univar'|true]
+    - vars:     the variance value (1 x 1)
+
+2. Gaussian model(s) with each model has a variance value ['univar'|false]
+    - vars:     the array of all variance values (1 x k)
+
+3. Gaussian model(s) with component-wise variances (diagonal covariance matrix) 
+   shared by all models. ['diagvar'|true]
+    - vars:     the array of the variance values of components (d x 1)
+
+4. Gaussian model(s) with component-wise variances (diagonal covariance matrix)
+   shared by all models. ['diagvar'|false]
+    - vars:     the array of the variance values of components (d x k)
+
+5. Gaussian model(s) with full covariance matrix shared by all models
+   ['covar'|true]
+    - covs:     the covariance matrix (d x d)
+
+6. Gaussian model(s) with each model having its own covariance matrix
+   ['covar'|false]
+    - covs:     the array of covariance matrices (d x d x k)
+
+For the models that would be used to evaluate Malalanobis distance or pdf,
+the following fields are required
+    - invvars (corresponding to 1-4) or invcovs(corresponding to 5-6)
+
+For Gaussian Mixtured Model (GMM), it will have the following field:
+    - mixweights: a k x 1 vector giving the weight of each constituent model
+
+
+We offer following m-functions to do computations based on Gaussian models
+
+- slgausstype:      to check the validity of structure and judge the type of the Gaussian model
+- slgausscomb:      to combine multiple Gaussian models to form a single struct
+- slgaussrnd:       to generate random samples from Gaussian model(s)
+- slgaussest:       to estimate the parameters of Gaussian model(s) from vector samples
+- slgausspdf:       to evaluate the probability density function (pdf) on samples
+- slgmm:            to learn Gaussian Mixture model (GMM) based slfmm
+
+
+
+
+
+

@@ -60,12 +60,16 @@ function [] = computeSentRepresentations(modelFile, inFile, outputFile, varargin
   
   if params.char
     % model
-    model.W_src = model.W_src_char;
-    model.W_emb_src = model.W_emb_src_char;
-
+    charModel.W_src = model.W_src_char;
+    charModel.W_emb_src = model.W_emb_src_char;
+    
     % params
     params.srcVocab = params.srcCharVocab;
     params.srcVocabSize = params.srcCharVocabSize;
+    params.numLayers = params.charNumLayers;
+    charModel.params = params;
+    
+    model = charModel;
   end
   
   if params.continueId > 0 % appending

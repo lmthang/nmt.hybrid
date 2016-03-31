@@ -1,0 +1,29 @@
+The format of Array file
+
+The first 4 bytes (offset 0 - 3): the tag chars: 'a', 'r', 'r', '\0' (char(0))
+
+The next byte (offset 4) indicates the value type
+1:  double
+2:  single
+3:  logical
+4:  char
+5:  int8
+6:  uint8
+7:  int16
+8:  uint16
+9:  int32
+10:  uint32
+11:  int64
+12:  uint64
+
+The next byte (offset 5) indicates the number of dimensions
+
+The size bytes (from offset 8, 4 * d bytes) use d uint32 numbers to 
+characterize the sizes along all dimensions
+
+From offset 8+4*d, is the data region, continuously in column-major order.
+
+The whole file size
+
+8 + 4 * d + bytes/element * element number
+

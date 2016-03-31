@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DataSet xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="dsdml.xsd" unit="SampleGroup" format="aligned face" name="A set of sample groups" version="1.00" description="The file showing how to use sample groups." author="Dahua Lin">
+	<SampleGroup class_id="1">
+		<Sample class_id="1" filename="001_001.jpg"/>
+		<Sample class_id="1" filename="001_002.jpg"/>
+		<Sample class_id="1" filename="001_003.jpg"/>
+	</SampleGroup>
+	<SampleGroup class_id="1">
+		<Sample class_id="1" filename="001_004.jpg"/>
+		<Sample class_id="1" filename="001_005.jpg"/>
+		<Sample class_id="1" filename="001_006.jpg"/>
+	</SampleGroup>
+	<SampleGroup class_id="1">
+		<Sample class_id="1" filename="001_007.jpg"/>
+		<Sample class_id="1" filename="001_008.jpg"/>
+		<Sample class_id="1" filename="001_009.jpg"/>
+	</SampleGroup>
+	<SampleGroup class_id="2">
+		<Sample class_id="2" filename="002_001.jpg"/>
+		<Sample class_id="2" filename="002_002,jpg"/>
+		<Sample class_id="2" filename="002_003.jpg"/>
+	</SampleGroup>
+	<SampleGroup class_id="2">
+		<Sample class_id="2" filename="002_004.jpg"/>
+		<Sample class_id="2" filename="002_005.jpg"/>
+	</SampleGroup>
+</DataSet>

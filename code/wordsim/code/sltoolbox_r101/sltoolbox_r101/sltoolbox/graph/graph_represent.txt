@@ -1,0 +1,107 @@
+The specification of Graph representation
+===========================================
+
+ $ History $
+    - Created by Dahua Lin, on Sep 1st, 2006
+    - Modified by Dahua Lin, on Sep 9th, 2006
+        - add the special support for bigraph
+
+1. Representation of General Graph
+
+In sltoolbox, there are multiple ways to represent a graph.
+
+1.1 Edge set representation
+
+The graph is given as a node set and an edge set. In matlab, it is given 
+by a struct with two fields: n and edges. Here n is the number of nodes, 
+then the set of nodes are denoted by 1, 2, ..., n. edges is an nedges x 2
+matrix, with each row being [i1, i2] denoting the edge from i1 to i2.
+For valued graph, the edges can be an nedges x 3 matrix, with each
+row being [i1, i2, v]. 
+
+1.2 Adjacent list representation
+
+The graph is given by the set of neighborhood of all nodes. In matlab,
+it is given as a struct of two fields: n and targets. Here, n is the number
+of nodes, while target is a length-n cell array. The i-th cell can be in 
+either of the two forms:
+nt_i x 1 column vector: indicating the targets of the i-th vertex
+nt_i x 2 matrix: indicating the targets of the i-th vertex and the 
+                 corresponding edge value.
+
+1.3 Adjacency matrix
+
+An n x n matrix A: That A(i, j) > 0 implies that there exists an edge
+from node i to node j. A can be either a full matrix or a sparse matrix.
+The values of A can be numeric or logical. 
+
+
+2. Representation of bigraph
+
+A bipartite graph, also called bigraph, is a graph with two disjoint sets
+of nodes, say A and B. Every edge in a bigraph has one end in A and the 
+other end in B. In statistical learning, a special type of bigraph worth
+special attention, which we call unidirectional bigraph. In such type of
+graph, all edges are from some node in A to a node in B. Here, we call 
+A the source node set, and B the target node set. Though undirectional
+bigraph is a graph, however, it is typically more effective to use a 
+special representation for it. In set theory, it can be characterized by
+{A, B, E}, A is the source node set, B is the target node set, and E
+is the edge set. 
+
+In sltoolbox, we have three forms to represent a bigraph
+
+2.1 Edge set representation
+
+It is given by a struct with three fields: n, nt, and edges. Here n is
+the number of source nodes, nt is the number of target nodes, and edges
+can have two forms. The first form is a nedges x 2 matrix, with each row
+being [i, j], denoting the edge from the i-th node in A to the j-th node
+in B. The second form is a nedges x 3 matrix, with each row being
+[i, j, v], where v is the value associated with the edge from the i-th 
+source node to the j-th target node.
+
+2.2 Adjacency list representation
+
+It is given by a struct with three fields: n, nt, and targets. Here n is the
+number of source nodes, nt is the number of target nodes, and targets is a
+cell array of length n, with the i-th cell containing an nt_i x 1 column 
+vector of the indices of the targets from i-th source or an nt_i x 2 matrix 
+of both the indices and the corresponding values. 
+
+2.3 Adjacency matrix representation
+
+It is given by an n x nt matrix. The entry in the i-th row and j-th column
+represents the existence or value of the edge from the i-th source and
+the j-th target. The matrix can be logical or numeric. 
+
+3. About Neighborhood Graph
+
+You can use a graph or bigraph to represent neighborhood relation. Suppose
+in a neighborhood system, representing the neighbors of n samples, where
+the neighbors are from a set of n0 samples. Then it is a graph of n0 source
+nodes and n target nodes. The non-zero from the i-th source node to the
+j-th target node means that the i-th sample in the referenced set is a 
+neighbor of the j-th sample in the target set (i-th source contributes to
+the construction of j-th target, for a valued graph, the value in 
+corresponding position represents the weight of contribution).
+
+
+4. Support functions
+
+Some functions are available for construction of the graph representations.
+ 
+- slgraphinfo:      extract basic information of a graph and check its
+                    integrity
+- sledgeset:        construct the edge set representation of a graph
+- sladjlist:        construct the adjacency list representation of a graph
+- sladjmat:         construct the adjacency matrix representation of a graph
+- slpwgraph:        construct a graph based on pairwise values between
+                    nodes 
+- slpwmetricgraph:  construct a graph based on pairwise metrics of vector
+                    samples
+- slfindnn:         find the nearest neighbors
+- slnngraph:        construct a graph using nearest neighbor strategy
+- slaffinitymat:    construct an affinity matrix
+
+

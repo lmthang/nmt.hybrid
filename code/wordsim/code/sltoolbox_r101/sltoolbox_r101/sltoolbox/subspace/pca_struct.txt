@@ -1,0 +1,31 @@
+Specification of representation of PCA model in SLToolbox
+
+$ History $
+    - Created by Dahua Lin on Apr 24, 2006
+    - Modified by Dahua Lin on Aug 17, 2006
+        - add a field: energyratio
+
+In SLToolbox, a PCA model is represented by a struct with following 
+fields:
+- sampledim:    the dimension of original sample space
+- feadim:       the dimension of feature space (the number of principal components)
+- support:      the total weight of training samples supporting the PCA model
+                (in non-weighted training, support is the number of training samples,
+                 that is the weight of every sample is 1)
+- vmean:        the mean vector
+- P:            the projection matrix, for each sample, the feature can be
+                obtained by y = P' * x
+- eigvals:      the eigenvalues of all preserved dimensions
+- residue:      the residue energy: the energy of the orthogonal complement
+                to the principal subspace. (It is equal to the sum of all
+                eigenvalues of discarded eigenvectors).
+- energyratio:  the ratio of energy preserved in the principal subspace
+
+Suppose a PCA model is based on d-dimensional sample space, and preserve
+k principal components, then following conditions would be satisfied:
+1. sampledim = d
+2. feadim = k
+3. vmean is a d x 1 vector
+3. P is a d x k matrix
+4. eigvals is a k x 1 vector
+
