@@ -456,7 +456,7 @@ originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
       for mm=1:numModels
         beamHistTopStates{mm}(:, :, 1:sentPos) = beamHistTopStates{mm}(:, colIndices, 1:sentPos);
         if models{mm}.params.charFeedOpt
-          beamHistTopStates{mm}(:, :, sentPos+1) = hiddenLayerForward(models{mm}.W_h_char, attnInfos{mm}.input, params.nonlinear_f); 
+          beamHistTopStates{mm}(:, :, sentPos+1) = hiddenLayerForward(models{mm}.W_h_char, attnInfos{mm}.input(:, colIndices), params.nonlinear_f); 
         else
           beamHistTopStates{mm}(:, :, sentPos+1) = beamStates{mm}{end}.softmax_h(:, colIndices);
         end
