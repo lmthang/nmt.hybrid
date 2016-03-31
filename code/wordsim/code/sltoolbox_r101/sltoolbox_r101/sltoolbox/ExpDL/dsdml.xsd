@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- edited with XMLSpy v2005 sp1 U (http://www.xmlspy.com) by any (Ru-Board) -->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
+	<xs:element name="DataSet">
+		<xs:annotation>
+			<xs:documentation>The element holding the whole dataset</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:choice>
+				<xs:sequence>
+					<xs:element ref="Sample" minOccurs="0" maxOccurs="unbounded"/>
+				</xs:sequence>
+				<xs:sequence>
+					<xs:element ref="SampleGroup" minOccurs="0" maxOccurs="unbounded"/>
+				</xs:sequence>
+			</xs:choice>
+			<xs:attribute name="version" use="required">
+				<xs:annotation>
+					<xs:documentation>The version of the Dataset description markup language</xs:documentation>
+				</xs:annotation>
+			</xs:attribute>
+			<xs:attribute name="name" use="required">
+				<xs:annotation>
+					<xs:documentation>The name of the dataset</xs:documentation>
+				</xs:annotation>
+			</xs:attribute>
+			<xs:attribute name="unit" use="required">
+				<xs:annotation>
+					<xs:documentation>The unit type of the units</xs:documentation>
+				</xs:annotation>
+			</xs:attribute>
+			<xs:attribute name="format" use="required">
+				<xs:annotation>
+					<xs:documentation>The format of the data</xs:documentation>
+				</xs:annotation>
+			</xs:attribute>
+			<xs:attribute name="author">
+				<xs:annotation>
+					<xs:documentation>The author of the dataset</xs:documentation>
+				</xs:annotation>
+			</xs:attribute>
+			<xs:attribute name="description">
+				<xs:annotation>
+					<xs:documentation>The description about the dataset</xs:documentation>
+				</xs:annotation>
+			</xs:attribute>
+			<xs:anyAttribute/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="SampleGroup">
+		<xs:annotation>
+			<xs:documentation>A group of samples as a unit for comparison</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="Sample" maxOccurs="unbounded"/>
+			</xs:sequence>
+			<xs:attribute name="class_id" use="required">
+				<xs:annotation>
+					<xs:documentation>The ID identifying which class the group of samples belong to</xs:documentation>
+				</xs:annotation>
+			</xs:attribute>
+			<xs:anyAttribute/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="Sample">
+		<xs:annotation>
+			<xs:documentation>A sample</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:attribute name="class_id" type="xs:integer" use="required">
+				<xs:annotation>
+					<xs:documentation>The id identifying which class the sample belongs to</xs:documentation>
+				</xs:annotation>
+			</xs:attribute>
+			<xs:attribute name="filename"/>
+			<xs:anyAttribute/>
+		</xs:complexType>
+	</xs:element>
+</xs:schema>

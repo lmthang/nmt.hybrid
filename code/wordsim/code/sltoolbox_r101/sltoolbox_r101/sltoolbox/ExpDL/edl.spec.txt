@@ -1,0 +1,159 @@
+Experiment Description Language Specification
+=================================================
+
+Dahua Lin, on Aug 12nd, 2006
+
+1. The language is given in XML file format, with typical file extension as *.edl.xml.
+
+2. In current version, it does not support multi-file project. All experiments should be defined in the same file.
+
+3. The document node
+    - Node tag: ExperimentDef
+    - Attributes:
+        - name: the name describing the experiment set (optional)
+        - envconf:  the environment configuration file (a text file with assignment statements) (optional)
+        - scriptdir: the directory storing the scripts (optional)
+        - reportdir: the directory storing the reports
+        - mfiledir:  the directory storing the Matlab M-files (optional)
+        - logfile:   the path of log file (optional)
+    - Remarks:
+        - envconf, scriptdir and mfiledir should be given as path relative to the folder containing the edl file
+        - If they are not specified or empty, the corresponding files are considered to be stored in the same folder as well.
+
+4. Experiment Cycle
+
+For each cycle of experiments, they are conducted in several stages:
+
+4.1 Scripting stage: generate the experiment scripts and initial experiment status files.
+    The scripting function should be in following form
+        S = f(refs, params)
+            - refs:     the references as basis of script generation
+            - params:   the parameters controlling the generation
+                        - should have workdir field
+            - S:        the generated property table
+
+4.2 Experiment stage: perform the experiments according to the corresponding script and update the status files.
+    The experiment function should be in the following form
+        f(params, env, logger)           
+            - params:   the experiment parameters extracted from script
+            - env:      the environment variables
+            - logger:   the logger
+
+4.3 Reporting stage: collect the experiment results and related information and generate reports.
+    The report function should be in the following form
+        S = f(refs, params, env)
+            - refs:     the references as basis of script generation
+            - params:   the parameters controlling the generation
+            - env:      the environment variables
+            - S:        the generated property table
+
+Note that experiments can be conducted selectively and distributively, while scripting and reporting should be conducted in batch.
+
+In addition, the paths passed in these functions are absolute path, for the convenience of the callback. 
+However, the callback for scripting or reporting should not rely on the absolute path to generate the contents. 
+It is a principle that the contents in the scripts and reports are environment-independent, all environment-dependent factors are passed by env.
+
+
+4. Elements
+
+4.1. Script: for scripting stage
+    - Node tag: Script
+    - Attributes:
+        name:     the name identifying the script (required)
+        func:     the Matlab function to generate script (required)
+        path:     the path of the script (optional, default = name.script.xml)
+        ctrlpath: the path of the control file (optional, default = scriptpath(no ext).control.xml)
+        other attributes are allowed to control the script generation (optional)
+    - SubNode: Ref
+        - Node tag: Ref
+        - Attributes:
+            role: the role of the specified reference
+            name: the name identifying the script to be referred to
+    - SubNode: RefReport
+        - Node tag: RefReport
+        - Attributes:
+            role: the role of the specified reference
+            name: the name identifying the report to be referred to     
+
+4.2. Experiment: for experiment stage
+    - Node tag: Experiment
+        name: the name identifying the experiment (required)
+        func: the Matlab function to run each experiment given a specific parameter (required)
+        script: the name identifying the script (optional, by default it is the same as the experiment name)
+
+4.3. Report: for reporting stage
+    - Node tag: Report
+    - Attributes:
+        name: the name identifying the report (required)
+        func: the Matlab function to generate report (required)
+        path: the path of the report (optional, default = name.report.xml)
+        other attributes are allowed to control the report generation (optional)
+    - SubNode: Ref
+        - Node tag: Ref
+        - Attributes:
+            role: the role of the specified reference
+            name: the name identifying the script to be referred to
+    - SubNode: RefReport
+        - Node tag: RefReport
+        - Attributes:
+            role: the role of the specified reference
+            name: the name identifying the report to be referred to    
+
+4.4 Var: for variable definition
+    - The EDL allows definition of variables, which can be used in attribute specification 
+    - The use of variable is as "$<var name>".
+    - You can not use variable value to specify the name of another element.
+
+4.5 Group: for grouping experiments
+    - Groups give a way for work diretory embedding and parameter inheritance
+    - The parameters defined in group attributes will be feed to script generation
+    - If the script nodes revise the attributes specified in their outer group, the subnodes take priority.
+
+
+5. Related File Formats
+
+5.1 Script: a property table XML file:
+    - document element
+        - tag name: ExpScript
+        - attributes:
+            - guid:       a GUID string (in win32 registry format)
+            - workdir:    the root working folder of experiments (r.t. environment)
+            - ctrlpath:   the absolute path of control file
+    - child nodes
+        - tag name: Entry
+        - attributes:
+            - internal_index:   the internal index of the entry
+            - other attributes specifying the experiment parameters
+
+5.2 Report: a property table XML file:
+    - document element
+        - tag name: ExpReport
+        - attributes:
+            - guid:       a GUID string (in win32 registry format)
+    - child nodes
+        - tag name: Entry
+        - attributes:
+            - internal_index:   the internal index of the entry
+            - other attributes specifying the reporting items
+
+5.3 Control File: a property table XML file:
+    - document element
+        - tag name: ExpControl
+        - attributes:
+            - guid:     a GUID string (should be the same as that of the corresponding script)
+    - child nodes:
+        - tag name: Entry
+        - attributes:
+            - internal_index:   the internal index of the entry
+            - status:           the status of experiment, can be either of following
+                                'pending':  not started
+                                'succeed':  suceeded
+                                'failed':   failed
+
+
+
+
+
+
+        
+    

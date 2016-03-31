@@ -1,0 +1,356 @@
+Introduction to sltoolbox
+
+sltoolbox (Statistical Learning Toolbox) organizes a comprehensive set of matlab codes in statistical learning, pattern recognition and computer vision. It includes 256 m-files in 24 categories, which are from low-level computational routines to high-level frameworks and algorithms. The toolbox have following main features:
+
+(1) it covers many active research topics in learning and vision, including classification, regression, statistical modeling, finite mixture model, graph theory-based learning, subspace learning, kernel learning, manifold learning, tensor algebra, vector quantization and vocabulary learning. 
+
+(2) it offers many useful utilities to facilitate your experiments in matlab, including a set of kits to manipulate data, text and files. In addition, it offers a matlab-based script system called experiment description language with an xml-based experiment control system to help you run a large batch of experiments with ease.
+
+(3) it is highly optimized. Much efforts have been devoted to improve the run-time efficiency of the codes. It is achieved with three ways: deducing equivalent mathematical forms for fast computation, grouping the operations into matrix-based computations to maximum degree, and writing the codes in cpp-mex for those cannot be organized into matrix computation. 
+
+(4) it is flexible and extensible. For most of the functions, you can control a lot of properties to adapt its behaviour to your need. For many algorithms, the implementations support weighted samples so that you can easily incorporate the algorithm into the environment using weights. In addition, in some of the algorithms, you can change the functions' behaviour by supplying your own call-back function. For example, in K-means, you can specify your special function to measure distances or compute means; in spectral learning, you can specify your function to caculate the graph edge weights in your own manner.
+
+(5) it is well organized. The whole toolbox is organized according to the rules in software engineering. They are not a simple collection of many algorithms, but a carefully designed system, so that the codes can be maximally reused and cooperate well. 
+
+(6) it is easy to use. Detailed help information is given for each m-file. I have tried to design friendly interfaces to user. For most of the functions, you can use a small number of arguments to invoke them in default settings, when you would like to gain more control on their behaviour, you can tell them your specification by setting properties, such as 
+       f(x1, x2, 'propertyname1', propertyvalue1, 'propertyname2', propertyvalue2, ...)
+
+(7) it is robust. Attention has been paid to the numerical stability of the computations and some steps have been taken to enhance the stability. In addition, a lot of error-checking statements are used to check the consistency of the input arguments. I have tried to lie a good balance between robustness and effiency, and increase the robustness without notably compromising the run-time speed.
+
+The following is a brief list of the functions offered in sltoolbox.
+
+It contains the following categories:
+
+core:                 The core computational routines. The efficient implementation of a set of common computation routines.
+smallmat:             Fast functions to compute on a set of small matrices
+utils:                A set of useful toolkits to manipulate data.
+utils_ex:             Other useful kits
+fileio:               Facilities to manage files
+text:                 Kits to parse and manipulate strings and texts.
+perfeval:             classification performance evaluation
+imgproc:              Functions for image-based learning and batch image processing
+visualize:            Visualization of data and models
+xmlkits:              small kits to extract information from XML elements
+
+ann:                  Approximate nearest neighbors by KD-tree
+cluster:              Data clustering
+discrete:             Vector quantization, vocabulary building and histogram-based computation
+graph:                Graph (the graph in graph theory) contruction
+interp:               Interpolation kernels
+kernel:               Kernel learning and kernelization
+learn:     	          Some basic learning architectures
+regression:           Linear and Logistic regression
+stat:                 Statistical modeling and Finite mixture model (such as GMM)
+subspace:             Representative subspace learning algorithms
+subspace_ex:          Subspace learning algortihms for very high-dimension data
+manifold:             Manifold embedding learning
+tensor:               Tensor algebra
+expdl:                Experiment description language
+
+
+The following is a function list by categories
+
+[core]
+    sladd                           Add a sub-array along some dimensions to an array
+    sladdrowcols                    Adds the vectors to all rows and all columns
+    sladdvec                        adds a vector to columns or rows of a matrix
+    slclassify_eucnn                Classifies samples using Euclidena-based NN
+    slconfine                       Confines the values in a range
+    sldiff_pw                       Measures the pair-wise difference
+    sldiscrep                       Evaluates the discrepancy of two arrays
+    sldistmean                      Uses fast method to compute means of pairwise distances
+    slenforce                       Enforce some property on the array A
+    slinitarray                     Initialize an array of specified type and size
+    sllabeledsum                    Sums the numbers according to labels
+    sllogdet                        Computes the logarithm of determinant of a matrix in a robust way
+    slmax                           Compute the maximum of values in subarrays
+    slmetric_cp                     Computes the metrics between corresponding pairs of samples
+    slmetric_pw                     Compute the metric between column vectors pairwisely
+    slmetric_pw_blks                Compute the pairwise metrics in a blockwise manner
+    slmin                           Compute the minimum of values in subarrays
+    slmul                           Multiply a sub-array along some dimensions to an array
+    slmulrowcols                    Multiplies the vectors to all rows and all columns
+    slmulvec                        multiplies a vector to columns or rows of a matrix
+    slnorm                          Compute the Lp-norms
+    slnormalize                     Normalize the sub-arrays
+    slpwcalc                        Calculates a table pairwisely on two set of scalars
+    slpwcomp_blks                   Computes pairwise value matrix
+    slpweval                        Perform pairwise computation
+    slsum                           Compute the sum of values in subarrays
+    slsumstat_blks                  Sums up statistics on all blocks for partitioned data
+    slsymeig                        Compute the eigenvalues and eigenvectors for symmetric matrix
+    slsymgeig                       Solve the generalized eigen decomposition for symmetric matrices
+ 
+[smallmat]
+    sldet2x2                        Computes the determinant of 2 x 2 matrices in a fast way
+    slinv2x2                        Computes inverse matrices for 2 x 2 matrices in a fast way
+    slrotmat                        Get the 2x2 rotation matrix
+    sltrace2x2                      Computes the trace of 2 x 2 matrices in a fast way
+ 
+[utils]
+    raise_lackinput                 Raises an error indicating lack of input argument
+    sladdpath                       Adds dirpath to precede the filenames
+    slallcombs                      Generate all combination of numbers
+    slallsubinds                    Generate all sub-indices for all elements of the array
+    slcartprod                      Get the Cartesian product of a series of sets
+    slclassify                      Classifies a set of samples according to final scores
+    slclassify_blks                 Classifies samples according to blockwise scores
+    slcount                         Count the number of sum entities
+    slequalpar2D                    Partition a 2D array with balances for width and height
+    slevalfunctor                   Evaluates a functor
+    slexpand                        Expand a set to multiple instance
+    slgridsamples                   Generate the sample vectors on grid points
+    slignorevars                    Ignores the input variables
+    slimg2mat                       Converts an image array to a double matrix
+    slinvoke                        Invokes a function
+    slisfields                      Judges whether the specified fieldnames are fields of S
+    sllabelinds                     Extract indices corresponding to specified labels
+    slnums2bounds                   Compute the index-boundaries from section sizes
+    slparblocks                     Gets the blocks from partition structure
+    slparseprops                    Parses input parameters
+    slpartition                     Partition a range into blocks in a specified manner
+    slrange2indcells                Converts a range array to indices cell array
+    slsharedisp                     Displays message using a shared configuration
+    slsharedisp_attach              Attachs to global display options
+    slsharedisp_decindent           Decreases the indent of the displayer
+    slsharedisp_detach              Detachs current function from global display
+    slsharedisp_incindent           Increases the indent of the displayer
+    slsharedisp_reset               Resets the global display options
+    slsharedisp_word                Displays message without line breaking
+    slstructsize                    Compute the size of a struct
+    sltakeval                       Extracts the values in an array/cell array to output
+    sltypesize                      Gets the element size of a specified type
+ 
+[utils_ex]
+    slguid                          Generates a GUID (Global Unique Identifier)
+    slguidstr                       Converts a guid to a string
+    slisguid                        Judges whether the input can represent a GUID
+ 
+[fileio]
+    slchangefilepart                Changes some parts of the file path
+    slcountlines                    Count the lines of m-files in a folder and make a report
+    slfilepart                      Extracts a specified part of a file path string
+    slimgsetprep                    organizes the images in a MATLAB friendly way
+    slisabspath                     Judges whether the path string is a absolute path
+    slmkdir                         Makes a directory if it does not exist
+    slreadarray                     Reads an array from an array file
+    slreadtext                      Reads in a text file into a cell array
+    slrmdir                         Makes a directory if it does not exist
+    slwritearray                    Writes an array to an array file
+    slwritetext                     Writes a text to file
+    [fileio\@sllog]
+        addfiles                        add a set of log files to the logger
+        close                           Closes the logger
+        decindent                       Decreases the indent by a specified amount
+        detachfiles                     Detachs the logger from some added files
+        get                             Gets properties of a logger
+        incindent                       Increases the indent by a specified amount
+        isactive                        Queries whether a log file is active
+        isattached                      Judges whether the file is attached to the logger
+        setactive                       Sets a set of files active/inactive
+        sllog                           Constructs a logger
+        subsref                         Get the properties by subscription
+        write                           Writes message to a logger
+        writeblank                      Writes a blank line to log
+        writeinfo                       Writes information to logger without time-stamp
+ 
+[text]
+    slcompresstext                  Compresses a cell array of text
+    slfiltertext                    Processes the lines of text
+    slparse_assignment              Parses an assignment string
+    slshowtext                      Displays the text
+    slstrsplit                      splits a string into cell array of strings by delimiters
+ 
+[perfeval]
+    slcorrectrate                   Computes the correct rate of classification
+    slcorrectrate_blks              Computes the correct rate based on blockwise scores
+    slcumuscore                     Computes the cumulative score on multi-class classification
+    slgetroc                        Computes some point from ROC Curve
+    slhistroc                       Computes the ROC curve from value histogram
+    slroc                           Computes the ROC
+    slverifyroc                     Computes the verification ROC
+    slverifyroc_blks                Computes the verification ROC for blockwise score matrix
+ 
+[imgproc]
+    slapplyfilterband               Applies filter band to filter images in batch
+    slbenchmark_batchfilter         Compares the efficiency of batch filter
+    slcalcpadsize                   Calculates the size of padding
+    slfiltersize                    Extracts information from filtersize
+    slgaborbands                    Generates a set of Gabor kernels
+    slimginterp                     Performs image based interpolation
+    slpadimg                        Pads an image with boundary
+    slpixlinnorm                    Performs linear normalization on pixel values
+    slpixneighbors                  Extracts the neighborhood of pixels from an image
+    slresizeimg                     Resizes the images by interpolation
+    slvecfilters                    Vectorizes the filter band
+ 
+[visualize]
+    sldrawellipse                   Draws an ellipse on current axis
+    sldrawgraph                     Draws a graph
+    sldrawlabeledpts                Draws Labeled 2D or 3D points
+    sldrawmanipts                   Draws the sample points on a manifold
+    sldrawmultiellipse              Draws multiple ellipses on axies
+    sldrawpts                       Draws a set of sample points on axes
+ 
+[xmlkits]
+    xml_addattribs                  Adds attributes to an element
+    xml_getattribs                  Constructs an attribte struct from an XML element
+ 
+[ann]
+    annsearch                       Approximate Nearest Neighbor Search
+ 
+[cluster]
+    slkmeans                        Performs K-Means Clustering on samples
+    slkmeansex                      Performs Generalized K-means
+ 
+[discrete]
+    slcountvote                     Counts the votings to make histogram
+    slhistmetric_cp                 Computes the metrics between corresponding pairs of histograms
+    slhistmetric_pw                 Computes distance metrics between histograms pairwisely
+    slvechist                       Makes the histogram on prototype vectors by voting
+    slvote                          Builds histogram by voting (or fuzzy voting)
+ 
+[graph]
+    sladjlist                       Construct the adjacency list representation of a graph
+    sladjlist2edgeset               Converts the adjacency list to edge set
+    sladjmat                        Constructs the adjacency matrix representation of a graph
+    slaffinitymat                   Constructs an affinity matrix
+    sledges2adjmat                  Creates an adjacency matrix from edge set
+    sledgeset                       Construct the edge set representation of a graph
+    sledgeset2adjlist               Converts edge set to adjacency list
+    slfindnn                        Finds the nearest neighbors using specified strategy
+    slgraphinfo                     Extracts basic information of a given graph representation
+    slmakeadjmat                    Makes an adjacency matrix using edges and corresponing values
+    slnngraph                       Constructs a nearest neighborhood based graph
+    slpruneedgeset                  Prunes the edge set
+    slpwgraph                       Constructs a graph by computing values between nodes pairwisely
+    slpwmetricgraph                 Constructs a graph based on pairwise metrics
+    slsymgraph                      Forces symmetry of the adjacency matrix of a graph
+ 
+[interp]
+    slgetinterpkernel               Gets the interpolation kernel function
+ 
+[kernel]
+    slcenkernel                     Compute the centralized kernel matrix
+    sldists2kernels                 Computes the inner products from distances
+    slgda                           Performs Baudat's Generalized Discriminant Analysis
+    slkernel                        Computes the kernel for samples
+    slkernelfea                     Extracts kernelized mapped features
+    slkernels2dists                 Computes Euclidean distances from inner products
+    slkernelscatter                 Compute the kernelized scatter matrix
+    slkfd                           Perform Kernelized Fisher Discriminant Analysis
+    slkpca                          Learns a Kernel PCA model from training samples
+ 
+[learn]
+    sliterproc                      Runs a general iterative process
+    slproglearn                     Performs Progressive Learning from sample source
+    slreevallearn                   Performs an iterative learning based on re-evaluation
+ 
+[regression]
+    sllinreg                        Performs Multivariate Linear Regression and Ridge Regression
+    sllinrega                       Performs Augmented Multivariate Linear Regression
+    sllogistreg                     Performs Multivariate Logistic Regression
+ 
+[stat]
+    slcov                           Compute the covariance matrix
+    slcovlarge                      Computes large covariance matrix using memory-efficient way
+    slcovs                          Computes the sample covariance matrix
+    slfmm                           Learns a Finite Mixture Model (FMM)
+    slgausscomb                     Collects the means and variances/covariances to form GS
+    slgaussest                      Estimates the Gaussian models from samples
+    slgaussinv                      Computes the inverse of variance/covariance in Gaussian model
+    slgaussmdist                    Computes the Malanobis distance between samples and centers
+    slgausspdf                      Computes the probability density of Gaussian models
+    slgaussrnd                      Generates random samples from Gaussian models
+    slgausstype                     Judges the type of a Gaussian model struct
+    slgmm                           Learns Gaussian Mixture model from samples
+    slinvcov                        Compute the inverse of an covariance matrix
+    slinvevals                      Compute the reciprocals of eigenvalues in a robust way
+    slmean                          Compute the mean vector of samples
+    slmeans                         Compute the mean vectors
+    slpoolcov                       Compute the pooled covariance
+    slposteriori                    Computes the posterioris
+    slposterioritrue                Computes the posteriori that samples belong to true class
+    slpwscatter                     Compute the pairwise scatter matrix
+    slregcov                        Regularizes covariance matrices
+    slwhiten_from_cov               Compute the whitening transform from covariance matrix
+    slwhiten_from_samples           Compute the whitening matrix from sample matrix
+ 
+[subspace]
+    slapplypca                      Applies PCA model to samples
+    slcopca                         Performs Coupled PCA Learning
+    slcovpca                        Trains a PCA with the covariance matrix given
+    sldim_by_eigval                 Determines the dimension of principal subspace by eigenvalues
+    sldlda                          Performs Direct Linear Discriminant Analysis
+    slfld                           Performs Fisher Linear Discriminant Analysis
+    slgbfe                          Performs Graph-based Feature Extraction Learning
+    sllda                           Trains a Linear Discriminant Model using specified method
+    slnlda                          Performs Nullspace-based Linear Discriminant Analysis
+    slnullspace                     Determines the null-space of the range of X
+    slpca                           Learns a PCA model from training samples
+    slpcarecon                      Reconstructs the samples in original space
+    slpcareduce                     Reduces a PCA model to lower dimension
+    slrangespace                    Determines the subspace of the range of X
+    slscatter                       Compute the scatter matrix
+ 
+[subspace_ex]
+    sl2dmatcov                      Computes the 2D matrix-covariances
+    sl2dpca_apply                   Applies 2D PCA onto a set of matrices to extract features
+    sl2dpca_construct               Constructs the matrix from 2D feature
+    sl2dpcaex                       Learns Extended 2D PCA on a set of matrix samples
+    slarrmean                       Computes the mean of a set of arrays
+    slpartitionpca                  Performs Partition-based PCA and saves the models
+    slpartitionpca_apply            applies partition-based PCA to a set of arrays
+    slpartitionpca_construct        Constructs the array from features
+ 
+[manifold]
+    slcmds                          Performs Classical Multidimensional scaling
+    slgembed                        Solves the general graph-based embedding
+    slisomap                        Performs ISOMAP manifold embedding
+    slkernelembed                   Finds an embedding space to preserve inner products
+    sllemap                         Solves Laplacian Eigenmap Embedding
+    sllle                           Performs Locally Linear Embedding
+    sllle_wg                        Solves the Locally Linear Embedding from weight graph
+    sllocalcoordalign               Performs optimal local coordinate alignment
+    sllocaltancoords                Computes the local tangent coordinates
+    sllocaltanspace                 Solves the local tangent spaces
+    slltsa                          Performs Local Tangent Space Alignment Learning
+    slnbreconweights                Solve the optimal reconstruction weights on given neighbors
+ 
+[tensor]
+    sltensor_dot                    Computes the dot product between two tensors
+    sltensor_fold                   Folds a matrix into a tensor
+    sltensor_multiply               Multiplies a tensor and a matrix
+    sltensor_norm                   Computes the Frobenius norm of a tensor T
+    sltensor_svd                    Performs a Higher-Order SVD on a Tensor
+    sltensor_unfold                 Unfolds a tensor to a matrix
+ 
+[ExpDL]
+    edl_batchexp                    Performs Batch experiments according to scheme
+    edl_buildiidxdict               Builds a dictionary using internal index
+    edl_check_internalindices       Checks the consistency of internal indices
+    edl_go                          The Top interface for doing experiments in EDL
+    edl_initctrlfile                Creates an initial control file
+    edl_logerror                    Logs an error into logger
+    edl_readctrlfile                Reads in a control file
+    edl_readenvvars                 Reads in a file with environment variables
+    edl_readexpdefs                 Reads in an experiment definition from XML file
+    edl_readexpdefs_old             Reads in experiment definition XML file
+    edl_readprops                   Reads properties from a property table XML file
+    edl_readreport                  Reads in a EDL report
+    edl_readscript                  Reads in a EDL script
+    edl_updatectrlfile              Updates the status in a control file
+    edl_writeprops                  Writes the property table to XML file
+    edl_writereport                 Writes an EDL report
+    edl_writescript                 Writes an EDL script
+    [ExpDL\@dataset]
+        construct_dataset_filenames     Constructs Dataset object from filenames
+        dataset                         Constructs a dataset object (conform to DSDML)
+        disp                            displays the dataset fields
+        display                         displays the dataset fields.
+        get                             gets the properties of the dataset
+        readfile                        Reads the dataset from DSDML file
+        subsref                         Get the properties by subscription
+        writefile                       Writes a dataset to a DSDML file
+ 
+

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DataSet xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="dsdml.xsd" unit="Sample" format="aligned face" name="A sample set" version="1.00" description="The file showing how to construct a data set with each sample as a comparison unit" author="Dahua Lin">
+	<Sample class_id="1" filename="001_01.jpg"/>
+	<Sample class_id="1" filename="001_02.jpg"/>
+	<Sample class_id="1" filename="001_03.jpg"/>
+	<Sample class_id="2" filename="002_01.jpg"/>
+	<Sample class_id="2" filename="002_02.jpg"/>
+</DataSet>
