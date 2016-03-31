@@ -89,8 +89,9 @@ function [] = computeSentRepresentations(modelFile, inFile, outputFile, varargin
     end
     
     word_embs = zeroMatrix([params.lstmSize, length(word_flags)], params.isGPU, params.dataType);
-    word_embs(:, word_flags) = model.W_emb_src(:, word_positions(word_flags));
-    fprintf(2, '  num overlapped words %d\n', size(word_embs, 2));
+    freq_positions = word_positions(word_flags);
+    word_embs(:, word_flags) = model.W_emb_src(:, freq_positions);
+    fprintf(2, '  num overlapped words %d\n', length(freq_positions));
     
     useWordEmbs = 1;
   end
@@ -149,7 +150,6 @@ function [] = computeSentRepresentations(modelFile, inFile, outputFile, varargin
   fprintf(params.logId, '# Encoding %d sents, %s\n', numSents, datestr(now));
   startTime = clock;
   
-  totalPredict = 0;
   encoderInfo = [];
   for batchId = 1 : numBatches
     % prepare batch data
@@ -208,10 +208,8 @@ function [] = computeSentRepresentations(modelFile, inFile, outputFile, varargin
 
   endTime = clock;
   timeElapsed = etime(endTime, startTime);
-  fprintf(2, '# Complete encoding %d sents, num predict %d, time %.0fs, %s\n', numSents, totalPredict, ...
-    timeElapsed, datestr(now));
-  fprintf(params.logId, '# Complete encoding %d sents, num predict %d, time %.0fs, %s\n', numSents, totalPredict, ...
-    timeElapsed, datestr(now));
+  fprintf(2, '# Complete encoding %d sents, time %.0fs, %s\n', numSents, timeElapsed, datestr(now));
+  fprintf(params.logId, '# Complete encoding %d sents, time %.0fs, %s\n', numSents, timeElapsed, datestr(now));
   
   fclose(params.fid);
   fclose(params.logId);
