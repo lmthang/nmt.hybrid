@@ -84,7 +84,7 @@ function [] = computeSentRepresentations(modelFile, inFile, outputFile, varargin
       end
     end
     
-    if params.charOpt > 0
+    if isfield(params, 'charOpt') && params.charOpt > 0
       [word_flags, word_positions] = ismember(words, params.srcVocab(1:params.srcCharShortList));
     else
       [word_flags, word_positions] = ismember(words, params.srcVocab);
