@@ -77,7 +77,7 @@ function [costs, grad, charInfo] = lstmCostGrad(model, trainData, params, isTest
   charInfo.numChars = 0;
   charInfo.trainNumTgtUnkTokens = 0;
   if params.charTgtGen
-    [costs.char, tgtCharGrad, charInfo.numChars, costs.indLosses_char] = tgtCharCostGrad(decStates, attnInfos, model, origTgtOutput, trainData.tgtMask, params.tgtCharMap, params, isTest);
+    [costs.char, tgtCharGrad, charInfo.numChars] = tgtCharCostGrad(decStates, attnInfos, model, origTgtOutput, trainData.tgtMask, params.tgtCharMap, params, isTest);
     costs.total = costs.total + costs.char;
     charInfo.trainNumTgtUnkTokens = tgtCharGrad.numRareWords;
     if isTest==0
