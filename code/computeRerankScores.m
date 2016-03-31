@@ -43,7 +43,8 @@ function [] = computeRerankScores(modelFiles, outputFile,varargin)
     if n>0 % GPU exists
       fprintf(2, '# %d GPUs exist. So, we will use GPUs.\n', n);
       decodeParams.isGPU = 1;
-      gpuDevice(decodeParams.gpuDevice)
+      params.gpu = gpuDevice(decodeParams.gpuDevice);
+      params.gpu
       decodeParams.dataType = 'single';
     else
       decodeParams.dataType = 'double';
@@ -139,24 +140,23 @@ function [] = computeRerankScores(modelFiles, outputFile,varargin)
     % prepare data
     [decodeData] = prepareData(srcSents(startId:endId), tgtSents(startId:endId), 1, params);
     decodeData.startId = startId;
-    
-    testCosts = lstmCostGrad(models{1}, decodeData, params, 1);
+   
+    if params.charOpt > 1
+      [testCosts, ~, charInfo] = lstmCostGrad(models{1}, decodeData, params, 1);
+    else
+      testCosts = lstmCostGrad(models{1}, decodeData, params, 1);
+    end
     totalScore = totalScore + testCosts.word;
     totalPredict = totalPredict + length(testCosts.indLosses);
     if params.charOpt > 1
       totalScore_char = totalScore_char + testCosts.char;
-      totalPredict_char = totalPredict_char + length(testCosts.indLosses_char);
+      totalPredict_char = totalPredict_char + charInfo.numChars;
     end
     
     if params.printScore
       printSent(2, decodeData.srcInput, params.srcVocab, ['  src ' startId ': ']);
       printSent(2, decodeData.tgtOutput, params.tgtVocab, ['  tgt ' startId ': ']);
-      if params.charOpt > 1
-        fprintf(2, 'score %g, ind scores [%s]\n  ind scores char [%s]\n', -testCosts.word, num2str(-testCosts.indLosses'), ...
-          num2str(-testCosts.indLosses_char'));
-      else
-        fprintf(2, 'score %g, ind scores [%s]\n', -testCosts.word, num2str(-testCosts.indLosses'));
-      end
+      fprintf(2, 'score %g, ind scores [%s]\n', -testCosts.word, num2str(-testCosts.indLosses'));
       fprintf(params.scoreFid, '%g\n', params.scoreFid);
     end
     
@@ -191,7 +191,7 @@ end
 function evalValidTestSimple(model, testData, params)
   fprintf(2, '  evaluating ...');
 %   perp = 0;
-  [testCosts] = evalCost(model, testData, params); % run on the test data
+  [testCosts, testData.numChars] = evalCost(model, testData, params); % run on the test data
   testCounts = initCosts(params);
   testCounts = updateCounts(testCounts, testData);
   testCosts = scaleCosts(testCosts, testCounts);
