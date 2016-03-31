@@ -28,6 +28,7 @@ function [] = computeSentRepresentations(modelFile, inFile, outputFile, varargin
   addOptional(p,'continueId', 0, @isnumeric); % > 0: start decoding from this continueId (base 1) sent and append the results
   
   addOptional(p,'char', 0, @isnumeric); % 1 -- take src char model
+  addOptional(p,'wordFile', '', @ischar); % for char opt 1, mix word embeddings and character-based embeddings.
   
   % useful for rescoring if we have many sentence pairs with the same source
   addOptional(p,'reuseEncoder', 0, @isnumeric);
@@ -58,11 +59,22 @@ function [] = computeSentRepresentations(modelFile, inFile, outputFile, varargin
   model.params.attnFunc = 0;
   params = model.params;
   
+  useWordEmbs = 0;
   if params.char
     % model
     charModel.W_src = model.W_src_char;
     charModel.W_emb_src = model.W_emb_src_char;
     
+    % look up W_emb_src for frequent words
+    if strcmp(params.wordFile, '') == 0
+      fprintf(2, '# Using wordFile %s\n', params.wordFile);
+      [words, ~] = loadVocab(params.wordFile);   
+      [word_flags, word_positions] = ismember(words, params.srcVocab(1:params.srcCharShortList));
+      word_embs = model.W_emb_src(:, word_positions(word_flags));
+      useWordEmbs = 1;
+      fprintf(2, '  num overlapped words %d\n', size(word_embs, 2));
+    end
+  
     % params
     params.srcVocab = params.srcCharVocab;
     params.srcVocabSize = params.srcCharVocabSize;
@@ -94,6 +106,9 @@ function [] = computeSentRepresentations(modelFile, inFile, outputFile, varargin
   
   % load test data  
   [sents, numSents] = loadMonoData(params.inFile, -1, 0, params.srcVocab, 'src');
+  if useWordEmbs
+    assert(numSents == length(word_flags));
+  end
   
   %%%%%%%%%%%%
   %% encode %%
@@ -119,26 +134,31 @@ function [] = computeSentRepresentations(modelFile, inFile, outputFile, varargin
       continue;
     end    
     
-    % prepare data
-    if params.char
-      [data] = prepareMonoData(sents(startId:endId), params.srcCharSos, params.srcCharEos, -1, 1);
-    else
-      [data] = prepareMonoData(sents(startId:endId), params.srcSos, -1, -1, 1);
-    end
-    
-    data.startId = startId;
-    
-    % encoding
-    [prevStates, modelData, ~] = runEncoder(model, data, params, encoderInfo);
-    if params.reuseEncoder
-      encoderInfo.prevStates = prevStates;
-      encoderInfo.modelData = modelData;
-      encoderInfo.srcInput = data.srcInput;
-    end
-    
-    for ii=1:(endId-startId+1)
-      fprintf(params.fid, '%f ', prevStates{1}{end}.h_t(:, ii));
+    if useWordEmbs && batchSize == 1 && word_flags(startId) % look up frequent words for hybrid models
+      fprintf(params.fid, '%f ', word_embs(:, startId));
       fprintf(params.fid, '\n');
+    else
+      % prepare data
+      if params.char
+        [data] = prepareMonoData(sents(startId:endId), params.srcCharSos, params.srcCharEos, -1, 1);
+      else
+        [data] = prepareMonoData(sents(startId:endId), params.srcSos, -1, -1, 1);
+      end
+
+      data.startId = startId;
+
+      % encoding
+      [prevStates, modelData, ~] = runEncoder(model, data, params, encoderInfo);
+      if params.reuseEncoder
+        encoderInfo.prevStates = prevStates;
+        encoderInfo.modelData = modelData;
+        encoderInfo.srcInput = data.srcInput;
+      end
+
+      for ii=1:(endId-startId+1)
+        fprintf(params.fid, '%f ', prevStates{1}{end}.h_t(:, ii));
+        fprintf(params.fid, '\n');
+      end
     end
     
     if mod(batchId, 100) == 0
