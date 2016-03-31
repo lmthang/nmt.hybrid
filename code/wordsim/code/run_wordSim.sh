@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # Author: Minh-Thang Luong <luong.m.thang@gmail.com>, created on Thu Feb 21 16:32:43 PST 2013
 
 if [[ ! $# -eq 3 && ! $# -eq 3 ]]
