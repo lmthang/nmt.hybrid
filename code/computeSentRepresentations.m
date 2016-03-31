@@ -70,7 +70,8 @@ function [] = computeSentRepresentations(modelFile, inFile, outputFile, varargin
       fprintf(2, '# Using wordFile %s\n', params.wordFile);
       [words, ~] = loadVocab(params.wordFile);   
       [word_flags, word_positions] = ismember(words, params.srcVocab(1:params.srcCharShortList));
-      word_embs = model.W_emb_src(:, word_positions(word_flags));
+      word_embs = zeroMatrix([params.lstmSize, length(word_flags)], params.isGPU, params.dataType);
+      word_embs(:, word_flags) = model.W_emb_src(:, word_positions(word_flags));
       useWordEmbs = 1;
       fprintf(2, '  num overlapped words %d\n', size(word_embs, 2));
     end
@@ -135,7 +136,7 @@ function [] = computeSentRepresentations(modelFile, inFile, outputFile, varargin
     end    
     
     if useWordEmbs && batchSize == 1 && word_flags(startId) % look up frequent words for hybrid models
-      fprintf(params.fid, '%f ', word_embs(:, word_positions(startId)));
+      fprintf(params.fid, '%f ', word_embs(:, startId));
       fprintf(params.fid, '\n');
     else
       % prepare data
