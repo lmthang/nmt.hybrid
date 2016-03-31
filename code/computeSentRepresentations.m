@@ -96,7 +96,7 @@ function [] = computeSentRepresentations(modelFile, inFile, outputFile, varargin
     useWordEmbs = 1;
   end
     
-  if params.opt == 1 || params.opt == 3 % char or hybrid
+  if params.opt == 1 || params.opt == 2 % char or hybrid
     % model
     charModel.W_src = model.W_src_char;
     charModel.W_emb_src = model.W_emb_src_char;
