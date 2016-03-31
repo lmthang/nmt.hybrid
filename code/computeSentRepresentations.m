@@ -82,10 +82,12 @@ function [] = computeSentRepresentations(modelFile, inFile, outputFile, varargin
         words{end+1} = unk;
         fprintf(2, '  appending %s at the end\n', unk);
       end
-      [word_flags, word_positions] = ismember(words, params.srcVocab);
-    else % hybrid
-      assert(params.charOpt > 0); 
+    end
+    
+    if params.charOpt > 0
       [word_flags, word_positions] = ismember(words, params.srcVocab(1:params.srcCharShortList));
+    else
+      [word_flags, word_positions] = ismember(words, params.srcVocab);
     end
     
     word_embs = zeroMatrix([params.lstmSize, length(word_flags)], params.isGPU, params.dataType);
