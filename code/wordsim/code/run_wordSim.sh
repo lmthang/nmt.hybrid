@@ -24,6 +24,7 @@ if [ "$modelFormat" -eq 1 ]; then # split We, words
   ./splitWordVectorFile.sh $modelFile $modelFile
   modelFormat=3
 fi
-matlab -nodesktop -nodisplay -nosplash -r "evaluateWordSim('$modelFile', $modelFormat, '$lang');exit;" | tail -n +15
 
-
+matlabCommand="evaluateWordSim('$modelFile', $modelFormat, '$lang')"
+echo "$MATLAB -nodesktop -nodisplay -nosplash -r \"try; $matlabCommand ; catch ME; fprintf('\n! Exception: identifier=%s, name=%s\n', ME.identifier, ME.message); for k=1:length(ME.stack); fprintf('stack %d: file=%s, name=%s, line=%d\n', k, ME.stack(k).file, ME.stack(k).name, ME.stack(k).line); end; end; exit()\""
+$MATLAB -nodesktop -nodisplay -nosplash -r "try; $matlabCommand ; catch ME; fprintf('\n! Exception: identifier=%s, name=%s\n', ME.identifier, ME.message); for k=1:length(ME.stack); fprintf('stack %d: file=%s, name=%s, line=%d\n', k, ME.stack(k).file, ME.stack(k).name, ME.stack(k).line); end; end; exit()"
