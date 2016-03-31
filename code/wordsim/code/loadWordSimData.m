@@ -3,7 +3,7 @@
 function [wordPairs, humanScores] = loadWordSimData(inFile, isHeader, delimiter, numLastLineExcluded, word1Index, word2Index, scoreIndex)
 % outFile, 
   fid = fopen(inFile, 'r');
-  fileLines = textscan(fid, '%s', 'delimiter', '\n', 'bufsize', 100000);
+  fileLines = textscan(fid, '%s', 'delimiter', '\n'); %, 'bufsize', 100000);
   fclose(fid);
   
   if ~exist('numLastLineExcluded', 'var')
