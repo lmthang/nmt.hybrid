@@ -81,7 +81,7 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
         flags = candidates{sentId}{ss} == params.tgtUnk;
         positions = find(flags);
         char_initEmb(:, numRareWords+1:numRareWords+length(positions)) = otherInfo.transStates{ss, mm}(:, positions, sentId);
-        assert(isempty(find(otherInfo.transStates{ss, mm}(:, length(flags), sentId) ~= 0, 1)));
+        % assert(isempty(find(otherInfo.transStates{ss, mm}(:, length(flags), sentId) ~= 0, 1)));
         numRareWords = numRareWords + length(positions);
         otherInfo.rarePositions{sentId} = positions;
       end
