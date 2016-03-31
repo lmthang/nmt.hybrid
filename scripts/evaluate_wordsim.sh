@@ -26,6 +26,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 echo "# Script dir = $DIR"
 
 wordsimDir="$DIR/../code/wordsim"
+weFile=$outPrefix.opt$computeOopt
 
 if [[ "$computeOpt" -eq "1" || "$computeOpt" -eq "2" ]]; then # char
   # word to indices
@@ -37,11 +38,9 @@ if [[ "$computeOpt" -eq "1" || "$computeOpt" -eq "2" ]]; then # char
   wordIndexFile=$outPrefix.indices
   echo "$DIR/../scripts/word_to_char_indices.py $wordFile $charVocab $wordIndexFile"
   $DIR/../scripts/word_to_char_indices.py $wordFile $charVocab $wordIndexFile
-  weFile=$outPrefix.We
 else
   if [ "$computeOpt" -eq "3" ]; then # embedding lookup
     wordIndexFile=''
-    weFile=$outPrefix.wordWe
   fi
 fi
 
