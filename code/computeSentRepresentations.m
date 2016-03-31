@@ -135,7 +135,7 @@ function [] = computeSentRepresentations(modelFile, inFile, outputFile, varargin
     end    
     
     if useWordEmbs && batchSize == 1 && word_flags(startId) % look up frequent words for hybrid models
-      fprintf(params.fid, '%f ', word_embs(:, startId));
+      fprintf(params.fid, '%f ', word_embs(:, word_positions(startId)));
       fprintf(params.fid, '\n');
     else
       % prepare data
