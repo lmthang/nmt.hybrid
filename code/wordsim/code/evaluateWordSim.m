@@ -23,7 +23,7 @@ function [corrScores, data] = evaluateWordSim(modelFile, modelFormat, lang, We, 
   end
   
   addpath(genpath('./sltoolbox_r101/'));
-  verbose=0;
+  
   if ~exist('We', 'var') || ~exist('words', 'var')
     [We, words] = loadWeWords(modelFile, modelFormat);
   end

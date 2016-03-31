@@ -27,8 +27,16 @@ function [] = computeSentRepresentations(modelFile, inFile, outputFile, varargin
   addOptional(p,'testPrefix', '', @ischar); % to specify a different file for decoding
   addOptional(p,'continueId', 0, @isnumeric); % > 0: start decoding from this continueId (base 1) sent and append the results
   
-  addOptional(p,'char', 0, @isnumeric); % 1 -- take src char model
-  addOptional(p,'wordFile', '', @ischar); % for char opt 1, mix word embeddings and character-based embeddings.
+  % opt 0: word-based models
+  % opt 1: char-based models
+  % opt 2: hybrid, require wordFile
+  % opt 3: embedding lookup, require 'wordFile', ignore 'inFile'. For this
+  % option, we will print word then embeddings
+  
+  addOptional(p,'opt', 0, @isnumeric); % 1 -- take src char model
+  
+  % for char opt 1 & 2, mix word embeddings and character-based embeddings.
+  addOptional(p,'wordFile', '', @ischar); 
   
   % useful for rescoring if we have many sentence pairs with the same source
   addOptional(p,'reuseEncoder', 0, @isnumeric);
@@ -59,23 +67,39 @@ function [] = computeSentRepresentations(modelFile, inFile, outputFile, varargin
   model.params.attnFunc = 0;
   params = model.params;
   
+  % look up W_emb_src for frequent words
   useWordEmbs = 0;
-  if params.char
+  if params.opt == 2 || params.opt == 3
+  	assert(strcmp(params.wordFile, '') == 0);
+    
+    fprintf(2, '# Loading wordFile %s\n', params.wordFile);
+    [words, ~] = loadVocab(params.wordFile);   
+    
+    if params.opt == 3 % word-embedding lookup
+      unk = '<unk>';
+      assert(ismember(unk, params.srcVocab) == 1);
+      if ismember(unk, words) == 0
+        words{end+1} = unk;
+        fprintf(2, '  appending %s at the end\n', unk);
+      end
+      [word_flags, word_positions] = ismember(words, params.srcVocab);
+    else % hybrid
+      assert(params.charOpt > 0); 
+      [word_flags, word_positions] = ismember(words, params.srcVocab(1:params.srcCharShortList));
+    end
+    
+    word_embs = zeroMatrix([params.lstmSize, length(word_flags)], params.isGPU, params.dataType);
+    word_embs(:, word_flags) = model.W_emb_src(:, word_positions(word_flags));
+    fprintf(2, '  num overlapped words %d\n', size(word_embs, 2));
+    
+    useWordEmbs = 1;
+  end
+    
+  if params.opt == 1 || params.opt == 3 % char or hybrid
     % model
     charModel.W_src = model.W_src_char;
     charModel.W_emb_src = model.W_emb_src_char;
     
-    % look up W_emb_src for frequent words
-    if strcmp(params.wordFile, '') == 0
-      fprintf(2, '# Using wordFile %s\n', params.wordFile);
-      [words, ~] = loadVocab(params.wordFile);   
-      [word_flags, word_positions] = ismember(words, params.srcVocab(1:params.srcCharShortList));
-      word_embs = zeroMatrix([params.lstmSize, length(word_flags)], params.isGPU, params.dataType);
-      word_embs(:, word_flags) = model.W_emb_src(:, word_positions(word_flags));
-      useWordEmbs = 1;
-      fprintf(2, '  num overlapped words %d\n', size(word_embs, 2));
-    end
-  
     % params
     params.srcVocab = params.srcCharVocab;
     params.srcVocabSize = params.srcCharVocabSize;
@@ -106,10 +130,15 @@ function [] = computeSentRepresentations(modelFile, inFile, outputFile, varargin
   params.prefixDecoder = 0;
   
   % load test data  
-  [sents, numSents] = loadMonoData(params.inFile, -1, 0, params.srcVocab, 'src');
-  if useWordEmbs
-    assert(numSents == length(word_flags));
+  if params.opt == 1 || params.opt == 2
+    [sents, numSents] = loadMonoData(params.inFile, -1, 0, params.srcVocab, 'src');
+    if useWordEmbs
+      assert(numSents == length(word_flags));
+    end
+  else
+    numSents = length(words);
   end
+  
   
   %%%%%%%%%%%%
   %% encode %%
@@ -135,30 +164,40 @@ function [] = computeSentRepresentations(modelFile, inFile, outputFile, varargin
       continue;
     end    
     
-    if useWordEmbs && batchSize == 1 && word_flags(startId) % look up frequent words for hybrid models
-      fprintf(params.fid, '%f ', word_embs(:, startId));
-      fprintf(params.fid, '\n');
-    else
-      % prepare data
-      if params.char
-        [data] = prepareMonoData(sents(startId:endId), params.srcCharSos, params.srcCharEos, -1, 1);
-      else
-        [data] = prepareMonoData(sents(startId:endId), params.srcSos, -1, -1, 1);
-      end
-
-      data.startId = startId;
-
-      % encoding
-      [prevStates, modelData, ~] = runEncoder(model, data, params, encoderInfo);
-      if params.reuseEncoder
-        encoderInfo.prevStates = prevStates;
-        encoderInfo.modelData = modelData;
-        encoderInfo.srcInput = data.srcInput;
-      end
-
-      for ii=1:(endId-startId+1)
-        fprintf(params.fid, '%f ', prevStates{1}{end}.h_t(:, ii));
+    if params.opt == 3 % special opt, read above, word embedding lookup only
+      assert(useWordEmbs && batchSize == 1);
+      if word_flags(startId) % look up frequent words for hybrid models
+        fprintf(params.fid, '%s', words{startId});
+        fprintf(params.fid, ' %f', word_embs(:, startId));
         fprintf(params.fid, '\n');
+      end
+    else
+      if useWordEmbs && batchSize == 1 && word_flags(startId) % look up frequent words for hybrid models
+        assert(params.opt == 2);
+        fprintf(params.fid, '%f ', word_embs(:, startId));
+        fprintf(params.fid, '\n');
+      else
+        % prepare data
+        if params.opt == 1 || params.opt == 2 % char
+          [data] = prepareMonoData(sents(startId:endId), params.srcCharSos, params.srcCharEos, -1, 1);
+        else
+          [data] = prepareMonoData(sents(startId:endId), params.srcSos, -1, -1, 1);
+        end
+
+        data.startId = startId;
+
+        % encoding
+        [prevStates, modelData, ~] = runEncoder(model, data, params, encoderInfo);
+        if params.reuseEncoder
+          encoderInfo.prevStates = prevStates;
+          encoderInfo.modelData = modelData;
+          encoderInfo.srcInput = data.srcInput;
+        end
+
+        for ii=1:(endId-startId+1)
+          fprintf(params.fid, '%f ', prevStates{1}{end}.h_t(:, ii));
+          fprintf(params.fid, '\n');
+        end
       end
     end
     
