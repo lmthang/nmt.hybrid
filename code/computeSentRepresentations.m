@@ -131,7 +131,7 @@ function [] = computeSentRepresentations(modelFile, inFile, outputFile, varargin
   params.prefixDecoder = 0;
   
   % load test data  
-  if params.opt == 1 || params.opt == 2
+  if params.opt ~= 3
     [sents, numSents] = loadMonoData(params.inFile, -1, 0, params.srcVocab, 'src');
     if useWordEmbs
       assert(numSents == length(word_flags));
