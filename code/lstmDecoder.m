@@ -69,24 +69,32 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
   % char: now generate words for <unk>
   if params.charTgtGen % assume all models are char-level models
     assert(stackSize == 1); % TODO: remove this, then char_initEmb needs to be initialized differently.
-    assert(numModels == 1); % handle one model for now
+    ss = 1;
     
     % prepare starting states
-    mm = 1;
-    char_initEmb = zeroMatrix([params.lstmSize, batchSize * maxLen], params.isGPU, params.dataType);
+    char_initEmb = cell(numModels, 1);
+    for mm=1:numModels
+      char_initEmb{mm} = zeroMatrix([params.lstmSize, batchSize * maxLen], params.isGPU, params.dataType);
+    end
+    
     numRareWords = 0;
     otherInfo.rarePositions = cell(batchSize, 1);
     for sentId=1:batchSize
-      for ss=1:stackSize
-        flags = candidates{sentId}{ss} == params.tgtUnk;
-        positions = find(flags);
-        char_initEmb(:, numRareWords+1:numRareWords+length(positions)) = otherInfo.transStates{ss, mm}(:, positions, sentId);
+      flags = candidates{sentId}{ss} == params.tgtUnk;
+      positions = find(flags);
+      
+      for mm=1:numModels
+        char_initEmb{mm}(:, numRareWords+1:numRareWords+length(positions)) = otherInfo.transStates{ss, mm}(:, positions, sentId);
         % assert(isempty(find(otherInfo.transStates{ss, mm}(:, length(flags), sentId) ~= 0, 1)));
-        numRareWords = numRareWords + length(positions);
-        otherInfo.rarePositions{sentId} = positions;
       end
+      
+      numRareWords = numRareWords + length(positions);
+      otherInfo.rarePositions{sentId} = positions;
     end
-    char_initEmb(:, numRareWords+1:end) = [];
+    
+    for mm=1:numModels
+      char_initEmb{mm}(:, numRareWords+1:end) = [];
+    end
     
     otherInfo.numRareWords = numRareWords;
     otherInfo.rareWords = cell(batchSize, 1);
@@ -99,10 +107,12 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
 
       % model
       char_models = cell(numModels, 1);
-      char_models{mm}.W_tgt = models{mm}.W_tgt_char;
-      char_models{mm}.W_emb_tgt = models{mm}.W_emb_tgt_char;
-      char_models{mm}.W_soft = models{mm}.W_soft_char;
-      char_models{mm}.params = charParams;
+      for mm=1:numModels
+        char_models{mm}.W_tgt = models{mm}.W_tgt_char;
+        char_models{mm}.W_emb_tgt = models{mm}.W_emb_tgt_char;
+        char_models{mm}.W_soft = models{mm}.W_soft_char;
+        char_models{mm}.params = charParams;
+      end
 
       % prev states
       char_minLen = 2;
@@ -113,15 +123,19 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
       char_modelData = cell(numModels, 1);
       char_prevStates = cell(numModels, 1);
       zeroBatch = zeroMatrix([params.lstmSize, charParams.curBatchSize], params.isGPU, params.dataType);
-      char_prevStates{mm} = cell(charParams.numLayers, 1);
-      for ll=1:charParams.numLayers % layer
-        if ll == 1
-          char_prevStates{mm}{ll}.h_t = char_initEmb;
-        else
-          char_prevStates{mm}{ll}.h_t = zeroBatch;
+      
+      for mm=1:numModels
+        char_prevStates{mm} = cell(charParams.numLayers, 1);
+        for ll=1:charParams.numLayers % layer
+          if ll == 1
+            char_prevStates{mm}{ll}.h_t = char_initEmb{mm}(:, :);
+          else
+            char_prevStates{mm}{ll}.h_t = zeroBatch;
+          end
+          char_prevStates{mm}{ll}.c_t = zeroBatch;
         end
-        char_prevStates{mm}{ll}.c_t = zeroBatch;
       end
+      
       [char_candidates, ~, ~, ~] = rnnDecoder(char_models, charParams, char_prevStates, char_minLen, ...
         char_maxLen, beamSize, stackSize, numRareWords, char_modelData, [], params.tgtCharEos, 1);
       
@@ -158,7 +172,6 @@ function [candidates, candScores, alignInfo, otherInfo] = rnnDecoder(models, par
   for mm=1:numModels
     % char
     if isChar
-      assert(mm==1); % only support one model for now
       isFeedInput = 0;
       attnFunc = 0;
     else
@@ -339,7 +352,6 @@ originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
     for mm=1:numModels
       % char
       if isChar
-        assert(mm==1); % only support one model for now
         isFeedInput = 0;
         attnFunc = 0;
       else
