@@ -101,17 +101,19 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
     if numRareWords
       % char params
       charParams = params;
-      charParams.numLayers = params.charNumLayers;
       charParams.curBatchSize = numRareWords;
-      charParams.tgtVocab = params.tgtCharVocab;
 
       % model
-      char_models = cell(numModels, 1);
+      charModels = cell(numModels, 1);
       for mm=1:numModels
-        char_models{mm}.W_tgt = models{mm}.W_tgt_char;
-        char_models{mm}.W_emb_tgt = models{mm}.W_emb_tgt_char;
-        char_models{mm}.W_soft = models{mm}.W_soft_char;
-        char_models{mm}.params = charParams;
+        charModels{mm}.W_tgt = models{mm}.W_tgt_char;
+        charModels{mm}.W_emb_tgt = models{mm}.W_emb_tgt_char;
+        charModels{mm}.W_soft = models{mm}.W_soft_char;
+        
+        charParams.numLayers = models{mm}.params.charNumLayers;
+        charParams.tgtVocab = models{mm}.params.tgtCharVocab;
+        
+        charModels{mm}.params = charParams;
       end
 
       % prev states
@@ -136,7 +138,7 @@ function [candidates, candScores, alignInfo, otherInfo] = lstmDecoder(models, da
         end
       end
       
-      [char_candidates, ~, ~, ~] = rnnDecoder(char_models, charParams, char_prevStates, char_minLen, ...
+      [char_candidates, ~, ~, ~] = rnnDecoder(charModels, charParams, char_prevStates, char_minLen, ...
         char_maxLen, beamSize, stackSize, numRareWords, char_modelData, [], params.tgtCharEos, 1);
       
       % get words
