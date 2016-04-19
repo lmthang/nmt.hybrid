@@ -81,6 +81,7 @@ function [candidates, candScores, alignInfo] = rnnDecoder(models, params, prevSt
  
   % output alignment
   if params.align
+    params.srcMaxLen = data.srcMaxLen;
     [~, firstAlignIdx] = getAlignWeights(attnInfos, data.srcLens, models, params);
   else
     firstAlignIdx = 0;
