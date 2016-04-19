@@ -96,6 +96,11 @@ def bleu(script_dir, trans_file, ref_file):
   sys.stderr.write('# BLEU: %s\n' % cmd)
   os.system(cmd)
 
+def chr_f(script_dir, trans_file, ref_file):
+  cmd = script_dir + '/chrF.py --ref ' + ref_file + ' --hyp ' + trans_file
+  sys.stderr.write('# 6-gram chrF3: %s\n' % cmd)
+  os.system(cmd)
+
 def process_files(align_file, src_file, tgt_file, ref_file, dict_file, out_file, src_sgm, tgt_sgm, lang, is_reverse_alignment):
   """
   """
@@ -222,6 +227,7 @@ def process_files(align_file, src_file, tgt_file, ref_file, dict_file, out_file,
     bleu(script_dir, new_tgt_file, ref_file)
    
     if is_align:
+      chr_f(script_dir, out_file, ref_file)
       bleu(script_dir, out_file, ref_file)
       if src_sgm != '' and tgt_sgm != '' and lang != '': # compute NIST BLEU score
         nist_bleu(script_dir, out_file, src_sgm, tgt_sgm, lang)
