@@ -72,6 +72,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'assert', 0, @isnumeric); % 0: no sanity check, 1: yes
   addOptional(p,'seed', 0, @isnumeric); % 0: seed based on current clock time, else use the specified seed
   
+  % experimental
+  addOptional(p,'addNoise', 0, @isnumeric); % >0: add a little bit of pertubation to the loaded weights
+  
   %% attention! %%
   % attnFunc=0: no attention.
   %          1: global attention
@@ -683,7 +686,22 @@ function [model, params] = initLoadModel(params)
   % compute model size
   params.modelSize = modelSizes(model);
   
+  % setup vars
   params = setupVars(model, params);
+  
+  % add some pertubation
+  if params.addNoise > 0
+    for ii=1:length(params.vars)
+      field = params.vars{ii};
+      if iscell(model.(field))
+        for jj=1:length(model.(field)) % cell, like W_src, W_tgt
+          model.(field){jj} = model.(field){jj} + initMatrixRange(params.addNoise, size(model.(field){jj}), params.isGPU, params.dataType);
+        end
+      else
+        model.(field) = model.(field) + initMatrixRange(params.addNoise, size(model.(field)), params.isGPU, params.dataType);
+      end
+    end
+  end
 end
 
 function [params] = setupVars(model, params)
@@ -692,9 +710,12 @@ function [params] = setupVars(model, params)
   % exclude W_emb and W_soft_inclass (for class-based softmax). These are
   % those matrices which we will update sparsely
   params.varsDenseUpdate = {};
+  params.varsSparseUpdate = {};
   for ii=1:length(params.vars)
     if strncmp(params.vars{ii}, 'W_emb', 4)==0
       params.varsDenseUpdate{end+1} = params.vars{ii};
+    else
+      params.varsSparseUpdate{end+1} = params.vars{ii};
     end
   end
 end
