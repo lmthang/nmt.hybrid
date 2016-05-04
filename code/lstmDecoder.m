@@ -523,7 +523,7 @@ originalSentIndices, modelData, firstAlignIdx, data, tgtEos, isChar)
           % char
           if params.charTgtGen && isChar == 0
             for mm=1:numModels
-              otherInfo.transStates{numDecoded(sentId), mm}(:, 1:maxLen-1, sentId) = beamHistTopStates{mm}(:, eosIndex, 1:maxLen-1);
+              otherInfo.transStates{numDecoded(sentId), mm}(:, 1:maxLen, sentId) = beamHistTopStates{mm}(:, eosIndex, 1:maxLen);
             end
           end 
         end
