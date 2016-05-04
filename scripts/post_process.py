@@ -89,20 +89,24 @@ def nist_bleu(script_dir, trans_file, src_sgm, tgt_sgm, lang):
   cmd = '%s/wmt/wrap-xml.perl %s %s ours < %s > %s' % (script_dir, lang, src_sgm, trans_file, trans_sgm)
   os.system(cmd)
 
-  cmd = 'perl %s/wmt/mteval-v13a.pl -d 0 -r %s -s %s -t %s -c' % (script_dir, tgt_sgm, src_sgm, trans_sgm)
-  os.system(cmd)
+  if tgt_sgm != '':
+    cmd = 'perl %s/wmt/mteval-v13a.pl -d 0 -r %s -s %s -t %s -c' % (script_dir, tgt_sgm, src_sgm, trans_sgm)
+    os.system(cmd)
 
 def bleu(script_dir, trans_file, ref_file):
-  cmd = script_dir + '/wmt/multi-bleu.perl ' + ref_file + ' < ' + trans_file
-  sys.stderr.write('# BLEU: %s\n' % cmd)
-  os.system(cmd)
+  if ref_file != '':
+    cmd = script_dir + '/wmt/multi-bleu.perl ' + ref_file + ' < ' + trans_file
+    sys.stderr.write('# BLEU: %s\n' % cmd)
+    os.system(cmd)
 
 def chr_f(script_dir, trans_file, ref_file):
-  cmd = script_dir + '/chrF.py --ref ' + ref_file + ' --hyp ' + trans_file
-  sys.stderr.write('# 6-gram chrF3: %s\n' % cmd)
-  os.system(cmd)
+  if ref_file != '':
+    cmd = script_dir + '/chrF.py --ref ' + ref_file + ' --hyp ' + trans_file
+    sys.stderr.write('# 6-gram chrF3: %s\n' % cmd)
+    os.system(cmd)
 
 def post_process(align_file, src_file, tgt_file, ref_file, dict_file, is_reverse_alignment):
+  sys.stderr.write('# ref_file = %s\n' % ref_file)
   is_src = 0
   if src_file != '':
     is_src = 1
@@ -281,17 +285,16 @@ def process_files(align_file, src_file, tgt_file, ref_file, dict_file, src_sgm, 
   sys.stderr.write('# pre_file %s\n# post_file %s\n' % (pre_file, post_file))
 
   # evaluating 
-  if ref_file != '':
-    script_dir = os.path.dirname(sys.argv[0])
-    if pre_file != '':
-      bleu(script_dir, pre_file, ref_file)
-   
-    if post_file != '':
-      if char_opt == 1 or char_opt == 2:
-        chr_f(script_dir, post_file, ref_file)
-      bleu(script_dir, post_file, ref_file)
-      if src_sgm != '' and tgt_sgm != '' and lang != '': # compute NIST BLEU score
-        nist_bleu(script_dir, post_file, src_sgm, tgt_sgm, lang)
+  script_dir = os.path.dirname(sys.argv[0])
+  if pre_file != '':
+    bleu(script_dir, pre_file, ref_file)
+ 
+  if post_file != '':
+    if char_opt == 1 or char_opt == 2:
+      chr_f(script_dir, post_file, ref_file)
+    bleu(script_dir, post_file, ref_file)
+    if src_sgm != '' and lang != '': # compute NIST BLEU score
+      nist_bleu(script_dir, post_file, src_sgm, tgt_sgm, lang)
 if __name__ == '__main__':
   args = process_command_line()
   process_files(args.align_file, args.src_file, args.tgt_file, args.ref_file, args.dict_file, args.src_sgm, args.tgt_sgm, args.lang, args.is_reverse_alignment, args.char_opt)
