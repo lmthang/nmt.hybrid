@@ -45,7 +45,6 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   % advanced features
   addOptional(p,'dropout', 1, @isnumeric); % keep prob for dropout, i.e., 1 no dropout, <1: dropout
   addOptional(p,'isReverse', 0, @isnumeric); % 1: reseverse source sentence. We expect file $prefix.$srcLang.reversed (instead of $prefix.$srcLang)
-  addOptional(p,'feedInput', 0, @isnumeric); % 1: feed the softmax vector to the next timestep input
   addOptional(p,'lstmOpt', 0, @isnumeric); % lstmOpt=0: basic model (I have always been using this!), 1: no tanh for c_t.
     
   % training
@@ -90,13 +89,15 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   %          1: global attention
   %          2: local attention + monotonic alignments
   %          4: local attention  + regression for absolute pos (multiplied distWeights)
-  addOptional(p,'attnFunc', 0, @isnumeric);
+  addOptional(p,'attnFunc', 1, @isnumeric);
   % attnOpt: decide how we generate the alignment weights:
   %          1: src compare, dot product, a_t = softmax(H_src * h_t)
   %          2: src compare, general dot product, a_t = softmax(H_src * W_a * h_t)
   %          3: src compare, general dot product, a_t = softmax(v_a*f(W_a * [H_src; h_t])
-  addOptional(p,'attnOpt', 0, @isnumeric);
+  addOptional(p,'attnOpt', 2, @isnumeric);
+  addOptional(p,'feedInput', 1, @isnumeric); % 1: feed the softmax vector to the next timestep input
   addOptional(p,'posWin', 10, @isnumeric); % relative window, used for attnFunc~=1
+  addOptional(p,'normLocalAttn', 0, @isnumeric); % 1: normalize the final attention weights (after multiplied with Gaussian weights). Use with attnFunc==4 (local attention). This feature is tried post the EMNLP paper.
   
   %% system options
   addOptional(p,'onlyCPU', 0, @isnumeric); % 1: avoid using GPUs
@@ -213,7 +214,7 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   params.modelRecentFile = [outDir '/modelRecent.mat'];
   [model, params] = initLoadModel(params);
   % for backward compatibility  
-  [params] = backwardCompatible(params, {'epochIter', 'saveHDF', 'charSrcSample', 'charTgtSample'}, 0);
+  [params] = backwardCompatible(params, {'epochIter', 'saveHDF', 'charSrcSample', 'charTgtSample', 'normLocalAttn'}, 0);
   [params] = backwardCompatible(params, {'charWeight'}, 1.0);
 
   % print

@@ -1,12 +1,12 @@
 # Script dir = /Users/lmthang/nmt.matlab/scripts
 cd /Users/lmthang/nmt.matlab/scripts/../code
 
-## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1)
+## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'attnFunc', 0, 'feedInput', 1)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -21,7 +21,7 @@ For product information, visit www.mathworks.com.
   Model size = 110, individual sizes:  W_src{1}=32 W_tgt{1}=48 W_emb_src=10 W_emb_tgt=10 W_soft=10
 # assert = 1
 # attnFunc = 0
-# attnOpt = 0
+# attnOpt = 2
 # batchSize = 10
 # charFeedOpt = 0
 # charMaxLen = 20
@@ -56,6 +56,7 @@ For product information, visit www.mathworks.com.
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 1
 # onlyCPU = 0
@@ -240,14 +241,14 @@ For product information, visit www.mathworks.com.
   0.002656	  0.002656	diff=1.97791e-08
   local_diff=4.24209e-07
 # Num params=110, abs_diff=6.70758e-06
-Elapsed time is 1.041881 seconds.
+Elapsed time is 0.838362 seconds.
 [?1l>
-## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2)
+## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'attnFunc', 0, 'feedInput', 1, 'numLayers', 2)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -262,7 +263,7 @@ For product information, visit www.mathworks.com.
   Model size = 174, individual sizes:  W_src{1}=32 W_src{2}=32 W_tgt{1}=48 W_tgt{2}=32 W_emb_src=10 W_emb_tgt=10 W_soft=10
 # assert = 1
 # attnFunc = 0
-# attnOpt = 0
+# attnOpt = 2
 # batchSize = 10
 # charFeedOpt = 0
 # charMaxLen = 20
@@ -297,6 +298,7 @@ For product information, visit www.mathworks.com.
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -549,14 +551,14 @@ For product information, visit www.mathworks.com.
  -0.000051	 -0.000051	diff=3.27591e-11
   local_diff=2.05347e-10
 # Num params=174, abs_diff=6.23289e-07
-Elapsed time is 1.893071 seconds.
+Elapsed time is 1.584432 seconds.
 [?1l>
-## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8)
+## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'attnFunc', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -571,7 +573,7 @@ For product information, visit www.mathworks.com.
   Model size = 174, individual sizes:  W_src{1}=32 W_src{2}=32 W_tgt{1}=48 W_tgt{2}=32 W_emb_src=10 W_emb_tgt=10 W_soft=10
 # assert = 1
 # attnFunc = 0
-# attnOpt = 0
+# attnOpt = 2
 # batchSize = 10
 # charFeedOpt = 0
 # charMaxLen = 20
@@ -606,6 +608,7 @@ For product information, visit www.mathworks.com.
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -858,14 +861,14 @@ For product information, visit www.mathworks.com.
  -0.000122	 -0.000122	diff=4.54174e-11
   local_diff=2.90612e-10
 # Num params=174, abs_diff=4.86327e-07
-Elapsed time is 1.977008 seconds.
+Elapsed time is 1.843138 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -915,6 +918,7 @@ For product information, visit www.mathworks.com.
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -1177,14 +1181,14 @@ For product information, visit www.mathworks.com.
  -0.000018	 -0.000018	diff=1.2212e-12
   local_diff=1.11148e-11
 # Num params=182, abs_diff=1.34215e-08
-Elapsed time is 3.601996 seconds.
+Elapsed time is 3.138618 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 1)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -1234,6 +1238,7 @@ For product information, visit www.mathworks.com.
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -1507,14 +1512,345 @@ For product information, visit www.mathworks.com.
  -0.000022	 -0.000022	diff=8.17765e-14
   local_diff=3.75127e-12
 # Num params=188, abs_diff=1.82177e-07
-Elapsed time is 4.661259 seconds.
+Elapsed time is 3.924959 seconds.
+[?1l>
+## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 1, 'normLocalAttn', 1)
+[?1h=
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
+
+ 
+To get started, type one of these: helpwin, helpdesk, or demo.
+For product information, visit www.mathworks.com.
+ 
+
+  Student License -- for use in conjunction with courses offered at a
+  degree-granting institution.  Professional and commercial use prohibited.
+
+## Bilingual setting
+# Init LSTM parameters using dataType=double, initRange=0.1
+  Model size = 188, individual sizes:  W_src{1}=32 W_src{2}=32 W_tgt{1}=48 W_tgt{2}=32 W_emb_src=10 W_emb_tgt=10 W_pos=4 v_pos=2 W_h=8 W_soft=10
+# assert = 1
+# attnFunc = 4
+# attnOpt = 1
+# batchSize = 10
+# charFeedOpt = 0
+# charMaxLen = 20
+# charNumLayers = 1
+# charOpt = 0
+# charSrcSample = 0
+# charTgtSample = 0
+# charWeight = 1
+# dataType = double
+# debug = 0
+# decode = 1
+# dropout = 0.8
+# epochFraction = 1
+# epochIter = 0
+# feedInput = 1
+# finetuneEpoch = 5
+# finetuneRate = 0.5
+# gpuDevice = 0
+# initRange = 0.1
+# isBi = 1
+# isClip = 1
+# isGradCheck = 1
+# isProfile = 0
+# isResume = 0
+# isReverse = 1
+# learningRate = 1
+# loadModel = 
+# logFreq = 10
+# lstmOpt = 0
+# lstmSize = 2
+# maxGradNorm = 5
+# maxLenRatio = 1.5
+# maxSentLen = 7
+# minLenRatio = 0.5
+# normLocalAttn = 1
+# numEpoches = 10
+# numLayers = 2
+# onlyCPU = 0
+# outDir = ../output/gradcheck
+# posWin = 1
+# saveHDF = 0
+# seed = 0
+# shuffle = 1
+# sortBatch = 1
+# srcCharPrefix = 
+# srcCharShortList = 0
+# srcLang = 
+# srcVocabFile = 
+# testPrefix = 
+# tgtCharPrefix = 
+# tgtCharShortList = 0
+# tgtLang = 
+# tgtVocabFile = 
+# trainPrefix = 
+# validPrefix = 
+# chunkSize = 12800
+# baseIndex = 0
+# clipForward = 50
+# clipBackward = 1000
+# nonlinear_gate_f = sigmoid
+# nonlinear_gate_f_prime = sigmoidPrime
+# nonlinear_f = tanh
+# nonlinear_f_prime = tanhPrime
+# beamSize = 12
+# stackSize = 100
+# unkPenalty = 0
+# forceDecoder = 0
+# unkDiscount = 0
+# isGPU = 0
+# gpu = 0
+# batchId = 1
+# distSigma = 0.5
+# logId = 3
+# charSrcRep = 0
+# charTgtGen = 0
+# srcSos = 2
+# srcUnk = 1
+# srcVocabSize = 5
+# tgtUnk = 1
+# tgtSos = 2
+# tgtEos = 3
+# tgtVocabSize = 5
+# modelFile = ../output/gradcheck/model.mat
+# modelRecentFile = ../output/gradcheck/modelRecent.mat
+# softmaxSize = 2
+# lr = 1
+# epoch = 1
+# bestCostValid = 100000
+# epochBatchCount = 0
+# finetuneCount = 0
+# startIter = 0
+# iter = 0
+# trainNumSents = 0
+# modelSize = 188
+  src input 1: <s> <s> y x
+  src mask: 0  0  1  1
+  tgt input 1: <s> b </s> </s> </s>
+  tgt output 1: b </s> </s> </s> </s>
+  tgt mask: 1  1  0  0  0
+# W_src{1}, [8 4]
+  0.000000	  0.000000	diff=4.1103e-13
+  0.000000	  0.000000	diff=1.42922e-12
+  0.000000	  0.000000	diff=2.97366e-13
+  0.000000	  0.000000	diff=6.62632e-14
+  0.000000	  0.000000	diff=3.80348e-13
+  0.000000	  0.000000	diff=9.70007e-14
+ -0.000032	 -0.000032	diff=4.34264e-12
+  0.000010	  0.000010	diff=1.23068e-10
+ -0.000000	 -0.000000	diff=6.00469e-13
+ -0.000000	 -0.000000	diff=1.35993e-12
+ -0.000000	 -0.000000	diff=4.66992e-13
+ -0.000000	 -0.000000	diff=2.75139e-12
+ -0.000000	 -0.000000	diff=1.08657e-12
+ -0.000000	 -0.000000	diff=1.62581e-12
+  0.000046	  0.000046	diff=1.16126e-11
+ -0.000020	 -0.000020	diff=3.61655e-10
+ -0.000000	 -0.000000	diff=1.28741e-12
+ -0.000000	 -0.000000	diff=6.57454e-13
+ -0.000000	 -0.000000	diff=6.72626e-13
+ -0.000000	 -0.000000	diff=1.43904e-12
+ -0.000000	 -0.000000	diff=6.57365e-14
+ -0.000000	 -0.000000	diff=3.91687e-13
+  0.000001	  0.000001	diff=2.69374e-10
+ -0.000000	 -0.000000	diff=1.05677e-12
+  0.000000	  0.000000	diff=1.45591e-14
+  0.000000	  0.000000	diff=1.26179e-12
+  0.000000	  0.000000	diff=1.49916e-13
+  0.000000	  0.000000	diff=3.06537e-13
+  0.000000	  0.000000	diff=2.14321e-13
+  0.000000	  0.000000	diff=4.58431e-13
+ -0.000000	 -0.000000	diff=5.8312e-13
+  0.000000	  0.000000	diff=4.63726e-10
+  local_diff=1.25291e-09
+# W_src{2}, [8 4]
+ -0.000000	 -0.000000	diff=4.64562e-13
+  0.000000	  0.000000	diff=4.63837e-13
+ -0.000000	 -0.000000	diff=3.90294e-13
+  0.000000	  0.000000	diff=7.35459e-13
+ -0.000000	 -0.000000	diff=4.44295e-13
+ -0.000000	 -0.000000	diff=5.43747e-14
+  0.000064	  0.000064	diff=4.19308e-12
+  0.000007	  0.000007	diff=6.02634e-12
+  0.000000	  0.000000	diff=6.78896e-13
+ -0.000000	 -0.000000	diff=3.92152e-13
+  0.000000	  0.000000	diff=1.07832e-13
+ -0.000000	 -0.000000	diff=1.10914e-12
+  0.000000	  0.000000	diff=1.34013e-12
+  0.000000	  0.000000	diff=2.03049e-13
+ -0.000074	 -0.000074	diff=3.58525e-12
+ -0.000007	 -0.000007	diff=5.41446e-12
+ -0.000000	 -0.000000	diff=9.80804e-13
+  0.000000	  0.000000	diff=1.60844e-14
+ -0.000000	 -0.000000	diff=4.61205e-13
+  0.000000	  0.000000	diff=4.5895e-13
+ -0.000000	 -0.000000	diff=8.48714e-13
+ -0.000000	 -0.000000	diff=3.44247e-13
+  0.000001	  0.000001	diff=8.52977e-10
+  0.000000	  0.000000	diff=6.41131e-13
+  0.000000	  0.000000	diff=1.44913e-12
+ -0.000000	 -0.000000	diff=5.1593e-13
+  0.000000	  0.000000	diff=4.36013e-14
+ -0.000000	 -0.000000	diff=3.72238e-13
+  0.000000	  0.000000	diff=1.17987e-13
+  0.000000	  0.000000	diff=1.011e-12
+ -0.000001	 -0.000001	diff=4.18722e-13
+ -0.000000	 -0.000000	diff=1.76794e-10
+  local_diff=1.06305e-09
+# W_tgt{1}, [8 6]
+ -0.000000	 -0.000000	diff=4.79722e-13
+ -0.000000	 -0.000000	diff=1.3655e-12
+ -0.000000	 -0.000000	diff=4.67348e-13
+  0.000000	  0.000000	diff=5.06744e-13
+ -0.000000	 -0.000000	diff=1.42721e-12
+ -0.000000	 -0.000000	diff=9.39606e-14
+  0.000008	  0.000008	diff=3.9368e-11
+  0.000009	  0.000009	diff=5.10445e-11
+  0.000000	  0.000000	diff=1.29859e-12
+  0.000000	  0.000000	diff=1.09039e-12
+  0.000000	  0.000000	diff=2.74095e-12
+ -0.000000	 -0.000000	diff=1.9653e-12
+  0.000000	  0.000000	diff=1.01773e-12
+  0.000000	  0.000000	diff=6.95608e-13
+ -0.000011	 -0.000011	diff=1.49417e-10
+ -0.000018	 -0.000016	diff=1.58694e-06
+ -0.000000	 -0.000000	diff=4.31838e-14
+ -0.000000	 -0.000000	diff=3.13153e-13
+  0.000000	  0.000000	diff=2.19549e-13
+ -0.000000	 -0.000000	diff=5.51346e-13
+  0.000000	  0.000000	diff=4.2943e-13
+ -0.000000	 -0.000000	diff=2.14697e-13
+ -0.000000	 -0.000000	diff=9.4297e-14
+ -0.000000	 -0.000000	diff=2.19879e-13
+ -0.000000	  0.000000	diff=8.72679e-13
+ -0.000000	  0.000000	diff=7.47863e-13
+ -0.000000	 -0.000000	diff=2.72997e-13
+ -0.000000	  0.000000	diff=8.02702e-13
+ -0.000000	 -0.000000	diff=4.50505e-13
+  0.000000	  0.000000	diff=1.13719e-13
+  0.000000	  0.000000	diff=5.51061e-13
+ -0.000000	 -0.000000	diff=1.35265e-12
+  0.000000	  0.000000	diff=1.70031e-13
+  0.000000	  0.000000	diff=4.99755e-13
+  0.000000	  0.000000	diff=6.33667e-13
+ -0.000000	 -0.000000	diff=5.61289e-13
+  0.000000	  0.000000	diff=5.8916e-13
+ -0.000000	 -0.000000	diff=1.60257e-12
+ -0.000001	 -0.000001	diff=1.43317e-09
+ -0.000001	 -0.000001	diff=1.31345e-11
+ -0.000000	 -0.000000	diff=5.84721e-14
+ -0.000000	 -0.000000	diff=3.08299e-13
+ -0.000000	 -0.000000	diff=6.64781e-13
+  0.000000	  0.000000	diff=1.17926e-12
+ -0.000000	 -0.000000	diff=1.06968e-12
+  0.000000	  0.000000	diff=7.67753e-13
+  0.000000	  0.000000	diff=7.66971e-12
+  0.000001	  0.000001	diff=1.29864e-09
+  local_diff=1.58997e-06
+# W_tgt{2}, [8 4]
+  0.000000	  0.000000	diff=4.13279e-13
+ -0.000000	 -0.000000	diff=6.8864e-13
+ -0.000000	 -0.000000	diff=1.20338e-12
+  0.000000	  0.000000	diff=2.87932e-13
+ -0.000000	 -0.000000	diff=1.01805e-12
+  0.000000	  0.000000	diff=2.02716e-13
+  0.000032	  0.000032	diff=2.68583e-11
+  0.000012	  0.000012	diff=8.62485e-12
+  0.000000	  0.000000	diff=2.91551e-14
+  0.000000	  0.000000	diff=1.5537e-13
+ -0.000000	 -0.000000	diff=1.2616e-12
+  0.000000	  0.000000	diff=1.19601e-12
+ -0.000000	 -0.000000	diff=1.11762e-12
+  0.000000	  0.000000	diff=4.9308e-14
+ -0.000005	 -0.000005	diff=5.59704e-11
+ -0.000002	 -0.000002	diff=5.68877e-12
+  0.000000	  0.000000	diff=3.82652e-13
+ -0.000000	 -0.000000	diff=6.37115e-13
+ -0.000000	 -0.000000	diff=7.56046e-13
+  0.000000	  0.000000	diff=8.13477e-13
+ -0.000000	 -0.000000	diff=1.13771e-12
+  0.000000	  0.000000	diff=7.87352e-13
+  0.000001	  0.000001	diff=4.32731e-09
+  0.000001	  0.000001	diff=1.55095e-11
+ -0.000000	 -0.000000	diff=8.68052e-14
+  0.000000	  0.000000	diff=1.20774e-12
+  0.000000	  0.000000	diff=8.01044e-13
+ -0.000000	 -0.000000	diff=5.61801e-13
+  0.000000	  0.000000	diff=1.06767e-12
+ -0.000000	 -0.000000	diff=7.77653e-13
+ -0.000002	 -0.000002	diff=7.24815e-12
+ -0.000001	 -0.000001	diff=2.08965e-09
+  local_diff=6.5535e-09
+# W_emb_src, [2 5]
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+  0.000018	  0.000018	diff=9.43692e-09
+ -0.000036	 -0.000036	diff=3.46841e-08
+  0.000017	  0.000017	diff=8.84801e-09
+ -0.000030	 -0.000030	diff=3.05897e-08
+  local_diff=8.35587e-08
+# W_emb_tgt, [2 5]
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+ -0.000025	 -0.000025	diff=4.12458e-09
+ -0.000003	 -0.000003	diff=2.18242e-09
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+ -0.000010	 -0.000010	diff=1.72404e-09
+ -0.000002	 -0.000002	diff=1.6634e-09
+ -0.000017	 -0.000017	diff=4.92711e-09
+ -0.000001	 -0.000001	diff=1.11214e-09
+  local_diff=1.57337e-08
+# W_pos, [2 2]
+  0.000000	  0.000000	diff=4.2659e-14
+ -0.000000	 -0.000000	diff=6.74661e-13
+ -0.000000	 -0.000000	diff=6.18487e-13
+  0.000000	  0.000000	diff=7.74307e-14
+  local_diff=1.41324e-12
+# v_pos, [1 2]
+ -0.000000	 -0.000000	diff=5.10455e-13
+ -0.000000	 -0.000000	diff=5.25664e-13
+  local_diff=1.03612e-12
+# W_h, [2 4]
+  0.000071	  0.000071	diff=1.67513e-12
+  0.000023	  0.000023	diff=4.16302e-13
+ -0.000089	 -0.000089	diff=3.58318e-12
+ -0.000030	 -0.000030	diff=4.495e-13
+  0.000013	  0.000013	diff=2.26099e-11
+  0.000006	  0.000006	diff=6.73427e-13
+ -0.000026	 -0.000026	diff=2.0927e-10
+ -0.000014	 -0.000014	diff=1.87355e-11
+  local_diff=2.57413e-10
+# W_soft, [5 2]
+ -0.000046	 -0.000046	diff=2.68899e-12
+ -0.000046	 -0.000046	diff=1.22301e-12
+  0.000019	  0.000019	diff=1.40065e-12
+  0.000016	  0.000016	diff=2.02023e-12
+  0.000056	  0.000056	diff=4.83097e-13
+  0.000047	  0.000047	diff=1.19779e-12
+  0.000047	  0.000047	diff=2.04986e-12
+ -0.000017	 -0.000017	diff=1.06304e-12
+ -0.000018	 -0.000018	diff=5.99799e-13
+ -0.000060	 -0.000060	diff=7.73858e-13
+  local_diff=1.35003e-11
+# Num params=188, abs_diff=1.6984e-06
+Elapsed time is 4.380562 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 2)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -1564,6 +1900,7 @@ For product information, visit www.mathworks.com.
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -1832,14 +2169,14 @@ For product information, visit www.mathworks.com.
  -0.000004	 -0.000004	diff=3.22048e-13
   local_diff=1.07103e-11
 # Num params=186, abs_diff=6.99803e-08
-Elapsed time is 3.971113 seconds.
+Elapsed time is 3.415765 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 3)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -1889,6 +2226,7 @@ For product information, visit www.mathworks.com.
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -2161,14 +2499,14 @@ For product information, visit www.mathworks.com.
  -0.000061	 -0.000061	diff=2.35484e-12
   local_diff=2.06057e-11
 # Num params=188, abs_diff=1.13342e-07
-Elapsed time is 3.456782 seconds.
+Elapsed time is 3.253080 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 1, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 1)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -2221,6 +2559,7 @@ For product information, visit www.mathworks.com.
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -2542,14 +2881,14 @@ For product information, visit www.mathworks.com.
  -0.000004	 -0.000004	diff=5.27355e-13
   local_diff=9.9476e-12
 # Num params=224, abs_diff=4.71365e-08
-Elapsed time is 5.420749 seconds.
+Elapsed time is 4.515373 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 2, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 1)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -2603,6 +2942,7 @@ Change stack size from 100 to 1
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -2936,14 +3276,14 @@ Change stack size from 100 to 1
   0.001743	  0.001743	diff=3.79454e-09
   local_diff=5.76676e-08
 # Num params=234, abs_diff=1.5542e-05
-Elapsed time is 6.168912 seconds.
+Elapsed time is 5.880401 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 1)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -2997,6 +3337,7 @@ Change stack size from 100 to 1
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -3376,14 +3717,14 @@ Change stack size from 100 to 1
  -0.000640	 -0.000640	diff=6.63886e-08
   local_diff=7.84999e-07
 # Num params=276, abs_diff=1.29171e-05
-Elapsed time is 8.933162 seconds.
+Elapsed time is 8.233466 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -3437,6 +3778,7 @@ Change stack size from 100 to 1
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -3952,14 +4294,14 @@ Change stack size from 100 to 1
   0.000000	  0.000000	diff=3.29835e-13
   local_diff=7.87854e-12
 # Num params=404, abs_diff=1.86337e-08
-Elapsed time is 15.179403 seconds.
+Elapsed time is 12.743542 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 1, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'dropout', 0.8)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -4012,6 +4354,7 @@ For product information, visit www.mathworks.com.
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -4401,14 +4744,14 @@ For product information, visit www.mathworks.com.
  -0.000008	 -0.000008	diff=3.02318e-13
   local_diff=4.682e-12
 # Num params=288, abs_diff=5.36005e-08
-Elapsed time is 7.702208 seconds.
+Elapsed time is 6.207730 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'charWeight', 10)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -4462,6 +4805,7 @@ Change stack size from 100 to 1
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -4977,14 +5321,14 @@ Change stack size from 100 to 1
   0.000004	  0.000004	diff=1.37547e-11
   local_diff=1.1502e-10
 # Num params=404, abs_diff=3.15271e-08
-Elapsed time is 14.133821 seconds.
+Elapsed time is 12.846822 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 2, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'charFeedOpt', 1)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -5038,6 +5382,7 @@ Change stack size from 100 to 1
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -5569,14 +5914,607 @@ Change stack size from 100 to 1
   0.000000	  0.000000	diff=1.81797e-12
   local_diff=1.67655e-11
 # Num params=416, abs_diff=6.33597e-08
-Elapsed time is 14.884731 seconds.
+Elapsed time is 13.116859 seconds.
+[?1l>
+## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 2, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'charFeedOpt', 1, 'normLocalAttn', 1)
+[?1h=
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
+
+ 
+To get started, type one of these: helpwin, helpdesk, or demo.
+For product information, visit www.mathworks.com.
+ 
+
+  Student License -- for use in conjunction with courses offered at a
+  degree-granting institution.  Professional and commercial use prohibited.
+
+Change stack size from 100 to 1
+## Bilingual setting
+  tgtCharEos=2
+  srcCharVocab: <c_s> </c_s> x y z
+  tgtCharVocab: <c_s> </c_s> a b c
+# Init LSTM parameters using dataType=double, initRange=0.1
+  Model size = 416, individual sizes:  W_src{1}=32 W_src{2}=32 W_tgt{1}=48 W_tgt{2}=32 W_emb_src=10 W_emb_tgt=10 W_src_char{1}=32 W_src_char{2}=32 W_src_char{3}=32 W_emb_src_char=10 W_tgt_char{1}=32 W_tgt_char{2}=32 W_tgt_char{3}=32 W_emb_tgt_char=10 W_a=4 W_h=8 W_h_char=8 W_soft=10 W_soft_char=10
+# assert = 1
+# attnFunc = 1
+# attnOpt = 2
+# batchSize = 10
+# charFeedOpt = 1
+# charMaxLen = 20
+# charNumLayers = 3
+# charOpt = 3
+# charSrcSample = 0
+# charTgtSample = 0
+# charWeight = 1
+# dataType = double
+# debug = 0
+# decode = 1
+# dropout = 1
+# epochFraction = 1
+# epochIter = 0
+# feedInput = 1
+# finetuneEpoch = 5
+# finetuneRate = 0.5
+# gpuDevice = 0
+# initRange = 0.1
+# isBi = 1
+# isClip = 1
+# isGradCheck = 1
+# isProfile = 0
+# isResume = 0
+# isReverse = 1
+# learningRate = 1
+# loadModel = 
+# logFreq = 10
+# lstmOpt = 0
+# lstmSize = 2
+# maxGradNorm = 5
+# maxLenRatio = 1.5
+# maxSentLen = 7
+# minLenRatio = 0.5
+# normLocalAttn = 1
+# numEpoches = 10
+# numLayers = 2
+# onlyCPU = 0
+# outDir = ../output/gradcheck
+# posWin = 1
+# saveHDF = 0
+# seed = 0
+# shuffle = 1
+# sortBatch = 1
+# srcCharPrefix = 
+# srcCharShortList = 5
+# srcLang = 
+# srcVocabFile = 
+# testPrefix = 
+# tgtCharPrefix = 
+# tgtCharShortList = 5
+# tgtLang = 
+# tgtVocabFile = 
+# trainPrefix = 
+# validPrefix = 
+# chunkSize = 12800
+# baseIndex = 0
+# clipForward = 50
+# clipBackward = 1000
+# nonlinear_gate_f = sigmoid
+# nonlinear_gate_f_prime = sigmoidPrime
+# nonlinear_f = tanh
+# nonlinear_f_prime = tanhPrime
+# beamSize = 12
+# stackSize = 1
+# unkPenalty = 0
+# forceDecoder = 0
+# unkDiscount = 0
+# isGPU = 0
+# gpu = 0
+# batchId = 1
+# logId = 3
+# charSrcRep = 1
+# charTgtGen = 1
+# srcCharVocabFile = .char.vocab
+# srcCharMapFile = .char.map
+# tgtCharVocabFile = .char.vocab
+# tgtCharMapFile = .char.map
+# srcSos = 2
+# srcUnk = 1
+# srcVocabSize = 9
+# tgtUnk = 1
+# tgtSos = 2
+# tgtEos = 3
+# srcCharSos = 1
+# tgtCharSos = 1
+# srcCharEos = 2
+# tgtCharEos = 2
+# srcCharVocabSize = 5
+# tgtCharVocabSize = 5
+# tgtVocabSize = 9
+# modelFile = ../output/gradcheck/model.mat
+# modelRecentFile = ../output/gradcheck/modelRecent.mat
+# softmaxSize = 2
+# lr = 1
+# epoch = 1
+# bestCostValid = 100000
+# epochBatchCount = 0
+# finetuneCount = 0
+# startIter = 0
+# iter = 0
+# trainNumSents = 0
+# trainNumSrcUnkTokens = 0
+# trainNumSrcUnkTypes = 0
+# trainNumTgtUnkTokens = 0
+# modelSize = 416
+  src input 1: <s> xy xyz x
+  src mask: 0  1  1  1
+  tgt input 1: <s> ab ab </s> </s>
+  tgt output 1: ab ab </s> </s> </s>
+  tgt mask: 1  1  1  0  0
+# W_src{1}, [8 4]
+ -0.000000	 -0.000000	diff=1.65755e-12
+  0.000000	  0.000000	diff=1.29581e-12
+ -0.000000	 -0.000000	diff=1.12489e-12
+  0.000000	  0.000000	diff=8.33908e-13
+ -0.000000	 -0.000000	diff=1.58584e-12
+ -0.000000	 -0.000000	diff=1.33229e-13
+  0.000009	  0.000009	diff=6.43695e-11
+  0.000001	  0.000001	diff=3.69682e-11
+  0.000000	  0.000000	diff=2.29993e-12
+ -0.000000	 -0.000000	diff=1.42528e-12
+  0.000000	  0.000000	diff=1.50477e-12
+ -0.000000	 -0.000000	diff=4.21353e-13
+  0.000000	  0.000000	diff=1.85475e-12
+  0.000000	  0.000000	diff=7.62123e-14
+ -0.000013	 -0.000013	diff=1.11788e-10
+ -0.000001	 -0.000001	diff=6.30961e-11
+  0.000000	  0.000000	diff=4.39496e-13
+ -0.000000	 -0.000000	diff=6.50857e-13
+  0.000000	  0.000000	diff=2.13567e-14
+ -0.000000	 -0.000000	diff=6.53473e-13
+  0.000000	  0.000000	diff=1.59731e-12
+  0.000000	  0.000000	diff=9.56929e-13
+ -0.000000	 -0.000000	diff=6.41859e-10
+ -0.000000	 -0.000000	diff=1.97198e-12
+ -0.000000	 -0.000000	diff=1.07593e-12
+  0.000000	  0.000000	diff=8.13595e-13
+ -0.000000	 -0.000000	diff=6.22994e-13
+  0.000000	  0.000000	diff=1.755e-12
+ -0.000000	 -0.000000	diff=3.07261e-12
+ -0.000000	 -0.000000	diff=2.05528e-12
+  0.000000	  0.000000	diff=6.48628e-12
+  0.000000	  0.000000	diff=1.71118e-10
+  local_diff=1.12558e-09
+# W_src{2}, [8 4]
+ -0.000000	 -0.000000	diff=1.3678e-12
+  0.000000	  0.000000	diff=4.80795e-13
+ -0.000000	 -0.000000	diff=1.55885e-12
+  0.000000	  0.000000	diff=2.56578e-13
+ -0.000000	 -0.000000	diff=2.11417e-12
+  0.000000	  0.000000	diff=1.60656e-12
+  0.000019	  0.000019	diff=4.43555e-12
+  0.000034	  0.000034	diff=1.96974e-12
+  0.000000	  0.000000	diff=2.00159e-12
+ -0.000000	 -0.000000	diff=8.63526e-13
+  0.000000	  0.000000	diff=5.42251e-13
+ -0.000000	 -0.000000	diff=2.2975e-12
+  0.000000	  0.000000	diff=1.11447e-12
+ -0.000000	 -0.000000	diff=6.4292e-13
+ -0.000016	 -0.000016	diff=3.56973e-12
+ -0.000028	 -0.000028	diff=8.36791e-14
+ -0.000000	 -0.000000	diff=7.25497e-13
+  0.000000	  0.000000	diff=6.84027e-13
+ -0.000000	 -0.000000	diff=9.12278e-13
+  0.000000	  0.000000	diff=2.50644e-12
+ -0.000000	 -0.000000	diff=4.16109e-13
+  0.000000	  0.000000	diff=3.573e-13
+  0.000000	  0.000000	diff=3.31453e-10
+  0.000001	  0.000001	diff=6.80245e-13
+  0.000000	  0.000000	diff=1.73817e-13
+ -0.000000	 -0.000000	diff=1.10194e-12
+  0.000000	  0.000000	diff=1.67747e-12
+ -0.000000	 -0.000000	diff=8.20511e-13
+  0.000000	  0.000000	diff=1.80068e-13
+ -0.000000	 -0.000000	diff=2.61903e-13
+ -0.000000	 -0.000000	diff=7.06261e-13
+ -0.000001	 -0.000001	diff=1.37918e-09
+  local_diff=1.74674e-09
+# W_tgt{1}, [8 6]
+  0.000000	  0.000000	diff=2.5322e-14
+ -0.000000	 -0.000000	diff=4.29494e-13
+  0.000000	  0.000000	diff=2.71139e-12
+  0.000000	  0.000000	diff=2.74652e-12
+  0.000000	  0.000000	diff=2.43033e-13
+ -0.000000	 -0.000000	diff=2.30927e-13
+ -0.000004	 -0.000004	diff=2.41968e-11
+  0.000011	  0.000011	diff=1.59893e-10
+ -0.000000	 -0.000000	diff=6.70552e-14
+  0.000000	  0.000000	diff=4.22993e-13
+ -0.000000	 -0.000000	diff=3.35327e-14
+ -0.000000	 -0.000000	diff=1.74189e-12
+ -0.000000	 -0.000000	diff=5.58374e-13
+  0.000000	  0.000000	diff=1.34219e-12
+  0.000010	  0.000010	diff=6.53287e-11
+ -0.000030	 -0.000030	diff=2.91306e-10
+  0.000000	  0.000000	diff=2.76123e-12
+  0.000000	 -0.000000	diff=4.29965e-13
+  0.000000	 -0.000000	diff=2.92276e-12
+  0.000000	  0.000000	diff=2.31767e-12
+  0.000000	 -0.000000	diff=2.85095e-12
+  0.000000	  0.000000	diff=2.73076e-12
+  0.000000	  0.000000	diff=1.27088e-13
+ -0.000000	 -0.000000	diff=2.32253e-12
+  0.000000	 -0.000000	diff=3.00646e-12
+  0.000000	  0.000000	diff=2.07679e-12
+  0.000000	  0.000000	diff=2.59837e-12
+  0.000000	 -0.000000	diff=3.09632e-12
+  0.000000	  0.000000	diff=2.75389e-12
+  0.000000	  0.000000	diff=2.3803e-12
+ -0.000000	 -0.000000	diff=7.54692e-13
+  0.000000	  0.000000	diff=7.51191e-13
+ -0.000000	 -0.000000	diff=6.7072e-13
+  0.000000	  0.000000	diff=7.85763e-13
+ -0.000000	 -0.000000	diff=6.83106e-13
+ -0.000000	 -0.000000	diff=1.00296e-13
+ -0.000000	 -0.000000	diff=2.72224e-14
+  0.000000	  0.000000	diff=2.57614e-12
+  0.000000	  0.000000	diff=2.94268e-10
+ -0.000001	 -0.000001	diff=7.8857e-12
+  0.000000	  0.000000	diff=1.224e-14
+ -0.000000	 -0.000000	diff=3.59936e-14
+  0.000000	  0.000000	diff=1.75443e-12
+  0.000000	  0.000000	diff=6.15546e-13
+  0.000000	  0.000000	diff=2.65384e-13
+ -0.000000	 -0.000000	diff=8.6898e-13
+ -0.000000	 -0.000000	diff=9.39026e-13
+  0.000000	  0.000000	diff=8.64108e-11
+  local_diff=9.83057e-10
+# W_tgt{2}, [8 4]
+ -0.000000	 -0.000000	diff=1.25574e-12
+  0.000000	  0.000000	diff=1.97897e-14
+  0.000000	  0.000000	diff=1.3571e-12
+  0.000000	  0.000000	diff=2.65067e-12
+  0.000000	  0.000000	diff=1.09e-12
+  0.000000	  0.000000	diff=8.44646e-14
+ -0.000006	 -0.000006	diff=3.69612e-12
+  0.000011	  0.000011	diff=4.97884e-12
+ -0.000000	 -0.000000	diff=2.67507e-12
+  0.000000	  0.000000	diff=7.21998e-13
+  0.000000	  0.000000	diff=6.33696e-13
+  0.000000	  0.000000	diff=3.14573e-13
+ -0.000000	 -0.000000	diff=2.51386e-13
+  0.000000	  0.000000	diff=3.0412e-13
+ -0.000002	 -0.000002	diff=1.37345e-11
+  0.000002	  0.000002	diff=6.83746e-11
+ -0.000000	 -0.000000	diff=1.34625e-12
+  0.000000	  0.000000	diff=1.36194e-12
+  0.000000	  0.000000	diff=1.77963e-13
+  0.000000	  0.000000	diff=4.2148e-14
+  0.000000	  0.000000	diff=9.55591e-13
+  0.000000	  0.000000	diff=4.09129e-13
+ -0.000000	 -0.000000	diff=5.66299e-10
+  0.000001	  0.000001	diff=5.88349e-12
+  0.000000	  0.000000	diff=4.02324e-13
+  0.000000	 -0.000000	diff=1.12073e-12
+ -0.000000	 -0.000000	diff=1.18651e-12
+ -0.000000	 -0.000000	diff=5.89438e-14
+ -0.000000	 -0.000000	diff=2.43707e-12
+ -0.000000	 -0.000000	diff=3.177e-12
+  0.000001	  0.000001	diff=8.20761e-13
+ -0.000001	 -0.000001	diff=2.60613e-09
+  local_diff=3.29395e-09
+# W_emb_src, [2 5]
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+ -0.000006	 -0.000006	diff=1.90017e-09
+  0.000005	  0.000005	diff=5.44586e-09
+ -0.000004	 -0.000004	diff=1.04047e-09
+  0.000006	  0.000006	diff=3.52292e-09
+  local_diff=1.19094e-08
+# W_emb_tgt, [2 5]
+ -0.000033	 -0.000033	diff=1.49619e-08
+  0.000007	  0.000007	diff=4.08775e-09
+ -0.000026	 -0.000025	diff=1.02144e-08
+  0.000006	  0.000006	diff=2.94117e-09
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+ -0.000003	 -0.000003	diff=9.4055e-10
+  0.000001	  0.000001	diff=3.48284e-10
+ -0.000004	 -0.000004	diff=2.00809e-09
+  0.000001	  0.000001	diff=4.09503e-10
+  local_diff=3.59117e-08
+# W_src_char{1}, [8 4]
+  0.000000	 -0.000000	diff=1.01914e-12
+  0.000000	  0.000000	diff=2.24288e-14
+  0.000000	  0.000000	diff=7.89472e-14
+  0.000000	  0.000000	diff=3.44207e-15
+  0.000000	 -0.000000	diff=5.32089e-13
+  0.000000	  0.000000	diff=1.39595e-14
+ -0.000000	 -0.000000	diff=7.42419e-13
+ -0.000000	 -0.000000	diff=7.27079e-13
+  0.000000	  0.000000	diff=2.58179e-12
+  0.000000	  0.000000	diff=3.68606e-14
+  0.000000	 -0.000000	diff=2.9188e-12
+  0.000000	 -0.000000	diff=2.67154e-15
+  0.000000	  0.000000	diff=2.59743e-12
+  0.000000	  0.000000	diff=2.81167e-12
+ -0.000000	 -0.000000	diff=1.32227e-13
+  0.000000	  0.000000	diff=5.8962e-13
+  0.000000	  0.000000	diff=4.84939e-15
+  0.000000	 -0.000000	diff=3.98539e-16
+  0.000000	 -0.000000	diff=5.39693e-15
+  0.000000	  0.000000	diff=1.2208e-16
+  0.000000	 -0.000000	diff=7.05437e-16
+  0.000000	 -0.000000	diff=2.53632e-16
+  0.000000	 -0.000000	diff=2.17201e-12
+  0.000000	 -0.000000	diff=5.45636e-13
+  0.000000	  0.000000	diff=4.10084e-16
+  0.000000	  0.000000	diff=6.40115e-17
+  0.000000	 -0.000000	diff=8.71803e-17
+  0.000000	 -0.000000	diff=1.24682e-17
+  0.000000	  0.000000	diff=3.49643e-16
+  0.000000	  0.000000	diff=4.31127e-17
+  0.000000	  0.000000	diff=1.27525e-12
+  0.000000	  0.000000	diff=1.15836e-13
+  local_diff=1.8932e-11
+# W_src_char{2}, [8 4]
+  0.000000	 -0.000000	diff=4.2786e-15
+  0.000000	 -0.000000	diff=8.46302e-15
+  0.000000	 -0.000000	diff=3.95752e-16
+  0.000000	 -0.000000	diff=4.68064e-16
+  0.000000	 -0.000000	diff=2.85657e-15
+  0.000000	 -0.000000	diff=6.53011e-15
+  0.000000	  0.000000	diff=2.77339e-14
+  0.000000	  0.000000	diff=7.55619e-13
+  0.000000	 -0.000000	diff=3.25575e-16
+  0.000000	 -0.000000	diff=3.05993e-15
+  0.000000	  0.000000	diff=3.69473e-17
+  0.000000	  0.000000	diff=1.67064e-16
+  0.000000	 -0.000000	diff=5.53103e-16
+  0.000000	 -0.000000	diff=2.56132e-15
+  0.000000	 -0.000000	diff=1.88381e-12
+  0.000000	  0.000000	diff=1.42269e-14
+  0.000000	  0.000000	diff=1.33237e-17
+  0.000000	  0.000000	diff=3.60047e-17
+  0.000000	  0.000000	diff=3.51625e-17
+  0.000000	  0.000000	diff=2.82156e-17
+  0.000000	  0.000000	diff=3.71322e-17
+  0.000000	  0.000000	diff=6.4609e-17
+  0.000000	 -0.000000	diff=1.81051e-12
+  0.000000	 -0.000000	diff=1.56907e-12
+  0.000000	  0.000000	diff=1.76265e-17
+  0.000000	  0.000000	diff=1.27749e-17
+  0.000000	  0.000000	diff=3.23551e-17
+  0.000000	  0.000000	diff=5.32748e-17
+  0.000000	  0.000000	diff=4.27736e-17
+  0.000000	  0.000000	diff=6.69162e-17
+  0.000000	  0.000000	diff=2.81745e-12
+  0.000000	 -0.000000	diff=3.23268e-13
+  local_diff=9.23183e-12
+# W_src_char{3}, [8 4]
+  0.000000	 -0.000000	diff=2.31801e-17
+  0.000000	  0.000000	diff=1.56357e-16
+  0.000000	 -0.000000	diff=3.57352e-18
+  0.000000	  0.000000	diff=4.80794e-17
+  0.000000	 -0.000000	diff=2.37948e-17
+  0.000000	  0.000000	diff=1.46745e-16
+  0.000000	  0.000000	diff=1.86641e-12
+ -0.000000	 -0.000000	diff=1.7252e-12
+  0.000000	 -0.000000	diff=8.60468e-17
+  0.000000	  0.000000	diff=3.92729e-16
+  0.000000	 -0.000000	diff=6.34878e-18
+  0.000000	  0.000000	diff=8.82984e-17
+  0.000000	 -0.000000	diff=6.14625e-17
+  0.000000	  0.000000	diff=3.82883e-16
+  0.000000	  0.000000	diff=3.6107e-13
+ -0.000000	 -0.000000	diff=2.35203e-12
+  0.000000	 -0.000000	diff=6.15797e-20
+  0.000000	  0.000000	diff=3.36071e-19
+  0.000000	 -0.000000	diff=3.19911e-19
+  0.000000	  0.000000	diff=5.66078e-19
+  0.000000	 -0.000000	diff=3.67438e-19
+  0.000000	  0.000000	diff=9.22967e-19
+  0.000000	 -0.000000	diff=8.63803e-13
+  0.000000	  0.000000	diff=9.4612e-13
+  0.000000	 -0.000000	diff=5.38401e-19
+  0.000000	  0.000000	diff=4.35971e-18
+  0.000000	 -0.000000	diff=5.08008e-19
+  0.000000	  0.000000	diff=2.61707e-18
+  0.000000	 -0.000000	diff=1.34001e-18
+  0.000000	  0.000000	diff=6.73557e-18
+  0.000000	  0.000000	diff=4.41771e-13
+  0.000000	 -0.000000	diff=1.22152e-12
+  local_diff=9.77937e-12
+# W_emb_src_char, [2 5]
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+ -0.000000	 -0.000000	diff=1.266e-12
+  0.000000	  0.000000	diff=2.41214e-12
+ -0.000000	 -0.000000	diff=7.06102e-13
+  0.000000	  0.000000	diff=8.38701e-13
+ -0.000000	 -0.000000	diff=2.40576e-12
+  0.000000	  0.000000	diff=2.80497e-12
+ -0.000000	 -0.000000	diff=6.85732e-13
+  0.000000	  0.000000	diff=1.76515e-12
+  local_diff=1.28846e-11
+# W_tgt_char{1}, [8 4]
+ -0.000000	 -0.000000	diff=5.97193e-13
+  0.000000	  0.000000	diff=1.06578e-13
+  0.000000	  0.000000	diff=1.22801e-13
+  0.000000	  0.000000	diff=1.73413e-12
+ -0.000000	 -0.000000	diff=1.38883e-12
+  0.000000	  0.000000	diff=1.74008e-12
+  0.000007	  0.000007	diff=6.45305e-11
+  0.000004	  0.000004	diff=9.51192e-11
+ -0.000000	 -0.000000	diff=2.93846e-12
+ -0.000000	 -0.000000	diff=9.3209e-13
+ -0.000000	 -0.000000	diff=4.37476e-13
+  0.000000	  0.000000	diff=1.18342e-12
+  0.000000	  0.000000	diff=2.41185e-13
+ -0.000000	 -0.000000	diff=1.33354e-12
+  0.000031	  0.000031	diff=3.5437e-10
+  0.000016	  0.000016	diff=3.7389e-10
+  0.000000	  0.000000	diff=1.13869e-13
+ -0.000000	 -0.000000	diff=3.32606e-12
+ -0.000000	 -0.000000	diff=1.70796e-12
+  0.000000	  0.000000	diff=9.38879e-13
+  0.000000	  0.000000	diff=7.35911e-13
+ -0.000000	 -0.000000	diff=9.66138e-13
+  0.000000	  0.000000	diff=2.79677e-10
+  0.000000	  0.000000	diff=2.24686e-12
+  0.000000	  0.000000	diff=1.2886e-13
+ -0.000000	 -0.000000	diff=2.04371e-12
+  0.000000	  0.000000	diff=3.94302e-12
+ -0.000000	 -0.000000	diff=3.29593e-13
+  0.000000	  0.000000	diff=2.74677e-12
+ -0.000000	 -0.000000	diff=1.55161e-13
+  0.000000	  0.000000	diff=4.34841e-13
+  0.000000	  0.000000	diff=1.9798e-11
+  local_diff=1.21996e-09
+# W_tgt_char{2}, [8 4]
+ -0.000000	 -0.000000	diff=2.29449e-12
+  0.000000	  0.000000	diff=1.277e-12
+  0.000000	  0.000000	diff=3.33326e-12
+  0.000000	  0.000000	diff=5.22558e-13
+ -0.000000	 -0.000000	diff=2.62098e-12
+  0.000000	  0.000000	diff=8.2996e-13
+ -0.000001	 -0.000001	diff=7.88138e-13
+ -0.000000	 -0.000000	diff=1.1478e-12
+  0.000000	  0.000000	diff=1.55643e-12
+ -0.000000	 -0.000000	diff=1.0243e-12
+ -0.000000	 -0.000000	diff=1.48337e-12
+ -0.000000	 -0.000000	diff=3.29196e-13
+  0.000000	  0.000000	diff=3.59174e-13
+ -0.000000	 -0.000000	diff=7.72971e-13
+  0.000008	  0.000008	diff=1.56073e-13
+  0.000009	  0.000009	diff=3.96904e-12
+  0.000000	  0.000000	diff=8.18311e-13
+  0.000000	 -0.000000	diff=2.41221e-12
+  0.000000	 -0.000000	diff=8.13626e-13
+  0.000000	 -0.000000	diff=8.33967e-13
+  0.000000	  0.000000	diff=1.9966e-13
+  0.000000	 -0.000000	diff=2.5145e-12
+  0.000000	  0.000000	diff=1.34088e-10
+  0.000000	  0.000000	diff=1.10796e-12
+  0.000000	  0.000000	diff=1.83608e-12
+  0.000000	 -0.000000	diff=3.1153e-12
+  0.000000	 -0.000000	diff=6.32559e-13
+  0.000000	 -0.000000	diff=1.10532e-12
+  0.000000	  0.000000	diff=1.5619e-12
+  0.000000	 -0.000000	diff=3.72058e-12
+  0.000000	  0.000000	diff=1.15923e-13
+  0.000000	  0.000000	diff=1.25089e-10
+  local_diff=3.0243e-10
+# W_tgt_char{3}, [8 4]
+  0.000000	  0.000000	diff=4.64131e-13
+  0.000000	  0.000000	diff=1.26531e-12
+  0.000000	  0.000000	diff=1.09981e-12
+  0.000000	  0.000000	diff=4.23785e-13
+  0.000000	  0.000000	diff=3.36967e-12
+  0.000000	  0.000000	diff=6.51269e-13
+  0.000002	  0.000002	diff=2.16342e-13
+  0.000002	  0.000002	diff=6.6641e-14
+ -0.000000	 -0.000000	diff=8.98499e-13
+ -0.000000	 -0.000000	diff=1.39023e-12
+  0.000000	 -0.000000	diff=2.91549e-12
+  0.000000	 -0.000000	diff=1.22132e-12
+ -0.000000	 -0.000000	diff=9.05423e-13
+ -0.000000	 -0.000000	diff=9.09778e-13
+ -0.000010	 -0.000010	diff=3.55491e-12
+ -0.000008	 -0.000008	diff=6.29396e-13
+  0.000000	  0.000000	diff=3.85296e-14
+  0.000000	  0.000000	diff=4.26546e-14
+  0.000000	  0.000000	diff=3.56318e-14
+  0.000000	  0.000000	diff=2.36492e-14
+  0.000000	  0.000000	diff=5.37917e-14
+  0.000000	  0.000000	diff=5.29706e-14
+  0.000000	  0.000000	diff=1.75182e-10
+  0.000000	  0.000000	diff=1.85377e-12
+  0.000000	  0.000000	diff=1.84886e-14
+  0.000000	  0.000000	diff=2.13967e-14
+  0.000000	  0.000000	diff=1.84658e-14
+  0.000000	  0.000000	diff=1.22281e-14
+  0.000000	  0.000000	diff=2.77312e-14
+  0.000000	  0.000000	diff=2.76601e-14
+  0.000000	  0.000000	diff=2.38698e-12
+  0.000000	  0.000000	diff=7.97213e-11
+  local_diff=2.795e-10
+# W_emb_tgt_char, [2 5]
+ -0.000002	 -0.000002	diff=8.3434e-10
+ -0.000007	 -0.000007	diff=1.30337e-09
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+ -0.000001	 -0.000001	diff=5.92618e-10
+ -0.000006	 -0.000006	diff=1.24992e-09
+ -0.000001	 -0.000001	diff=2.508e-10
+ -0.000003	 -0.000003	diff=7.44068e-10
+ -0.000002	 -0.000002	diff=2.74219e-10
+ -0.000003	 -0.000003	diff=9.4973e-10
+  local_diff=6.19906e-09
+# W_a, [2 2]
+  0.000000	 -0.000000	diff=2.77788e-17
+  0.000000	  0.000000	diff=3.42525e-17
+  0.000000	  0.000000	diff=7.97432e-17
+  0.000000	 -0.000000	diff=9.76569e-17
+  local_diff=2.39431e-16
+# W_h, [2 4]
+ -0.000023	 -0.000023	diff=2.59804e-13
+  0.000033	  0.000033	diff=2.78786e-12
+  0.000028	  0.000028	diff=1.84589e-12
+ -0.000039	 -0.000039	diff=2.31439e-12
+ -0.000008	 -0.000008	diff=4.00818e-12
+  0.000011	  0.000011	diff=6.43802e-12
+  0.000013	  0.000013	diff=1.34302e-10
+ -0.000025	 -0.000025	diff=1.47412e-10
+  local_diff=2.99368e-10
+# W_h_char, [2 4]
+ -0.000000	 -0.000000	diff=1.48178e-12
+ -0.000000	 -0.000000	diff=2.1346e-12
+  0.000000	  0.000000	diff=6.75892e-14
+  0.000000	  0.000000	diff=1.63052e-12
+ -0.000000	 -0.000000	diff=1.03302e-12
+ -0.000000	 -0.000000	diff=2.4781e-12
+  0.000000	  0.000000	diff=1.93709e-13
+  0.000000	  0.000000	diff=2.01078e-12
+  local_diff=1.10301e-11
+# W_soft, [5 2]
+  0.000006	  0.000006	diff=3.56454e-13
+  0.000003	  0.000003	diff=4.97887e-13
+ -0.000016	 -0.000016	diff=2.91177e-12
+  0.000004	  0.000004	diff=8.56274e-13
+  0.000002	  0.000002	diff=1.77486e-12
+ -0.000017	 -0.000017	diff=3.07593e-13
+  0.000011	  0.000011	diff=4.30092e-13
+ -0.000003	 -0.000003	diff=2.76554e-12
+  0.000008	  0.000008	diff=1.05944e-13
+  0.000001	  0.000001	diff=3.05075e-13
+  local_diff=1.03115e-11
+# W_soft_char, [5 2]
+  0.000003	  0.000003	diff=1.27732e-12
+ -0.000002	 -0.000002	diff=2.28717e-12
+ -0.000001	 -0.000001	diff=1.38603e-12
+ -0.000000	 -0.000000	diff=2.00461e-12
+ -0.000000	 -0.000000	diff=1.28385e-12
+  0.000002	  0.000002	diff=1.20796e-12
+ -0.000004	 -0.000004	diff=4.40247e-13
+  0.000001	  0.000001	diff=2.80182e-12
+  0.000000	  0.000000	diff=2.25851e-12
+  0.000000	  0.000000	diff=1.81797e-12
+  local_diff=1.67655e-11
+# Num params=416, abs_diff=6.33597e-08
+Elapsed time is 12.533820 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 2, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'charFeedOpt', 1, 'charWeight', 10)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -5630,6 +6568,7 @@ Change stack size from 100 to 1
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -6161,14 +7100,14 @@ Change stack size from 100 to 1
   0.000004	  0.000004	diff=1.81797e-11
   local_diff=5.49736e-11
 # Num params=416, abs_diff=1.35255e-07
-Elapsed time is 15.052114 seconds.
+Elapsed time is 13.210040 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 2, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'charFeedOpt', 1, 'charSrcSample', 0.5)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -6222,6 +7161,7 @@ Change stack size from 100 to 1
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -6753,14 +7693,14 @@ Change stack size from 100 to 1
   0.000013	  0.000000	diff=1.30043e-05
   local_diff=6.50212e-05
 # Num params=416, abs_diff=0.00272883
-Elapsed time is 15.963045 seconds.
+Elapsed time is 16.096516 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 2, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'charFeedOpt', 1, 'charTgtSample', 0.5)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -6814,6 +7754,7 @@ Change stack size from 100 to 1
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -7345,14 +8286,14 @@ Change stack size from 100 to 1
   0.000001	  0.000001	diff=5.80656e-10
   local_diff=8.1938e-09
 # Num params=416, abs_diff=3.93058e-07
-Elapsed time is 17.976641 seconds.
+Elapsed time is 15.074004 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 2, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'charFeedOpt', 1, 'charSrcSample', 0.5, 'charTgtSample', 0.5)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -7406,6 +8347,7 @@ Change stack size from 100 to 1
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -7937,14 +8879,14 @@ Change stack size from 100 to 1
   0.000001	  0.000001	diff=2.41537e-10
   local_diff=6.50223e-05
 # Num params=416, abs_diff=0.00266862
-Elapsed time is 17.856782 seconds.
+Elapsed time is 14.813248 seconds.
 [?1l>
-## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1)
+## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'attnFunc', 0, 'feedInput', 1)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -7959,7 +8901,7 @@ For product information, visit www.mathworks.com.
   Model size = 110, individual sizes:  W_src{1}=32 W_tgt{1}=48 W_emb_src=10 W_emb_tgt=10 W_soft=10
 # assert = 1
 # attnFunc = 0
-# attnOpt = 0
+# attnOpt = 2
 # batchSize = 10
 # charFeedOpt = 0
 # charMaxLen = 20
@@ -7994,6 +8936,7 @@ For product information, visit www.mathworks.com.
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 1
 # onlyCPU = 0
@@ -8178,14 +9121,14 @@ For product information, visit www.mathworks.com.
  -0.000270	 -0.000270	diff=1.26002e-08
   local_diff=0.000150356
 # Num params=110, abs_diff=2.47345
-Elapsed time is 1.010640 seconds.
+Elapsed time is 0.893784 seconds.
 [?1l>
-## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2)
+## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'attnFunc', 0, 'feedInput', 1, 'numLayers', 2)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -8200,7 +9143,7 @@ For product information, visit www.mathworks.com.
   Model size = 174, individual sizes:  W_src{1}=32 W_src{2}=32 W_tgt{1}=48 W_tgt{2}=32 W_emb_src=10 W_emb_tgt=10 W_soft=10
 # assert = 1
 # attnFunc = 0
-# attnOpt = 0
+# attnOpt = 2
 # batchSize = 10
 # charFeedOpt = 0
 # charMaxLen = 20
@@ -8235,6 +9178,7 @@ For product information, visit www.mathworks.com.
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -8487,14 +9431,14 @@ For product information, visit www.mathworks.com.
   0.489267	  0.488492	diff=0.000774967
   local_diff=0.0033617
 # Num params=174, abs_diff=2.88947
-Elapsed time is 2.224713 seconds.
+Elapsed time is 1.752204 seconds.
 [?1l>
-## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8)
+## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'attnFunc', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -8509,7 +9453,7 @@ For product information, visit www.mathworks.com.
   Model size = 174, individual sizes:  W_src{1}=32 W_src{2}=32 W_tgt{1}=48 W_tgt{2}=32 W_emb_src=10 W_emb_tgt=10 W_soft=10
 # assert = 1
 # attnFunc = 0
-# attnOpt = 0
+# attnOpt = 2
 # batchSize = 10
 # charFeedOpt = 0
 # charMaxLen = 20
@@ -8544,6 +9488,7 @@ For product information, visit www.mathworks.com.
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -8796,14 +9741,14 @@ For product information, visit www.mathworks.com.
   0.328336	  0.327891	diff=0.000444995
   local_diff=0.00276278
 # Num params=174, abs_diff=2.61686
-Elapsed time is 1.889591 seconds.
+Elapsed time is 1.832453 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -8853,6 +9798,7 @@ For product information, visit www.mathworks.com.
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -9115,14 +10061,14 @@ For product information, visit www.mathworks.com.
  -2.109547	 -2.109716	diff=0.000168959
   local_diff=0.0254708
 # Num params=182, abs_diff=5.14398
-Elapsed time is 3.730145 seconds.
+Elapsed time is 3.289668 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 1)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -9172,6 +10118,7 @@ For product information, visit www.mathworks.com.
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -9445,14 +10392,345 @@ For product information, visit www.mathworks.com.
   1.200331	  1.200287	diff=4.3288e-05
   local_diff=0.00941474
 # Num params=188, abs_diff=7.51685
-Elapsed time is 4.659323 seconds.
+Elapsed time is 4.160409 seconds.
+[?1l>
+## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 1, 'normLocalAttn', 1)
+[?1h=
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
+
+ 
+To get started, type one of these: helpwin, helpdesk, or demo.
+For product information, visit www.mathworks.com.
+ 
+
+  Student License -- for use in conjunction with courses offered at a
+  degree-granting institution.  Professional and commercial use prohibited.
+
+## Bilingual setting
+# Init LSTM parameters using dataType=double, initRange=10
+  Model size = 188, individual sizes:  W_src{1}=32 W_src{2}=32 W_tgt{1}=48 W_tgt{2}=32 W_emb_src=10 W_emb_tgt=10 W_pos=4 v_pos=2 W_h=8 W_soft=10
+# assert = 1
+# attnFunc = 4
+# attnOpt = 1
+# batchSize = 10
+# charFeedOpt = 0
+# charMaxLen = 20
+# charNumLayers = 1
+# charOpt = 0
+# charSrcSample = 0
+# charTgtSample = 0
+# charWeight = 1
+# dataType = double
+# debug = 0
+# decode = 1
+# dropout = 0.8
+# epochFraction = 1
+# epochIter = 0
+# feedInput = 1
+# finetuneEpoch = 5
+# finetuneRate = 0.5
+# gpuDevice = 0
+# initRange = 10
+# isBi = 1
+# isClip = 1
+# isGradCheck = 1
+# isProfile = 0
+# isResume = 0
+# isReverse = 1
+# learningRate = 1
+# loadModel = 
+# logFreq = 10
+# lstmOpt = 0
+# lstmSize = 2
+# maxGradNorm = 5
+# maxLenRatio = 1.5
+# maxSentLen = 7
+# minLenRatio = 0.5
+# normLocalAttn = 1
+# numEpoches = 10
+# numLayers = 2
+# onlyCPU = 0
+# outDir = ../output/gradcheck
+# posWin = 1
+# saveHDF = 0
+# seed = 0
+# shuffle = 1
+# sortBatch = 1
+# srcCharPrefix = 
+# srcCharShortList = 0
+# srcLang = 
+# srcVocabFile = 
+# testPrefix = 
+# tgtCharPrefix = 
+# tgtCharShortList = 0
+# tgtLang = 
+# tgtVocabFile = 
+# trainPrefix = 
+# validPrefix = 
+# chunkSize = 12800
+# baseIndex = 0
+# clipForward = 50
+# clipBackward = 1000
+# nonlinear_gate_f = sigmoid
+# nonlinear_gate_f_prime = sigmoidPrime
+# nonlinear_f = tanh
+# nonlinear_f_prime = tanhPrime
+# beamSize = 12
+# stackSize = 100
+# unkPenalty = 0
+# forceDecoder = 0
+# unkDiscount = 0
+# isGPU = 0
+# gpu = 0
+# batchId = 1
+# distSigma = 0.5
+# logId = 3
+# charSrcRep = 0
+# charTgtGen = 0
+# srcSos = 2
+# srcUnk = 1
+# srcVocabSize = 5
+# tgtUnk = 1
+# tgtSos = 2
+# tgtEos = 3
+# tgtVocabSize = 5
+# modelFile = ../output/gradcheck/model.mat
+# modelRecentFile = ../output/gradcheck/modelRecent.mat
+# softmaxSize = 2
+# lr = 1
+# epoch = 1
+# bestCostValid = 100000
+# epochBatchCount = 0
+# finetuneCount = 0
+# startIter = 0
+# iter = 0
+# trainNumSents = 0
+# modelSize = 188
+  src input 1: <s> <s> y x
+  src mask: 0  0  1  1
+  tgt input 1: <s> b </s> </s> </s>
+  tgt output 1: b </s> </s> </s> </s>
+  tgt mask: 1  1  0  0  0
+# W_src{1}, [8 4]
+  0.000000	 -0.000000	diff=1.14917e-16
+  0.000000	  0.000000	diff=2.00631e-11
+  0.000000	 -0.000000	diff=6.9535e-25
+  0.000000	  0.000000	diff=5.70226e-25
+  0.000000	  0.000000	diff=2.00283e-34
+  0.000000	  0.000000	diff=6.39083e-27
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=1.46081e-16
+ -0.000000	 -0.000000	diff=3.25774e-11
+  0.000000	  0.000000	diff=1.17829e-24
+  0.000000	 -0.000000	diff=7.13564e-25
+  0.000000	 -0.000000	diff=2.54429e-34
+  0.000000	 -0.000000	diff=8.1118e-27
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=5.66965e-60
+  0.000000	 -0.000000	diff=1.72064e-50
+  0.000000	  0.000000	diff=7.08952e-64
+  0.000000	  0.000000	diff=1.02267e-64
+  0.000000	 -0.000000	diff=1.78958e-73
+  0.000000	 -0.000000	diff=5.68456e-66
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+  0.000000	 -0.000000	diff=4.39037e-52
+  0.000000	  0.000000	diff=4.50645e-41
+  0.000000	 -0.000000	diff=5.49013e-56
+  0.000000	  0.000000	diff=1.1819e-56
+  0.000000	  0.000000	diff=1.15879e-65
+  0.000000	  0.000000	diff=3.2374e-58
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+  local_diff=5.26408e-11
+# W_src{2}, [8 4]
+  0.000000	  0.000000	diff=1.69702e-66
+  0.000000	 -0.000000	diff=1.37294e-65
+  0.000000	 -0.000000	diff=6.27651e-67
+  0.000000	 -0.000000	diff=2.43557e-66
+  0.000000	  0.000000	diff=1.61968e-66
+  0.000000	 -0.000000	diff=1.09095e-65
+  0.000000	  0.000000	diff=2.12283e-36
+  0.000000	 -0.000000	diff=8.32966e-36
+  0.000000	 -0.000000	diff=7.24944e-59
+  0.000000	  0.000000	diff=5.72068e-58
+  0.000000	  0.000000	diff=1.76892e-59
+  0.000000	  0.000000	diff=9.056e-59
+  0.000000	 -0.000000	diff=8.05688e-59
+  0.000000	  0.000000	diff=5.12828e-58
+  0.000000	  0.000000	diff=5.29654e-30
+  0.000000	  0.000000	diff=3.85918e-28
+  0.000000	  0.000000	diff=1.07494e-59
+  0.000000	 -0.000000	diff=5.91831e-59
+  0.000000	 -0.000000	diff=5.09589e-60
+  0.000000	 -0.000000	diff=8.15177e-60
+  0.000000	  0.000000	diff=7.58462e-60
+  0.000000	 -0.000000	diff=4.94772e-59
+  0.000000	  0.000000	diff=1.90279e-29
+  0.000000	 -0.000000	diff=2.62872e-29
+  0.000000	 -0.000000	diff=2.87465e-59
+  0.000000	  0.000000	diff=5.51442e-58
+  0.000000	  0.000000	diff=1.61039e-59
+  0.000000	  0.000000	diff=2.10375e-58
+  0.000000	 -0.000000	diff=1.66595e-59
+  0.000000	  0.000000	diff=7.89266e-58
+  0.000000	  0.000000	diff=7.32788e-29
+  0.000000	  0.000000	diff=1.99529e-28
+  local_diff=7.09338e-28
+# W_tgt{1}, [8 6]
+ -0.109245	 -0.108524	diff=0.000721356
+ -1.491054	 -1.501271	diff=0.0102161
+  0.105101	  0.105759	diff=0.000657979
+ -0.009639	 -0.009740	diff=0.000101434
+ 14.565365	 14.516677	diff=0.0486882
+  3.264152	  3.295769	diff=0.0316176
+ -0.000002	 -0.000002	diff=2.24829e-08
+  0.000066	  0.000066	diff=3.63528e-07
+  0.000014	  0.000014	diff=1.07976e-07
+ -0.294587	 -0.297338	diff=0.00275053
+  0.000000	  0.000000	diff=7.65692e-11
+  0.021883	  0.021709	diff=0.000173546
+  0.000014	  0.000014	diff=1.08827e-07
+  9.393393	  9.873064	diff=0.479671
+  0.000000	  0.000000	diff=5.43812e-13
+  0.680081	  0.680679	diff=0.00059825
+ -0.000255	 -0.000256	diff=6.65952e-07
+ -1.031588	 -1.036162	diff=0.0045743
+ -0.038411	 -0.038320	diff=9.01421e-05
+ -0.006482	 -0.006497	diff=1.56389e-05
+ -5.394742	 -5.406885	diff=0.0121424
+  1.024424	  1.035646	diff=0.0112218
+  0.000000	  0.000000	diff=1.18231e-12
+ -0.000025	 -0.000025	diff=8.89229e-08
+ -0.000003	 -0.000003	diff=7.22607e-09
+ -0.001107	 -0.001103	diff=3.97415e-06
+ -0.000000	 -0.000000	diff=8.90249e-12
+ -0.000920	 -0.000921	diff=1.14986e-06
+ -0.000003	 -0.000003	diff=7.43795e-09
+ -0.043856	 -0.044760	diff=0.000903666
+ -0.000000	 -0.000000	diff=7.75454e-14
+  0.000031	  0.000031	diff=6.14265e-08
+ -0.000411	 -0.000412	diff=1.56012e-06
+  0.316470	  0.316048	diff=0.000422506
+ -0.060278	 -0.060060	diff=0.000218637
+  0.000000	  0.000000	diff=1.62665e-11
+ -8.284228	 -8.314884	diff=0.0306569
+  0.000093	  0.000093	diff=1.68128e-08
+  0.000000	 -0.000000	diff=1.83605e-12
+  0.000000	  0.000000	diff=3.46882e-13
+  0.000001	  0.000001	diff=5.77721e-10
+  0.000287	  0.000288	diff=3.00061e-07
+ -0.000025	 -0.000025	diff=3.8735e-11
+  0.000890	  0.000890	diff=2.90528e-07
+ -0.003520	 -0.003520	diff=3.91565e-09
+  0.146241	  0.146259	diff=1.7761e-05
+  0.000000	  0.000000	diff=4.10365e-13
+ -0.000012	 -0.000012	diff=4.53154e-09
+  local_diff=0.635468
+# W_tgt{2}, [8 4]
+  1.882066	  1.879364	diff=0.00270274
+ 23.159913	 23.069040	diff=0.0908728
+  0.073628	  0.073519	diff=0.000109129
+ -0.508463	 -0.508402	diff=6.10836e-05
+  1.484611	  1.484511	diff=0.000100181
+  0.172622	  0.173328	diff=0.000706449
+ -0.063103	 -0.062922	diff=0.000180578
+ 42.484958	 42.947960	diff=0.463002
+ -0.606334	 -0.605905	diff=0.00042819
+ -0.302393	 -0.302121	diff=0.000271581
+  0.065885	  0.065841	diff=4.3862e-05
+  0.065513	  0.065517	diff=4.76313e-06
+ -1.284509	 -1.283960	diff=0.000549235
+ -0.801008	 -0.800121	diff=0.000886765
+ -5.810743	 -5.801940	diff=0.00880256
+ -0.404072	 -0.402524	diff=0.00154879
+ -0.300640	 -0.300249	diff=0.000390754
+ -0.077945	 -0.077951	diff=5.39903e-06
+ -0.003349	 -0.003384	diff=3.43511e-05
+ -0.006138	 -0.006123	diff=1.51682e-05
+ -0.508465	 -0.508079	diff=0.0003854
+ -0.071423	 -0.071449	diff=2.58403e-05
+ -0.811968	 -0.809860	diff=0.00210822
+ -0.478058	 -0.476134	diff=0.00192334
+  2.819417	  2.820698	diff=0.00128154
+  0.269680	  0.269954	diff=0.000274573
+  0.090168	  0.090088	diff=8.01495e-05
+ -0.701471	 -0.701253	diff=0.000217403
+  2.223355	  2.222940	diff=0.000415121
+ -0.209228	 -0.209088	diff=0.000140169
+ -0.919323	 -0.917636	diff=0.00168664
+ -9.096269	 -9.062007	diff=0.0342613
+  local_diff=0.613516
+# W_emb_src, [2 5]
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=5.79948e-11
+  0.000000	  0.000000	diff=7.79868e-11
+  0.000000	 -0.000000	diff=6.4734e-16
+  0.000000	 -0.000000	diff=7.41616e-16
+  local_diff=1.35983e-10
+# W_emb_tgt, [2 5]
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+ -0.000000	 -0.000000	diff=2.10642e-13
+  0.000001	  0.000001	diff=7.78654e-09
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+-29.277122	-26.627525	diff=2.6496
+ 13.925877	 14.625599	diff=0.699722
+113.571414	116.212283	diff=2.64087
+-11.099175	-10.951618	diff=0.147557
+  local_diff=6.13774
+# W_pos, [2 2]
+  0.000000	 -0.000000	diff=2.40141e-30
+  0.000000	  0.000000	diff=2.01853e-30
+  0.000000	 -0.000000	diff=1.02852e-30
+  0.000000	  0.000000	diff=9.91059e-31
+  local_diff=6.43952e-30
+# v_pos, [1 2]
+  0.000000	 -0.000000	diff=5.37322e-30
+  0.000000	 -0.000000	diff=5.23682e-30
+  local_diff=1.061e-29
+# W_h, [2 4]
+  0.000000	 -0.000000	diff=1.44307e-30
+  0.000000	 -0.000000	diff=4.7698e-30
+  0.000000	  0.000000	diff=1.28634e-29
+  0.000000	  0.000000	diff=7.70559e-30
+  4.342580	  4.345694	diff=0.00311458
+  3.006372	  3.006686	diff=0.000314818
+ 16.380408	 16.281451	diff=0.0989567
+  1.176798	  1.158479	diff=0.0183195
+  local_diff=0.120706
+# W_soft, [5 2]
+ -1.947622	 -1.950933	diff=0.00331034
+ -0.584315	 -0.585922	diff=0.0016075
+ -0.173022	 -0.173301	diff=0.000278853
+ -2.039176	 -2.042249	diff=0.00307274
+  4.752537	  4.752405	diff=0.00013258
+  0.068892	  0.068544	diff=0.000347511
+  0.071598	  0.071378	diff=0.000220456
+ -0.494063	 -0.494123	diff=6.00079e-05
+ -0.845745	 -0.846086	diff=0.000341469
+  1.200331	  1.200287	diff=4.3288e-05
+  local_diff=0.00941474
+# Num params=188, abs_diff=7.51685
+Elapsed time is 4.454485 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 2)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -9502,6 +10780,7 @@ For product information, visit www.mathworks.com.
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -9770,14 +11049,14 @@ For product information, visit www.mathworks.com.
   0.877976	  0.872652	diff=0.00532419
   local_diff=0.0225641
 # Num params=186, abs_diff=750.462
-Elapsed time is 3.616274 seconds.
+Elapsed time is 3.209601 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 3)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -9827,6 +11106,7 @@ For product information, visit www.mathworks.com.
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -10099,14 +11379,14 @@ For product information, visit www.mathworks.com.
   1.200331	  1.200287	diff=4.3288e-05
   local_diff=0.00941474
 # Num params=188, abs_diff=7.51685
-Elapsed time is 3.436280 seconds.
+Elapsed time is 3.094721 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'initRange', 10, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 1, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 1)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -10159,6 +11439,7 @@ For product information, visit www.mathworks.com.
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -10480,14 +11761,14 @@ For product information, visit www.mathworks.com.
   6.501921	  6.501755	diff=0.000165847
   local_diff=0.040225
 # Num params=224, abs_diff=415.778
-Elapsed time is 5.032391 seconds.
+Elapsed time is 4.751577 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'initRange', 10, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 2, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 1)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -10541,6 +11822,7 @@ Change stack size from 100 to 1
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -10874,14 +12156,14 @@ Change stack size from 100 to 1
  -4.879256	 -4.879258	diff=1.70022e-06
   local_diff=7.40951e-06
 # Num params=234, abs_diff=7.70269
-Elapsed time is 6.225155 seconds.
+Elapsed time is 5.654702 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'initRange', 10, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 1)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -10935,6 +12217,7 @@ Change stack size from 100 to 1
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -11314,14 +12597,14 @@ Change stack size from 100 to 1
   2.236990	  2.236988	diff=1.86052e-06
   local_diff=0.0243832
 # Num params=276, abs_diff=4.82956
-Elapsed time is 7.848840 seconds.
+Elapsed time is 7.842472 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'initRange', 10, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -11375,6 +12658,7 @@ Change stack size from 100 to 1
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -11890,14 +13174,14 @@ Change stack size from 100 to 1
   0.085873	  0.085756	diff=0.000116542
   local_diff=0.000933011
 # Num params=404, abs_diff=20.2036
-Elapsed time is 14.053514 seconds.
+Elapsed time is 13.009925 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'initRange', 10, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 1, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'dropout', 0.8)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -11950,6 +13234,7 @@ For product information, visit www.mathworks.com.
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -12339,14 +13624,14 @@ For product information, visit www.mathworks.com.
 -13.963372	-13.978669	diff=0.0152966
   local_diff=0.059132
 # Num params=288, abs_diff=4.32989
-Elapsed time is 6.872584 seconds.
+Elapsed time is 6.097468 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'initRange', 10, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'charWeight', 10)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -12400,6 +13685,7 @@ Change stack size from 100 to 1
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -12915,14 +14201,14 @@ Change stack size from 100 to 1
   0.858727	  0.857562	diff=0.00116542
   local_diff=0.00933011
 # Num params=404, abs_diff=27.6873
-Elapsed time is 13.847527 seconds.
+Elapsed time is 12.456098 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'initRange', 10, 'attnFunc', 1, 'attnOpt', 2, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'charFeedOpt', 1)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -12976,6 +14262,7 @@ Change stack size from 100 to 1
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -13507,14 +14794,607 @@ Change stack size from 100 to 1
  -0.241799	 -0.241992	diff=0.000192792
   local_diff=0.00112586
 # Num params=416, abs_diff=204.228
-Elapsed time is 15.019311 seconds.
+Elapsed time is 13.066853 seconds.
+[?1l>
+## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'initRange', 10, 'attnFunc', 1, 'attnOpt', 2, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'charFeedOpt', 1, 'normLocalAttn', 1)
+[?1h=
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
+
+ 
+To get started, type one of these: helpwin, helpdesk, or demo.
+For product information, visit www.mathworks.com.
+ 
+
+  Student License -- for use in conjunction with courses offered at a
+  degree-granting institution.  Professional and commercial use prohibited.
+
+Change stack size from 100 to 1
+## Bilingual setting
+  tgtCharEos=2
+  srcCharVocab: <c_s> </c_s> x y z
+  tgtCharVocab: <c_s> </c_s> a b c
+# Init LSTM parameters using dataType=double, initRange=10
+  Model size = 416, individual sizes:  W_src{1}=32 W_src{2}=32 W_tgt{1}=48 W_tgt{2}=32 W_emb_src=10 W_emb_tgt=10 W_src_char{1}=32 W_src_char{2}=32 W_src_char{3}=32 W_emb_src_char=10 W_tgt_char{1}=32 W_tgt_char{2}=32 W_tgt_char{3}=32 W_emb_tgt_char=10 W_a=4 W_h=8 W_h_char=8 W_soft=10 W_soft_char=10
+# assert = 1
+# attnFunc = 1
+# attnOpt = 2
+# batchSize = 10
+# charFeedOpt = 1
+# charMaxLen = 20
+# charNumLayers = 3
+# charOpt = 3
+# charSrcSample = 0
+# charTgtSample = 0
+# charWeight = 1
+# dataType = double
+# debug = 0
+# decode = 1
+# dropout = 1
+# epochFraction = 1
+# epochIter = 0
+# feedInput = 1
+# finetuneEpoch = 5
+# finetuneRate = 0.5
+# gpuDevice = 0
+# initRange = 10
+# isBi = 1
+# isClip = 1
+# isGradCheck = 1
+# isProfile = 0
+# isResume = 0
+# isReverse = 1
+# learningRate = 1
+# loadModel = 
+# logFreq = 10
+# lstmOpt = 0
+# lstmSize = 2
+# maxGradNorm = 5
+# maxLenRatio = 1.5
+# maxSentLen = 7
+# minLenRatio = 0.5
+# normLocalAttn = 1
+# numEpoches = 10
+# numLayers = 2
+# onlyCPU = 0
+# outDir = ../output/gradcheck
+# posWin = 1
+# saveHDF = 0
+# seed = 0
+# shuffle = 1
+# sortBatch = 1
+# srcCharPrefix = 
+# srcCharShortList = 5
+# srcLang = 
+# srcVocabFile = 
+# testPrefix = 
+# tgtCharPrefix = 
+# tgtCharShortList = 5
+# tgtLang = 
+# tgtVocabFile = 
+# trainPrefix = 
+# validPrefix = 
+# chunkSize = 12800
+# baseIndex = 0
+# clipForward = 50
+# clipBackward = 1000
+# nonlinear_gate_f = sigmoid
+# nonlinear_gate_f_prime = sigmoidPrime
+# nonlinear_f = tanh
+# nonlinear_f_prime = tanhPrime
+# beamSize = 12
+# stackSize = 1
+# unkPenalty = 0
+# forceDecoder = 0
+# unkDiscount = 0
+# isGPU = 0
+# gpu = 0
+# batchId = 1
+# logId = 3
+# charSrcRep = 1
+# charTgtGen = 1
+# srcCharVocabFile = .char.vocab
+# srcCharMapFile = .char.map
+# tgtCharVocabFile = .char.vocab
+# tgtCharMapFile = .char.map
+# srcSos = 2
+# srcUnk = 1
+# srcVocabSize = 9
+# tgtUnk = 1
+# tgtSos = 2
+# tgtEos = 3
+# srcCharSos = 1
+# tgtCharSos = 1
+# srcCharEos = 2
+# tgtCharEos = 2
+# srcCharVocabSize = 5
+# tgtCharVocabSize = 5
+# tgtVocabSize = 9
+# modelFile = ../output/gradcheck/model.mat
+# modelRecentFile = ../output/gradcheck/modelRecent.mat
+# softmaxSize = 2
+# lr = 1
+# epoch = 1
+# bestCostValid = 100000
+# epochBatchCount = 0
+# finetuneCount = 0
+# startIter = 0
+# iter = 0
+# trainNumSents = 0
+# trainNumSrcUnkTokens = 0
+# trainNumSrcUnkTypes = 0
+# trainNumTgtUnkTokens = 0
+# modelSize = 416
+  src input 1: <s> xy xyz x
+  src mask: 0  1  1  1
+  tgt input 1: <s> ab ab </s> </s>
+  tgt output 1: ab ab </s> </s> </s>
+  tgt mask: 1  1  1  0  0
+# W_src{1}, [8 4]
+  1.691208	  1.695130	diff=0.00392211
+  0.209425	  0.209554	diff=0.000128068
+  0.205314	  0.205380	diff=6.57855e-05
+  0.034301	  0.034298	diff=3.04586e-06
+  2.352504	  2.361649	diff=0.00914548
+  0.248604	  0.249031	diff=0.000426762
+ -7.737061	 -7.655472	diff=0.081589
+  2.879099	  2.890978	diff=0.0118794
+ -0.465618	 -0.465670	diff=5.17105e-05
+ -0.088409	 -0.088404	diff=4.26589e-06
+ -0.013284	 -0.013288	diff=3.43982e-06
+ -0.003775	 -0.003775	diff=7.21875e-08
+ -0.496258	 -0.496467	diff=0.000209477
+ -0.111333	 -0.111437	diff=0.000104893
+  2.469988	  2.469275	diff=0.000713735
+ -1.160779	 -1.160477	diff=0.000301616
+ -1.077871	 -1.076507	diff=0.00136397
+  0.044465	  0.044620	diff=0.000154734
+ -0.283691	 -0.283650	diff=4.13068e-05
+ -0.098489	 -0.098535	diff=4.59407e-05
+ -2.094724	 -2.090731	diff=0.00399227
+  0.083952	  0.084084	diff=0.000132376
+  2.684639	  2.701797	diff=0.0171581
+  0.073468	  0.073397	diff=7.06492e-05
+  0.298998	  0.299844	diff=0.00084555
+ -0.073800	 -0.073813	diff=1.28124e-05
+  0.120543	  0.120533	diff=1.01159e-05
+ -0.058718	 -0.058748	diff=3.07933e-05
+  0.533679	  0.536541	diff=0.0028621
+ -0.053644	 -0.053614	diff=2.95287e-05
+ -1.656022	 -1.654360	diff=0.00166111
+  0.167749	  0.167837	diff=8.81168e-05
+  local_diff=0.137048
+# W_src{2}, [8 4]
+  0.257111	  0.259733	diff=0.00262192
+  1.481424	  1.479100	diff=0.00232385
+ -0.706583	 -0.705580	diff=0.00100347
+  0.068150	  0.068230	diff=8.08844e-05
+ -0.046748	 -0.041605	diff=0.00514335
+  2.845183	  2.853669	diff=0.00848637
+  7.692487	  7.739043	diff=0.046556
+ -1.829763	 -1.830427	diff=0.000664387
+ -1.138577	 -1.138496	diff=8.12783e-05
+  2.379913	  2.379829	diff=8.40779e-05
+ -0.539169	 -0.538607	diff=0.00056201
+  0.052149	  0.052196	diff=4.63239e-05
+ -4.393115	 -4.391012	diff=0.00210315
+  4.454525	  4.449793	diff=0.0047317
+  8.420919	  8.465211	diff=0.0442917
+  1.032680	  1.034027	diff=0.00134701
+  4.025723	  4.026504	diff=0.000781476
+  1.717489	  1.726134	diff=0.00864501
+ -1.130048	 -1.126916	diff=0.00313209
+  0.914578	  0.916730	diff=0.00215225
+ -3.598611	 -3.598249	diff=0.000362124
+  3.069176	  3.068846	diff=0.000330293
+  6.500144	  6.525925	diff=0.0257808
+  0.249654	  0.248537	diff=0.00111684
+ -3.185763	 -3.185446	diff=0.000317472
+ -3.472520	 -3.470720	diff=0.00180012
+  1.925159	  1.928366	diff=0.00320708
+ -0.725608	 -0.724457	diff=0.00115034
+  6.073682	  6.075093	diff=0.00141064
+ -5.903245	 -5.905097	diff=0.00185227
+-12.090676	-11.998177	diff=0.0924997
+ -0.471679	 -0.472901	diff=0.0012226
+  local_diff=0.265889
+# W_tgt{1}, [8 6]
+ -0.001843	 -0.001845	diff=2.39763e-06
+-33.918955	-35.713496	diff=1.79454
+ -0.426378	 -0.413694	diff=0.0126835
+  0.060801	  0.060805	diff=3.87816e-06
+  0.000000	  0.000000	diff=3.78557e-11
+  1.905885	  1.874683	diff=0.0312016
+ -0.000035	 -0.000035	diff=9.29775e-08
+ -0.000010	 -0.000010	diff=1.16043e-08
+ -0.008904	 -0.008960	diff=5.63245e-05
+ 16.974113	 15.711655	diff=1.26246
+  0.383726	  0.395145	diff=0.0114189
+  0.295172	  0.295270	diff=9.79222e-05
+  0.000000	  0.000000	diff=2.1798e-10
+  7.047220	  7.006507	diff=0.0407128
+ -0.000174	 -0.000172	diff=2.19939e-06
+ -0.000034	 -0.000035	diff=9.96341e-07
+  0.006480	  0.006450	diff=2.93899e-05
+-12.777461	-12.937844	diff=0.160384
+ -0.042987	 -0.042818	diff=0.000168941
+ -0.221385	 -0.221409	diff=2.36679e-05
+ -0.000000	 -0.000000	diff=1.47202e-10
+ -3.630565	 -3.609541	diff=0.0210236
+  0.000122	  0.000124	diff=1.12346e-06
+  0.000003	  0.000003	diff=4.4858e-08
+  0.004008	  0.003997	diff=1.12714e-05
+  7.278220	  7.262682	diff=0.0155378
+  0.135026	  0.136208	diff=0.00118204
+ -0.093947	 -0.093669	diff=0.00027754
+ -0.000000	 -0.000000	diff=4.0593e-11
+ -1.871883	 -1.833922	diff=0.0379606
+  0.000076	  0.000077	diff=4.32231e-07
+  0.000008	  0.000008	diff=1.49176e-07
+  0.000000	  0.000000	diff=1.70733e-15
+ 12.317125	 12.184978	diff=0.132146
+  0.153640	  0.154921	diff=0.00128067
+  0.000000	  0.000000	diff=1.916e-12
+ -0.000000	 -0.000000	diff=3.75887e-12
+  1.794382	  1.798169	diff=0.00378698
+  0.000000	 -0.000000	diff=4.80408e-13
+  0.000000	  0.000000	diff=3.24046e-12
+ -0.000001	 -0.000001	diff=5.71008e-13
+  0.104263	  0.096933	diff=0.00732969
+  0.000202	  0.000202	diff=1.15552e-08
+  0.000040	  0.000040	diff=2.20812e-11
+ -0.000000	 -0.000000	diff=5.23192e-12
+  0.000509	  0.000509	diff=2.6727e-08
+ -0.000000	 -0.000000	diff=5.24541e-12
+ -0.000000	 -0.000000	diff=8.39947e-14
+  local_diff=3.53432
+# W_tgt{2}, [8 4]
+ -0.080297	 -0.080099	diff=0.00019849
+ 59.244012	 57.296673	diff=1.94734
+  0.000296	  0.000295	diff=1.12543e-06
+  1.917106	  1.913088	diff=0.0040177
+  1.128471	  1.123205	diff=0.00526598
+  0.929370	  0.932118	diff=0.00274822
+ -0.005181	 -0.005142	diff=3.877e-05
+222.801168	219.299889	diff=3.50128
+ -0.396604	 -0.396080	diff=0.000524207
+ -1.102140	 -1.104242	diff=0.00210144
+ -0.083575	 -0.083681	diff=0.000105139
+ -0.113983	 -0.114081	diff=9.85046e-05
+ -2.902071	 -2.882960	diff=0.0191112
+  0.254133	  0.253732	diff=0.000400964
+ -0.454097	 -0.451002	diff=0.00309501
+ -1.720599	 -1.723073	diff=0.00247391
+ -1.707712	 -1.706602	diff=0.00110972
+  1.282216	  1.289100	diff=0.00688414
+  1.121675	  1.118688	diff=0.00298707
+  0.566936	  0.554980	diff=0.0119559
+ -4.241298	 -4.234609	diff=0.00668953
+  0.204569	  0.203209	diff=0.00135968
+ -1.980148	 -1.975682	diff=0.0044664
+ 16.081408	 16.026239	diff=0.0551684
+ -1.547715	 -1.537844	diff=0.00987107
+  1.100635	  1.089706	diff=0.010929
+ -0.777061	 -0.772924	diff=0.00413638
+ -0.816858	 -0.793855	diff=0.0230025
+ -0.599107	 -0.597734	diff=0.00137357
+  0.232735	  0.235232	diff=0.00249651
+  0.745546	  0.738565	diff=0.00698096
+ -8.416435	 -8.290394	diff=0.126041
+  local_diff=5.76425
+# W_emb_src, [2 5]
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+  0.000001	  0.000001	diff=3.84406e-08
+  0.000001	  0.000001	diff=5.07067e-08
+  0.000000	  0.000000	diff=4.30232e-12
+  0.000000	  0.000000	diff=2.04235e-12
+  local_diff=8.91536e-08
+# W_emb_tgt, [2 5]
+ 79.188581	 72.137594	diff=7.05099
+ 19.922071	 19.375430	diff=0.546641
+ -0.000000	 -0.000000	diff=2.08037e-09
+ -0.000000	 -0.000000	diff=4.13543e-11
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+  1.091943	  1.055186	diff=0.0367565
+  0.388891	  0.354530	diff=0.0343609
+ 29.768716	 30.147649	diff=0.378932
+  1.912417	  2.024877	diff=0.11246
+  local_diff=8.16014
+# W_src_char{1}, [8 4]
+ -0.298975	 -0.154485	diff=0.144491
+  0.005595	 -0.000000	diff=0.00559474
+  0.000000	  0.000000	diff=4.51279e-11
+ -0.215279	 -0.000000	diff=0.215279
+  0.022013	  0.021250	diff=0.000762927
+ -0.269685	  0.000249	diff=0.269934
+  0.000071	  0.000071	diff=6.90124e-07
+  0.000225	 -0.000000	diff=0.000225127
+ -0.259090	 -0.227936	diff=0.0311545
+ -0.340428	  0.000000	diff=0.340428
+ -0.000000	 -0.000000	diff=1.78512e-09
+ 15.673276	 -0.000001	diff=15.6733
+  0.611501	 -1.302650	diff=1.91415
+ 20.582178	  0.000110	diff=20.5821
+ -0.004368	 -0.004324	diff=4.45198e-05
+ -0.013822	  0.000000	diff=0.0138216
+  0.000004	  0.000004	diff=4.17138e-08
+  0.000009	 -0.000000	diff=9.22951e-06
+  0.000000	  0.000000	diff=4.44213e-12
+ -0.000356	  0.000000	diff=0.000356179
+  0.000035	  0.000035	diff=3.44763e-07
+ -0.000449	  0.000000	diff=0.000448567
+  0.000000	  0.000000	diff=1.14636e-09
+  0.000000	 -0.000000	diff=3.69971e-07
+ -0.000000	 -0.000000	diff=2.61456e-10
+ -0.000000	 -0.000000	diff=5.98078e-08
+  0.000000	 -0.000000	diff=4.48832e-14
+  0.000002	 -0.000000	diff=2.30805e-06
+ -0.000000	 -0.000000	diff=2.24695e-09
+  0.000003	 -0.000000	diff=2.90673e-06
+ -0.000000	 -0.000000	diff=4.80408e-12
+ -0.000000	  0.000000	diff=2.38742e-09
+  local_diff=39.1921
+# W_src_char{2}, [8 4]
+ -4.118388	 -4.176536	diff=0.0581481
+  0.011069	  0.009683	diff=0.00138579
+ -0.000206	 -0.000206	diff=3.26546e-08
+  0.000003	  0.000003	diff=6.19414e-08
+ -3.400973	 -3.425364	diff=0.0243911
+  0.117965	  0.117349	diff=0.000616844
+  2.110655	  2.092253	diff=0.018402
+  0.033306	 -0.105561	diff=0.138866
+  2.526315	  2.484258	diff=0.0420573
+  0.558105	  0.603155	diff=0.0450493
+ -0.038794	 -0.041769	diff=0.00297446
+  0.051860	  0.051912	diff=5.17381e-05
+  2.288798	  2.276290	diff=0.0125087
+  0.489392	  0.515052	diff=0.0256604
+ -1.390745	 -1.398212	diff=0.00746722
+  0.137163	  0.071283	diff=0.0658802
+ -3.998686	 -4.014997	diff=0.0163102
+  3.396439	  3.397951	diff=0.0015123
+-24.154489	-19.974274	diff=4.18022
+  0.660664	  0.660403	diff=0.000260778
+ -3.456798	 -3.460536	diff=0.00373811
+  2.749645	  2.748854	diff=0.000790634
+  0.189059	  0.189493	diff=0.000434124
+ -3.198669	 -3.204259	diff=0.00559043
+ -0.933185	 -0.934005	diff=0.000820063
+  0.904909	  0.904944	diff=3.56773e-05
+  8.286275	 12.220066	diff=3.93379
+  0.010619	  0.010301	diff=0.000317796
+ -0.846035	 -0.845879	diff=0.000155735
+  0.395977	  0.395922	diff=5.50879e-05
+  0.050121	  0.050146	diff=2.46288e-05
+ -0.853698	 -0.854023	diff=0.000324517
+  local_diff=8.58784
+# W_src_char{3}, [8 4]
+ -3.358059	 -2.517383	diff=0.840676
+ -2.758678	 -2.387394	diff=0.371283
+ -1.007372	 -1.005974	diff=0.0013978
+ -0.064061	 -0.064013	diff=4.83267e-05
+  1.102242	  1.698688	diff=0.596446
+ -0.519695	 -0.518975	diff=0.000719226
+ 14.426863	 13.752078	diff=0.674785
+  0.304140	  0.305143	diff=0.00100315
+  2.512865	  3.316782	diff=0.803918
+ -3.404696	 -3.094210	diff=0.310485
+ -0.457305	 -0.456850	diff=0.000455214
+ -0.110928	 -0.110856	diff=7.2557e-05
+-14.198919	-14.097407	diff=0.101512
+ -0.285965	 -0.285785	diff=0.000180039
+  0.894583	  0.878602	diff=0.0159809
+  0.290630	  0.290866	diff=0.000235827
+ -0.220515	 -0.220941	diff=0.000425877
+  5.747822	  5.746296	diff=0.00152603
+  1.795475	  1.798681	diff=0.00320659
+  0.179313	  0.178949	diff=0.000364109
+ 14.063338	 15.420999	diff=1.35766
+  0.637677	  0.638629	diff=0.000951269
+ 12.454192	 12.456958	diff=0.00276582
+ -0.375925	 -0.372992	diff=0.00293369
+  0.030896	  0.030888	diff=8.05167e-06
+ -0.820473	 -0.820688	diff=0.000214891
+ -0.218138	 -0.218024	diff=0.000113883
+ -0.025968	 -0.025973	diff=5.20743e-06
+ -1.238154	 -1.218102	diff=0.020052
+ -0.089511	 -0.089487	diff=2.39084e-05
+ -1.755960	 -1.755244	diff=0.000716075
+  0.077308	  0.077357	diff=4.91042e-05
+  local_diff=5.11022
+# W_emb_src_char, [2 5]
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+ -0.000002	 -0.000002	diff=3.30591e-08
+ -0.000002	 -0.000002	diff=2.40822e-08
+ -0.005406	 -0.002855	diff=0.002551
+  0.088460	  0.049025	diff=0.0394351
+-59.363698	  6.595612	diff=65.9593
+-59.294284	  4.658071	diff=63.9524
+ -0.000000	 -0.000000	diff=1.19053e-12
+  0.000000	  0.000000	diff=4.25016e-12
+  local_diff=129.954
+# W_tgt_char{1}, [8 4]
+  0.000001	  0.000001	diff=7.21735e-09
+  0.000004	  0.000004	diff=4.30206e-08
+ -2.981455	 -3.093394	diff=0.111939
+ -0.000001	 -0.000001	diff=6.29017e-09
+ -0.000449	 -0.000454	diff=4.4422e-06
+  0.000000	  0.000000	diff=5.23832e-13
+  0.000079	  0.000085	diff=5.32533e-06
+  0.000002	  0.000002	diff=1.34232e-08
+ -0.000000	 -0.000000	diff=3.38111e-10
+ -0.000001	 -0.000001	diff=3.84716e-09
+  0.922302	  0.912905	diff=0.00939762
+  0.000000	  0.000000	diff=5.43268e-10
+  0.000134	  0.000134	diff=3.90185e-07
+  0.000000	 -0.000000	diff=2.29115e-12
+  0.000076	  0.000080	diff=4.80563e-06
+  0.000002	  0.000002	diff=1.24304e-08
+  0.000000	  0.000000	diff=2.95537e-12
+  0.000000	 -0.000000	diff=1.62659e-12
+  0.000000	  0.000000	diff=1.34425e-37
+  0.000000	 -0.000000	diff=3.75551e-17
+  0.000000	  0.000000	diff=3.4895e-35
+  0.000000	  0.000000	diff=3.55165e-16
+  0.000012	  0.000013	diff=1.2102e-07
+  0.000000	  0.000000	diff=4.40623e-10
+  0.000000	 -0.000000	diff=1.32321e-16
+  0.000000	 -0.000000	diff=1.37714e-18
+  0.000000	 -0.000000	diff=2.45231e-18
+  0.000000	 -0.000000	diff=3.76059e-23
+  0.000000	 -0.000000	diff=4.04812e-21
+  0.000000	 -0.000000	diff=1.87977e-16
+  0.000013	  0.000013	diff=1.25017e-07
+  0.000000	  0.000000	diff=1.07415e-09
+  local_diff=0.121352
+# W_tgt_char{2}, [8 4]
+  0.007183	  0.007184	diff=6.89145e-08
+  0.003911	  0.003911	diff=1.25466e-08
+  0.000600	  0.000600	diff=2.06234e-08
+ -0.001462	 -0.001462	diff=7.65628e-09
+  0.010218	  0.010219	diff=3.37997e-07
+  0.003694	  0.003694	diff=1.97505e-08
+ -0.257877	 -0.258041	diff=0.000164034
+  0.098989	  0.098857	diff=0.000131946
+  0.000000	  0.000000	diff=3.26089e-12
+ -0.000000	 -0.000000	diff=2.17484e-12
+  0.000000	 -0.000000	diff=4.60933e-13
+  0.000000	  0.000000	diff=2.75774e-12
+  0.000000	  0.000000	diff=2.64024e-13
+ -0.000000	 -0.000000	diff=8.96477e-13
+ -0.000000	 -0.000000	diff=2.48679e-12
+  0.000000	  0.000000	diff=4.674e-12
+  0.015081	  0.015070	diff=1.04189e-05
+  0.056941	  0.056940	diff=1.37112e-06
+ -0.001780	 -0.001780	diff=5.24007e-07
+ -0.012194	 -0.012193	diff=1.40583e-07
+  0.015754	  0.015748	diff=5.71763e-06
+  0.040126	  0.040125	diff=2.76999e-07
+  0.187250	  0.187410	diff=0.000160056
+  0.126892	  0.127066	diff=0.000174189
+  0.015074	  0.015067	diff=7.6731e-06
+  0.051549	  0.051552	diff=2.34705e-06
+ -0.001842	 -0.001842	diff=3.8495e-07
+ -0.011091	 -0.011091	diff=3.19114e-07
+  0.015534	  0.015530	diff=4.08925e-06
+  0.036304	  0.036306	diff=1.76903e-06
+  0.173491	  0.173537	diff=4.53065e-05
+  0.137634	  0.137435	diff=0.000199318
+  local_diff=0.000910349
+# W_tgt_char{3}, [8 4]
+ -0.179670	 -0.179726	diff=5.53995e-05
+ -0.294960	 -0.295076	diff=0.000116408
+  0.030271	  0.030273	diff=1.66403e-06
+  0.090028	  0.090024	diff=4.56042e-06
+ -0.124652	 -0.124677	diff=2.41966e-05
+ -0.108119	 -0.108137	diff=1.75904e-05
+  0.110262	  0.110119	diff=0.000143211
+ -0.030135	 -0.030216	diff=8.03299e-05
+ -0.143358	 -0.143395	diff=3.7058e-05
+ -0.225102	 -0.225167	diff=6.46721e-05
+  0.025632	  0.025632	diff=8.57455e-07
+  0.064500	  0.064498	diff=2.11157e-06
+ -0.097099	 -0.097114	diff=1.55321e-05
+ -0.089489	 -0.089503	diff=1.43562e-05
+  0.129424	  0.129270	diff=0.000154053
+ -0.013938	 -0.014046	diff=0.000108165
+ -0.135398	 -0.135409	diff=1.05502e-05
+ -0.295819	 -0.295890	diff=7.09551e-05
+  0.030956	  0.030956	diff=1.84593e-07
+  0.057922	  0.057922	diff=3.18661e-07
+ -0.093144	 -0.093147	diff=3.71205e-06
+ -0.182036	 -0.182066	diff=3.09015e-05
+  0.373221	  0.371534	diff=0.0016874
+  0.353911	  0.353733	diff=0.000177947
+ -0.174995	 -0.175043	diff=4.87359e-05
+ -0.334319	 -0.334438	diff=0.000118791
+  0.027237	  0.027239	diff=2.37291e-06
+  0.110166	  0.110160	diff=6.00683e-06
+ -0.131595	 -0.131619	diff=2.43324e-05
+ -0.115735	 -0.115739	diff=4.47746e-06
+  0.073723	  0.073491	diff=0.000232156
+  0.047265	  0.047335	diff=7.00305e-05
+  local_diff=0.00332904
+# W_emb_tgt_char, [2 5]
+ -0.000056	 -0.000053	diff=2.47913e-06
+  0.000014	  0.000015	diff=2.44863e-07
+  0.000000	  0.000000	diff=0
+  0.000000	  0.000000	diff=0
+ -0.675889	 -0.681236	diff=0.00534622
+-11.990257	-14.851588	diff=2.86133
+  0.000000	  0.000000	diff=1.57362e-09
+ -0.000000	 -0.000000	diff=1.97179e-10
+ -0.000000	 -0.000000	diff=1.15329e-10
+  0.000000	  0.000000	diff=2.63774e-12
+  local_diff=2.86668
+# W_a, [2 2]
+ -0.968581	 -0.969476	diff=0.000894799
+ -0.146301	 -0.144412	diff=0.00188888
+  0.387926	  0.388350	diff=0.000423964
+  0.190872	  0.190915	diff=4.3644e-05
+  local_diff=0.00325128
+# W_h, [2 4]
+ -0.221210	 -0.196918	diff=0.024292
+  8.760912	  8.750541	diff=0.010371
+ -1.525277	 -1.546842	diff=0.0215645
+ -6.775382	 -6.754659	diff=0.020723
+ -0.385243	 -0.357224	diff=0.0280193
+ -4.423082	 -4.424782	diff=0.00170032
+-10.925142	-10.948920	diff=0.0237787
+ 24.229972	 23.877181	diff=0.352792
+  local_diff=0.48324
+# W_h_char, [2 4]
+  0.000000	  0.000000	diff=1.41083e-10
+ -0.000000	 -0.000000	diff=8.0395e-08
+ -0.000000	 -0.000000	diff=2.44437e-10
+ -0.000002	 -0.000002	diff=1.14068e-07
+  0.000000	  0.000000	diff=4.31512e-11
+  0.000008	  0.000008	diff=1.80304e-08
+ -0.000000	 -0.000000	diff=1.07476e-11
+ -0.000002	 -0.000002	diff=1.06625e-08
+  local_diff=2.23595e-07
+# W_soft, [5 2]
+ -2.529825	 -2.537289	diff=0.00746409
+  1.359032	  1.354764	diff=0.00426751
+ -1.855381	 -1.856536	diff=0.00115493
+  2.798987	  2.791911	diff=0.00707619
+  0.252591	  0.247150	diff=0.00544052
+  7.483556	  7.476370	diff=0.00718678
+ -0.034587	 -0.035347	diff=0.000759362
+ -5.710977	 -5.712300	diff=0.00132298
+ -0.902240	 -0.904930	diff=0.00268975
+ -0.818740	 -0.823793	diff=0.0050529
+  local_diff=0.042415
+# W_soft_char, [5 2]
+  0.315273	  0.315188	diff=8.5035e-05
+  0.312545	  0.312444	diff=0.000101647
+  0.107124	  0.107045	diff=7.84479e-05
+ -0.474190	 -0.474272	diff=8.20205e-05
+ -0.260295	 -0.260405	diff=0.000109435
+  0.139935	  0.139861	diff=7.37612e-05
+  0.508721	  0.508532	diff=0.000189444
+ -0.040127	 -0.040225	diff=9.82051e-05
+ -0.366060	 -0.366175	diff=0.000115073
+ -0.241799	 -0.241992	diff=0.000192792
+  local_diff=0.00112586
+# Num params=416, abs_diff=204.228
+Elapsed time is 13.082434 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'initRange', 10, 'attnFunc', 1, 'attnOpt', 2, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'charFeedOpt', 1, 'charWeight', 10)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -13568,6 +15448,7 @@ Change stack size from 100 to 1
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -14099,14 +15980,14 @@ Change stack size from 100 to 1
  -2.417991	 -2.419919	diff=0.00192792
   local_diff=0.0112586
 # Num params=416, abs_diff=231.164
-Elapsed time is 14.418839 seconds.
+Elapsed time is 13.374302 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'initRange', 10, 'attnFunc', 1, 'attnOpt', 2, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'charFeedOpt', 1, 'charSrcSample', 0.5)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -14160,6 +16041,7 @@ Change stack size from 100 to 1
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -14691,14 +16573,14 @@ Change stack size from 100 to 1
 558.457037	 -0.241992	diff=558.699
   local_diff=2793.5
 # Num params=416, abs_diff=116893
-Elapsed time is 16.017369 seconds.
+Elapsed time is 13.447992 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'initRange', 10, 'attnFunc', 1, 'attnOpt', 2, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'charFeedOpt', 1, 'charTgtSample', 0.5)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -14752,6 +16634,7 @@ Change stack size from 100 to 1
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -15283,14 +17166,14 @@ Change stack size from 100 to 1
  -0.241799	 -0.241992	diff=0.000192792
   local_diff=0.00112586
 # Num params=416, abs_diff=204.228
-Elapsed time is 18.086149 seconds.
+Elapsed time is 13.956095 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'initRange', 10, 'attnFunc', 1, 'attnOpt', 2, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'charFeedOpt', 1, 'charSrcSample', 0.5, 'charTgtSample', 0.5)
 [?1h=
-                                                                  < M A T L A B (R) >
-                                                        Copyright 1984-2013 The MathWorks, Inc.
-                                                          R2013a (8.1.0.604) 64-bit (maci64)
-                                                                   February 15, 2013
+                                                                   < M A T L A B (R) >
+                                                         Copyright 1984-2013 The MathWorks, Inc.
+                                                            R2013a (8.1.0.604) 64-bit (maci64)
+                                                                    February 15, 2013
 
  
 To get started, type one of these: helpwin, helpdesk, or demo.
@@ -15344,6 +17227,7 @@ Change stack size from 100 to 1
 # maxLenRatio = 1.5
 # maxSentLen = 7
 # minLenRatio = 0.5
+# normLocalAttn = 0
 # numEpoches = 10
 # numLayers = 2
 # onlyCPU = 0
@@ -15875,5 +17759,5 @@ Change stack size from 100 to 1
  -0.241799	 -0.241992	diff=0.000192792
   local_diff=2793.5
 # Num params=416, abs_diff=114628
-Elapsed time is 17.847764 seconds.
+Elapsed time is 14.391878 seconds.
 [?1l>
