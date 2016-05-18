@@ -66,7 +66,13 @@ function [attnInfo] = attnLayerForward(h_t, params, model, attnData, maskInfo)
   if params.attnLocalPred
     [attnInfo.distWeights, attnInfo.scaleX] = distLayerForward(mu, attnInfo, params); % numAttnPositions*curBatchSize
     attnInfo.preAlignWeights = attnInfo.alignWeights;
-    attnInfo.alignWeights =  attnInfo.preAlignWeights.* attnInfo.distWeights; % weighted by distances
+    
+    if params.normLocalAttn
+      attnInfo.unNormAlignWeights =  attnInfo.preAlignWeights.* attnInfo.distWeights; % weighted by distances
+      attnInfo.alignWeights = normLayerForward(attnInfo.unNormAlignWeights, attnInfo.srcMaskedIds);
+    else
+      attnInfo.alignWeights = attnInfo.preAlignWeights.* attnInfo.distWeights; % weighted by distances
+    end
   end
 
   % assert

@@ -4,27 +4,29 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 echo "# Script dir = $DIR"
 echo "cd $DIR/../code"
 cd $DIR/../code
-commands_str="trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1);\
-trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2);\
-trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8);\
+commands_str="trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'attnFunc', 0, 'feedInput', 1);\
+trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'attnFunc', 0, 'feedInput', 1, 'numLayers', 2);\
+trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'attnFunc', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8);\
 trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1);\
 trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 2, 'attnOpt', 1);\
 trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 1);\
 trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 2);\
 trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 2, 'attnOpt', 2);\
 trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 2);\
+trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 2, 'normLocalAttn', 1);\
 trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 3);\
 trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 2, 'attnOpt', 3);\
 trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 3);\
-trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1);\
-trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2);\
-trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8);\
+trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'attnFunc', 0, 'feedInput', 1);\
+trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'attnFunc', 0, 'feedInput', 1, 'numLayers', 2);\
+trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'attnFunc', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8);\
 trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1);\
 trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 2, 'attnOpt', 1);\
 trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 1);\
 trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 2);\
 trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 2, 'attnOpt', 2);\
 trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 2);\
+trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 2, 'normLocalAttn', 1);\
 trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 3);\
 trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 2, 'attnOpt', 3);\
 trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 3)"

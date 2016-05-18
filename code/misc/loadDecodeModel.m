@@ -10,7 +10,7 @@ function [model] = loadDecodeModel(modelFile, decodeParams)
   if (isfield(model.params,'softmaxFeedInput')) && (~isfield(model.params,'feedInput'))
     model.params.feedInput = model.params.softmaxFeedInput;
   end
-  % [model.params] = backwardCompatible(model.params, {'', ''});
+  [model.params] = backwardCompatible(model.params, {'normLocalAttn'});
 
   % convert absolute paths to local paths
   fieldNames = fields(model.params);
