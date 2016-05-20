@@ -28,25 +28,23 @@ function [grad_ht, attnGrad, grad_srcHidVecs] = attnLayerBackprop(model, grad_so
   grad_contextVecs = grad_input(1:params.lstmSize, :);
   [grad_alignWeights, grad_srcHidVecs] = contextLayerBackprop(grad_contextVecs, h2sInfo.alignWeights, srcHidVecs, curMask.unmaskedIds, params);
 
-  % local attention, grad_alignWeights -> grad_distWeights, grad_preAlignWeights
-  if params.attnLocalPred
-    % IMPORTANT: don't change the order of these lines
-    
-    
-    if params.normLocalAttn
-      [grad_unNormAlignWeights] = normLayerBackprop(grad_alignWeights, h2sInfo.alignWeights); %, h2sInfo.srcMaskedIds, params);
-      grad_distWeights = grad_unNormAlignWeights.*h2sInfo.preAlignWeights;
-      grad_alignWeights = grad_unNormAlignWeights.*h2sInfo.distWeights; % grad_preAlignWeights
-    else
+  if params.attnLocalPred && params.normLocalAttn % new approach for local attention after EMNLP'15
+    [grad_unNormAlignWeights] = normLayerBackprop(grad_alignWeights, h2sInfo.alignWeights); %, h2sInfo.srcMaskedIds, params);
+    grad_distWeights = grad_unNormAlignWeights.*h2sInfo.alignScores;
+    grad_scores = grad_unNormAlignWeights.*h2sInfo.distWeights; % grad_preAlignWeights
+  else
+    % local attention, grad_alignWeights -> grad_distWeights, grad_preAlignWeights
+    if params.attnLocalPred
+      % IMPORTANT: don't change the order of these lines
       grad_distWeights = grad_alignWeights.*h2sInfo.preAlignWeights;
       grad_alignWeights = grad_alignWeights.*h2sInfo.distWeights; % grad_preAlignWeights
+      h2sInfo.alignWeights = h2sInfo.preAlignWeights;
     end
-    
-    h2sInfo.alignWeights = h2sInfo.preAlignWeights;
+
+    % grad_alignWeights -> grad_scores
+    [grad_scores] = normLayerBackprop(grad_alignWeights, h2sInfo.alignWeights); %, h2sInfo.srcMaskedIds, params);
   end
   
-  % grad_alignWeights -> grad_scores
-  [grad_scores] = normLayerBackprop(grad_alignWeights, h2sInfo.alignWeights); %, h2sInfo.srcMaskedIds, params);
   if params.assert
     assert(computeSum(grad_scores(h2sInfo.srcMaskedIds), params.isGPU)==0);
   end
