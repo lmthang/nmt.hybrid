@@ -241,7 +241,7 @@ For product information, visit www.mathworks.com.
   0.002656	  0.002656	diff=1.97791e-08
   local_diff=4.24209e-07
 # Num params=110, abs_diff=6.70758e-06
-Elapsed time is 0.838362 seconds.
+Elapsed time is 0.849470 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'attnFunc', 0, 'feedInput', 1, 'numLayers', 2)
 [?1h=
@@ -551,7 +551,7 @@ For product information, visit www.mathworks.com.
  -0.000051	 -0.000051	diff=3.27591e-11
   local_diff=2.05347e-10
 # Num params=174, abs_diff=6.23289e-07
-Elapsed time is 1.584432 seconds.
+Elapsed time is 1.708689 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'attnFunc', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8)
 [?1h=
@@ -861,7 +861,7 @@ For product information, visit www.mathworks.com.
  -0.000122	 -0.000122	diff=4.54174e-11
   local_diff=2.90612e-10
 # Num params=174, abs_diff=4.86327e-07
-Elapsed time is 1.843138 seconds.
+Elapsed time is 1.896567 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1)
 [?1h=
@@ -1181,7 +1181,7 @@ For product information, visit www.mathworks.com.
  -0.000018	 -0.000018	diff=1.2212e-12
   local_diff=1.11148e-11
 # Num params=182, abs_diff=1.34215e-08
-Elapsed time is 3.138618 seconds.
+Elapsed time is 3.215536 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 1)
 [?1h=
@@ -1512,7 +1512,7 @@ For product information, visit www.mathworks.com.
  -0.000022	 -0.000022	diff=8.17765e-14
   local_diff=3.75127e-12
 # Num params=188, abs_diff=1.82177e-07
-Elapsed time is 3.924959 seconds.
+Elapsed time is 4.066433 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 1, 'normLocalAttn', 1)
 [?1h=
@@ -1635,56 +1635,56 @@ For product information, visit www.mathworks.com.
   tgt output 1: b </s> </s> </s> </s>
   tgt mask: 1  1  0  0  0
 # W_src{1}, [8 4]
-  0.000000	  0.000000	diff=4.1103e-13
-  0.000000	  0.000000	diff=1.42922e-12
-  0.000000	  0.000000	diff=2.97366e-13
-  0.000000	  0.000000	diff=6.62632e-14
-  0.000000	  0.000000	diff=3.80348e-13
-  0.000000	  0.000000	diff=9.70007e-14
- -0.000032	 -0.000032	diff=4.34264e-12
-  0.000010	  0.000010	diff=1.23068e-10
- -0.000000	 -0.000000	diff=6.00469e-13
- -0.000000	 -0.000000	diff=1.35993e-12
- -0.000000	 -0.000000	diff=4.66992e-13
- -0.000000	 -0.000000	diff=2.75139e-12
- -0.000000	 -0.000000	diff=1.08657e-12
- -0.000000	 -0.000000	diff=1.62581e-12
-  0.000046	  0.000046	diff=1.16126e-11
- -0.000020	 -0.000020	diff=3.61655e-10
+  0.000000	  0.000000	diff=4.1104e-13
+  0.000000	  0.000000	diff=1.42924e-12
+  0.000000	  0.000000	diff=2.97367e-13
+  0.000000	  0.000000	diff=6.62756e-14
+  0.000000	  0.000000	diff=3.80355e-13
+  0.000000	  0.000000	diff=9.70051e-14
+ -0.000032	 -0.000032	diff=4.34548e-12
+  0.000010	  0.000010	diff=1.23076e-10
+ -0.000000	 -0.000000	diff=6.00455e-13
+ -0.000000	 -0.000000	diff=1.3599e-12
+ -0.000000	 -0.000000	diff=4.66989e-13
+ -0.000000	 -0.000000	diff=2.75141e-12
+ -0.000000	 -0.000000	diff=1.08656e-12
+ -0.000000	 -0.000000	diff=1.62582e-12
+  0.000046	  0.000046	diff=1.16087e-11
+ -0.000020	 -0.000020	diff=3.61643e-10
  -0.000000	 -0.000000	diff=1.28741e-12
- -0.000000	 -0.000000	diff=6.57454e-13
+ -0.000000	 -0.000000	diff=6.57453e-13
  -0.000000	 -0.000000	diff=6.72626e-13
  -0.000000	 -0.000000	diff=1.43904e-12
  -0.000000	 -0.000000	diff=6.57365e-14
  -0.000000	 -0.000000	diff=3.91687e-13
   0.000001	  0.000001	diff=2.69374e-10
- -0.000000	 -0.000000	diff=1.05677e-12
-  0.000000	  0.000000	diff=1.45591e-14
+ -0.000000	 -0.000000	diff=1.0565e-12
+  0.000000	  0.000000	diff=1.4559e-14
   0.000000	  0.000000	diff=1.26179e-12
   0.000000	  0.000000	diff=1.49916e-13
-  0.000000	  0.000000	diff=3.06537e-13
+  0.000000	  0.000000	diff=3.06538e-13
   0.000000	  0.000000	diff=2.14321e-13
   0.000000	  0.000000	diff=4.58431e-13
- -0.000000	 -0.000000	diff=5.8312e-13
+ -0.000000	 -0.000000	diff=5.83096e-13
   0.000000	  0.000000	diff=4.63726e-10
   local_diff=1.25291e-09
 # W_src{2}, [8 4]
- -0.000000	 -0.000000	diff=4.64562e-13
-  0.000000	  0.000000	diff=4.63837e-13
- -0.000000	 -0.000000	diff=3.90294e-13
+ -0.000000	 -0.000000	diff=4.64561e-13
+  0.000000	  0.000000	diff=4.63836e-13
+ -0.000000	 -0.000000	diff=3.90293e-13
   0.000000	  0.000000	diff=7.35459e-13
- -0.000000	 -0.000000	diff=4.44295e-13
- -0.000000	 -0.000000	diff=5.43747e-14
-  0.000064	  0.000064	diff=4.19308e-12
-  0.000007	  0.000007	diff=6.02634e-12
+ -0.000000	 -0.000000	diff=4.44294e-13
+ -0.000000	 -0.000000	diff=5.43737e-14
+  0.000064	  0.000064	diff=4.18886e-12
+  0.000007	  0.000007	diff=6.03225e-12
   0.000000	  0.000000	diff=6.78896e-13
- -0.000000	 -0.000000	diff=3.92152e-13
+ -0.000000	 -0.000000	diff=3.92151e-13
   0.000000	  0.000000	diff=1.07832e-13
  -0.000000	 -0.000000	diff=1.10914e-12
   0.000000	  0.000000	diff=1.34013e-12
-  0.000000	  0.000000	diff=2.03049e-13
- -0.000074	 -0.000074	diff=3.58525e-12
- -0.000007	 -0.000007	diff=5.41446e-12
+  0.000000	  0.000000	diff=2.0305e-13
+ -0.000074	 -0.000074	diff=3.58872e-12
+ -0.000007	 -0.000007	diff=5.40918e-12
  -0.000000	 -0.000000	diff=9.80804e-13
   0.000000	  0.000000	diff=1.60844e-14
  -0.000000	 -0.000000	diff=4.61205e-13
@@ -1692,32 +1692,32 @@ For product information, visit www.mathworks.com.
  -0.000000	 -0.000000	diff=8.48714e-13
  -0.000000	 -0.000000	diff=3.44247e-13
   0.000001	  0.000001	diff=8.52977e-10
-  0.000000	  0.000000	diff=6.41131e-13
+  0.000000	  0.000000	diff=6.41212e-13
   0.000000	  0.000000	diff=1.44913e-12
  -0.000000	 -0.000000	diff=5.1593e-13
   0.000000	  0.000000	diff=4.36013e-14
  -0.000000	 -0.000000	diff=3.72238e-13
   0.000000	  0.000000	diff=1.17987e-13
   0.000000	  0.000000	diff=1.011e-12
- -0.000001	 -0.000001	diff=4.18722e-13
+ -0.000001	 -0.000001	diff=4.18605e-13
  -0.000000	 -0.000000	diff=1.76794e-10
   local_diff=1.06305e-09
 # W_tgt{1}, [8 6]
- -0.000000	 -0.000000	diff=4.79722e-13
- -0.000000	 -0.000000	diff=1.3655e-12
- -0.000000	 -0.000000	diff=4.67348e-13
-  0.000000	  0.000000	diff=5.06744e-13
+ -0.000000	 -0.000000	diff=4.7972e-13
+ -0.000000	 -0.000000	diff=1.36545e-12
+ -0.000000	 -0.000000	diff=4.67345e-13
+  0.000000	  0.000000	diff=5.06781e-13
  -0.000000	 -0.000000	diff=1.42721e-12
- -0.000000	 -0.000000	diff=9.39606e-14
-  0.000008	  0.000008	diff=3.9368e-11
-  0.000009	  0.000009	diff=5.10445e-11
+ -0.000000	 -0.000000	diff=9.39646e-14
+  0.000008	  0.000008	diff=3.9369e-11
+  0.000009	  0.000009	diff=5.10333e-11
   0.000000	  0.000000	diff=1.29859e-12
-  0.000000	  0.000000	diff=1.09039e-12
-  0.000000	  0.000000	diff=2.74095e-12
- -0.000000	 -0.000000	diff=1.9653e-12
-  0.000000	  0.000000	diff=1.01773e-12
-  0.000000	  0.000000	diff=6.95608e-13
- -0.000011	 -0.000011	diff=1.49417e-10
+  0.000000	  0.000000	diff=1.09043e-12
+  0.000000	  0.000000	diff=2.74096e-12
+ -0.000000	 -0.000000	diff=1.96533e-12
+  0.000000	  0.000000	diff=1.01774e-12
+  0.000000	  0.000000	diff=6.95611e-13
+ -0.000011	 -0.000011	diff=1.49415e-10
  -0.000018	 -0.000016	diff=1.58694e-06
  -0.000000	 -0.000000	diff=4.31838e-14
  -0.000000	 -0.000000	diff=3.13153e-13
@@ -1725,8 +1725,8 @@ For product information, visit www.mathworks.com.
  -0.000000	 -0.000000	diff=5.51346e-13
   0.000000	  0.000000	diff=4.2943e-13
  -0.000000	 -0.000000	diff=2.14697e-13
- -0.000000	 -0.000000	diff=9.4297e-14
- -0.000000	 -0.000000	diff=2.19879e-13
+ -0.000000	 -0.000000	diff=9.42969e-14
+ -0.000000	 -0.000000	diff=2.19883e-13
  -0.000000	  0.000000	diff=8.72679e-13
  -0.000000	  0.000000	diff=7.47863e-13
  -0.000000	 -0.000000	diff=2.72997e-13
@@ -1736,39 +1736,39 @@ For product information, visit www.mathworks.com.
   0.000000	  0.000000	diff=5.51061e-13
  -0.000000	 -0.000000	diff=1.35265e-12
   0.000000	  0.000000	diff=1.70031e-13
-  0.000000	  0.000000	diff=4.99755e-13
+  0.000000	  0.000000	diff=4.99756e-13
   0.000000	  0.000000	diff=6.33667e-13
- -0.000000	 -0.000000	diff=5.61289e-13
+ -0.000000	 -0.000000	diff=5.61287e-13
   0.000000	  0.000000	diff=5.8916e-13
  -0.000000	 -0.000000	diff=1.60257e-12
  -0.000001	 -0.000001	diff=1.43317e-09
- -0.000001	 -0.000001	diff=1.31345e-11
- -0.000000	 -0.000000	diff=5.84721e-14
- -0.000000	 -0.000000	diff=3.08299e-13
+ -0.000001	 -0.000001	diff=1.31358e-11
+ -0.000000	 -0.000000	diff=5.84722e-14
+ -0.000000	 -0.000000	diff=3.083e-13
  -0.000000	 -0.000000	diff=6.64781e-13
   0.000000	  0.000000	diff=1.17926e-12
  -0.000000	 -0.000000	diff=1.06968e-12
   0.000000	  0.000000	diff=7.67753e-13
-  0.000000	  0.000000	diff=7.66971e-12
+  0.000000	  0.000000	diff=7.66967e-12
   0.000001	  0.000001	diff=1.29864e-09
   local_diff=1.58997e-06
 # W_tgt{2}, [8 4]
   0.000000	  0.000000	diff=4.13279e-13
  -0.000000	 -0.000000	diff=6.8864e-13
  -0.000000	 -0.000000	diff=1.20338e-12
-  0.000000	  0.000000	diff=2.87932e-13
+  0.000000	  0.000000	diff=2.87935e-13
  -0.000000	 -0.000000	diff=1.01805e-12
-  0.000000	  0.000000	diff=2.02716e-13
-  0.000032	  0.000032	diff=2.68583e-11
-  0.000012	  0.000012	diff=8.62485e-12
+  0.000000	  0.000000	diff=2.02715e-13
+  0.000032	  0.000032	diff=2.68627e-11
+  0.000012	  0.000012	diff=8.64171e-12
   0.000000	  0.000000	diff=2.91551e-14
   0.000000	  0.000000	diff=1.5537e-13
  -0.000000	 -0.000000	diff=1.2616e-12
   0.000000	  0.000000	diff=1.19601e-12
  -0.000000	 -0.000000	diff=1.11762e-12
   0.000000	  0.000000	diff=4.9308e-14
- -0.000005	 -0.000005	diff=5.59704e-11
- -0.000002	 -0.000002	diff=5.68877e-12
+ -0.000005	 -0.000005	diff=5.59705e-11
+ -0.000002	 -0.000002	diff=5.68894e-12
   0.000000	  0.000000	diff=3.82652e-13
  -0.000000	 -0.000000	diff=6.37115e-13
  -0.000000	 -0.000000	diff=7.56046e-13
@@ -1776,16 +1776,16 @@ For product information, visit www.mathworks.com.
  -0.000000	 -0.000000	diff=1.13771e-12
   0.000000	  0.000000	diff=7.87352e-13
   0.000001	  0.000001	diff=4.32731e-09
-  0.000001	  0.000001	diff=1.55095e-11
+  0.000001	  0.000001	diff=1.55102e-11
  -0.000000	 -0.000000	diff=8.68052e-14
   0.000000	  0.000000	diff=1.20774e-12
   0.000000	  0.000000	diff=8.01044e-13
  -0.000000	 -0.000000	diff=5.61801e-13
   0.000000	  0.000000	diff=1.06767e-12
- -0.000000	 -0.000000	diff=7.77653e-13
- -0.000002	 -0.000002	diff=7.24815e-12
+ -0.000000	 -0.000000	diff=7.77652e-13
+ -0.000002	 -0.000002	diff=7.24848e-12
  -0.000001	 -0.000001	diff=2.08965e-09
-  local_diff=6.5535e-09
+  local_diff=6.55352e-09
 # W_emb_src, [2 5]
   0.000000	  0.000000	diff=0
   0.000000	  0.000000	diff=0
@@ -1801,30 +1801,30 @@ For product information, visit www.mathworks.com.
 # W_emb_tgt, [2 5]
   0.000000	  0.000000	diff=0
   0.000000	  0.000000	diff=0
- -0.000025	 -0.000025	diff=4.12458e-09
+ -0.000025	 -0.000025	diff=4.1246e-09
  -0.000003	 -0.000003	diff=2.18242e-09
   0.000000	  0.000000	diff=0
   0.000000	  0.000000	diff=0
- -0.000010	 -0.000010	diff=1.72404e-09
+ -0.000010	 -0.000010	diff=1.72405e-09
  -0.000002	 -0.000002	diff=1.6634e-09
- -0.000017	 -0.000017	diff=4.92711e-09
+ -0.000017	 -0.000017	diff=4.92714e-09
  -0.000001	 -0.000001	diff=1.11214e-09
-  local_diff=1.57337e-08
+  local_diff=1.57338e-08
 # W_pos, [2 2]
-  0.000000	  0.000000	diff=4.2659e-14
- -0.000000	 -0.000000	diff=6.74661e-13
- -0.000000	 -0.000000	diff=6.18487e-13
-  0.000000	  0.000000	diff=7.74307e-14
-  local_diff=1.41324e-12
+  0.000000	  0.000000	diff=8.24673e-14
+ -0.000000	 -0.000000	diff=6.41177e-13
+ -0.000000	 -0.000000	diff=5.11544e-13
+  0.000000	  0.000000	diff=1.67384e-13
+  local_diff=1.40257e-12
 # v_pos, [1 2]
- -0.000000	 -0.000000	diff=5.10455e-13
- -0.000000	 -0.000000	diff=5.25664e-13
-  local_diff=1.03612e-12
+ -0.000000	 -0.000000	diff=2.77431e-13
+ -0.000000	 -0.000000	diff=3.10158e-13
+  local_diff=5.87588e-13
 # W_h, [2 4]
   0.000071	  0.000071	diff=1.67513e-12
-  0.000023	  0.000023	diff=4.16302e-13
+  0.000023	  0.000023	diff=4.16303e-13
  -0.000089	 -0.000089	diff=3.58318e-12
- -0.000030	 -0.000030	diff=4.495e-13
+ -0.000030	 -0.000030	diff=4.49499e-13
   0.000013	  0.000013	diff=2.26099e-11
   0.000006	  0.000006	diff=6.73427e-13
  -0.000026	 -0.000026	diff=2.0927e-10
@@ -1843,7 +1843,7 @@ For product information, visit www.mathworks.com.
  -0.000060	 -0.000060	diff=7.73858e-13
   local_diff=1.35003e-11
 # Num params=188, abs_diff=1.6984e-06
-Elapsed time is 4.380562 seconds.
+Elapsed time is 4.183535 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 2)
 [?1h=
@@ -2169,7 +2169,7 @@ For product information, visit www.mathworks.com.
  -0.000004	 -0.000004	diff=3.22048e-13
   local_diff=1.07103e-11
 # Num params=186, abs_diff=6.99803e-08
-Elapsed time is 3.415765 seconds.
+Elapsed time is 3.336339 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 3)
 [?1h=
@@ -2499,7 +2499,7 @@ For product information, visit www.mathworks.com.
  -0.000061	 -0.000061	diff=2.35484e-12
   local_diff=2.06057e-11
 # Num params=188, abs_diff=1.13342e-07
-Elapsed time is 3.253080 seconds.
+Elapsed time is 3.200270 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 1, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 1)
 [?1h=
@@ -2881,7 +2881,7 @@ For product information, visit www.mathworks.com.
  -0.000004	 -0.000004	diff=5.27355e-13
   local_diff=9.9476e-12
 # Num params=224, abs_diff=4.71365e-08
-Elapsed time is 4.515373 seconds.
+Elapsed time is 4.444474 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 2, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 1)
 [?1h=
@@ -3276,7 +3276,7 @@ Change stack size from 100 to 1
   0.001743	  0.001743	diff=3.79454e-09
   local_diff=5.76676e-08
 # Num params=234, abs_diff=1.5542e-05
-Elapsed time is 5.880401 seconds.
+Elapsed time is 5.725946 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 1)
 [?1h=
@@ -3717,7 +3717,7 @@ Change stack size from 100 to 1
  -0.000640	 -0.000640	diff=6.63886e-08
   local_diff=7.84999e-07
 # Num params=276, abs_diff=1.29171e-05
-Elapsed time is 8.233466 seconds.
+Elapsed time is 7.287156 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3)
 [?1h=
@@ -4294,7 +4294,7 @@ Change stack size from 100 to 1
   0.000000	  0.000000	diff=3.29835e-13
   local_diff=7.87854e-12
 # Num params=404, abs_diff=1.86337e-08
-Elapsed time is 12.743542 seconds.
+Elapsed time is 13.435343 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 1, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'dropout', 0.8)
 [?1h=
@@ -4744,7 +4744,7 @@ For product information, visit www.mathworks.com.
  -0.000008	 -0.000008	diff=3.02318e-13
   local_diff=4.682e-12
 # Num params=288, abs_diff=5.36005e-08
-Elapsed time is 6.207730 seconds.
+Elapsed time is 6.120499 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'charWeight', 10)
 [?1h=
@@ -5321,7 +5321,7 @@ Change stack size from 100 to 1
   0.000004	  0.000004	diff=1.37547e-11
   local_diff=1.1502e-10
 # Num params=404, abs_diff=3.15271e-08
-Elapsed time is 12.846822 seconds.
+Elapsed time is 12.624890 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 2, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'charFeedOpt', 1)
 [?1h=
@@ -5914,7 +5914,7 @@ Change stack size from 100 to 1
   0.000000	  0.000000	diff=1.81797e-12
   local_diff=1.67655e-11
 # Num params=416, abs_diff=6.33597e-08
-Elapsed time is 13.116859 seconds.
+Elapsed time is 13.581615 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 2, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'charFeedOpt', 1, 'normLocalAttn', 1)
 [?1h=
@@ -6507,7 +6507,7 @@ Change stack size from 100 to 1
   0.000000	  0.000000	diff=1.81797e-12
   local_diff=1.67655e-11
 # Num params=416, abs_diff=6.33597e-08
-Elapsed time is 12.533820 seconds.
+Elapsed time is 13.750836 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 2, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'charFeedOpt', 1, 'charWeight', 10)
 [?1h=
@@ -7100,7 +7100,7 @@ Change stack size from 100 to 1
   0.000004	  0.000004	diff=1.81797e-11
   local_diff=5.49736e-11
 # Num params=416, abs_diff=1.35255e-07
-Elapsed time is 13.210040 seconds.
+Elapsed time is 12.845540 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 2, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'charFeedOpt', 1, 'charSrcSample', 0.5)
 [?1h=
@@ -7693,7 +7693,7 @@ Change stack size from 100 to 1
   0.000013	  0.000000	diff=1.30043e-05
   local_diff=6.50212e-05
 # Num params=416, abs_diff=0.00272883
-Elapsed time is 16.096516 seconds.
+Elapsed time is 13.538227 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 2, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'charFeedOpt', 1, 'charTgtSample', 0.5)
 [?1h=
@@ -8286,7 +8286,7 @@ Change stack size from 100 to 1
   0.000001	  0.000001	diff=5.80656e-10
   local_diff=8.1938e-09
 # Num params=416, abs_diff=3.93058e-07
-Elapsed time is 15.074004 seconds.
+Elapsed time is 14.193645 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 2, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'charFeedOpt', 1, 'charSrcSample', 0.5, 'charTgtSample', 0.5)
 [?1h=
@@ -8879,7 +8879,7 @@ Change stack size from 100 to 1
   0.000001	  0.000001	diff=2.41537e-10
   local_diff=6.50223e-05
 # Num params=416, abs_diff=0.00266862
-Elapsed time is 14.813248 seconds.
+Elapsed time is 14.242677 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'attnFunc', 0, 'feedInput', 1)
 [?1h=
@@ -9121,7 +9121,7 @@ For product information, visit www.mathworks.com.
  -0.000270	 -0.000270	diff=1.26002e-08
   local_diff=0.000150356
 # Num params=110, abs_diff=2.47345
-Elapsed time is 0.893784 seconds.
+Elapsed time is 0.884387 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'attnFunc', 0, 'feedInput', 1, 'numLayers', 2)
 [?1h=
@@ -9431,7 +9431,7 @@ For product information, visit www.mathworks.com.
   0.489267	  0.488492	diff=0.000774967
   local_diff=0.0033617
 # Num params=174, abs_diff=2.88947
-Elapsed time is 1.752204 seconds.
+Elapsed time is 1.781111 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'attnFunc', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8)
 [?1h=
@@ -9741,7 +9741,7 @@ For product information, visit www.mathworks.com.
   0.328336	  0.327891	diff=0.000444995
   local_diff=0.00276278
 # Num params=174, abs_diff=2.61686
-Elapsed time is 1.832453 seconds.
+Elapsed time is 1.741835 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1)
 [?1h=
@@ -10061,7 +10061,7 @@ For product information, visit www.mathworks.com.
  -2.109547	 -2.109716	diff=0.000168959
   local_diff=0.0254708
 # Num params=182, abs_diff=5.14398
-Elapsed time is 3.289668 seconds.
+Elapsed time is 3.022305 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 1)
 [?1h=
@@ -10392,7 +10392,7 @@ For product information, visit www.mathworks.com.
   1.200331	  1.200287	diff=4.3288e-05
   local_diff=0.00941474
 # Num params=188, abs_diff=7.51685
-Elapsed time is 4.160409 seconds.
+Elapsed time is 3.836116 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 1, 'normLocalAttn', 1)
 [?1h=
@@ -10691,15 +10691,15 @@ For product information, visit www.mathworks.com.
 -11.099175	-10.951618	diff=0.147557
   local_diff=6.13774
 # W_pos, [2 2]
-  0.000000	 -0.000000	diff=2.40141e-30
-  0.000000	  0.000000	diff=2.01853e-30
-  0.000000	 -0.000000	diff=1.02852e-30
-  0.000000	  0.000000	diff=9.91059e-31
-  local_diff=6.43952e-30
+  0.000000	 -0.000000	diff=5.69418e-30
+  0.000000	  0.000000	diff=4.82757e-30
+  0.000000	 -0.000000	diff=1.56669e-30
+  0.000000	  0.000000	diff=1.46716e-30
+  local_diff=1.35556e-29
 # v_pos, [1 2]
-  0.000000	 -0.000000	diff=5.37322e-30
-  0.000000	 -0.000000	diff=5.23682e-30
-  local_diff=1.061e-29
+  0.000000	 -0.000000	diff=6.86515e-30
+  0.000000	 -0.000000	diff=6.69349e-30
+  local_diff=1.35586e-29
 # W_h, [2 4]
   0.000000	 -0.000000	diff=1.44307e-30
   0.000000	 -0.000000	diff=4.7698e-30
@@ -10723,7 +10723,7 @@ For product information, visit www.mathworks.com.
   1.200331	  1.200287	diff=4.3288e-05
   local_diff=0.00941474
 # Num params=188, abs_diff=7.51685
-Elapsed time is 4.454485 seconds.
+Elapsed time is 3.915131 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 2)
 [?1h=
@@ -11049,7 +11049,7 @@ For product information, visit www.mathworks.com.
   0.877976	  0.872652	diff=0.00532419
   local_diff=0.0225641
 # Num params=186, abs_diff=750.462
-Elapsed time is 3.209601 seconds.
+Elapsed time is 2.990917 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 3)
 [?1h=
@@ -11379,7 +11379,7 @@ For product information, visit www.mathworks.com.
   1.200331	  1.200287	diff=4.3288e-05
   local_diff=0.00941474
 # Num params=188, abs_diff=7.51685
-Elapsed time is 3.094721 seconds.
+Elapsed time is 2.948393 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'initRange', 10, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 1, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 1)
 [?1h=
@@ -11761,7 +11761,7 @@ For product information, visit www.mathworks.com.
   6.501921	  6.501755	diff=0.000165847
   local_diff=0.040225
 # Num params=224, abs_diff=415.778
-Elapsed time is 4.751577 seconds.
+Elapsed time is 4.142493 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'initRange', 10, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 2, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 1)
 [?1h=
@@ -12156,7 +12156,7 @@ Change stack size from 100 to 1
  -4.879256	 -4.879258	diff=1.70022e-06
   local_diff=7.40951e-06
 # Num params=234, abs_diff=7.70269
-Elapsed time is 5.654702 seconds.
+Elapsed time is 5.089174 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'initRange', 10, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 1)
 [?1h=
@@ -12597,7 +12597,7 @@ Change stack size from 100 to 1
   2.236990	  2.236988	diff=1.86052e-06
   local_diff=0.0243832
 # Num params=276, abs_diff=4.82956
-Elapsed time is 7.842472 seconds.
+Elapsed time is 7.043918 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'initRange', 10, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3)
 [?1h=
@@ -13174,7 +13174,7 @@ Change stack size from 100 to 1
   0.085873	  0.085756	diff=0.000116542
   local_diff=0.000933011
 # Num params=404, abs_diff=20.2036
-Elapsed time is 13.009925 seconds.
+Elapsed time is 12.199156 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'initRange', 10, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 1, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'dropout', 0.8)
 [?1h=
@@ -13624,7 +13624,7 @@ For product information, visit www.mathworks.com.
 -13.963372	-13.978669	diff=0.0152966
   local_diff=0.059132
 # Num params=288, abs_diff=4.32989
-Elapsed time is 6.097468 seconds.
+Elapsed time is 6.052145 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'initRange', 10, 'attnFunc', 1, 'attnOpt', 1, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'charWeight', 10)
 [?1h=
@@ -14201,7 +14201,7 @@ Change stack size from 100 to 1
   0.858727	  0.857562	diff=0.00116542
   local_diff=0.00933011
 # Num params=404, abs_diff=27.6873
-Elapsed time is 12.456098 seconds.
+Elapsed time is 11.935703 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'initRange', 10, 'attnFunc', 1, 'attnOpt', 2, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'charFeedOpt', 1)
 [?1h=
@@ -14794,7 +14794,7 @@ Change stack size from 100 to 1
  -0.241799	 -0.241992	diff=0.000192792
   local_diff=0.00112586
 # Num params=416, abs_diff=204.228
-Elapsed time is 13.066853 seconds.
+Elapsed time is 12.572935 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'initRange', 10, 'attnFunc', 1, 'attnOpt', 2, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'charFeedOpt', 1, 'normLocalAttn', 1)
 [?1h=
@@ -15387,7 +15387,7 @@ Change stack size from 100 to 1
  -0.241799	 -0.241992	diff=0.000192792
   local_diff=0.00112586
 # Num params=416, abs_diff=204.228
-Elapsed time is 13.082434 seconds.
+Elapsed time is 13.182907 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'initRange', 10, 'attnFunc', 1, 'attnOpt', 2, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'charFeedOpt', 1, 'charWeight', 10)
 [?1h=
@@ -15980,7 +15980,7 @@ Change stack size from 100 to 1
  -2.417991	 -2.419919	diff=0.00192792
   local_diff=0.0112586
 # Num params=416, abs_diff=231.164
-Elapsed time is 13.374302 seconds.
+Elapsed time is 14.038346 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'initRange', 10, 'attnFunc', 1, 'attnOpt', 2, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'charFeedOpt', 1, 'charSrcSample', 0.5)
 [?1h=
@@ -16573,7 +16573,7 @@ Change stack size from 100 to 1
 558.457037	 -0.241992	diff=558.699
   local_diff=2793.5
 # Num params=416, abs_diff=116893
-Elapsed time is 13.447992 seconds.
+Elapsed time is 13.634173 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'initRange', 10, 'attnFunc', 1, 'attnOpt', 2, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'charFeedOpt', 1, 'charTgtSample', 0.5)
 [?1h=
@@ -17166,7 +17166,7 @@ Change stack size from 100 to 1
  -0.241799	 -0.241992	diff=0.000192792
   local_diff=0.00112586
 # Num params=416, abs_diff=204.228
-Elapsed time is 13.956095 seconds.
+Elapsed time is 14.205924 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'assert', 1, 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 1, 'isReverse', 1, 'initRange', 10, 'attnFunc', 1, 'attnOpt', 2, 'charOpt', 3, 'srcCharShortList', 5, 'tgtCharShortList', 5, 'charNumLayers', 3, 'charFeedOpt', 1, 'charSrcSample', 0.5, 'charTgtSample', 0.5)
 [?1h=
@@ -17759,5 +17759,5 @@ Change stack size from 100 to 1
  -0.241799	 -0.241992	diff=0.000192792
   local_diff=2793.5
 # Num params=416, abs_diff=114628
-Elapsed time is 14.391878 seconds.
+Elapsed time is 16.011869 seconds.
 [?1l>

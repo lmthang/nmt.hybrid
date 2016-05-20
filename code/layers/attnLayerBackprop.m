@@ -38,7 +38,7 @@ function [grad_ht, attnGrad, grad_srcHidVecs] = attnLayerBackprop(model, grad_so
   if params.attnGlobal == 0
     % IMPORTANT: don't change the order of these lines
     if params.normLocalAttn
-      [grad_unNormAlignWeights] = normLayerBackprop(grad_alignWeights, attnInfo.unNormAlignWeights, attnInfo.srcMaskedIds, params);
+      [grad_unNormAlignWeights] = normLayerBackprop(grad_alignWeights, attnInfo.alignWeights); %, attnInfo.srcMaskedIds, params);
       grad_distWeights = grad_unNormAlignWeights.*attnInfo.preAlignWeights;
       grad_alignWeights = grad_unNormAlignWeights.*attnInfo.distWeights; % grad_preAlignWeights
     else
@@ -50,7 +50,7 @@ function [grad_ht, attnGrad, grad_srcHidVecs] = attnLayerBackprop(model, grad_so
   end
   
   % grad_alignWeights -> grad_scores
-  [grad_scores] = normLayerBackprop(grad_alignWeights, attnInfo.alignWeights, attnInfo.srcMaskedIds, params);
+  [grad_scores] = normLayerBackprop(grad_alignWeights, attnInfo.alignWeights); %, attnInfo.srcMaskedIds, params);
   if params.assert
     assert(computeSum(grad_scores(attnInfo.srcMaskedIds), params.isGPU)==0);
   end
