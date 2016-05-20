@@ -224,7 +224,7 @@ For product information, visit www.mathworks.com.
   0.001638	  0.001638	diff=1.81453e-08
   local_diff=2.54315e-07
 # Num params=104, abs_diff=6.26517e-06
-Elapsed time is 0.756795 seconds.
+Elapsed time is 0.657143 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'attnFunc', 0, 'feedInput', 1, 'numLayers', 2)
 [?1h=
@@ -517,7 +517,7 @@ For product information, visit www.mathworks.com.
   0.000062	  0.000062	diff=8.33019e-11
   local_diff=3.90799e-10
 # Num params=168, abs_diff=2.11166e-07
-Elapsed time is 1.392541 seconds.
+Elapsed time is 2.133431 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'attnFunc', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8)
 [?1h=
@@ -810,7 +810,7 @@ For product information, visit www.mathworks.com.
   0.000095	  0.000095	diff=1.45087e-10
   local_diff=7.11253e-10
 # Num params=168, abs_diff=2.9617e-07
-Elapsed time is 1.530956 seconds.
+Elapsed time is 1.472069 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1)
 [?1h=
@@ -1110,7 +1110,7 @@ For product information, visit www.mathworks.com.
   0.000000	  0.000000	diff=1.30212e-12
   local_diff=7.81597e-12
 # Num params=176, abs_diff=4.74005e-09
-Elapsed time is 2.116858 seconds.
+Elapsed time is 2.267340 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 2, 'attnOpt', 1)
 [?1h=
@@ -1410,7 +1410,7 @@ For product information, visit www.mathworks.com.
  -0.000000	 -0.000000	diff=6.7419e-13
   local_diff=5.44563e-12
 # Num params=176, abs_diff=4.7867e-09
-Elapsed time is 2.359762 seconds.
+Elapsed time is 2.636222 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 1)
 [?1h=
@@ -1721,7 +1721,7 @@ For product information, visit www.mathworks.com.
   0.000001	  0.000001	diff=1.38259e-14
   local_diff=1.8999e-12
 # Num params=182, abs_diff=2.59737e-08
-Elapsed time is 2.895674 seconds.
+Elapsed time is 3.045150 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 2)
 [?1h=
@@ -2027,7 +2027,7 @@ For product information, visit www.mathworks.com.
  -0.000005	 -0.000005	diff=1.31683e-12
   local_diff=9.9476e-12
 # Num params=180, abs_diff=3.11727e-08
-Elapsed time is 2.203058 seconds.
+Elapsed time is 2.120636 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 2, 'attnOpt', 2)
 [?1h=
@@ -2333,7 +2333,7 @@ For product information, visit www.mathworks.com.
  -0.000007	 -0.000007	diff=8.11315e-13
   local_diff=1.13687e-11
 # Num params=180, abs_diff=3.14196e-08
-Elapsed time is 2.740992 seconds.
+Elapsed time is 2.610331 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 2)
 [?1h=
@@ -2650,7 +2650,7 @@ For product information, visit www.mathworks.com.
  -0.000004	 -0.000004	diff=1.63009e-12
   local_diff=7.10543e-12
 # Num params=186, abs_diff=5.77503e-08
-Elapsed time is 3.329631 seconds.
+Elapsed time is 3.140161 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 2, 'normLocalAttn', 1)
 [?1h=
@@ -2760,55 +2760,55 @@ For product information, visit www.mathworks.com.
   tgt mask: 1  1  1  0  0
 # W_src{1}, [8 4]
   0.000000	  0.000000	diff=1.70793e-12
-  0.000000	  0.000000	diff=5.67114e-13
-  0.000000	  0.000000	diff=4.19932e-13
-  0.000000	  0.000000	diff=4.99401e-13
-  0.000000	  0.000000	diff=9.89167e-13
+  0.000000	  0.000000	diff=5.67113e-13
+  0.000000	  0.000000	diff=4.1993e-13
+  0.000000	  0.000000	diff=4.99403e-13
+  0.000000	  0.000000	diff=9.89166e-13
   0.000000	  0.000000	diff=9.67267e-13
  -0.000035	 -0.000035	diff=1.25041e-10
-  0.000009	  0.000009	diff=5.95119e-11
+  0.000009	  0.000009	diff=5.9512e-11
  -0.000000	 -0.000000	diff=1.46011e-12
- -0.000000	 -0.000000	diff=1.53304e-13
+ -0.000000	 -0.000000	diff=1.53303e-13
  -0.000000	 -0.000000	diff=2.87932e-12
- -0.000000	 -0.000000	diff=1.4233e-12
+ -0.000000	 -0.000000	diff=1.42329e-12
  -0.000000	 -0.000000	diff=1.12436e-12
  -0.000000	 -0.000000	diff=5.23267e-13
   0.000059	  0.000059	diff=3.16423e-10
  -0.000025	 -0.000025	diff=2.09676e-10
- -0.000000	 -0.000000	diff=3.79598e-13
+ -0.000000	 -0.000000	diff=3.79597e-13
  -0.000000	 -0.000000	diff=1.61985e-12
  -0.000000	 -0.000000	diff=5.41282e-13
  -0.000000	 -0.000000	diff=5.75525e-13
  -0.000000	 -0.000000	diff=8.5069e-13
- -0.000000	 -0.000000	diff=1.77099e-14
+ -0.000000	 -0.000000	diff=1.77098e-14
   0.000001	  0.000001	diff=7.15744e-10
- -0.000000	 -0.000000	diff=7.60407e-13
-  0.000000	  0.000000	diff=2.98206e-14
-  0.000000	  0.000000	diff=4.23729e-13
+ -0.000000	 -0.000000	diff=7.60453e-13
+  0.000000	  0.000000	diff=2.98205e-14
+  0.000000	  0.000000	diff=4.23728e-13
   0.000000	  0.000000	diff=2.63852e-13
   0.000000	  0.000000	diff=8.1534e-13
   0.000000	  0.000000	diff=4.55381e-13
   0.000000	  0.000000	diff=3.72326e-13
- -0.000001	 -0.000001	diff=2.21909e-12
+ -0.000001	 -0.000001	diff=2.21907e-12
   0.000000	  0.000000	diff=1.44769e-10
   local_diff=1.5932e-09
 # W_src{2}, [8 4]
  -0.000000	 -0.000000	diff=3.36499e-13
- -0.000000	 -0.000000	diff=2.76511e-13
+ -0.000000	 -0.000000	diff=2.76512e-13
  -0.000000	 -0.000000	diff=1.10185e-12
- -0.000000	 -0.000000	diff=6.19447e-14
+ -0.000000	 -0.000000	diff=6.19449e-14
  -0.000000	 -0.000000	diff=4.25544e-13
  -0.000000	 -0.000000	diff=2.70249e-13
-  0.000007	  0.000007	diff=2.42597e-13
- -0.000049	 -0.000049	diff=7.4601e-12
+  0.000007	  0.000007	diff=2.43123e-13
+ -0.000049	 -0.000049	diff=7.45941e-12
   0.000000	  0.000000	diff=9.19746e-13
   0.000000	  0.000000	diff=1.76547e-13
   0.000000	  0.000000	diff=8.33071e-13
-  0.000000	  0.000000	diff=6.75898e-14
-  0.000000	  0.000000	diff=9.81308e-15
+  0.000000	  0.000000	diff=6.759e-14
+  0.000000	  0.000000	diff=9.81311e-15
   0.000000	  0.000000	diff=3.60636e-13
- -0.000015	 -0.000015	diff=9.6863e-13
-  0.000062	  0.000062	diff=6.90643e-12
+ -0.000015	 -0.000015	diff=9.68186e-13
+  0.000062	  0.000062	diff=6.90694e-12
  -0.000000	 -0.000000	diff=2.34052e-13
  -0.000000	 -0.000000	diff=3.90148e-13
  -0.000000	 -0.000000	diff=5.07979e-13
@@ -2816,33 +2816,33 @@ For product information, visit www.mathworks.com.
  -0.000000	 -0.000000	diff=1.20602e-12
  -0.000000	 -0.000000	diff=2.97373e-13
   0.000000	  0.000000	diff=1.83701e-10
- -0.000001	 -0.000001	diff=9.32544e-13
+ -0.000001	 -0.000001	diff=9.32585e-13
   0.000000	  0.000000	diff=3.20228e-13
   0.000000	  0.000000	diff=3.43664e-13
-  0.000000	  0.000000	diff=5.24812e-14
+  0.000000	  0.000000	diff=5.24813e-14
   0.000000	  0.000000	diff=8.46121e-13
   0.000000	  0.000000	diff=2.08665e-13
   0.000000	  0.000000	diff=4.57857e-13
- -0.000000	 -0.000000	diff=3.1562e-13
+ -0.000000	 -0.000000	diff=3.1559e-13
   0.000001	  0.000001	diff=7.54057e-10
   local_diff=9.64389e-10
 # W_tgt{1}, [8 6]
- -0.000000	 -0.000000	diff=1.42944e-13
-  0.000000	  0.000000	diff=9.5293e-15
- -0.000000	 -0.000000	diff=9.52842e-13
-  0.000000	  0.000000	diff=2.4135e-14
- -0.000000	 -0.000000	diff=7.83997e-13
-  0.000000	  0.000000	diff=6.89964e-13
-  0.000001	  0.000001	diff=2.55915e-12
- -0.000009	 -0.000009	diff=4.12254e-11
+ -0.000000	 -0.000000	diff=1.42943e-13
+  0.000000	  0.000000	diff=9.5349e-15
+ -0.000000	 -0.000000	diff=9.52843e-13
+  0.000000	  0.000000	diff=2.41351e-14
+ -0.000000	 -0.000000	diff=7.83995e-13
+  0.000000	  0.000000	diff=6.89967e-13
+  0.000001	  0.000001	diff=2.55886e-12
+ -0.000009	 -0.000009	diff=4.12245e-11
  -0.000000	 -0.000000	diff=1.13936e-12
- -0.000000	 -0.000000	diff=8.90151e-13
- -0.000000	 -0.000000	diff=7.21405e-13
- -0.000000	 -0.000000	diff=1.00246e-12
+ -0.000000	 -0.000000	diff=8.90141e-13
+ -0.000000	 -0.000000	diff=7.21406e-13
+ -0.000000	 -0.000000	diff=1.00247e-12
  -0.000000	 -0.000000	diff=4.35068e-13
- -0.000000	 -0.000000	diff=9.85961e-13
+ -0.000000	 -0.000000	diff=9.85953e-13
   0.000001	  0.000001	diff=4.19886e-11
-  0.000007	  0.000007	diff=8.87656e-11
+  0.000007	  0.000007	diff=8.87639e-11
   0.000000	  0.000000	diff=1.16224e-13
   0.000000	 -0.000000	diff=9.14812e-13
   0.000000	  0.000000	diff=1.44055e-15
@@ -2850,7 +2850,7 @@ For product information, visit www.mathworks.com.
   0.000000	  0.000000	diff=8.11688e-14
   0.000000	 -0.000000	diff=6.34976e-13
  -0.000000	 -0.000000	diff=3.47192e-13
-  0.000000	  0.000000	diff=1.11467e-13
+  0.000000	  0.000000	diff=1.11466e-13
   0.000000	 -0.000000	diff=8.05914e-13
   0.000000	  0.000000	diff=1.2833e-12
   0.000000	  0.000000	diff=2.9935e-14
@@ -2858,15 +2858,15 @@ For product information, visit www.mathworks.com.
  -0.000000	 -0.000000	diff=6.56139e-13
   0.000000	  0.000000	diff=1.20036e-12
   0.000000	  0.000000	diff=2.89997e-14
- -0.000000	 -0.000000	diff=4.11925e-14
+ -0.000000	 -0.000000	diff=4.11916e-14
   0.000000	  0.000000	diff=3.6819e-13
- -0.000000	 -0.000000	diff=8.38589e-13
+ -0.000000	 -0.000000	diff=8.3859e-13
   0.000000	  0.000000	diff=2.20128e-13
  -0.000000	 -0.000000	diff=3.93738e-13
   0.000000	  0.000000	diff=2.31108e-13
  -0.000000	 -0.000000	diff=4.15043e-13
  -0.000000	 -0.000000	diff=1.20924e-10
-  0.000000	  0.000000	diff=9.39967e-12
+  0.000000	  0.000000	diff=9.39972e-12
   0.000000	  0.000000	diff=6.80628e-13
  -0.000000	 -0.000000	diff=1.51611e-13
  -0.000000	 -0.000000	diff=8.48212e-13
@@ -2875,24 +2875,24 @@ For product information, visit www.mathworks.com.
  -0.000000	 -0.000000	diff=8.82168e-13
   0.000000	  0.000000	diff=2.45648e-12
   0.000000	  0.000000	diff=1.90475e-10
-  local_diff=5.18233e-10
+  local_diff=5.1823e-10
 # W_tgt{2}, [8 4]
-  0.000000	  0.000000	diff=7.79512e-14
+  0.000000	  0.000000	diff=7.79513e-14
  -0.000000	 -0.000000	diff=6.37325e-13
  -0.000000	 -0.000000	diff=2.44483e-13
  -0.000000	 -0.000000	diff=5.89783e-13
   0.000000	  0.000000	diff=2.20473e-13
  -0.000000	 -0.000000	diff=9.69099e-13
-  0.000004	  0.000004	diff=2.92972e-12
- -0.000006	 -0.000006	diff=8.68418e-12
+  0.000004	  0.000004	diff=2.93047e-12
+ -0.000006	 -0.000006	diff=8.6859e-12
   0.000000	  0.000000	diff=1.05783e-13
  -0.000000	 -0.000000	diff=4.50794e-13
   0.000000	  0.000000	diff=9.84327e-14
  -0.000000	 -0.000000	diff=1.76494e-13
   0.000000	  0.000000	diff=1.35739e-13
  -0.000000	 -0.000000	diff=3.78401e-13
-  0.000004	  0.000004	diff=2.30298e-11
- -0.000007	 -0.000007	diff=2.15174e-11
+  0.000004	  0.000004	diff=2.30302e-11
+ -0.000007	 -0.000007	diff=2.15182e-11
   0.000000	  0.000000	diff=3.04923e-13
   0.000000	  0.000000	diff=7.36118e-13
  -0.000000	 -0.000000	diff=6.46611e-14
@@ -2900,16 +2900,16 @@ For product information, visit www.mathworks.com.
  -0.000000	 -0.000000	diff=1.52549e-13
   0.000000	  0.000000	diff=5.28953e-13
   0.000000	  0.000000	diff=1.47699e-10
- -0.000000	 -0.000000	diff=6.85706e-12
+ -0.000000	 -0.000000	diff=6.8571e-12
  -0.000000	 -0.000000	diff=2.37338e-13
   0.000000	  0.000000	diff=2.31161e-13
   0.000000	  0.000000	diff=2.65637e-13
   0.000000	  0.000000	diff=3.32829e-13
   0.000000	  0.000000	diff=4.72273e-13
   0.000000	  0.000000	diff=1.64874e-13
- -0.000000	 -0.000000	diff=7.92877e-13
-  0.000000	  0.000000	diff=7.08617e-10
-  local_diff=9.28466e-10
+ -0.000000	 -0.000000	diff=7.92832e-13
+  0.000000	  0.000000	diff=7.08616e-10
+  local_diff=9.28469e-10
 # W_emb_src, [2 4]
   0.000000	  0.000000	diff=0
   0.000000	  0.000000	diff=0
@@ -2921,35 +2921,35 @@ For product information, visit www.mathworks.com.
  -0.000055	 -0.000055	diff=4.95688e-08
   local_diff=1.18572e-07
 # W_emb_tgt, [2 4]
-  0.000002	  0.000002	diff=8.5114e-10
+  0.000002	  0.000002	diff=8.51141e-10
  -0.000000	 -0.000000	diff=3.25687e-10
   0.000000	  0.000000	diff=0
   0.000000	  0.000000	diff=0
-  0.000007	  0.000007	diff=8.2779e-10
-  0.000000	  0.000000	diff=2.92316e-10
-  0.000002	  0.000002	diff=1.28073e-09
+  0.000007	  0.000007	diff=8.27791e-10
+  0.000000	  0.000000	diff=2.92315e-10
+  0.000002	  0.000002	diff=1.28072e-09
  -0.000001	 -0.000001	diff=4.52146e-10
   local_diff=4.0298e-09
 # W_pos, [2 2]
-  0.000000	 -0.000000	diff=3.35066e-15
-  0.000000	 -0.000000	diff=4.24178e-15
-  0.000000	 -0.000000	diff=2.53143e-14
-  0.000000	 -0.000000	diff=3.20467e-14
-  local_diff=6.49534e-14
+  0.000000	 -0.000000	diff=3.26266e-15
+  0.000000	 -0.000000	diff=4.13037e-15
+  0.000000	 -0.000000	diff=2.86213e-14
+  0.000000	 -0.000000	diff=3.62333e-14
+  local_diff=7.22477e-14
 # v_pos, [1 2]
-  0.000000	  0.000000	diff=5.47017e-13
-  0.000000	  0.000000	diff=8.19693e-13
-  local_diff=1.36671e-12
+  0.000000	  0.000000	diff=5.2647e-13
+  0.000000	  0.000000	diff=7.4509e-13
+  local_diff=1.27156e-12
 # W_a, [2 2]
-  0.000000	  0.000000	diff=1.22926e-17
-  0.000000	 -0.000000	diff=1.72846e-17
-  0.000000	  0.000000	diff=1.17339e-16
-  0.000000	 -0.000000	diff=1.65003e-16
-  local_diff=3.11919e-16
+  0.000000	 -0.000000	diff=6.1534e-17
+  0.000000	  0.000000	diff=7.49684e-17
+  0.000000	 -0.000000	diff=5.27078e-16
+  0.000000	  0.000000	diff=6.46126e-16
+  local_diff=1.30971e-15
 # W_h, [2 4]
-  0.000014	  0.000014	diff=5.66509e-13
+  0.000014	  0.000014	diff=5.66508e-13
  -0.000050	 -0.000050	diff=2.31157e-12
- -0.000019	 -0.000019	diff=1.97619e-13
+ -0.000019	 -0.000019	diff=1.97618e-13
   0.000064	  0.000064	diff=2.49816e-12
  -0.000000	 -0.000000	diff=1.66545e-12
   0.000009	  0.000009	diff=3.20654e-12
@@ -2967,7 +2967,7 @@ For product information, visit www.mathworks.com.
  -0.000010	 -0.000010	diff=1.68032e-12
   local_diff=1.06581e-11
 # Num params=186, abs_diff=1.26951e-07
-Elapsed time is 3.287411 seconds.
+Elapsed time is 3.510250 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 3)
 [?1h=
@@ -3277,7 +3277,7 @@ For product information, visit www.mathworks.com.
   0.000005	  0.000005	diff=5.85548e-13
   local_diff=2.496e-12
 # Num params=182, abs_diff=2.8591e-08
-Elapsed time is 2.656079 seconds.
+Elapsed time is 2.687894 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 2, 'attnOpt', 3)
 [?1h=
@@ -3587,7 +3587,7 @@ For product information, visit www.mathworks.com.
   0.000008	  0.000008	diff=1.49018e-12
   local_diff=1.27898e-11
 # Num params=182, abs_diff=2.86956e-08
-Elapsed time is 2.802746 seconds.
+Elapsed time is 2.769600 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 3)
 [?1h=
@@ -3908,7 +3908,7 @@ For product information, visit www.mathworks.com.
   0.000017	  0.000017	diff=5.98439e-13
   local_diff=2.76705e-12
 # Num params=188, abs_diff=2.18972e-07
-Elapsed time is 3.222701 seconds.
+Elapsed time is 3.127584 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'attnFunc', 0, 'feedInput', 1)
 [?1h=
@@ -4133,7 +4133,7 @@ For product information, visit www.mathworks.com.
  -1.280499	 -1.287202	diff=0.00670337
   local_diff=0.0190718
 # Num params=104, abs_diff=1.87614
-Elapsed time is 0.718625 seconds.
+Elapsed time is 0.822556 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'attnFunc', 0, 'feedInput', 1, 'numLayers', 2)
 [?1h=
@@ -4426,7 +4426,7 @@ For product information, visit www.mathworks.com.
  -0.000000	 -0.000000	diff=2.25247e-14
   local_diff=2.37121e-12
 # Num params=168, abs_diff=1.99492e-07
-Elapsed time is 1.430509 seconds.
+Elapsed time is 1.514814 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'attnFunc', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8)
 [?1h=
@@ -4719,7 +4719,7 @@ For product information, visit www.mathworks.com.
   0.026354	  0.026330	diff=2.37666e-05
   local_diff=0.000308046
 # Num params=168, abs_diff=0.00622106
-Elapsed time is 1.635383 seconds.
+Elapsed time is 1.616581 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 1)
 [?1h=
@@ -5019,7 +5019,7 @@ For product information, visit www.mathworks.com.
   0.835411	  0.831633	diff=0.00377831
   local_diff=0.0129049
 # Num params=176, abs_diff=0.321768
-Elapsed time is 2.289935 seconds.
+Elapsed time is 2.240605 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 2, 'attnOpt', 1)
 [?1h=
@@ -5319,7 +5319,7 @@ For product information, visit www.mathworks.com.
   0.835411	  0.831633	diff=0.00377831
   local_diff=0.0129049
 # Num params=176, abs_diff=0.321768
-Elapsed time is 2.720881 seconds.
+Elapsed time is 2.878685 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 1)
 [?1h=
@@ -5630,7 +5630,7 @@ For product information, visit www.mathworks.com.
  -0.960663	 -0.964000	diff=0.00333755
   local_diff=0.0135464
 # Num params=182, abs_diff=0.0192775
-Elapsed time is 2.856608 seconds.
+Elapsed time is 3.180110 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 2)
 [?1h=
@@ -5936,7 +5936,7 @@ For product information, visit www.mathworks.com.
   0.000003	  0.000003	diff=1.40321e-08
   local_diff=6.4848e-06
 # Num params=180, abs_diff=0.000188169
-Elapsed time is 2.325214 seconds.
+Elapsed time is 2.181599 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 2, 'attnOpt', 2)
 [?1h=
@@ -6242,7 +6242,7 @@ For product information, visit www.mathworks.com.
   0.000003	  0.000003	diff=1.40907e-08
   local_diff=6.51327e-06
 # Num params=180, abs_diff=0.000494596
-Elapsed time is 2.499514 seconds.
+Elapsed time is 2.562863 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 2)
 [?1h=
@@ -6559,7 +6559,7 @@ For product information, visit www.mathworks.com.
  -0.993743	 -0.993743	diff=1.59102e-08
   local_diff=9.2318e-08
 # Num params=186, abs_diff=0.0384137
-Elapsed time is 3.464818 seconds.
+Elapsed time is 3.018821 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 2, 'normLocalAttn', 1)
 [?1h=
@@ -6668,14 +6668,14 @@ For product information, visit www.mathworks.com.
   tgt output 1: b a </s> </s> </s>
   tgt mask: 1  1  1  0  0
 # W_src{1}, [8 4]
-  0.000649	  0.000648	diff=1.15823e-06
- -0.000165	  0.000000	diff=0.000165002
+  0.000649	  0.000653	diff=3.83074e-06
+ -0.000165	  0.000000	diff=0.000165005
   0.000000	 -0.000000	diff=1.92839e-33
   0.000000	  0.000000	diff=2.14591e-26
- -0.012823	 -0.012862	diff=3.87768e-05
- -0.000004	 -0.000004	diff=4.84682e-08
- -0.000130	 -0.000127	diff=2.49866e-06
-  0.002052	  0.002064	diff=1.12864e-05
+ -0.012823	 -0.012895	diff=7.2624e-05
+ -0.000004	 -0.000004	diff=2.22098e-08
+ -0.000130	 -0.000128	diff=1.51945e-06
+  0.002052	  0.002077	diff=2.52102e-05
  -0.000000	 -0.000000	diff=8.32442e-09
   0.000196	  0.000000	diff=0.000195687
   0.000000	  0.000000	diff=2.45131e-33
@@ -6700,16 +6700,16 @@ For product information, visit www.mathworks.com.
   0.000000	  0.000000	diff=1.43549e-37
   0.000000	  0.000000	diff=0
   0.000000	  0.000000	diff=0
-  local_diff=0.000414466
+  local_diff=0.000463906
 # W_src{2}, [8 4]
- -0.031640	 -0.031271	diff=0.000369582
- -0.000273	 -0.000272	diff=1.46954e-06
+ -0.031640	 -0.031483	diff=0.000157161
+ -0.000273	 -0.000272	diff=1.24136e-06
   0.000000	 -0.000000	diff=6.67365e-52
   0.000000	 -0.000000	diff=4.48756e-51
- -0.122196	 -0.122365	diff=0.000169564
- -0.008191	 -0.008437	diff=0.000245879
-  0.000001	  0.000001	diff=1.291e-09
- -0.000000	 -0.000000	diff=1.81989e-09
+ -0.122196	 -0.122545	diff=0.000349177
+ -0.008191	 -0.008093	diff=9.78578e-05
+  0.000001	  0.000001	diff=5.06211e-09
+ -0.000000	 -0.000000	diff=1.66727e-09
   0.000000	 -0.000000	diff=3.0287e-38
   0.000000	  0.000000	diff=2.1563e-37
   0.000000	  0.000000	diff=9.50119e-39
@@ -6734,7 +6734,7 @@ For product information, visit www.mathworks.com.
   0.000000	  0.000000	diff=2.01706e-37
   0.000000	  0.000000	diff=3.68023e-19
   0.000000	 -0.000000	diff=1.76917e-19
-  local_diff=0.000786498
+  local_diff=0.000605444
 # W_tgt{1}, [8 6]
  -0.000001	 -0.000001	diff=9.89076e-09
   0.000000	 -0.000000	diff=5.09269e-20
@@ -6752,48 +6752,48 @@ For product information, visit www.mathworks.com.
  -0.000000	 -0.000000	diff=4.56641e-14
   0.000000	 -0.000000	diff=1.98405e-52
   0.000000	 -0.000000	diff=2.37043e-13
- -0.000057	 -0.000056	diff=7.34433e-07
-  0.000000	  0.000000	diff=4.01078e-14
- -0.000001	 -0.000001	diff=1.16406e-08
-  0.000000	  0.000000	diff=2.48005e-10
- -0.002685	 -0.002651	diff=3.43522e-05
-  0.000000	  0.000000	diff=8.34905e-13
-  0.000621	  0.000623	diff=2.01973e-06
- -0.000001	 -0.000003	diff=1.96097e-06
-  0.000057	  0.000057	diff=3.02285e-08
-  0.000000	  0.000000	diff=5.84129e-13
-  0.000001	  0.000001	diff=5.80828e-10
- -0.000000	 -0.000000	diff=8.36061e-12
-  0.002708	  0.002707	diff=1.16792e-06
-  0.000000	  0.000000	diff=1.88656e-13
- -0.000645	 -0.000633	diff=1.16508e-05
-  0.000011	  0.000009	diff=1.2107e-06
- -0.012746	 -0.012695	diff=5.13607e-05
-  0.000625	  0.000620	diff=5.17015e-06
- -0.017395	 -0.017201	diff=0.00019408
- -0.000572	 -0.000566	diff=5.52163e-06
- -0.005816	 -0.005752	diff=6.38808e-05
-  0.000000	  0.000000	diff=3.64932e-09
-  0.000487	  0.000489	diff=1.541e-06
- -0.000005	 -0.000005	diff=3.75768e-09
- -0.000026	 -0.000026	diff=2.80073e-07
- -0.000000	 -0.000000	diff=2.96805e-10
-  0.000001	  0.000001	diff=7.50325e-09
-  0.000000	  0.000000	diff=2.92635e-10
- -0.001762	 -0.001743	diff=1.90127e-05
- -0.000000	 -0.000000	diff=7.88114e-13
-  0.000420	  0.000421	diff=9.02252e-07
- -0.000002	 -0.000001	diff=1.82317e-07
-  local_diff=0.000395269
+ -0.000057	 -0.000057	diff=3.51342e-07
+  0.000000	  0.000000	diff=4.07376e-14
+ -0.000001	 -0.000001	diff=5.55329e-09
+  0.000000	  0.000000	diff=1.196e-10
+ -0.002685	 -0.002669	diff=1.64996e-05
+  0.000000	  0.000000	diff=8.40238e-13
+  0.000621	  0.000627	diff=6.19551e-06
+ -0.000001	 -0.000003	diff=2.01011e-06
+  0.000057	  0.000057	diff=3.58098e-07
+  0.000000	  0.000000	diff=5.84759e-13
+  0.000001	  0.000001	diff=5.50699e-09
+ -0.000000	 -0.000000	diff=1.20042e-10
+  0.002708	  0.002725	diff=1.70623e-05
+  0.000000	  0.000000	diff=1.83324e-13
+ -0.000645	 -0.000638	diff=7.38301e-06
+  0.000011	  0.000010	diff=1.16157e-06
+ -0.012746	 -0.012784	diff=3.75883e-05
+  0.000625	  0.000624	diff=9.85465e-07
+ -0.017395	 -0.017321	diff=7.35444e-05
+ -0.000572	 -0.000570	diff=1.69928e-06
+ -0.005816	 -0.005792	diff=2.41263e-05
+  0.000000	  0.000000	diff=1.24489e-09
+  0.000487	  0.000492	diff=4.82987e-06
+ -0.000005	 -0.000005	diff=3.36707e-08
+ -0.000026	 -0.000026	diff=1.03425e-07
+ -0.000000	 -0.000000	diff=6.0494e-13
+  0.000001	  0.000001	diff=1.35989e-10
+  0.000000	  0.000000	diff=1.75009e-12
+ -0.001762	 -0.001755	diff=7.28693e-06
+ -0.000000	 -0.000000	diff=9.58201e-13
+  0.000420	  0.000424	diff=3.73392e-06
+ -0.000002	 -0.000001	diff=1.74962e-07
+  local_diff=0.000205323
 # W_tgt{2}, [8 4]
-  1.061870	  1.065060	diff=0.00318963
-  0.000552	  0.000554	diff=2.27671e-06
- -0.205681	 -0.202726	diff=0.00295522
- -0.000889	 -0.000879	diff=9.76102e-06
-  0.000212	  0.000210	diff=2.73772e-06
- -0.021193	 -0.021031	diff=0.000161814
-  0.000399	  0.000392	diff=6.55312e-06
- -0.068724	 -0.068862	diff=0.000137524
+  1.061870	  1.072444	diff=0.0105741
+  0.000552	  0.000549	diff=2.83992e-06
+ -0.205681	 -0.204145	diff=0.0015353
+ -0.000889	 -0.000884	diff=4.25779e-06
+  0.000212	  0.000211	diff=1.28814e-06
+ -0.021193	 -0.021209	diff=1.59658e-05
+  0.000399	  0.000395	diff=3.85205e-06
+ -0.068724	 -0.069307	diff=0.000582688
  -0.000000	 -0.000000	diff=4.50215e-13
  -0.000000	 -0.000000	diff=5.32168e-13
   0.000000	 -0.000000	diff=3.29918e-14
@@ -6802,33 +6802,33 @@ For product information, visit www.mathworks.com.
  -0.000000	 -0.000000	diff=8.85441e-13
   0.000019	  0.000010	diff=8.4068e-06
   0.000011	  0.000007	diff=3.86961e-06
-  0.217542	  0.216096	diff=0.00144584
-  0.000017	  0.000017	diff=2.05969e-07
- -0.004548	 -0.004516	diff=3.23857e-05
- -0.000015	 -0.000015	diff=2.12e-07
- -0.000005	 -0.000005	diff=4.66005e-08
- -0.000457	 -0.000454	diff=2.90074e-06
- -0.000001	 -0.000001	diff=2.35087e-08
- -0.001554	 -0.001544	diff=1.03223e-05
- -0.003200	 -0.003183	diff=1.65136e-05
- -0.000540	 -0.000539	diff=1.73692e-06
-  0.157779	  0.157595	diff=0.000184599
-  0.000692	  0.000690	diff=2.20918e-06
- -0.000014	 -0.000014	diff=4.56833e-08
-  0.016080	  0.015961	diff=0.000118393
- -0.000055	 -0.000054	diff=9.21775e-07
-  0.054628	  0.053898	diff=0.000729189
-  local_diff=0.00902334
+  0.217542	  0.217608	diff=6.55141e-05
+  0.000017	  0.000017	diff=1.97188e-10
+ -0.004548	 -0.004547	diff=7.58276e-07
+ -0.000015	 -0.000015	diff=7.60185e-09
+ -0.000005	 -0.000005	diff=1.36208e-08
+ -0.000457	 -0.000457	diff=7.53874e-09
+ -0.000001	 -0.000001	diff=1.82476e-08
+ -0.001554	 -0.001554	diff=2.83693e-07
+ -0.003200	 -0.003205	diff=5.72321e-06
+ -0.000540	 -0.000542	diff=1.98307e-06
+  0.157779	  0.158699	diff=0.000919223
+  0.000692	  0.000695	diff=2.54765e-06
+ -0.000014	 -0.000014	diff=5.22403e-08
+  0.016080	  0.016072	diff=7.86603e-06
+ -0.000055	 -0.000055	diff=5.45507e-07
+  0.054628	  0.054271	diff=0.000356999
+  local_diff=0.0140941
 # W_emb_src, [2 4]
   0.000000	  0.000000	diff=0
   0.000000	  0.000000	diff=0
   0.000000	  0.000000	diff=0
   0.000000	  0.000000	diff=0
- -0.028864	 -0.029181	diff=0.00031697
+ -0.028864	 -0.029224	diff=0.000360126
   0.000000	  0.000000	diff=1.1975e-16
  -0.000279	 -0.000000	diff=0.00027927
  -0.000322	 -0.000000	diff=0.000322353
-  local_diff=0.000918594
+  local_diff=0.000961749
 # W_emb_tgt, [2 4]
   0.000000	 -0.000000	diff=6.6643e-15
  -0.000000	 -0.000000	diff=3.52353e-13
@@ -6840,31 +6840,31 @@ For product information, visit www.mathworks.com.
  -0.000003	 -0.000003	diff=1.91471e-07
   local_diff=3.12092e-07
 # W_pos, [2 2]
-  0.000000	 -0.002679	diff=0.00267937
-  0.000000	 -0.003287	diff=0.00328678
-  0.000000	  0.000004	diff=4.33267e-06
-  0.000000	  0.000006	diff=5.62115e-06
-  local_diff=0.0059761
+  0.000000	  0.000000	diff=3.75313e-29
+  0.000000	  0.000000	diff=4.75129e-29
+  0.000000	  0.000000	diff=1.07624e-29
+  0.000000	  0.000000	diff=1.36247e-29
+  local_diff=1.09431e-28
 # v_pos, [1 2]
-  0.000000	  0.004136	diff=0.00413588
-  0.000000	  0.019911	diff=0.0199109
-  local_diff=0.0240468
+  0.000000	 -0.000000	diff=1.25573e-28
+  0.000000	 -0.000000	diff=5.27868e-28
+  local_diff=6.53441e-28
 # W_a, [2 2]
-  0.000000	 -0.000000	diff=4.96687e-49
-  0.000000	 -0.000000	diff=7.85199e-49
-  0.000000	 -0.000000	diff=1.63151e-49
-  0.000000	  0.000000	diff=2.06044e-49
-  local_diff=1.65108e-48
+  0.000000	 -0.000000	diff=6.62932e-49
+  0.000000	  0.000000	diff=1.9909e-48
+  0.000000	 -0.000000	diff=1.31848e-49
+  0.000000	 -0.000000	diff=6.06242e-49
+  local_diff=3.39192e-48
 # W_h, [2 4]
-  0.017542	  0.017545	diff=3.10562e-06
- -0.000016	 -0.000016	diff=3.33894e-09
- -0.616277	 -0.612362	diff=0.00391471
-  0.000551	  0.000555	diff=4.05813e-06
- -0.096226	 -0.096105	diff=0.00012114
- -0.000367	 -0.000363	diff=3.69203e-06
+  0.017542	  0.017545	diff=3.19922e-06
+ -0.000016	 -0.000016	diff=3.34947e-09
+ -0.616277	 -0.612365	diff=0.00391144
+  0.000551	  0.000555	diff=4.05777e-06
+ -0.096226	 -0.096105	diff=0.0001211
+ -0.000367	 -0.000363	diff=3.69207e-06
   0.000159	  0.000167	diff=8.60044e-06
  -0.000023	 -0.000015	diff=8.22925e-06
-  local_diff=0.00406354
+  local_diff=0.00406032
 # W_soft, [4 2]
  -2.800154	 -2.800154	diff=1.77152e-08
   0.821769	  0.821769	diff=5.15209e-09
@@ -6875,8 +6875,8 @@ For product information, visit www.mathworks.com.
  -0.999997	 -0.999997	diff=5.17358e-10
  -0.999979	 -0.999979	diff=1.38892e-08
   local_diff=7.61219e-08
-# Num params=186, abs_diff=0.045625
-Elapsed time is 3.044220 seconds.
+# Num params=186, abs_diff=0.0203912
+Elapsed time is 3.420824 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 1, 'attnOpt', 3)
 [?1h=
@@ -7186,7 +7186,7 @@ For product information, visit www.mathworks.com.
  -0.972414	 -0.975781	diff=0.00336772
   local_diff=0.013588
 # Num params=182, abs_diff=0.0148659
-Elapsed time is 2.447470 seconds.
+Elapsed time is 2.731329 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 2, 'attnOpt', 3)
 [?1h=
@@ -7496,7 +7496,7 @@ For product information, visit www.mathworks.com.
  -0.970737	 -0.974103	diff=0.00336571
   local_diff=0.0135848
 # Num params=182, abs_diff=0.014987
-Elapsed time is 3.007118 seconds.
+Elapsed time is 2.584318 seconds.
 [?1l>
 ## trainLSTM('', '', '', '', '', '', '', '../output/gradcheck', 'isGradCheck', 1, 'initRange', 10, 'isResume', 0, 'feedInput', 1, 'numLayers', 2, 'dropout', 0.8, 'isReverse', 1, 'attnFunc', 4, 'attnOpt', 3)
 [?1h=
@@ -7817,5 +7817,5 @@ For product information, visit www.mathworks.com.
  -0.988120	 -0.988121	diff=9.19865e-07
   local_diff=1.6511e-05
 # Num params=188, abs_diff=0.00555119
-Elapsed time is 3.130702 seconds.
+Elapsed time is 3.332118 seconds.
 [?1l>
