@@ -87,7 +87,11 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
   addOptional(p,'attnOpt', 2, @isnumeric);
   addOptional(p,'feedInput', 1, @isnumeric); % 1: feed the softmax vector to the next timestep input
   addOptional(p,'posWin', 10, @isnumeric); % relative window, used for attnFunc~=1
-  addOptional(p,'normLocalAttn', 0, @isnumeric); % 1: normalize the final attention weights (after multiplied with Gaussian weights). Use with attnFunc==4 (local attention). This feature is tried post the EMNLP paper.
+  
+  % 1: normalize the final attention weights (after multiplied with Gaussian weights). 
+  % Use with attnFunc==4 (local attention). 
+  % This feature is tried post the EMNLP paper, but it didn't work as well as turning it off.
+  addOptional(p,'normLocalAttn', 0, @isnumeric); 
   
   %% system options
   addOptional(p,'onlyCPU', 0, @isnumeric); % 1: avoid using GPUs
