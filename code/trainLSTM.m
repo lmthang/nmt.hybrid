@@ -799,8 +799,23 @@ end
 
 function [data] = loadPrepareData(params, prefix, srcVocab, tgtVocab)
   [srcSents, tgtSents, numSents] = loadBiData(params, prefix, srcVocab, tgtVocab);
-  [data] = prepareData(srcSents, tgtSents, 1, params);
-  fprintf(2, '  numSents=%d, numWords=%d\n', numSents, data.numWords);
+  numBatches = floor((numSents-1)/params.batchSize) + 1;
+  
+  data.numWords = 0;
+  data.batches = cell(numBatches, 1);
+  for batchId = 1 : numBatches
+    startId = (batchId-1)*params.batchSize+1;
+    endId = batchId*params.batchSize;
+    if endId > numSents
+      endId = numSents;
+    end
+    
+    [data.batches{batchId}] = prepareData(srcSents(startId:endId), tgtSents(startId:endId), 1, params);
+    data.numWords = data.numWords + data.batches{batchId}.numWords;
+  end
+
+  fprintf(2, '  numSents=%d, numBatches=%d, numWords=%d\n', numSents, numBatches, data.numWords);
+  data.numBatches = numBatches;
   data.numSents = numSents;
   data.srcSents = srcSents;
   data.tgtSents = tgtSents;
