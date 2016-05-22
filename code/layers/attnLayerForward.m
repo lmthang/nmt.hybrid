@@ -50,18 +50,19 @@ function [attnInfo] = attnLayerForward(h_t, params, model, attnData, maskInfo)
     alignScores = reshape(alignScores, params.curBatchSize, params.numAttnPositions)'; % numAttnPositions * curBatchSize
   end  
   
-  % normalize -> alignWeights
-  attnInfo.alignWeights = normLayerForward(alignScores, attnInfo.srcMaskedIds);
-
-  % local, regression, multiply with distWeights
-  if params.attnGlobal == 0
+  if params.attnGlobal == 0 && params.normLocalAttn % new approach for local attention after EMNLP'15
     [attnInfo.distWeights, attnInfo.scaleX] = distLayerForward(mu, attnInfo, params); % numAttnPositions*curBatchSize
-    attnInfo.preAlignWeights = attnInfo.alignWeights;
-    
-    if params.normLocalAttn % normalize
-      attnInfo.unNormAlignWeights =  attnInfo.preAlignWeights.* attnInfo.distWeights; % weighted by distances
-      attnInfo.alignWeights = normLayerForward(attnInfo.unNormAlignWeights, attnInfo.srcMaskedIds);
-    else % unnormalize, EMNLP'15
+    attnInfo.unNormAlignWeights =  alignScores .* attnInfo.distWeights; % weighted by distances
+    attnInfo.alignWeights = normLayerForward(attnInfo.unNormAlignWeights, attnInfo.srcMaskedIds);
+    attnInfo.alignScores = alignScores;
+  else
+    % normalize -> alignWeights
+    attnInfo.alignWeights = normLayerForward(alignScores, attnInfo.srcMaskedIds);
+
+    % local, regression, multiply with distWeights
+    if params.attnGlobal == 0
+      [attnInfo.distWeights, attnInfo.scaleX] = distLayerForward(mu, attnInfo, params); % numAttnPositions*curBatchSize
+      attnInfo.preAlignWeights = attnInfo.alignWeights;
       attnInfo.alignWeights = attnInfo.preAlignWeights.* attnInfo.distWeights; % weighted by distances
     end
   end
