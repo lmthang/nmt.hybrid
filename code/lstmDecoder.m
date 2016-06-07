@@ -132,11 +132,25 @@ originalSentIndices, modelData, firstAlignIdx, data)
     assert(length(words)==1);
     assert(length(firstAlignIdx)==1);
   else
-    [scores, words] = nextBeamStep(models, prevStates, beamSize);
+    % we get (beamSize+1) choices so that we can filter out tgtEos (if any)
+    % for good model, this step is not needed
+    [scores, words] = nextBeamStep(models, prevStates, beamSize + 1);
+    
+    % go and find eos
+    for ii=1:batchSize
+      eosPos = find(words(:, ii) == params.tgtEos, 1);
+      if ~isempty(eosPos) % swap with the last element
+        scores(eosPos, ii) = scores(beamSize + 1, ii);
+        words(eosPos, ii) = words(beamSize + 1, ii);
+      end
+    end
+    % remove the last row
+    scores(beamSize+1, :) = [];
+    words(beamSize+1, :) = [];
+    
+    % [scores, words] = nextBeamStep(models, prevStates, beamSize);
   end
 
-  % TODO: by right, we should filter out words == params.tgtEos, but I
-  % think for good models, we don't have to worry :)
   
   %% matrix dimension note
   % note that we order matrices in the following dimension: n * numElements
