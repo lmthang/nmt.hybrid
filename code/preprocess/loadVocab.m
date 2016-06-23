@@ -29,9 +29,6 @@ function [vocab, freqs] = loadVocab(vocabFile)
     elseif length(temp) == 1 % word
       word = temp{1};
       freq = 1;
-    elseif length(temp) == 1 % word class
-      word = temp{1};
-      freq = 1;
     else
       error('Invalid line format %s\n', tempstr);
     end
