@@ -1,11 +1,8 @@
 function [] = computeSentRepresentations(modelFile, inFile, outputFile, varargin)
-% Test a trained LSTM model by generating translations.
+% Compute encoder representations.
 % Arguments:
-%   modelFile: single or multiple models to decode. Multiple models are
-%     separated by commas.
-%   batchSize: number of sentences decoded simultaneously. We only ensure
-%     accuracy of batchSize = 1 for now.
-%   outputFile: output translation file.
+%   modelFile: model file.
+%   outputFile: output representation file.
 %   varargin: other optional arguments.
 %
 % Thang Luong @ 2016, <lmthang@stanford.edu>

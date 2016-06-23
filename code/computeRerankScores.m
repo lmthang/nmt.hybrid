@@ -1,11 +1,9 @@
 function [] = computeRerankScores(modelFiles, outputFile,varargin)
-% Test a trained LSTM model by generating translations.
+% Compute decoding scores
 % Arguments:
 %   modelFiles: single or multiple models to decode. Multiple models are
 %     separated by commas.
-%   batchSize: number of sentences decoded simultaneously. We only ensure
-%     accuracy of batchSize = 1 for now.
-%   outputFile: output translation file.
+%   outputFile: output scores file.
 %   varargin: other optional arguments.
 %
 % Thang Luong @ 2016, <lmthang@stanford.edu>

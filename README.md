@@ -1,32 +1,34 @@
-Effective Approaches to Attention-based Neural Machine Translationsm
+Achieving Open Vocabulary Neural Machine Translation with Hybrid Word-Character Models
 ====================================================================
 
-Code to train Neural Machine Translation systems as described in our EMNLP paper
-<a href="https://aclweb.org/anthology/D/D15/D15-1166.pdf">Effective Approaches
-to Attention-based Neural Machine Translation</a>.
+Code to train hybrid word-character neural machine translation systems described in our ACL paper
+<a href="http://nlp.stanford.edu/pubs/luong2016acl_hybrid.pdf">Achieving Open Vocabulary Neural Machine Translation with Hybrid Word-Character Models</a>, which obtain state-of-the-art results in translating English-Czech.
 
 
 ## Features:
-- Multi-layer bilingual encoder-decoder models: GPU-enabled.
-- Attention mechanisms: global and local models.
-- Beam-search decoder: can decode multiple models.
-- Other features: dropout, train monolingual language models.
-- End-to-end pipeline: scripts to preprocess, compute evaluation scores.
+- All of the features of the attention-based NMT codebase here
+  https://github.com/lmthang/nmt.matlab.
+- Train hybrid word-character models.
+- Beam-search decoder that can ensembles models including hybrid ones.
+- Code to compute source word representations and evaluate on the word
+  similarity tasks or do tsne plots.
+- Code to compute sentence representations and rerank scores.
 
 ## Citations:
 If you make use of this code in your research, please cite our paper
 ```
-@InProceedings{luong-pham-manning:2015:EMNLP,
-  author    = {Luong, Minh-Thang  and  Pham, Hieu  and  Manning, Christopher D.},
-  title     = {Effective Approaches to Attention-based Neural Machine Translation},
-  booktitle = {Proceedings of the 2015 Conference on Empirical Methods in Natural Language Processing},
-  year      = {2015},
+@inproceedings{luong2016acl_hybrid,
+ address = {Berlin, Germany},
+ author = {Luong, Minh-Thang  and  Manning, Christopher D.},
+ booktitle = {Association for Computational Linguistics (ACL)},
+ month = {August},
+ title = {Achieving Open Vocabulary Neural Machine Translation with Hybrid Word-Character Models},
+ year = {2016}
 }
+
 ```
 
-- Thang Luong <lmthang@stanford.edu>, 2014, 2015
-- With contributions from:
-    Hieu Pham <hyhieu@stanford.edu> -- beam-search decoder.
+- Thang Luong <lmthang@stanford.edu>, 2015, 2016
 
 ## Files
 
@@ -35,6 +37,8 @@ README.md       - this file
 code/           - main Matlab code
   trainLSTM.m: train models
   testLSTM.m: decode models
+  computeSentRepresentations.m: compute encoder representations.
+  computeRerankScores.m: compute decoding scores.
 data/           - toy data
 scripts/        - utility scripts
 ```
@@ -42,10 +46,11 @@ scripts/        - utility scripts
 The code directory further divides into sub-directories:
 ```
   basic/: define basic functions like sigmoid, prime. It also has an efficient way to aggreate embeddings.
-  layers/: we define various layers like attention, LSTM, etc.
+  layers/: we define various layers like attention, LSTM, etc. with forward and backprop code.
   misc/: things that we haven't categorized yet.
   preprocess/: deal with data.
   print/: print results, logs for debugging purposes.
+  wordsim/: word similarity task 
 ```
 
 ## Examples
