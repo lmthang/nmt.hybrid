@@ -9,11 +9,9 @@ function trainLSTM(trainPrefix,validPrefix,testPrefix,srcLang,tgtLang,srcVocabFi
 %   outDir: output directory.
 %   varargin: other optional arguments.
 %
-% Thang Luong @ 2014, 2015, <lmthang@stanford.edu>
-% With contributions from:
-%   Hieu Pham: beam-search decoder.
+% Thang Luong @ 2014, 2015, 2016 <lmthang@stanford.edu>
 
-  addpath(genpath(sprintf('%s/..', pwd)));
+  addpath(genpath(sprintf('%s', pwd)));
   
   %% Argument Parser
   p = inputParser;

@@ -119,9 +119,7 @@ def process_files(in_file, out_prefix, char_size):
         char_indices.append(str(char_map[char]))
     
     # handle word
-    if is_skip:
-      sys.stderr.write('  skip word %d, %s\n' % (line_id, word))
-    else:
+    if not is_skip:
       filtered_vocab_size += 1 
       vocab.append(word)
       filtered_ouf.write('%s\n' % word)
