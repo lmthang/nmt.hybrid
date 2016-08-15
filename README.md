@@ -1,21 +1,28 @@
-Achieving Open Vocabulary Neural Machine Translation with Hybrid Word-Character Models
+Neural Machine Translation Codebase in Matlab 
 ====================================================================
 
-Code to train hybrid word-character neural machine translation systems described in our ACL paper
-<a href="http://nlp.stanford.edu/pubs/luong2016acl_hybrid.pdf">Achieving Open Vocabulary Neural Machine Translation with Hybrid Word-Character Models</a>, which obtain state-of-the-art results in translating English-Czech.
+Code to train state-of-the-art neural machine translation systems that can
+handle very complex languages like Czech using hybrid word-character models described in our 
+<a href="http://nlp.stanford.edu/pubs/luong2016acl_hybrid.pdf">ACL'16 paper</a>. 
 
+This codebase can also train general attention-based models described in our
+<a href="http://nlp.stanford.edu/pubs/emnlp15_attn.pdf">EMNLP'15 paper</a> and
+has all the functionalities of our previous 
+<a href="https://github.com/lmthang/nmt.matlab">nmt.matlab</a> codebase.
+
+Why Matlab? It was a great learning experience for me to be able to derive by
+hand all gradient formulations and implement everything from crash! 
+Matlab supports GPU, so the code is also very fast.
 
 ## Features:
-- All of the features of the attention-based NMT codebase here
-  https://github.com/lmthang/nmt.matlab.
-- Train hybrid word-character models.
+- Train hybrid word-character as well as general attention-based models.
 - Beam-search decoder that can ensembles models including hybrid ones.
 - Code to compute source word representations and evaluate on the word
   similarity tasks or do tsne plots.
 - Code to compute sentence representations and rerank scores.
 
 ## Citations:
-If you make use of this code in your research, please cite our paper
+If you make use of this codebase in your research, please cite our paper
 ```
 @inproceedings{luong2016acl_hybrid,
  author = {Luong, Minh-Thang  and  Manning, Christopher D.},
@@ -28,7 +35,7 @@ If you make use of this code in your research, please cite our paper
 
 ```
 
-- Thang Luong <lmthang@stanford.edu>, 2015, 2016
+- Thang Luong <lmthang@stanford.edu>, 2014, 2015, 2016
 
 ## Files
 
@@ -42,17 +49,6 @@ code/           - main Matlab code
 data/           - toy data
 scripts/        - scripts
 ```
-
-The Matlab code/ directory further divides into sub-directories:
-```
-  basic/: define basic functions like sigmoid, prime. It also has an efficient way to aggreate embeddings.
-  layers/: we define various layers like attention, LSTM, etc. with forward and backprop code.
-  misc/: things that we haven't categorized yet.
-  preprocess/: deal with data.
-  print/: print results, logs for debugging purposes.
-  wordsim/: word similarity task 
-```
-
 ## Core scripts 
 - We provide an one-for-all script that performs all the preprocessing steps & train a translation model
 ```
@@ -70,9 +66,8 @@ The Matlab code/ directory further divides into sub-directories:
 ```
 The script is smart enough to check if preprocessed data files have been created in <outDataDir> so that we can reuse. When <charVocabSize> is greater than 0, we will train hybrid word-character models.
 
-
-
 ## Examples
+# Training
 - Process data & train a hybrid model:
 ```
 ./scripts/1-prepare_and_train.sh data/train.10k data/valid.100 data/test.100 de en 1000 50 data.hybrid.50 model.hybrid.w1000.c50
@@ -88,10 +83,21 @@ The script is smart enough to check if preprocessed data files have been created
 ./scripts/1-prepare_and_train.sh data/train.10k data/valid.100 data/test.100 de en 1000 0 data.1000 model.w1000
 ```
 
+# Testing (Decoding)
+
+## Miscellaneous
 - Gradient checks:
 ```
 ./scripts/run_grad_checks.sh > output/grad_checks.txt 2>&1
 ```
 Then compare with the provided grad check outputs data/grad_checks.txt. They should look similar.
 
-Note: many different configurations will be run with the run_grad_checks.sh script. For many configuration, we set the 'initRange' to a large value 10, so you will notice the total gradient differences are large. This is to debug subtle mistakes; and if the total diff < 10, you can mostly be assured. We do note that with attnFunc=4, attnOpt=1, the diff is quite large; this is something to be checked though the model seems to work in practice.
+- The Matlab code/ directory further divides into sub-directories:
+```
+  basic/: define basic functions like sigmoid, prime. It also has an efficient way to aggreate embeddings.
+  layers/: we define various layers like attention, LSTM, etc. with forward and backprop code.
+  misc/: things that we haven't categorized yet.
+  preprocess/: deal with data.
+  print/: print results, logs for debugging purposes.
+  wordsim/: word similarity task 
+```
